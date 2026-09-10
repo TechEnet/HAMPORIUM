@@ -25,6 +25,12 @@ import journeyBulk1 from "../../assets/images/journey_bulk_1.webp";
 import journeyBulk2 from "../../assets/images/journey_bulk_2.webp";
 import giftConciergeBg from "../../assets/images/gift_concierge_bg.webp";
 
+import bestsellerFestiveLuxury from "../../assets/images/bestseller_festive_luxury.webp";
+import bestsellerExecutiveLuxury from "../../assets/images/bestseller_executive_luxury.webp";
+import bestsellerWeddingLuxury from "../../assets/images/bestseller_wedding_luxury.webp";
+import bestsellerGourmetLuxury from "../../assets/images/bestseller_gourmet_luxury.webp";
+import bestsellerCelebrationLuxury from "../../assets/images/bestseller_celebration_luxury.webp";
+
 // ======================================================
 // FONT
 // ======================================================
@@ -56,19 +62,19 @@ const HOME_IMAGES = {
     "https://images.unsplash.com/photo-1633870929971-891656f9a150?auto=format&fit=crop&w=1500&q=90",
 
   bestseller1:
-    "https://images.unsplash.com/photo-1760602672748-6a570286ce73?auto=format&fit=crop&w=900&q=90",
+    bestsellerFestiveLuxury,
 
   bestseller2:
-    "https://images.unsplash.com/photo-1783331256641-c147508169b0?auto=format&fit=crop&w=900&q=90",
+    bestsellerExecutiveLuxury,
 
   bestseller3:
-    "https://images.unsplash.com/photo-1774284235324-f0d55c371823?auto=format&fit=crop&w=900&q=90",
+    bestsellerWeddingLuxury,
 
   bestseller4:
-    "https://images.unsplash.com/photo-1658993813819-348c8efaa762?auto=format&fit=crop&w=900&q=90",
+    bestsellerGourmetLuxury,
 
   bestseller5:
-    "https://images.unsplash.com/photo-1769805222413-9422a0027c68?auto=format&fit=crop&w=900&q=90",
+    bestsellerCelebrationLuxury,
 
   custom:
     "https://images.unsplash.com/photo-1774284235324-f0d55c371823?auto=format&fit=crop&w=1600&q=92",
@@ -291,6 +297,17 @@ const GIFT_BUDGETS = [
   },
 ];
 
+const HOME_SECTION_NAV = [
+  { id: "journey", label: "Journey" },
+  { id: "concierge", label: "Concierge" },
+  { id: "bestsellers", label: "Bestsellers" },
+  { id: "hamper-one", label: "HAMPER ONE" },
+  { id: "brand", label: "Brand Story" },
+  { id: "bulk", label: "Bulk Gifting" },
+  { id: "reviews", label: "Reviews" },
+  { id: "finale", label: "Finale" },
+];
+
 const resolveProductImage = (
   product,
   fallback
@@ -353,8 +370,16 @@ const Home = () => {
   const [introFinished, setIntroFinished] =
     useState(false);
 
+  const [activeHomeSection, setActiveHomeSection] =
+    useState("journey");
+
+  const [giftRevealActive, setGiftRevealActive] =
+    useState(false);
+
+  const homeRef = useRef(null);
   const heroVideoRef = useRef(null);
   const lastHeroVideoTimeRef = useRef(0);
+  const giftRevealTimerRef = useRef(null);
 
   const reviewSlides = useMemo(() => {
     if (customerReviews.length) {
@@ -552,6 +577,480 @@ const Home = () => {
       );
     };
   }, [introFinished]);
+
+  // ======================================================
+  // CINEMATIC SCROLL MOTION
+  // One RAF-driven listener updates CSS variables only, so the
+  // full homepage does not re-render on every scroll tick.
+  // ======================================================
+
+  useEffect(() => {
+    const root = homeRef.current;
+
+    if (!root) {
+      return undefined;
+    }
+
+    const hero = root.querySelector(
+      ".hp-hero-stage"
+    );
+
+    let frame = 0;
+
+    const updateMotion = () => {
+      frame = 0;
+
+      const pageHeight = Math.max(
+        1,
+        document.documentElement.scrollHeight -
+          window.innerHeight
+      );
+
+      const pageProgress = Math.max(
+        0,
+        Math.min(1, window.scrollY / pageHeight)
+      );
+
+      root.style.setProperty(
+        "--hp-scroll-progress",
+        pageProgress.toFixed(4)
+      );
+
+      if (!hero) {
+        return;
+      }
+
+      const heroRect = hero.getBoundingClientRect();
+      const heroTravel = Math.max(
+        1,
+        heroRect.height * 0.76
+      );
+
+      const handoffProgress = Math.max(
+        0,
+        Math.min(
+          1,
+          -heroRect.top / heroTravel
+        )
+      );
+
+      root.style.setProperty(
+        "--hp-hero-scale",
+        (1 + handoffProgress * 0.055).toFixed(4)
+      );
+
+      root.style.setProperty(
+        "--hp-hero-dim",
+        (handoffProgress * 0.28).toFixed(4)
+      );
+
+      root.style.setProperty(
+        "--hp-hero-line-scale",
+        handoffProgress.toFixed(4)
+      );
+
+      root.style.setProperty(
+        "--hp-journey-shift",
+        `${Math.max(0, (1 - handoffProgress) * 34).toFixed(1)}px`
+      );
+    };
+
+    const requestUpdate = () => {
+      if (frame) {
+        return;
+      }
+
+      frame = window.requestAnimationFrame(
+        updateMotion
+      );
+    };
+
+    updateMotion();
+
+    window.addEventListener(
+      "scroll",
+      requestUpdate,
+      { passive: true }
+    );
+
+    window.addEventListener(
+      "resize",
+      requestUpdate,
+      { passive: true }
+    );
+
+    return () => {
+      if (frame) {
+        window.cancelAnimationFrame(frame);
+      }
+
+      window.removeEventListener(
+        "scroll",
+        requestUpdate
+      );
+
+      window.removeEventListener(
+        "resize",
+        requestUpdate
+      );
+    };
+  }, []);
+
+  // ======================================================
+  // DESKTOP SECTION NAVIGATOR
+  // ======================================================
+
+  useEffect(() => {
+    const root = homeRef.current;
+
+    if (
+      !root ||
+      typeof window === "undefined" ||
+      !("IntersectionObserver" in window)
+    ) {
+      return undefined;
+    }
+
+    const sections = HOME_SECTION_NAV
+      .map((item) =>
+        root.querySelector(
+          `[data-home-section="${item.id}"]`
+        )
+      )
+      .filter(Boolean);
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort(
+            (a, b) =>
+              b.intersectionRatio -
+              a.intersectionRatio
+          );
+
+        if (visible[0]) {
+          const id =
+            visible[0].target.dataset
+              .homeSection;
+
+          if (id) {
+            setActiveHomeSection(id);
+          }
+        }
+      },
+      {
+        root: null,
+        rootMargin: "-30% 0px -52% 0px",
+        threshold: [0, 0.01, 0.1, 0.25],
+      }
+    );
+
+    sections.forEach((section) => {
+      observer.observe(section);
+    });
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+
+  // ======================================================
+  // STORY TYPOGRAPHY STAGGER
+  // ======================================================
+
+  useEffect(() => {
+    const root = homeRef.current;
+
+    if (!root) {
+      return undefined;
+    }
+
+    const pages = Array.from(
+      root.querySelectorAll(
+        ".hp-story-page"
+      )
+    );
+
+    if (!pages.length) {
+      return undefined;
+    }
+
+    if (
+      typeof window === "undefined" ||
+      !("IntersectionObserver" in window)
+    ) {
+      pages.forEach((page) => {
+        page.classList.add(
+          "is-story-visible"
+        );
+      });
+
+      return undefined;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (
+            entry.isIntersecting &&
+            entry.intersectionRatio >= 0.34
+          ) {
+            entry.target.classList.add(
+              "is-story-visible"
+            );
+
+            observer.unobserve(
+              entry.target
+            );
+          }
+        });
+      },
+      {
+        threshold: [0.18, 0.34, 0.55],
+      }
+    );
+
+    pages.forEach((page) => {
+      observer.observe(page);
+    });
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+
+  // ======================================================
+  // DESKTOP POINTER SPOTLIGHT + FINAL CTA DEPTH
+  // V52: RAF-throttled to avoid high-frequency style writes.
+  // ======================================================
+
+  useEffect(() => {
+    const root = homeRef.current;
+
+    if (!root || typeof window === "undefined") {
+      return undefined;
+    }
+
+    const finePointer = window.matchMedia(
+      "(pointer: fine)"
+    );
+
+    const reducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    );
+
+    if (
+      !finePointer.matches ||
+      reducedMotion.matches
+    ) {
+      return undefined;
+    }
+
+    const cleanups = [];
+
+    const spotlightNodes = Array.from(
+      root.querySelectorAll(
+        ".hp-pointer-glow"
+      )
+    );
+
+    spotlightNodes.forEach((node) => {
+      let frame = 0;
+      let latestX = 0;
+      let latestY = 0;
+
+      const paint = () => {
+        frame = 0;
+
+        const rect =
+          node.getBoundingClientRect();
+
+        node.style.setProperty(
+          "--hp-pointer-x",
+          `${latestX - rect.left}px`
+        );
+
+        node.style.setProperty(
+          "--hp-pointer-y",
+          `${latestY - rect.top}px`
+        );
+
+        node.style.setProperty(
+          "--hp-pointer-opacity",
+          "1"
+        );
+      };
+
+      const handleMove = (event) => {
+        latestX = event.clientX;
+        latestY = event.clientY;
+
+        if (!frame) {
+          frame =
+            window.requestAnimationFrame(
+              paint
+            );
+        }
+      };
+
+      const handleLeave = () => {
+        if (frame) {
+          window.cancelAnimationFrame(
+            frame
+          );
+          frame = 0;
+        }
+
+        node.style.setProperty(
+          "--hp-pointer-opacity",
+          "0"
+        );
+      };
+
+      node.addEventListener(
+        "pointermove",
+        handleMove,
+        { passive: true }
+      );
+
+      node.addEventListener(
+        "pointerleave",
+        handleLeave
+      );
+
+      cleanups.push(() => {
+        if (frame) {
+          window.cancelAnimationFrame(
+            frame
+          );
+        }
+
+        node.removeEventListener(
+          "pointermove",
+          handleMove
+        );
+
+        node.removeEventListener(
+          "pointerleave",
+          handleLeave
+        );
+      });
+    });
+
+    const finalZone = root.querySelector(
+      ".hp-final-parallax-zone"
+    );
+
+    if (finalZone) {
+      let frame = 0;
+      let latestX = 0;
+      let latestY = 0;
+
+      const paintFinal = () => {
+        frame = 0;
+
+        const rect =
+          finalZone.getBoundingClientRect();
+
+        const normalizedX =
+          (latestX - rect.left) /
+            Math.max(1, rect.width) -
+          0.5;
+
+        const normalizedY =
+          (latestY - rect.top) /
+            Math.max(1, rect.height) -
+          0.5;
+
+        finalZone.style.setProperty(
+          "--hp-final-x",
+          `${(normalizedX * 10).toFixed(2)}px`
+        );
+
+        finalZone.style.setProperty(
+          "--hp-final-y",
+          `${(normalizedY * 6).toFixed(2)}px`
+        );
+      };
+
+      const handleFinalMove = (event) => {
+        latestX = event.clientX;
+        latestY = event.clientY;
+
+        if (!frame) {
+          frame =
+            window.requestAnimationFrame(
+              paintFinal
+            );
+        }
+      };
+
+      const resetFinal = () => {
+        if (frame) {
+          window.cancelAnimationFrame(
+            frame
+          );
+          frame = 0;
+        }
+
+        finalZone.style.setProperty(
+          "--hp-final-x",
+          "0px"
+        );
+
+        finalZone.style.setProperty(
+          "--hp-final-y",
+          "0px"
+        );
+      };
+
+      finalZone.addEventListener(
+        "pointermove",
+        handleFinalMove,
+        { passive: true }
+      );
+
+      finalZone.addEventListener(
+        "pointerleave",
+        resetFinal
+      );
+
+      cleanups.push(() => {
+        if (frame) {
+          window.cancelAnimationFrame(
+            frame
+          );
+        }
+
+        finalZone.removeEventListener(
+          "pointermove",
+          handleFinalMove
+        );
+
+        finalZone.removeEventListener(
+          "pointerleave",
+          resetFinal
+        );
+      });
+    }
+
+    return () => {
+      cleanups.forEach((cleanup) =>
+        cleanup()
+      );
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (giftRevealTimerRef.current) {
+        window.clearTimeout(
+          giftRevealTimerRef.current
+        );
+      }
+    };
+  }, []);
 
   // ======================================================
   // MOBILE 70/30 SNAP RAIL ACTIVE CARD
@@ -947,9 +1446,32 @@ const Home = () => {
       );
     }
 
-    navigate(
-      `/gifts?${params.toString()}`
-    );
+    const destination =
+      `/gifts?${params.toString()}`;
+
+    if (giftRevealTimerRef.current) {
+      window.clearTimeout(
+        giftRevealTimerRef.current
+      );
+    }
+
+    setGiftRevealActive(true);
+
+    const prefersReducedMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia?.(
+        "(prefers-reduced-motion: reduce)"
+      ).matches;
+
+    giftRevealTimerRef.current =
+      window.setTimeout(
+        () => {
+          navigate(destination);
+        },
+        prefersReducedMotion
+          ? 80
+          : 720
+      );
   };
 
   const activeGiftOccasion =
@@ -1032,10 +1554,14 @@ const Home = () => {
 
             price,
 
+            // Homepage bestsellers intentionally use the curated
+            // HAMPORIUM luxury campaign imagery below, while the
+            // live API still supplies name, price and product route.
             image:
+              images[index] ||
               resolveProductImage(
                 product,
-                images[index]
+                fallback.image
               ),
           };
         }
@@ -1114,7 +1640,9 @@ const Home = () => {
           }
 
           /* ==============================================
-             BESTSELLER RUNWAY
+             V61 · LUXURY GIFT-BOX BESTSELLER CARDS
+             Whole card = premium wrapped gift package.
+             Product photography sits inside a framed window.
           =============================================== */
 
           .hp-bestseller-runway {
@@ -1124,121 +1652,572 @@ const Home = () => {
           @media (min-width: 1024px) {
             .hp-bestseller-runway {
               display: flex !important;
-              gap: 10px;
               align-items: stretch;
-              overflow: hidden;
+              gap: 14px;
+              overflow: visible;
             }
 
-            .hp-bestseller-runway >
-            .hp-reveal {
+            .hp-bestseller-runway > .hp-reveal {
               flex: 1 1 0%;
+              flex-grow: 1;
               min-width: 0;
               opacity: 1;
               transform: none;
               transition:
-                flex .58s
-                  cubic-bezier(.16,1,.3,1),
-                opacity .32s ease;
+                flex-grow .95s cubic-bezier(.22,1,.36,1),
+                opacity .55s ease;
             }
 
-            .hp-bestseller-runway:hover >
-            .hp-reveal {
-              flex: .86 1 0%;
-              opacity: .72;
+            .hp-bestseller-runway:hover > .hp-reveal {
+              flex-grow: .92;
+              opacity: .84;
             }
 
-            .hp-bestseller-runway >
-            .hp-reveal:hover {
-              flex: 1.5 1 0%;
+            .hp-bestseller-runway > .hp-reveal:hover {
+              flex-grow: 1.38;
               opacity: 1;
-              z-index: 4;
+              z-index: 5;
             }
           }
 
           .hp-bestseller-card {
+            --gift-paper: #F2E7D7;
+            --gift-paper-2: #FFF8EC;
+            --gift-ink: #231A12;
+            --gift-muted: rgba(35,26,18,.55);
+            --gift-accent: #A8771E;
+            --gift-edge: rgba(170,120,31,.38);
+            --gift-ribbon-1: #F9E5A4;
+            --gift-ribbon-2: #D2A03C;
+            --gift-ribbon-3: #8F5C12;
+
             position: relative;
-            isolation: isolate;
+            display: flex;
+            min-height: 415px;
+            height: 100%;
             overflow: hidden;
-            min-height: 470px;
-            background: #111;
-          }
-
-          .hp-bestseller-card img {
-            transform:
-              translateZ(0)
-              scale(1.015);
+            isolation: isolate;
+            border-radius: 28px;
+            padding: 14px;
+            background:
+              linear-gradient(
+                145deg,
+                var(--gift-paper-2) 0%,
+                var(--gift-paper) 58%,
+                color-mix(in srgb, var(--gift-paper) 88%, #000 12%) 100%
+              );
+            color: var(--gift-ink);
+            border: 1px solid var(--gift-edge);
+            box-shadow:
+              0 26px 58px rgba(31,22,12,.14),
+              0 8px 24px rgba(31,22,12,.08),
+              inset 0 1px 0 rgba(255,255,255,.44);
             transition:
-              transform .9s
-                cubic-bezier(.16,1,.3,1),
-              filter .45s ease;
-            will-change: transform;
+              transform .62s cubic-bezier(.22,1,.36,1),
+              box-shadow .62s ease,
+              border-color .52s ease;
           }
 
-          .hp-bestseller-card:hover img {
-            transform:
-              translateZ(0)
-              scale(1.055);
+          .hp-bestseller-card::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            opacity: .20;
+            background-image:
+              radial-gradient(rgba(255,255,255,.56) .5px, transparent .5px),
+              radial-gradient(rgba(87,57,17,.12) .45px, transparent .45px);
+            background-position: 0 0, 4px 4px;
+            background-size: 8px 8px;
+            mix-blend-mode: soft-light;
           }
 
           .hp-bestseller-card::after {
             content: "";
             position: absolute;
-            inset: 0;
+            inset: 8px;
             z-index: 1;
+            pointer-events: none;
+            border-radius: 22px;
+            border: 1px solid color-mix(in srgb, var(--gift-edge) 82%, transparent);
+            box-shadow:
+              inset 0 0 0 1px rgba(255,255,255,.05);
+          }
+
+          .hp-bestseller-card:hover {
+            transform: translateY(-6px);
+            border-color:
+              color-mix(in srgb, var(--gift-accent) 64%, transparent);
+            box-shadow:
+              0 36px 84px rgba(31,22,12,.20),
+              0 12px 30px rgba(31,22,12,.10),
+              inset 0 1px 0 rgba(255,255,255,.48);
+          }
+
+          .hp-gift-variant-0 {
+            --gift-paper: #E9DCC6;
+            --gift-paper-2: #FFF9EE;
+            --gift-ink: #2A2119;
+            --gift-muted: rgba(42,33,25,.54);
+            --gift-accent: #AA7720;
+            --gift-edge: rgba(166,116,27,.38);
+          }
+
+          .hp-gift-variant-1 {
+            --gift-paper: #173127;
+            --gift-paper-2: #244638;
+            --gift-ink: #FFF7E5;
+            --gift-muted: rgba(255,247,229,.52);
+            --gift-accent: #E3BE66;
+            --gift-edge: rgba(227,190,102,.42);
+            --gift-ribbon-1: #FFE7A2;
+            --gift-ribbon-2: #D3A241;
+            --gift-ribbon-3: #85560F;
+          }
+
+          .hp-gift-variant-2 {
+            --gift-paper: #D7A99A;
+            --gift-paper-2: #F0C7B8;
+            --gift-ink: #2E1915;
+            --gift-muted: rgba(46,25,21,.52);
+            --gift-accent: #9B5E2D;
+            --gift-edge: rgba(126,73,38,.30);
+            --gift-ribbon-1: #F7D8C9;
+            --gift-ribbon-2: #D58F78;
+            --gift-ribbon-3: #8E4E3B;
+          }
+
+          .hp-gift-variant-3 {
+            --gift-paper: #EFE4CF;
+            --gift-paper-2: #FFF9ED;
+            --gift-ink: #251D15;
+            --gift-muted: rgba(37,29,21,.52);
+            --gift-accent: #B4822B;
+            --gift-edge: rgba(174,127,42,.34);
+          }
+
+          .hp-gift-variant-4 {
+            --gift-paper: #17263E;
+            --gift-paper-2: #243B5B;
+            --gift-ink: #FFF7E7;
+            --gift-muted: rgba(255,247,231,.50);
+            --gift-accent: #E2BC63;
+            --gift-edge: rgba(226,188,99,.40);
+          }
+
+          .hp-gift-package {
+            position: relative;
+            z-index: 2;
+            display: grid;
+            grid-template-rows: minmax(0, 1fr) auto;
+            gap: 0;
+            width: 100%;
+            min-height: inherit;
+            border-radius: 20px;
+            overflow: hidden;
+          }
+
+          .hp-gift-product-window {
+            position: relative;
+            z-index: 3;
+            min-height: 260px;
+            overflow: hidden;
+            border-radius: 16px;
+            border: 1px solid color-mix(in srgb, var(--gift-edge) 78%, transparent);
+            background: rgba(0,0,0,.08);
+            box-shadow:
+              0 14px 28px rgba(20,14,8,.10),
+              inset 0 1px 0 rgba(255,255,255,.10);
+          }
+
+          .hp-gift-product-window img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
+            transform: translateZ(0) scale(1.015);
+            transition:
+              transform 1.12s cubic-bezier(.22,1,.36,1),
+              filter .68s ease;
+            will-change: transform;
+          }
+
+          .hp-bestseller-card:hover
+          .hp-gift-product-window img {
+            transform: translateZ(0) scale(1.055);
+            filter: saturate(1.025) contrast(1.015);
+          }
+
+          .hp-gift-product-window::after {
+            content: "";
+            position: absolute;
+            inset: 0;
             pointer-events: none;
             background:
               linear-gradient(
                 to top,
-                rgba(0,0,0,.90) 0%,
-                rgba(0,0,0,.50) 28%,
-                rgba(0,0,0,.05) 62%,
-                rgba(0,0,0,.12) 100%
+                rgba(0,0,0,.34) 0%,
+                rgba(0,0,0,.08) 28%,
+                transparent 58%
               );
           }
 
-          .hp-bestseller-copy {
+          .hp-gift-wrap-layer {
             position: absolute;
-            inset: auto 0 0;
-            z-index: 3;
-            padding: 24px;
+            inset: 0;
+            z-index: 1;
+            pointer-events: none;
+          }
+
+          .hp-wrap-ribbon {
+            position: absolute;
+            display: block;
+            border: 1px solid rgba(255,238,174,.22);
+            background:
+              linear-gradient(
+                90deg,
+                var(--gift-ribbon-3) 0%,
+                var(--gift-ribbon-2) 24%,
+                var(--gift-ribbon-1) 50%,
+                var(--gift-ribbon-2) 76%,
+                var(--gift-ribbon-3) 100%
+              );
+            box-shadow:
+              inset 0 1px 0 rgba(255,255,255,.24),
+              0 6px 18px rgba(42,25,5,.16);
+          }
+
+          .hp-wrap-ribbon-v {
+            top: 0;
+            bottom: 0;
+            width: 18px;
+            left: 20%;
+          }
+
+          .hp-wrap-ribbon-h {
+            left: 0;
+            right: 0;
+            top: 14%;
+            height: 14px;
+            background:
+              linear-gradient(
+                180deg,
+                var(--gift-ribbon-3) 0%,
+                var(--gift-ribbon-2) 24%,
+                var(--gift-ribbon-1) 50%,
+                var(--gift-ribbon-2) 76%,
+                var(--gift-ribbon-3) 100%
+              );
+          }
+
+          .hp-wrap-ribbon-diagonal {
+            display: none;
+            top: 28px;
+            right: -48px;
+            width: 180px;
+            height: 17px;
+            transform: rotate(42deg);
+          }
+
+          .hp-wrap-bow {
+            position: absolute;
+            left: calc(20% - 32px);
+            top: calc(14% - 28px);
+            width: 74px;
+            height: 62px;
+            filter:
+              drop-shadow(0 9px 12px rgba(41,24,4,.20));
             transition:
-              transform .4s
-                cubic-bezier(.16,1,.3,1);
+              transform .72s cubic-bezier(.22,1,.36,1),
+              filter .55s ease;
+          }
+
+          .hp-wrap-bow-loop,
+          .hp-wrap-bow-knot,
+          .hp-wrap-bow-tail {
+            position: absolute;
+            display: block;
+            border: 1px solid rgba(255,239,180,.30);
+            background:
+              linear-gradient(
+                135deg,
+                var(--gift-ribbon-1) 0%,
+                var(--gift-ribbon-2) 52%,
+                var(--gift-ribbon-3) 100%
+              );
+            box-shadow:
+              inset 0 1px 0 rgba(255,255,255,.24),
+              0 5px 12px rgba(35,20,3,.15);
+          }
+
+          .hp-wrap-bow-loop {
+            top: 7px;
+            width: 35px;
+            height: 24px;
+          }
+
+          .hp-wrap-bow-loop-left {
+            left: 1px;
+            border-radius: 75% 34% 68% 38%;
+            transform: rotate(-30deg);
+          }
+
+          .hp-wrap-bow-loop-right {
+            right: 1px;
+            border-radius: 34% 75% 38% 68%;
+            transform: rotate(30deg);
+          }
+
+          .hp-wrap-bow-knot {
+            z-index: 3;
+            top: 11px;
+            left: 50%;
+            width: 22px;
+            height: 21px;
+            transform: translateX(-50%);
+            border-radius: 50%;
+          }
+
+          .hp-wrap-bow-tail {
+            top: 28px;
+            width: 17px;
+            height: 31px;
+            clip-path:
+              polygon(
+                0 0,
+                100% 0,
+                88% 100%,
+                50% 80%,
+                12% 100%
+              );
+          }
+
+          .hp-wrap-bow-tail-left {
+            left: 19px;
+            transform: rotate(7deg);
+          }
+
+          .hp-wrap-bow-tail-right {
+            right: 19px;
+            transform: rotate(-7deg);
+          }
+
+          .hp-wrap-seal {
+            display: none;
+            position: absolute;
+            z-index: 4;
+            top: 29px;
+            right: 26px;
+            width: 42px;
+            height: 42px;
+            border-radius: 999px;
+            align-items: center;
+            justify-content: center;
+            font-family:
+              'Cormorant Garamond',
+              'Playfair Display',
+              Georgia,
+              serif;
+            font-size: 18px;
+            font-weight: 700;
+            color: #FFF0BC;
+            background:
+              radial-gradient(
+                circle at 34% 28%,
+                #F0D985 0%,
+                #C3902D 45%,
+                #81500B 100%
+              );
+            border: 1px solid rgba(255,235,163,.50);
+            box-shadow:
+              inset 0 1px 0 rgba(255,255,255,.24),
+              0 9px 18px rgba(0,0,0,.18);
+          }
+
+          /* Different wrapping styles like a curated gift collection. */
+          .hp-gift-variant-0 .hp-wrap-ribbon-v {
+            left: 17%;
+          }
+
+          .hp-gift-variant-0 .hp-wrap-ribbon-h {
+            top: 12%;
+          }
+
+          .hp-gift-variant-0 .hp-wrap-bow {
+            left: calc(17% - 32px);
+            top: calc(12% - 30px);
+          }
+
+          .hp-gift-variant-1 .hp-wrap-ribbon-v,
+          .hp-gift-variant-1 .hp-wrap-ribbon-h,
+          .hp-gift-variant-1 .hp-wrap-bow {
+            display: none;
+          }
+
+          .hp-gift-variant-1 .hp-wrap-ribbon-diagonal,
+          .hp-gift-variant-1 .hp-wrap-seal {
+            display: flex;
+          }
+
+          .hp-gift-variant-2 .hp-wrap-ribbon-v {
+            left: 19%;
+          }
+
+          .hp-gift-variant-2 .hp-wrap-ribbon-h {
+            top: 13%;
+          }
+
+          .hp-gift-variant-2 .hp-wrap-bow {
+            left: calc(19% - 32px);
+            top: calc(13% - 29px);
+          }
+
+          .hp-gift-variant-3 .hp-wrap-ribbon-v,
+          .hp-gift-variant-3 .hp-wrap-ribbon-h,
+          .hp-gift-variant-3 .hp-wrap-bow {
+            display: none;
+          }
+
+          .hp-gift-variant-3 .hp-wrap-ribbon-diagonal {
+            display: block;
+            left: -50px;
+            right: auto;
+            top: 31px;
+            transform: rotate(-42deg);
+          }
+
+          .hp-gift-variant-3 .hp-wrap-seal {
+            display: flex;
+            top: 31px;
+            right: 24px;
+          }
+
+          .hp-gift-variant-4 .hp-wrap-ribbon-v {
+            left: auto;
+            right: 17%;
+          }
+
+          .hp-gift-variant-4 .hp-wrap-ribbon-h {
+            top: 12%;
+          }
+
+          .hp-gift-variant-4 .hp-wrap-bow {
+            left: auto;
+            right: calc(17% - 34px);
+            top: calc(12% - 30px);
+          }
+
+          .hp-bestseller-card:hover .hp-wrap-bow {
+            transform:
+              translate3d(0,-2px,0)
+              scale(1.045)
+              rotate(-1deg);
+            filter:
+              drop-shadow(0 12px 15px rgba(41,24,4,.24));
+          }
+
+          .hp-bestseller-copy {
+            position: relative;
+            z-index: 4;
+            display: flex;
+            min-height: 132px;
+            flex-direction: column;
+            justify-content: flex-end;
+            padding: 16px 12px 8px;
+            color: var(--gift-ink);
+            transition:
+              transform .66s cubic-bezier(.22,1,.36,1);
           }
 
           .hp-bestseller-card:hover
           .hp-bestseller-copy {
-            transform:
-              translateY(-4px);
+            transform: translateY(-3px);
+          }
+
+          .hp-bestseller-line {
+            display: block;
+            width: 48px;
+            height: 1px;
+            margin-bottom: 11px;
+            background: var(--gift-accent);
+            opacity: .92;
+          }
+
+          .hp-bestseller-title {
+            max-width: 100%;
+            margin: 0;
+            color: var(--gift-ink);
+            font-family:
+              'Cormorant Garamond',
+              'Playfair Display',
+              Georgia,
+              serif;
+            font-size: clamp(24px, 1.75vw, 31px);
+            font-weight: 700;
+            line-height: .94;
+            letter-spacing: -.03em;
+          }
+
+          .hp-bestseller-meta {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 14px;
+            margin-top: 12px;
+          }
+
+          .hp-bestseller-price-label {
+            margin: 0;
+            color: var(--gift-muted);
+            font-size: 9px;
+            font-weight: 900;
+            letter-spacing: .13em;
+            text-transform: uppercase;
+          }
+
+          .hp-bestseller-price {
+            margin: 5px 0 0;
+            color: var(--gift-accent);
+            font-size: 19px;
+            font-weight: 900;
           }
 
           .hp-bestseller-arrow {
+            display: flex;
+            width: 42px;
+            height: 42px;
+            flex-shrink: 0;
+            align-items: center;
+            justify-content: center;
+            border-radius: 999px;
+            border: 1px solid color-mix(in srgb, var(--gift-accent) 62%, transparent);
+            background:
+              color-mix(in srgb, var(--gift-paper-2) 86%, transparent);
+            color: var(--gift-ink);
+            font-size: 21px;
+            box-shadow:
+              0 9px 18px rgba(19,13,8,.08);
             transition:
-              transform .35s
-                cubic-bezier(.16,1,.3,1),
-              background-color .3s ease,
-              color .3s ease;
+              transform .58s cubic-bezier(.22,1,.36,1),
+              background-color .42s ease,
+              color .42s ease,
+              border-color .42s ease;
           }
 
           .hp-bestseller-card:hover
           .hp-bestseller-arrow {
-            transform:
-              translateX(5px);
+            transform: translateX(4px);
+            border-color: #F47822;
             background: #F47822;
-            color: white;
-          }
-
-          @media (max-width: 1023px) {
-            .hp-bestseller-card {
-              height: clamp(420px, 62svh, 500px);
-              min-height: 420px;
-            }
+            color: #fff;
           }
 
           @media (max-width: 1023px) {
             .hp-bestseller-runway {
               --hp-card-width: 76vw;
-              --hp-side-space: calc((100vw - var(--hp-card-width)) / 2);
+              --hp-side-space:
+                calc((100vw - var(--hp-card-width)) / 2);
 
               display: flex !important;
               width: 100vw;
@@ -1250,8 +2229,9 @@ const Home = () => {
               gap: 14px !important;
               padding:
                 14px var(--hp-side-space)
-                24px !important;
-              scroll-padding-inline: var(--hp-side-space);
+                26px !important;
+              scroll-padding-inline:
+                var(--hp-side-space);
               scroll-snap-type: x mandatory;
               scroll-behavior: smooth;
               overscroll-behavior-inline: contain;
@@ -1267,8 +2247,7 @@ const Home = () => {
 
             .hp-bestseller-runway > * {
               flex:
-                0 0
-                var(--hp-card-width) !important;
+                0 0 var(--hp-card-width) !important;
               width:
                 var(--hp-card-width) !important;
               max-width:
@@ -1276,49 +2255,107 @@ const Home = () => {
               min-width: 0;
               scroll-snap-align: center;
               scroll-snap-stop: always;
-              scale: .90 !important;
-              opacity: .70 !important;
-              transform-origin:
-                center center;
+              scale: .92 !important;
+              opacity: .74 !important;
+              transform-origin: center center;
               transition:
-                scale .48s cubic-bezier(.16,1,.3,1),
-                opacity .34s ease !important;
-              will-change:
-                scale, opacity;
+                scale .62s cubic-bezier(.22,1,.36,1),
+                opacity .48s ease !important;
+              will-change: scale, opacity;
             }
 
-            .hp-bestseller-runway >
-            .is-mobile-active {
+            .hp-bestseller-runway > .is-mobile-active {
               scale: 1 !important;
               opacity: 1 !important;
             }
 
-            .hp-bestseller-runway .hp-bestseller-card {
-              width: 100%;
-              border-radius: 28px;
+            .hp-bestseller-card {
+              min-height: 375px;
+              border-radius: 26px;
             }
 
-            .hp-bestseller-runway .hp-bestseller-copy {
-              padding:
-                22px 20px
-                24px;
+            .hp-gift-product-window {
+              min-height: 230px;
+            }
+
+            .hp-bestseller-copy {
+              min-height: 132px;
+              padding: 15px 10px 8px;
+            }
+
+            .hp-bestseller-title {
+              font-size: 27px;
+            }
+
+            .hp-bestseller-card:hover {
+              transform: none;
+            }
+
+            .hp-bestseller-card:hover
+            .hp-wrap-bow {
+              transform: none;
+            }
+
+            .hp-bestseller-card:hover
+            .hp-gift-product-window img {
+              transform: translateZ(0) scale(1.015);
+              filter: none;
             }
           }
 
           @media (max-width: 639px) {
             .hp-bestseller-runway {
-              --hp-card-width: 78vw;
+              --hp-card-width: 80vw;
               gap: 12px !important;
             }
 
-            .hp-bestseller-runway .hp-bestseller-card {
-              border-radius: 26px;
+            .hp-bestseller-card {
+              min-height: 350px;
+              padding: 11px;
+              border-radius: 24px;
+            }
+
+            .hp-bestseller-card::after {
+              inset: 6px;
+              border-radius: 20px;
+            }
+
+            .hp-gift-package {
+              border-radius: 18px;
+            }
+
+            .hp-gift-product-window {
+              min-height: 210px;
+              border-radius: 14px;
+            }
+
+            .hp-bestseller-copy {
+              min-height: 128px;
+              padding: 14px 9px 7px;
+            }
+
+            .hp-bestseller-title {
+              font-size: 28px;
+            }
+
+            .hp-bestseller-arrow {
+              width: 43px;
+              height: 43px;
+              font-size: 20px;
+            }
+
+            .hp-wrap-ribbon-v {
+              width: 15px;
+            }
+
+            .hp-wrap-ribbon-h {
+              height: 12px;
+            }
+
+            .hp-wrap-bow {
+              scale: .88;
             }
           }
-
-
-
-
 
           @keyframes hpHeroReveal {
             0% {
@@ -1361,11 +2398,11 @@ const Home = () => {
 
           @keyframes hpBadgePulse {
             0%, 100% {
-              box-shadow: 0 0 0 0 rgba(249,115,22,.16);
+              box-shadow: 0 0 0 0 rgba(244,120,34,.16);
             }
 
             50% {
-              box-shadow: 0 0 0 14px rgba(249,115,22,0);
+              box-shadow: 0 0 0 14px rgba(244,120,34,0);
             }
           }
 
@@ -2025,7 +3062,7 @@ const Home = () => {
             background:
               linear-gradient(
                 90deg,
-                rgba(249,115,22,.95),
+                rgba(244,120,34,.95),
                 rgba(212,175,55,.92),
                 rgba(255,231,157,.62)
               );
@@ -2108,10 +3145,10 @@ const Home = () => {
             will-change:
               opacity, transform;
             transition:
-              opacity .42s
-                cubic-bezier(.16,1,.3,1),
-              transform .85s
-                cubic-bezier(.16,1,.3,1);
+              opacity .88s
+                cubic-bezier(.22,1,.36,1),
+              transform 1.18s
+                cubic-bezier(.22,1,.36,1);
           }
 
           .hp-journey-base {
@@ -2220,21 +3257,28 @@ const Home = () => {
           @keyframes hpFinalDrift {
             0%, 100% {
               transform:
-                translate3d(0, 0, 0)
-                scale(1.02);
+                translate3d(
+                  var(--hp-final-x, 0px),
+                  var(--hp-final-y, 0px),
+                  0
+                )
+                scale(1.025);
             }
 
             50% {
               transform:
-                translate3d(0, -8px, 0)
+                translate3d(
+                  var(--hp-final-x, 0px),
+                  calc(var(--hp-final-y, 0px) - 8px),
+                  0
+                )
                 scale(1.045);
             }
           }
 
           .hp-journey-glow {
-            animation:
-              hpJourneyGlow 5.6s
-              ease-in-out infinite;
+            opacity: .24;
+            animation: none;
           }
 
           .hp-final-drift {
@@ -2247,35 +3291,45 @@ const Home = () => {
             .hp-journey-grid {
               display: grid;
               grid-template-columns:
-                repeat(
-                  3,
-                  minmax(0, 1fr)
-                );
+                minmax(0, 1fr)
+                minmax(0, 1fr)
+                minmax(0, 1fr);
               transition:
                 grid-template-columns
-                .52s
-                cubic-bezier(.16,1,.3,1);
+                1.02s
+                cubic-bezier(.22,1,.36,1);
             }
 
+            /*
+              Keep the exact same grid-track syntax in every state.
+              Browsers can now interpolate the tracks instead of jumping
+              between repeat(...) and explicit fr values.
+            */
             .hp-journey-grid:has(
               > a:nth-child(1):hover
             ) {
               grid-template-columns:
-                1.32fr .84fr .84fr;
+                minmax(0, 1.28fr)
+                minmax(0, .86fr)
+                minmax(0, .86fr);
             }
 
             .hp-journey-grid:has(
               > a:nth-child(2):hover
             ) {
               grid-template-columns:
-                .84fr 1.32fr .84fr;
+                minmax(0, .86fr)
+                minmax(0, 1.28fr)
+                minmax(0, .86fr);
             }
 
             .hp-journey-grid:has(
               > a:nth-child(3):hover
             ) {
               grid-template-columns:
-                .84fr .84fr 1.32fr;
+                minmax(0, .86fr)
+                minmax(0, .86fr)
+                minmax(0, 1.28fr);
             }
           }
 
@@ -2333,9 +3387,9 @@ const Home = () => {
                 center center;
               border-radius: 28px;
               transition:
-                scale .48s
-                  cubic-bezier(.16,1,.3,1),
-                opacity .34s ease;
+                scale .62s
+                  cubic-bezier(.22,1,.36,1),
+                opacity .48s ease;
               will-change:
                 scale, opacity;
             }
@@ -2612,6 +3666,615 @@ const Home = () => {
             }
           }
 
+          /* ==============================================
+             V51 · CINEMATIC INTERACTION SYSTEM
+          =============================================== */
+
+          .hamporium-home {
+            --hp-scroll-progress: 0;
+            --hp-hero-scale: 1;
+            --hp-hero-dim: 0;
+            --hp-hero-line-scale: 0;
+            --hp-journey-shift: 0px;
+          }
+
+          .hp-scroll-progress {
+            position: fixed;
+            inset: 0 0 auto 0;
+            z-index: 140;
+            height: 2px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity .35s ease;
+          }
+
+          .hp-scroll-progress.is-visible {
+            opacity: 1;
+          }
+
+          .hp-scroll-progress > span {
+            display: block;
+            width: 100%;
+            height: 100%;
+            transform: scaleX(var(--hp-scroll-progress));
+            transform-origin: left center;
+            background: linear-gradient(
+              90deg,
+              #F47822 0%,
+              #D4AF37 100%
+            );
+            box-shadow:
+              0 0 12px rgba(244,120,34,.34);
+            will-change: transform;
+          }
+
+          .hp-hero-stage {
+            isolation: isolate;
+          }
+
+          .hp-hero-motion-layer {
+            position: absolute;
+            inset: 0;
+            transform:
+              translateZ(0)
+              scale(var(--hp-hero-scale));
+            transform-origin: center center;
+            will-change: transform;
+          }
+
+          .hp-hero-dim-layer {
+            position: absolute;
+            inset: 0;
+            z-index: 3;
+            pointer-events: none;
+            background: #000;
+            opacity:
+              calc(.03 + var(--hp-hero-dim));
+            will-change: opacity;
+          }
+
+          .hp-hero-handoff-line {
+            position: absolute;
+            z-index: 8;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 2px;
+            pointer-events: none;
+            transform:
+              scaleX(var(--hp-hero-line-scale));
+            transform-origin: left center;
+            background:
+              linear-gradient(
+                90deg,
+                transparent 0%,
+                #F47822 18%,
+                #D4AF37 62%,
+                transparent 100%
+              );
+            box-shadow:
+              0 0 18px rgba(212,175,55,.36);
+            will-change: transform;
+          }
+
+          .hp-journey-handoff {
+            transform:
+              translate3d(
+                0,
+                var(--hp-journey-shift),
+                0
+              );
+            will-change: transform;
+          }
+
+          .hp-section-navigator {
+            position: fixed;
+            z-index: 120;
+            right: 22px;
+            top: 50%;
+            transform: translateY(-50%);
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 8px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity .4s ease;
+          }
+
+          .hp-section-navigator.is-visible {
+            opacity: 1;
+          }
+
+          .hp-section-nav-button {
+            pointer-events: auto;
+            display: flex;
+            min-height: 28px;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 9px;
+            border: 0;
+            padding: 0;
+            color: rgba(255,255,255,.42);
+            background: transparent;
+            cursor: pointer;
+          }
+
+          .hp-section-nav-label {
+            max-width: 0;
+            overflow: hidden;
+            white-space: nowrap;
+            opacity: 0;
+            transform: translateX(8px);
+            transition:
+              max-width .35s cubic-bezier(.16,1,.3,1),
+              opacity .24s ease,
+              transform .35s cubic-bezier(.16,1,.3,1);
+            border: 1px solid rgba(255,255,255,.10);
+            background: rgba(8,7,6,.78);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            box-shadow: 0 10px 30px rgba(0,0,0,.14);
+          }
+
+          .hp-section-nav-button:hover
+          .hp-section-nav-label,
+          .hp-section-nav-button.is-active
+          .hp-section-nav-label {
+            max-width: 150px;
+            opacity: 1;
+            transform: translateX(0);
+            padding: 6px 9px;
+          }
+
+          .hp-section-nav-index {
+            font-size: 8px;
+            font-weight: 900;
+            letter-spacing: .12em;
+            color: rgba(255,255,255,.34);
+            transition: color .25s ease;
+          }
+
+          .hp-section-nav-dot {
+            position: relative;
+            width: 7px;
+            height: 7px;
+            border-radius: 999px;
+            border: 1px solid rgba(255,255,255,.44);
+            background: rgba(8,7,6,.55);
+            transition:
+              transform .32s cubic-bezier(.16,1,.3,1),
+              border-color .25s ease,
+              background-color .25s ease,
+              box-shadow .25s ease;
+          }
+
+          .hp-section-nav-button.is-active {
+            color: #F4D36A;
+          }
+
+          .hp-section-nav-button.is-active
+          .hp-section-nav-index {
+            color: #F4D36A;
+          }
+
+          .hp-section-nav-button.is-active
+          .hp-section-nav-dot {
+            transform: scale(1.45);
+            border-color: #F47822;
+            background: #F47822;
+            box-shadow:
+              0 0 0 5px rgba(244,120,34,.10),
+              0 0 16px rgba(244,120,34,.42);
+          }
+
+          .hp-pointer-glow::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            z-index: 4;
+            pointer-events: none;
+            opacity:
+              var(--hp-pointer-opacity, 0);
+            background:
+              radial-gradient(
+                circle 220px at
+                var(--hp-pointer-x, 50%)
+                var(--hp-pointer-y, 50%),
+                rgba(244,120,34,.075) 0%,
+                rgba(212,175,55,.03) 40%,
+                transparent 72%
+              );
+            transition: opacity .5s ease;
+          }
+
+          .hp-concierge-lid {
+            transform-origin: 50% 100%;
+            transition:
+              transform .62s cubic-bezier(.16,1,.3,1),
+              box-shadow .42s ease;
+          }
+
+          .hp-concierge-reveal-glow {
+            position: absolute;
+            z-index: 18;
+            left: 50%;
+            top: 17%;
+            width: 46%;
+            aspect-ratio: 1;
+            border-radius: 999px;
+            pointer-events: none;
+            opacity: 0;
+            transform:
+              translate(-50%, -50%)
+              scale(.45);
+            background:
+              radial-gradient(
+                circle,
+                rgba(255,238,164,.96) 0%,
+                rgba(244,120,34,.42) 28%,
+                rgba(212,175,55,.14) 52%,
+                transparent 74%
+              );
+            filter: blur(12px);
+          }
+
+          @keyframes hpConciergeGiftBurst {
+            0% {
+              opacity: 0;
+              transform:
+                translate(-50%, -50%)
+                scale(.42);
+            }
+
+            42% {
+              opacity: .92;
+            }
+
+            100% {
+              opacity: 0;
+              transform:
+                translate(-50%, -50%)
+                scale(1.55);
+            }
+          }
+
+          @keyframes hpConciergeBowRelease {
+            0% {
+              transform:
+                translateX(-50%)
+                rotate(-2deg);
+            }
+
+            55% {
+              transform:
+                translateX(-50%)
+                translateY(-18px)
+                rotate(5deg)
+                scale(1.035);
+            }
+
+            100% {
+              transform:
+                translateX(-50%)
+                translateY(-10px)
+                rotate(1deg);
+            }
+          }
+
+          .hp-concierge-gift-box.is-opening
+          .hp-concierge-lid {
+            transform:
+              translateY(-20px)
+              rotateX(12deg)
+              scaleX(1.015);
+            box-shadow:
+              0 22px 42px rgba(0,0,0,.48),
+              0 -6px 24px rgba(212,175,55,.12);
+          }
+
+          .hp-concierge-gift-box.is-opening
+          .hp-concierge-bow {
+            animation:
+              hpConciergeBowRelease .68s
+              cubic-bezier(.16,1,.3,1)
+              both;
+          }
+
+          .hp-concierge-gift-box.is-opening
+          .hp-concierge-reveal-glow {
+            animation:
+              hpConciergeGiftBurst .72s
+              cubic-bezier(.16,1,.3,1)
+              both;
+          }
+
+          .hp-concierge-screen-flare {
+            position: absolute;
+            z-index: 6;
+            inset: 0;
+            pointer-events: none;
+            opacity: 0;
+            background:
+              radial-gradient(
+                circle at 50% 56%,
+                rgba(244,120,34,.15),
+                rgba(212,175,55,.08) 24%,
+                transparent 54%
+              );
+            transition: opacity .28s ease;
+          }
+
+          .is-gift-revealing
+          .hp-concierge-screen-flare {
+            opacity: 1;
+          }
+
+          .hp-concierge-cta:disabled {
+            cursor: wait;
+          }
+
+          .hp-story-kicker,
+          .hp-story-line {
+            opacity: 0;
+            filter: blur(5px);
+            transform: translate3d(0, 34px, 0);
+            transition:
+              opacity .7s cubic-bezier(.22,1,.36,1),
+              transform .92s cubic-bezier(.16,1,.3,1),
+              filter .72s ease;
+          }
+
+          .hp-story-page.is-story-visible
+          .hp-story-kicker,
+          .hp-story-page.is-story-visible
+          .hp-story-line {
+            opacity: 1;
+            filter: blur(0);
+            transform: translate3d(0, 0, 0);
+            transition-delay:
+              var(--hp-story-delay, 0ms);
+          }
+
+          .hp-hamper-one-image {
+            clip-path: inset(0 100% 0 0);
+            -webkit-clip-path: inset(0 100% 0 0);
+            transform: scale(1.045);
+            transform-origin: center center;
+            transition:
+              clip-path 1.18s cubic-bezier(.16,1,.3,1),
+              -webkit-clip-path 1.18s cubic-bezier(.16,1,.3,1),
+              transform 1.55s cubic-bezier(.16,1,.3,1);
+          }
+
+          .hp-hamper-one-visual.is-visible
+          .hp-hamper-one-image {
+            clip-path: inset(0 0 0 0);
+            -webkit-clip-path: inset(0 0 0 0);
+            transform: scale(1);
+          }
+
+          .hp-hamper-one-curtain-line {
+            position: absolute;
+            z-index: 24;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            width: 1px;
+            pointer-events: none;
+            opacity: 0;
+            background:
+              linear-gradient(
+                to bottom,
+                transparent 0%,
+                #F3DB8C 16%,
+                #D4AF37 50%,
+                #F47822 84%,
+                transparent 100%
+              );
+            box-shadow:
+              0 0 18px rgba(212,175,55,.5);
+          }
+
+          @keyframes hpHamperOneCurtainSweep {
+            0% {
+              left: 0;
+              opacity: 0;
+            }
+
+            12% {
+              opacity: 1;
+            }
+
+            86% {
+              opacity: 1;
+            }
+
+            100% {
+              left: 100%;
+              opacity: 0;
+            }
+          }
+
+          .hp-hamper-one-visual.is-visible
+          .hp-hamper-one-curtain-line {
+            animation:
+              hpHamperOneCurtainSweep 1.18s
+              .05s cubic-bezier(.16,1,.3,1)
+              both;
+          }
+
+          @keyframes hpReviewCardEnter {
+            0% {
+              opacity: 0;
+              transform: translate3d(0, 18px, 0);
+              filter: blur(4px);
+            }
+
+            100% {
+              opacity: 1;
+              transform: translate3d(0, 0, 0);
+              filter: blur(0);
+            }
+          }
+
+          @keyframes hpReviewStarIn {
+            0% {
+              opacity: 0;
+              transform: translateY(8px) scale(.72);
+            }
+
+            100% {
+              opacity: 1;
+              transform: translateY(0) scale(1);
+            }
+          }
+
+          .hp-review-enter {
+            animation:
+              hpReviewCardEnter .62s
+              cubic-bezier(.16,1,.3,1)
+              both;
+          }
+
+          .hp-review-star {
+            opacity: 0;
+            animation:
+              hpReviewStarIn .42s
+              cubic-bezier(.16,1,.3,1)
+              forwards;
+          }
+
+          .hp-final-parallax-zone {
+            --hp-final-x: 0px;
+            --hp-final-y: 0px;
+          }
+
+          @media (max-width: 1279px) {
+            .hp-section-navigator {
+              display: none !important;
+            }
+          }
+
+          @media (max-width: 1023px) {
+            .hp-journey-handoff {
+              transform: none;
+            }
+
+            .hp-pointer-glow::before {
+              display: none;
+            }
+          }
+
+
+
+          .hamporium-home {
+            padding-bottom: 0 !important;
+            margin-bottom: 0 !important;
+          }
+
+          .hamporium-home > section:last-of-type {
+            margin-bottom: 0 !important;
+          }
+
+          /* ==============================================
+             V54 · MOBILE BULK RAIL FIX
+             Keep the original card treatment and horizontal
+             70/30 swipe rail. Touch devices must not retain
+             desktop :hover styling after a tap.
+          =============================================== */
+
+          @media (max-width: 1023px) {
+            [data-home-section="bulk"] .hp-mobile-rail {
+              --hp-bulk-card-width: min(76vw, 420px);
+
+              display: flex !important;
+              width: 100% !important;
+              max-width: none !important;
+              overflow-x: auto !important;
+              overflow-y: hidden !important;
+              gap: 12px !important;
+              padding: 14px 0 20px !important;
+              scroll-padding-inline: 0;
+              scroll-snap-type: x mandatory;
+              scroll-behavior: smooth;
+              overscroll-behavior-inline: contain;
+              -webkit-overflow-scrolling: touch;
+              scrollbar-width: none;
+              mask-image: none !important;
+              -webkit-mask-image: none !important;
+            }
+
+            [data-home-section="bulk"] .hp-mobile-rail::-webkit-scrollbar {
+              display: none;
+            }
+
+            [data-home-section="bulk"] .hp-mobile-rail >
+            .hp-bulk-step-card {
+              flex: 0 0 var(--hp-bulk-card-width) !important;
+              width: var(--hp-bulk-card-width) !important;
+              max-width: var(--hp-bulk-card-width) !important;
+              min-width: 0 !important;
+              min-height: 280px;
+              scroll-snap-align: start;
+              scroll-snap-stop: always;
+            }
+          }
+
+          @media (max-width: 639px) {
+            [data-home-section="bulk"] .hp-mobile-rail {
+              --hp-bulk-card-width: 78vw;
+              gap: 10px !important;
+            }
+          }
+
+          @media (hover: none), (pointer: coarse) {
+            .hp-bulk-step-card .hp-bulk-step-image {
+              opacity: 0 !important;
+            }
+
+            .hp-bulk-step-card .hp-bulk-step-kicker {
+              color: #F47822 !important;
+            }
+
+            .hp-bulk-step-card .hp-bulk-step-arrow {
+              color: rgba(0,0,0,.16) !important;
+            }
+
+            .hp-bulk-step-card .hp-bulk-step-title {
+              color: #171717 !important;
+            }
+
+            .hp-bulk-step-card .hp-bulk-step-copy {
+              color: rgba(0,0,0,.50) !important;
+            }
+          }
+
+          @media (prefers-reduced-motion: reduce) {
+            .hp-hero-motion-layer,
+            .hp-journey-handoff,
+            .hp-hamper-one-image,
+            .hp-story-kicker,
+            .hp-story-line {
+              transform: none !important;
+              transition: none !important;
+            }
+
+            .hp-hamper-one-image {
+              clip-path: none !important;
+              -webkit-clip-path: none !important;
+            }
+
+            .hp-story-kicker,
+            .hp-story-line {
+              opacity: 1 !important;
+            }
+
+            .hp-hamper-one-curtain-line,
+            .hp-concierge-reveal-glow {
+              display: none !important;
+            }
+          }
+
           @media (prefers-reduced-motion: reduce) {
             .hp-editorial-flex > .hp-editorial-panel,
             .hp-editorial-base,
@@ -2632,14 +4295,32 @@ const Home = () => {
             .hp-concierge-ambient,
             .hp-concierge-gift-box,
             .hp-concierge-bow,
-            .hp-concierge-card.is-active {
+            .hp-concierge-card.is-active,
+            .hp-review-enter,
+            .hp-review-star,
+            .hp-final-drift {
               animation: none !important;
             }
           }
         `}
       </style>
 
-      <div className="hamporium-home pb-20 lg:pb-0">
+      <div ref={homeRef} className="hamporium-home">
+        <div
+          className={`hp-scroll-progress ${
+            introFinished
+              ? "is-visible"
+              : ""
+          }`}
+          aria-hidden="true"
+        >
+          <span />
+        </div>
+
+        <HomeSectionNavigator
+          activeSection={activeHomeSection}
+          visible={introFinished}
+        />
 
         {/* ==================================================
             CINEMATIC BRAND LOADER
@@ -2665,7 +4346,8 @@ const Home = () => {
             FULL SCREEN CINEMATIC VIDEO HERO
         =================================================== */}
 
-        <section className="relative h-[100svh] min-h-[620px] w-full overflow-hidden bg-black">
+        <section className="hp-hero-stage relative h-[100svh] min-h-[620px] w-full overflow-hidden bg-black">
+          <div className="hp-hero-motion-layer">
           <video
             ref={heroVideoRef}
             muted
@@ -2701,7 +4383,13 @@ const Home = () => {
             />
           </video>
 
-          <div className="pointer-events-none absolute inset-0 bg-black/[0.03]" />
+          <div className="hp-hero-dim-layer" />
+          </div>
+
+          <div
+            className="hp-hero-handoff-line"
+            aria-hidden="true"
+          />
 
           <span className="sr-only">
             {introFinished
@@ -2714,7 +4402,7 @@ const Home = () => {
             CHOOSE YOUR GIFTING JOURNEY
         =================================================== */}
 
-        <section className="relative overflow-hidden bg-[#080706] px-4 py-16 text-white sm:px-6 lg:px-0 lg:py-0">
+        <section data-home-section="journey" className="hp-pointer-glow relative overflow-hidden bg-[#080706] px-4 py-16 text-white sm:px-6 lg:px-0 lg:py-0">
           <div className="hp-journey-glow pointer-events-none absolute left-1/2 top-1/2 h-[480px] w-[480px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#D4AF37]/10 blur-[125px]" />
 
           <div className="relative z-10 mx-auto max-w-[1800px] lg:max-w-none">
@@ -2870,7 +4558,7 @@ const Home = () => {
             HAMPORIUM GIFT CONCIERGE · CINEMATIC CODED UI
         =================================================== */}
 
-        <section className="relative isolate overflow-hidden bg-[#090705] text-white">
+        <section data-home-section="concierge" className={`hp-pointer-glow relative isolate overflow-hidden bg-[#090705] text-white ${giftRevealActive ? "is-gift-revealing" : ""}`}>
           {/* CLEAN BACKGROUND IMAGE ONLY */}
           <img
             src={giftConciergeBg}
@@ -2884,6 +4572,7 @@ const Home = () => {
 
           <div className="pointer-events-none absolute inset-0 bg-black/28" />
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/46 via-black/12 to-black/62" />
+          <div className="hp-concierge-screen-flare" aria-hidden="true" />
 
           <div className="hp-concierge-ambient pointer-events-none absolute left-1/2 top-[50%] h-[540px] w-[540px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#F47822]/12 blur-[140px]" />
 
@@ -3022,7 +4711,11 @@ const Home = () => {
                 <div className="relative w-full max-w-[470px]">
                   <div className="pointer-events-none absolute left-1/2 top-[47%] h-[280px] w-[280px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#D4AF37]/10 blur-[80px]" />
 
-                  <div className="hp-concierge-gift-box relative mx-auto h-[338px] w-[90%] rounded-[20px] border border-[#D4AF37]/55 bg-gradient-to-br from-[#26221D] via-[#0B0A09] to-[#191613] shadow-[0_44px_110px_rgba(0,0,0,.62)]">
+                  <div className={`hp-concierge-gift-box ${
+                      giftRevealActive
+                        ? "is-opening"
+                        : ""
+                    } relative mx-auto h-[338px] w-[90%] rounded-[20px] border border-[#D4AF37]/55 bg-gradient-to-br from-[#26221D] via-[#0B0A09] to-[#191613] shadow-[0_44px_110px_rgba(0,0,0,.62)]`}>
                     {/* subtle embossed texture */}
                     <div
                       className="pointer-events-none absolute inset-0 rounded-[inherit] opacity-[0.09]"
@@ -3035,7 +4728,7 @@ const Home = () => {
                     />
 
                     {/* lid */}
-                    <div className="absolute -left-[4%] -top-[10%] h-[19%] w-[108%] rounded-[17px] border border-[#D4AF37]/45 bg-gradient-to-b from-[#302A22] via-[#1A1713] to-[#0F0E0C] shadow-[0_14px_30px_rgba(0,0,0,.42)]" />
+                    <div className="hp-concierge-lid absolute -left-[4%] -top-[10%] h-[19%] w-[108%] rounded-[17px] border border-[#D4AF37]/45 bg-gradient-to-b from-[#302A22] via-[#1A1713] to-[#0F0E0C] shadow-[0_14px_30px_rgba(0,0,0,.42)]" />
 
                     {/* horizontal ribbon */}
                     <div className="absolute left-0 top-[16%] h-[17%] w-full bg-gradient-to-b from-[#F6E1A1] via-[#C29135] to-[#784D12] shadow-[inset_0_1px_0_rgba(255,255,255,.28)]" />
@@ -3054,6 +4747,11 @@ const Home = () => {
 
                       <span className="absolute left-1/2 top-[36%] h-[60px] w-[64px] -translate-x-1/2 rounded-full border border-[#F7E2A0]/75 bg-gradient-to-br from-[#F4D981] via-[#BD8427] to-[#744A11] shadow-[0_12px_22px_rgba(0,0,0,.3)]" />
                     </div>
+
+                    <div
+                      className="hp-concierge-reveal-glow"
+                      aria-hidden="true"
+                    />
 
                     {/* readable brand plaque */}
                     <div className="absolute left-1/2 top-[55%] z-10 w-[76%] -translate-x-1/2 rounded-[16px] border border-[#D4AF37]/42 bg-[#080706]/92 px-5 py-5 text-center shadow-[0_16px_34px_rgba(0,0,0,.42)] backdrop-blur-sm">
@@ -3395,9 +5093,13 @@ const Home = () => {
                     onClick={
                       handleFindGift
                     }
+                    disabled={giftRevealActive}
+                    aria-busy={giftRevealActive}
                     className="hp-concierge-cta inline-flex h-[58px] items-center justify-center gap-5 rounded-full border border-[#FFD980]/35 bg-gradient-to-r from-[#F3BE4E] via-[#F2A933] to-[#F47822] px-7 text-[11px] font-black uppercase tracking-[0.1em] text-[#17110A] shadow-[0_14px_32px_rgba(244,120,34,.22)]"
                   >
-                    Open My Matches
+                    {giftRevealActive
+                      ? "Revealing Your Matches"
+                      : "Open My Matches"}
 
                     <span className="text-[18px]">
                       →
@@ -3407,24 +5109,6 @@ const Home = () => {
               </div>
             </Reveal>
 
-            {/* TRUST ROW */}
-            <div className="mt-8 flex flex-wrap items-center justify-center gap-x-7 gap-y-3 text-[10px] font-bold text-white/50 sm:text-[11px]">
-              <span>
-                ✦ Curated with Care
-              </span>
-
-              <span className="hidden h-3 w-px bg-white/12 sm:block" />
-
-              <span>
-                ◇ Premium Quality
-              </span>
-
-              <span className="hidden h-3 w-px bg-white/12 sm:block" />
-
-              <span>
-                ✓ Secure & Reliable
-              </span>
-            </div>
           </div>
         </section>
 
@@ -3432,7 +5116,7 @@ const Home = () => {
             BEST SELLERS · EDITORIAL RUNWAY
         =================================================== */}
 
-        <section className="relative overflow-hidden bg-[#F7F4EF] px-0 py-20 sm:px-6 lg:px-8 lg:py-24 xl:px-10 2xl:px-12">
+        <section data-home-section="bestsellers" className="relative overflow-hidden bg-[#F7F4EF] px-0 py-20 sm:px-6 lg:px-8 lg:py-24 xl:px-10 2xl:px-12">
           <div className="mx-auto w-full max-w-[1900px]">
             <Reveal className="px-4 sm:px-0">
               <div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-end">
@@ -3474,6 +5158,7 @@ const Home = () => {
                   >
                     <LovedProductCard
                       product={product}
+                      index={index}
                     />
                   </Reveal>
                 ))
@@ -3486,7 +5171,7 @@ const Home = () => {
             HAMPER ONE · LUXURY EDITORIAL
         =================================================== */}
 
-        <section className="relative overflow-hidden bg-[#060606] text-white">
+        <section data-home-section="hamper-one" className="hp-pointer-glow relative overflow-hidden bg-[#060606] text-white">
           <div className="pointer-events-none absolute left-[10%] top-1/2 h-[420px] w-[420px] -translate-y-1/2 rounded-full bg-[#D4AF37]/[0.06] blur-[120px]" />
 
           <div className="mx-auto grid min-h-[760px] w-full max-w-[1920px] lg:grid-cols-[0.72fr_1.28fr]">
@@ -3536,15 +5221,20 @@ const Home = () => {
             {/* PREMIUM HAMPER VISUAL */}
             <Reveal
               delay={100}
-              className="relative min-h-[560px] overflow-hidden sm:min-h-[640px] lg:min-h-[760px]"
+              className="hp-hamper-one-visual relative min-h-[560px] overflow-hidden sm:min-h-[640px] lg:min-h-[760px]"
             >
               <img
                 src={hamperOneLuxury}
                 alt="HAMPER ONE luxury premium gift hamper"
                 loading="lazy"
                 decoding="async"
-                className="absolute inset-0 h-full w-full object-cover object-center"
+                className="hp-hamper-one-image absolute inset-0 h-full w-full object-cover object-center"
                 draggable="false"
+              />
+
+              <div
+                className="hp-hamper-one-curtain-line"
+                aria-hidden="true"
               />
 
               <div className="absolute inset-0 bg-gradient-to-r from-[#060606]/36 via-transparent to-transparent lg:from-[#060606]/24" />
@@ -3563,7 +5253,7 @@ const Home = () => {
             HAMPORIUM BRAND STORY · FULL-SCREEN SCROLL PAGES
         =================================================== */}
 
-        <section className="hp-story-stack relative bg-[#090807] text-white">
+        <section data-home-section="brand" className="hp-story-stack hp-pointer-glow relative bg-[#090807] text-white">
           {[
             {
               kicker: "CURATED WITH INTENTION",
@@ -3631,7 +5321,8 @@ const Home = () => {
                     }`}
                   >
                     <span className="h-[2px] w-14 bg-[#F47822] sm:w-16" />
-                    <p className="text-[11px] font-black uppercase tracking-[0.28em] text-[#FFD25A] sm:text-[12px] lg:text-[13px]">
+                    <p className="hp-story-kicker text-[11px] font-black uppercase tracking-[0.28em] text-[#FFD25A] sm:text-[12px] lg:text-[13px]"
+                      style={{ "--hp-story-delay": "40ms" }}>
                       {item.kicker}
                     </p>
                   </div>
@@ -3639,10 +5330,15 @@ const Home = () => {
                   <h2 className="hp-section-heading max-w-[1200px] text-white drop-shadow-[0_12px_42px_rgba(0,0,0,.68)]">
                     <span className="block">
                       {item.titleLines.map(
-                        (line) => (
+                        (line, lineIndex) => (
                           <span
                             key={line}
-                            className="block"
+                            className="hp-story-line block"
+                            style={{
+                              "--hp-story-delay": `${
+                                120 + lineIndex * 95
+                              }ms`,
+                            }}
                           >
                             {line}
                           </span>
@@ -3652,10 +5348,15 @@ const Home = () => {
 
                     <span className="hp-section-heading-accent mt-5 text-[#F4D36A] drop-shadow-[0_10px_34px_rgba(0,0,0,.58)] sm:mt-6 lg:mt-7">
                       {item.accentLines.map(
-                        (line) => (
+                        (line, lineIndex) => (
                           <span
                             key={line}
-                            className="block"
+                            className="hp-story-line block"
+                            style={{
+                              "--hp-story-delay": `${
+                                330 + lineIndex * 105
+                              }ms`,
+                            }}
                           >
                             {line}
                           </span>
@@ -3680,9 +5381,9 @@ const Home = () => {
             WHY CHOOSE HAMPORIUM
         =================================================== */}
 
-        <section className="relative w-full bg-[#F8F4EE] pb-24">
+        <section className="relative w-full bg-[#F8F4EE]">
           <div className="relative w-full overflow-hidden bg-[#0B0B0B] px-0 py-10 text-white sm:py-12 lg:grid lg:grid-cols-[0.92fr_1.12fr] lg:items-stretch lg:gap-12 lg:py-14 xl:gap-16">
-            <div className="pointer-events-none absolute inset-0 opacity-70" style={{ background: "radial-gradient(circle at 13% 8%, rgba(249,115,22,.16), transparent 22%), radial-gradient(circle at 88% 84%, rgba(212,175,55,.14), transparent 25%)" }} />
+            <div className="pointer-events-none absolute inset-0 opacity-70" style={{ background: "radial-gradient(circle at 13% 8%, rgba(244,120,34,.16), transparent 22%), radial-gradient(circle at 88% 84%, rgba(212,175,55,.14), transparent 25%)" }} />
             <div className="hp-noise pointer-events-none absolute inset-0 opacity-[0.07]" />
 
             <Reveal className="relative z-10 flex flex-col justify-center px-5 py-4 sm:px-8 lg:px-10 lg:py-8">
@@ -3698,11 +5399,7 @@ const Home = () => {
                 </span>
               </h2>
 
-              <p className="mt-7 max-w-[610px] text-[15px] font-medium leading-7 text-white/62 sm:text-[16px]">
-                Premium products, thoughtful personalisation and presentation designed to feel special from the first look.
-              </p>
-
-              <div className="mt-10 grid grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4">
+              <div className="mt-8 grid grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4">
                 <PromiseCard
                   icon={<GiftIcon />}
                   title="Premium Curation"
@@ -3732,12 +5429,6 @@ const Home = () => {
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/5 to-black/10" />
               </div>
 
-              <div className="absolute bottom-7 left-6 z-10 max-w-[360px] sm:bottom-9 sm:left-9">
-                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#D4AF37]">THE HAMPORIUM PROMISE</p>
-                <p style={{ fontFamily: DISPLAY_FONT }} className="mt-2 text-[30px] font-semibold leading-tight text-white">
-                  Beautiful outside. Thoughtful inside.
-                </p>
-              </div>
             </Reveal>
           </div>
         </section>
@@ -3746,7 +5437,7 @@ const Home = () => {
             BULK / EVENT GIFTING · EDITORIAL FLOW
         =================================================== */}
 
-        <section className="relative overflow-hidden bg-[#F3EEE6] text-[#171717]">
+        <section data-home-section="bulk" className="relative overflow-hidden bg-[#F3EEE6] text-[#171717]">
           <div className="grid min-h-[850px] lg:grid-cols-[0.92fr_1.08fr]">
             {/* LEFT VISUAL */}
             <Reveal className="relative min-h-[560px] overflow-hidden bg-[#15100C] lg:min-h-[850px]">
@@ -3757,13 +5448,6 @@ const Home = () => {
               />
 
               <div className="absolute inset-0 bg-gradient-to-t from-black/82 via-black/12 to-black/22" />
-
-              <div className="absolute left-7 right-7 top-7 flex items-center justify-between sm:left-10 sm:right-10 sm:top-10">
-                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-white/78">
-                  BULK · EVENT · CORPORATE
-                </p>
-                <span className="h-px w-14 bg-[#D4AF37]" />
-              </div>
 
               <div className="absolute bottom-8 left-7 right-7 sm:bottom-11 sm:left-10 sm:right-10">
                 <p
@@ -3776,10 +5460,6 @@ const Home = () => {
                   </span>
                 </p>
 
-                <p className="mt-5 max-w-[500px] text-[14px] font-medium leading-7 text-white/72 sm:text-[15px]">
-                  Build one premium design, scale the quantity, add branding,
-                  receive a quotation and move to payment only after approval.
-                </p>
               </div>
             </Reveal>
 
@@ -3816,13 +5496,13 @@ const Home = () => {
                 ].map(([step, title, copy, image], index) => (
                   <div
                     key={step}
-                    className={`group relative min-h-[280px] overflow-hidden p-6 lg:min-h-[245px] ${
+                    className={`hp-bulk-step-card group relative min-h-[280px] overflow-hidden p-6 lg:min-h-[245px] ${
                       index % 2 === 0 ? "lg:border-r lg:border-black/10" : ""
                     } ${
                       index < 2 ? "lg:border-b lg:border-black/10" : ""
                     }`}
                   >
-                    <div className="absolute inset-0 opacity-0 transition duration-500 group-hover:opacity-100">
+                    <div className="hp-bulk-step-image absolute inset-0 opacity-0 transition duration-500 group-hover:opacity-100">
                       <SmartImage
                         src={image}
                         alt=""
@@ -3833,20 +5513,20 @@ const Home = () => {
 
                     <div className="relative z-10">
                       <div className="flex items-center justify-between">
-                        <span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#F47822] group-hover:text-[#F2D26B]">
+                        <span className="hp-bulk-step-kicker text-[9px] font-black uppercase tracking-[0.18em] text-[#F47822] group-hover:text-[#F2D26B]">
                           STEP {step}
                         </span>
-                        <span className="text-[22px] text-black/16 transition group-hover:text-white/55">→</span>
+                        <span className="hp-bulk-step-arrow text-[22px] text-black/16 transition group-hover:text-white/55">→</span>
                       </div>
 
                       <h3
                         style={{ fontFamily: DISPLAY_FONT }}
-                        className="mt-10 text-[30px] font-semibold leading-[0.95] text-[#171717] transition group-hover:text-white"
+                        className="hp-bulk-step-title mt-10 text-[30px] font-semibold leading-[0.95] text-[#171717] transition group-hover:text-white"
                       >
                         {title}
                       </h3>
 
-                      <p className="mt-3 max-w-[270px] text-[13px] font-medium leading-6 text-black/50 transition group-hover:text-white/65">
+                      <p className="hp-bulk-step-copy mt-3 max-w-[270px] text-[13px] font-medium leading-6 text-black/50 transition group-hover:text-white/65">
                         {copy}
                       </p>
                     </div>
@@ -3857,7 +5537,7 @@ const Home = () => {
               <Reveal delay={160} className="mt-8 flex flex-wrap items-center gap-5">
                 <Link
                   to="/custom-hamper?mode=bulk"
-                  className="inline-flex h-[56px] items-center gap-5 bg-[#F47822] px-7 text-[12px] font-black uppercase tracking-[0.09em] text-white shadow-[0_18px_40px_rgba(249,115,22,.22)] transition hover:bg-[#DF6518]"
+                  className="inline-flex h-[56px] items-center gap-5 bg-[#F47822] px-7 text-[12px] font-black uppercase tracking-[0.09em] text-white shadow-[0_18px_40px_rgba(244,120,34,.22)] transition hover:bg-[#DF6518]"
                 >
                   Build & Request Quote
                   <span className="text-lg">→</span>
@@ -3872,7 +5552,7 @@ const Home = () => {
             WHAT OUR CUSTOMERS SAY · SIMPLE LUXURY SLIDER
         =================================================== */}
 
-        <section className="relative isolate overflow-hidden bg-[#090807] text-white">
+        <section data-home-section="reviews" className="hp-pointer-glow relative isolate overflow-hidden bg-[#090807] text-white">
           <img
             src={reviewsLuxuryBg}
             alt=""
@@ -3890,22 +5570,14 @@ const Home = () => {
             {/* LEFT */}
             <Reveal>
               <div className="max-w-[700px]">
-                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[#E8C66A]">
-                  REAL PEOPLE. MEANINGFUL MOMENTS.
-                </p>
-
-                <h2 className="hp-section-heading mt-5 text-[#FFF8EA]">
+                <h2 className="hp-section-heading text-[#FFF8EA]">
                   What Our
                   <span className="hp-section-heading-accent text-[#D4AF37]">
                     Customers Say
                   </span>
                 </h2>
 
-                <p className="mt-7 text-[11px] font-black uppercase tracking-[0.2em] text-white/52">
-                  Beautiful gifts. Brighter stories.
-                </p>
-
-                <span className="mt-8 block h-px w-16 bg-[#D4AF37]" />
+                <span className="mt-6 block h-px w-16 bg-[#D4AF37]" />
               </div>
             </Reveal>
 
@@ -3932,7 +5604,15 @@ const Home = () => {
                     ‹
                   </button>
 
-                  <div className="relative overflow-hidden rounded-[30px] border border-[#D4AF37]/30 bg-black/22 px-6 py-10 shadow-[0_30px_90px_rgba(0,0,0,.22)] backdrop-blur-[10px] sm:px-10 sm:py-12 lg:px-14 lg:py-14">
+                  <div
+                    key={
+                      reviewSlides[
+                        activeReviewIndex
+                      ]?.id ||
+                      activeReviewIndex
+                    }
+                    className="hp-review-enter relative overflow-hidden rounded-[30px] border border-[#D4AF37]/30 bg-black/22 px-6 py-10 shadow-[0_30px_90px_rgba(0,0,0,.22)] backdrop-blur-[10px] sm:px-10 sm:py-12 lg:px-14 lg:py-14"
+                  >
                     <div className="pointer-events-none absolute -right-16 -top-16 h-52 w-52 rounded-full bg-[#D4AF37]/10 blur-[80px]" />
 
                     <div className="relative z-10">
@@ -3942,16 +5622,21 @@ const Home = () => {
                           (_, index) => (
                             <span
                               key={index}
-                              className={
+                              className={`hp-review-star ${
                                 index <
                                 Number(
                                   reviewSlides[
                                     activeReviewIndex
                                   ]?.rating || 5
                                 )
-                                  ? "opacity-100"
-                                  : "opacity-20"
-                              }
+                                  ? "text-[#F0CD71]"
+                                  : "text-[#F0CD71]/20"
+                              }`}
+                              style={{
+                                animationDelay: `${
+                                  95 + index * 70
+                                }ms`,
+                              }}
                             >
                               ★
                             </span>
@@ -4090,7 +5775,7 @@ const Home = () => {
             FINAL FULL-SCREEN CTA
         =================================================== */}
 
-        <section className="relative flex min-h-[82svh] items-center overflow-hidden bg-black text-white">
+        <section data-home-section="finale" className="hp-final-parallax-zone hp-pointer-glow relative flex min-h-[82svh] items-center overflow-hidden bg-black text-white">
           <SmartImage
             src={
               HOME_IMAGES.finalCta
@@ -4115,11 +5800,7 @@ const Home = () => {
                 </span>
               </h2>
 
-              <p className="mt-7 max-w-[630px] text-[14px] font-semibold leading-7 text-white/62 sm:text-[15px]">
-                Shop a signature hamper or build one from scratch. Either way, make the gesture feel considered.
-              </p>
-
-              <div className="mt-9 flex flex-wrap gap-4">
+              <div className="mt-8 flex flex-wrap gap-4">
                 <Link
                   to="/gifts"
                   className="inline-flex h-[58px] items-center gap-5 bg-white px-7 text-[12px] font-black uppercase tracking-[0.09em] text-[#171717] transition hover:bg-[#F47822] hover:text-white"
@@ -4146,6 +5827,98 @@ const Home = () => {
 
       </div>
     </main>
+  );
+};
+
+// ======================================================
+// HOME SECTION NAVIGATOR
+// ======================================================
+
+const HomeSectionNavigator = ({
+  activeSection,
+  visible,
+}) => {
+  const handleNavigate = (id) => {
+    const node =
+      document.querySelector(
+        `[data-home-section="${id}"]`
+      );
+
+    if (!node) {
+      return;
+    }
+
+    const reducedMotion =
+      window.matchMedia?.(
+        "(prefers-reduced-motion: reduce)"
+      ).matches;
+
+    node.scrollIntoView({
+      behavior: reducedMotion
+        ? "auto"
+        : "smooth",
+      block: "start",
+    });
+  };
+
+  return (
+    <nav
+      className={`hp-section-navigator hidden xl:flex ${
+        visible
+          ? "is-visible"
+          : ""
+      }`}
+      aria-label="Homepage sections"
+    >
+      {HOME_SECTION_NAV.map(
+        (item, index) => {
+          const active =
+            item.id ===
+            activeSection;
+
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() =>
+                handleNavigate(
+                  item.id
+                )
+              }
+              aria-label={`Go to ${item.label}`}
+              aria-current={
+                active
+                  ? "true"
+                  : undefined
+              }
+              className={`hp-section-nav-button ${
+                active
+                  ? "is-active"
+                  : ""
+              }`}
+            >
+              <span className="hp-section-nav-label text-[9px] font-black uppercase tracking-[0.13em]">
+                {item.label}
+              </span>
+
+              <span className="hp-section-nav-index">
+                {String(
+                  index + 1
+                ).padStart(
+                  2,
+                  "0"
+                )}
+              </span>
+
+              <span
+                className="hp-section-nav-dot"
+                aria-hidden="true"
+              />
+            </button>
+          );
+        }
+      )}
+    </nav>
   );
 };
 
@@ -4285,54 +6058,74 @@ const PromiseCard = ({
 
 const LovedProductCard = ({
   product,
+  index = 0,
 }) => {
   const destination = product.slug
     ? `/products/${product.slug}`
     : "/gifts";
 
+  const variant =
+    Number(index || 0) % 5;
+
   return (
     <Link
       to={destination}
-      className="hp-bestseller-card group block h-full"
+      className={`hp-bestseller-card hp-gift-variant-${variant} group`}
     >
-      <SmartImage
-        src={product.image}
-        alt={product.name}
-        className="absolute inset-0 h-full w-full object-cover object-center"
-      />
+      <div
+        className="hp-gift-wrap-layer"
+        aria-hidden="true"
+      >
+        <span className="hp-wrap-ribbon hp-wrap-ribbon-v" />
+        <span className="hp-wrap-ribbon hp-wrap-ribbon-h" />
+        <span className="hp-wrap-ribbon hp-wrap-ribbon-diagonal" />
 
-      <div className="absolute left-5 top-5 z-[3]">
-        <span className="text-[10px] font-black uppercase tracking-[0.16em] text-white/85 drop-shadow-[0_2px_10px_rgba(0,0,0,.55)]">
-          Most Loved
+        <span className="hp-wrap-bow">
+          <span className="hp-wrap-bow-loop hp-wrap-bow-loop-left" />
+          <span className="hp-wrap-bow-loop hp-wrap-bow-loop-right" />
+          <span className="hp-wrap-bow-knot" />
+          <span className="hp-wrap-bow-tail hp-wrap-bow-tail-left" />
+          <span className="hp-wrap-bow-tail hp-wrap-bow-tail-right" />
+        </span>
+
+        <span className="hp-wrap-seal">
+          H
         </span>
       </div>
 
-      <div className="hp-bestseller-copy">
-        <span className="mb-4 block h-px w-12 bg-[#D4AF37]" />
+      <div className="hp-gift-package">
+        <div className="hp-gift-product-window">
+          <SmartImage
+            src={product.image}
+            alt={product.name}
+            className="absolute inset-0 h-full w-full object-cover object-center"
+          />
+        </div>
 
-        <h3
-          style={{ fontFamily: DISPLAY_FONT }}
-          className="max-w-[360px] text-[30px] font-bold leading-[0.92] tracking-[-0.03em] text-white sm:text-[34px]"
-        >
-          {product.name}
-        </h3>
+        <div className="hp-bestseller-copy">
+          <span className="hp-bestseller-line" />
 
-        <div className="mt-5 flex items-end justify-between gap-4">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-white/48">
-              Starting at
-            </p>
+          <h3 className="hp-bestseller-title">
+            {product.name}
+          </h3>
 
-            <p className="mt-1 text-[18px] font-black text-[#F6D46A]">
-              ₹{Number(
-                product.price || 0
-              ).toLocaleString("en-IN")}
-            </p>
+          <div className="hp-bestseller-meta">
+            <div>
+              <p className="hp-bestseller-price-label">
+                Starting at
+              </p>
+
+              <p className="hp-bestseller-price">
+                ₹{Number(
+                  product.price || 0
+                ).toLocaleString("en-IN")}
+              </p>
+            </div>
+
+            <span className="hp-bestseller-arrow">
+              →
+            </span>
           </div>
-
-          <span className="hp-bestseller-arrow flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-[20px] text-[#171717]">
-            →
-          </span>
         </div>
       </div>
     </Link>
@@ -4344,7 +6137,7 @@ const LovedProductCard = ({
 // ======================================================
 
 const ProductSkeleton = () => (
-  <div className="h-[clamp(420px,62svh,500px)] min-h-[420px] animate-pulse bg-black/[0.07] lg:h-auto lg:min-h-[470px]" />
+  <div className="min-h-[350px] animate-pulse rounded-[26px] border border-black/[0.06] bg-black/[0.06] lg:min-h-[415px]" />
 );
 
 // ======================================================
