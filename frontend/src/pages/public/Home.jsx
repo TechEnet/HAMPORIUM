@@ -10,7 +10,7 @@ import { Link, useNavigate } from "react-router-dom";
 import api from "../../api/api.js";
 import Loader from "../../components/Loader.jsx";
 
-import heroVideo from "../../assets/hmp1.mp4";
+import heroVideo from "../../assets/hmp.mp4";
 import hamperOneLuxury from "../../assets/images/hamper_one_luxury.webp";
 import reviewsLuxuryBg from "../../assets/images/reviews_luxury_bg.webp";
 import storyImg1 from "../../assets/images/img1.png";

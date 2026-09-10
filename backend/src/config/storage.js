@@ -1,7 +1,4 @@
-import dotenv from "dotenv";
 import { v2 as cloudinary } from "cloudinary";
-
-dotenv.config();
 
 const cloudName = String(
   process.env.CLOUDINARY_CLOUD_NAME || ""
