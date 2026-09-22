@@ -24,6 +24,15 @@ import {
 
 const isValidId = (id) => mongoose.isValidObjectId(id);
 
+const disableCatalogCaching = (res) => {
+  res.setHeader(
+    "Cache-Control",
+    "no-store, no-cache, must-revalidate, proxy-revalidate"
+  );
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+};
+
 const createSlug = (value = "") =>
   String(value)
     .trim()
@@ -3943,56 +3952,65 @@ const parseContainerReviewCompletion = (raw) => {
 };
 
 const replaceProductMasterCatalog = async () => {
-  const [importedProducts, importedCategories] = await Promise.all([
-    Product.find({ "source.type": "product_master" })
-      .select("_id category")
-      .lean(),
-    Category.find({ "source.type": "product_master" })
-      .select("_id")
-      .lean(),
-  ]);
+  /*
+   * TESTING-PHASE HARD REPLACE
+   * -------------------------------------------------------
+   * The user is repeatedly importing different master files and expects the
+   * selected workbook to become the ONLY current catalogue. Older importer
+   * versions did not always tag every row consistently with
+   * source.type=product_master, so filtering only by source.type can leave
+   * stale products/components/containers behind.
+   *
+   * Therefore Confirm Import clears the current catalogue core first, while
+   * preserving users, orders, payments, partners, reviews, etc.
+   *
+   * Collections are intentionally preserved because the Product Master does
+   * not own collection definitions. Categories referenced by the catalogue
+   * being replaced are removed and recreated from the new workbook.
+   */
 
-  const productIds = importedProducts.map((product) => product._id);
+  const existingProducts = await Product.find({})
+    .select("_id category")
+    .lean();
+
+  const productCategoryIds = [
+    ...new Set(
+      existingProducts
+        .map((product) => String(product.category || ""))
+        .filter(isValidId)
+    ),
+  ];
+
+  const importedCategoryIds = await Category.find({
+    "source.type": "product_master",
+  })
+    .distinct("_id");
+
   const candidateCategoryIds = [
     ...new Set([
-      ...importedProducts
-        .map((product) => String(product.category || ""))
-        .filter(isValidId),
-      ...importedCategories.map((category) => String(category._id)),
+      ...productCategoryIds,
+      ...importedCategoryIds.map(String),
     ]),
   ];
 
-  const [skuDelete, productDelete, containerDelete, componentDelete] = await Promise.all([
-    SKU.deleteMany({
-      $or: [
-        { "source.type": "product_master" },
-        ...(productIds.length ? [{ product: { $in: productIds } }] : []),
-      ],
-    }),
-    Product.deleteMany({ "source.type": "product_master" }),
-    Container.deleteMany({ "source.type": "product_master" }),
-    Component.deleteMany({ "source.type": "product_master" }),
-  ]);
+  /*
+   * Delete child records first. We intentionally clear ALL catalogue rows in
+   * these four core collections during testing so an older untagged import
+   * cannot survive and appear beside the new workbook.
+   */
+  const skuDelete = await SKU.deleteMany({});
+
+  const productDelete = await Product.deleteMany({});
+  const componentDelete = await Component.deleteMany({});
+  const containerDelete = await Container.deleteMany({});
 
   let deletedCategories = 0;
-  if (candidateCategoryIds.length) {
-    const categoriesStillUsed = await Product.distinct("category", {
-      category: { $in: candidateCategoryIds },
-    });
-    const usedSet = new Set(categoriesStillUsed.map(String));
-    const removableIds = candidateCategoryIds.filter((id) => !usedSet.has(String(id)));
 
-    if (removableIds.length) {
-      const result = await Category.deleteMany({
-        _id: { $in: removableIds },
-        $or: [
-          { "source.type": "product_master" },
-          { source: { $exists: false } },
-          { "source.type": { $exists: false } },
-        ],
-      });
-      deletedCategories = result.deletedCount || 0;
-    }
+  if (candidateCategoryIds.length) {
+    const result = await Category.deleteMany({
+      _id: { $in: candidateCategoryIds },
+    });
+    deletedCategories = result.deletedCount || 0;
   }
 
   return {
@@ -4150,6 +4168,7 @@ export const previewProductMasterImport = asyncHandler(async (req, res) => {
     message:
       "Product Master analyzed successfully. Confirm Import will replace the previous Product Master catalogue with this workbook.",
     importMode: "replace_product_master",
+    replacementStrategy: "testing_hard_replace",
     filename: analysis.filename,
     sheetName: analysis.sheetName,
     compositionSheetName: analysis.compositionSheetName,
@@ -4653,6 +4672,21 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
     else if (item.action === "ERROR") summary.errors += 1;
   }
 
+  const [databaseProducts, databaseSkus, databaseComponents, databaseContainers] =
+    await Promise.all([
+      Product.countDocuments({}),
+      SKU.countDocuments({}),
+      Component.countDocuments({}),
+      Container.countDocuments({}),
+    ]);
+
+  const databaseState = {
+    products: databaseProducts,
+    skus: databaseSkus,
+    components: databaseComponents,
+    containers: databaseContainers,
+  };
+
   res.status(200).json({
     success: summary.errors === 0,
     message:
@@ -4660,6 +4694,8 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
         ? "Previous Product Master catalogue was replaced successfully with the new workbook"
         : "Previous Product Master catalogue was cleared and the new import completed with row errors",
     importMode: "replace_product_master",
+    replacementStrategy: "testing_hard_replace",
+    databaseState,
     filename: analysis.filename,
     sheetName: analysis.sheetName,
     compositionSheetName: analysis.compositionSheetName,
@@ -4676,6 +4712,7 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
 ========================================================= */
 
 export const getComponents = asyncHandler(async (req, res) => {
+  disableCatalogCaching(res);
   const { search, type, category, subcategory, segment, channel, hamperRole } = req.query;
   const filter = {
     isActive: true,
@@ -4781,6 +4818,7 @@ export const getComponents = asyncHandler(async (req, res) => {
 });
 
 export const getContainers = asyncHandler(async (req, res) => {
+  disableCatalogCaching(res);
   const { search, category, subcategory, segment, channel } = req.query;
   const filter = {
     isActive: true,
@@ -5151,6 +5189,7 @@ export const validateConfiguration = asyncHandler(async (req, res) => {
 ========================================================= */
 
 export const getCategories = asyncHandler(async (req, res) => {
+  disableCatalogCaching(res);
   const categories = await Category.find({ isActive: true })
     .sort({ sortOrder: 1, name: 1 })
     .lean();
@@ -5159,6 +5198,7 @@ export const getCategories = asyncHandler(async (req, res) => {
 });
 
 export const getCollections = asyncHandler(async (req, res) => {
+  disableCatalogCaching(res);
   const collections = await Collection.find({ isActive: true })
     .sort({ isFeatured: -1, sortOrder: 1, name: 1 })
     .lean();
@@ -5167,6 +5207,7 @@ export const getCollections = asyncHandler(async (req, res) => {
 });
 
 export const getProducts = asyncHandler(async (req, res) => {
+  disableCatalogCaching(res);
   const {
     search,
     category,
@@ -5346,6 +5387,7 @@ export const getProducts = asyncHandler(async (req, res) => {
 
 
 export const getProductBySlug = asyncHandler(async (req, res) => {
+  disableCatalogCaching(res);
   const { slug } = req.params;
 
   const product = await Product.findOne({
