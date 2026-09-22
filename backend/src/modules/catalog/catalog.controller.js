@@ -3090,6 +3090,16 @@ const getLookupRecord = (map, sku) => {
   return map.get(normalizeExternalSkuKey(sku)) || map.get(normalizeCodeKey(sku)) || null;
 };
 
+const createEmptyCatalogContext = () => ({
+  componentsBySku: new Map(),
+  containersBySku: new Map(),
+  skusBySku: new Map(),
+  readyProductsBySku: new Map(),
+  productsById: new Map(),
+  categoriesBySlug: new Map(),
+  categoriesByName: new Map(),
+});
+
 const buildExistingCatalogContext = async ({ allSkus = [], categoryNames = [] } = {}) => {
   const normalizedSkus = [...new Set(allSkus.map(normalizeExternalSkuKey).filter(Boolean))];
   const upperCodes = normalizedSkus.map(normalizeCodeKey);
@@ -3562,10 +3572,24 @@ const analyzeProductMasterBuffer = async (
     for (const entry of entries) allSkus.add(entry.childSku);
   }
 
-  const existingContext = await buildExistingCatalogContext({
-    allSkus: [...allSkus],
-    categoryNames: [...categoryNames],
-  });
+  /*
+   * TESTING HARD-REPLACE MODE
+   * -------------------------------------------------------
+   * In replace mode the selected workbook is the source of truth and the
+   * current catalogue will be cleared on Confirm Import. Preview therefore
+   * must not depend on the existing catalogue at all. Besides making Analyze
+   * much faster on Render/MongoDB Atlas, this avoids stale/legacy records or
+   * old schemas causing the preview endpoint to fail before the replacement
+   * can happen.
+   *
+   * Non-replace/merge mode can still compare against MongoDB normally.
+   */
+  const existingContext = replaceMode
+    ? createEmptyCatalogContext()
+    : await buildExistingCatalogContext({
+        allSkus: [...allSkus],
+        categoryNames: [...categoryNames],
+      });
 
   const builtBaseByRow = new Map();
   const workbookComponentsBySku = new Map();
