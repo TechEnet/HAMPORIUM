@@ -66,6 +66,27 @@ const hamperContentSchema = new mongoose.Schema(
   { _id: true }
 );
 
+/*
+ * Decorations are intentionally stored separately from hamperContents.
+ * They are customer-facing finishes, but they do not consume the gift-product
+ * item count, volume or max-content-weight capacity of the selected box.
+ */
+const decorationSchema = new mongoose.Schema(
+  {
+    component: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Component",
+      required: true,
+    },
+    quantity: { type: Number, required: true, min: 0.001 },
+    unit: { type: String, trim: true, default: "pc", maxlength: 30 },
+    displayName: { type: String, trim: true, default: "", maxlength: 180 },
+    sortOrder: { type: Number, default: 0 },
+    isOptional: { type: Boolean, default: false },
+  },
+  { _id: true }
+);
+
 const internalMaterialSchema = new mongoose.Schema(
   {
     component: {
@@ -156,6 +177,7 @@ const skuSchema = new mongoose.Schema(
     },
 
     hamperContents: { type: [hamperContentSchema], default: [] },
+    decorations: { type: [decorationSchema], default: [] },
     internalMaterials: { type: [internalMaterialSchema], default: [] },
 
     packagedDimensions: {
@@ -230,6 +252,9 @@ skuSchema.path("discount.value").validate(function validateDiscountValue(value) 
 
 skuSchema.index({ product: 1, isActive: 1, sortOrder: 1 });
 skuSchema.index({ container: 1, isActive: 1 });
+skuSchema.index({ "hamperContents.component": 1 });
+skuSchema.index({ "decorations.component": 1 });
+skuSchema.index({ "internalMaterials.component": 1 });
 skuSchema.index({ "source.externalSku": 1 });
 skuSchema.index({ hsnSac: 1, taxPercent: 1 });
 

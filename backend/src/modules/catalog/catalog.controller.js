@@ -718,6 +718,7 @@ const applyComponentMasterFields = (component, body) => {
     "dietary",
     "personalizationMethod",
     "hsnSac",
+    "decorationType",
   ]);
 
   applyNumberFields(component, body, [
@@ -734,8 +735,18 @@ const applyComponentMasterFields = (component, body) => {
     "shelfLifeDays",
   ]);
 
-  for (const field of ["fragile", "expiryTracked", "personalizable", "hamperUse"]) {
+  for (const field of [
+    "fragile",
+    "expiryTracked",
+    "personalizable",
+    "hamperUse",
+    "countsTowardBoxCapacity",
+  ]) {
     if (body[field] !== undefined) component[field] = parseBoolean(body[field]);
+  }
+
+  if (component.hamperRole === "decoration") {
+    component.countsTowardBoxCapacity = false;
   }
 
   if (body.channels !== undefined) {
@@ -1183,7 +1194,7 @@ const validateAndNormalizeHamperContents = async (items = []) => {
   }
 
   const components = await Component.find({ _id: { $in: ids } })
-    .select("_id name type expiryDate isActive")
+    .select("_id name type hamperRole expiryDate isActive")
     .lean();
 
   if (components.length !== ids.length) {
@@ -1208,6 +1219,12 @@ const validateAndNormalizeHamperContents = async (items = []) => {
       };
     }
 
+    if ((component.hamperRole || "content") === "decoration") {
+      return {
+        valid: false,
+        message: `${component.name} is a decoration and must be stored in the separate decorations field`,
+      };
+    }
   }
 
   const expiryDates = components
@@ -1223,6 +1240,106 @@ const validateAndNormalizeHamperContents = async (items = []) => {
         ? new Date(Math.min(...expiryDates.map((date) => date.getTime())))
         : null,
   };
+};
+
+const validateAndNormalizeDecorations = async (items = []) => {
+  if (!Array.isArray(items)) {
+    return { valid: false, message: "decorations must be an array" };
+  }
+
+  if (items.length === 0) {
+    return { valid: true, items: [] };
+  }
+
+  const normalized = [];
+  const ids = [];
+  const seen = new Set();
+
+  for (let index = 0; index < items.length; index += 1) {
+    const item = items[index];
+    const componentId = getReferenceId(item?.component);
+
+    if (!isValidId(componentId)) {
+      return {
+        valid: false,
+        message: `Invalid component ID in decorations at item ${index + 1}`,
+      };
+    }
+
+    const id = String(componentId);
+    if (seen.has(id)) {
+      return {
+        valid: false,
+        message: "Duplicate components are not allowed in decorations",
+      };
+    }
+
+    seen.add(id);
+    ids.push(id);
+
+    const quantity = Number(item.quantity);
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      return {
+        valid: false,
+        message: `Quantity must be greater than 0 in decorations item ${index + 1}`,
+      };
+    }
+
+    let isOptional = false;
+    if (item.isOptional !== undefined) {
+      const parsed = parseBoolean(item.isOptional);
+      if (parsed === undefined) {
+        return {
+          valid: false,
+          message: `isOptional must be true or false in decorations item ${index + 1}`,
+        };
+      }
+      isOptional = parsed;
+    }
+
+    const sortOrder = item.sortOrder !== undefined ? Number(item.sortOrder) : index;
+    if (!Number.isFinite(sortOrder)) {
+      return {
+        valid: false,
+        message: `Invalid sortOrder in decorations item ${index + 1}`,
+      };
+    }
+
+    normalized.push({
+      component: componentId,
+      quantity,
+      unit: String(item.unit || "pc").trim() || "pc",
+      displayName: String(item.displayName || "").trim(),
+      sortOrder,
+      isOptional,
+    });
+  }
+
+  const components = await Component.find({ _id: { $in: ids } })
+    .select("_id name type hamperRole isActive customerSelectable")
+    .lean();
+
+  if (components.length !== ids.length) {
+    return { valid: false, message: "One or more decoration components do not exist" };
+  }
+
+  for (const component of components) {
+    if (!component.isActive) {
+      return {
+        valid: false,
+        message: `${component.name} is inactive and cannot be used as a decoration`,
+      };
+    }
+
+    if ((component.hamperRole || "content") !== "decoration") {
+      return {
+        valid: false,
+        message: `${component.name} is not configured as a decoration`,
+      };
+    }
+  }
+
+  return { valid: true, items: normalized };
 };
 
 const syncSkuExpiryForComponent = async (componentId) => {
@@ -1431,9 +1548,13 @@ const calculateSkuDeliveryEstimate = async (
     ? sku.internalMaterials
     : [];
 
+  const decorationEntries = Array.isArray(sku.decorations)
+    ? sku.decorations.filter((item) => !item.isOptional)
+    : [];
+
   const componentIds = [
     ...new Set(
-      [...contentEntries, ...materialEntries]
+      [...contentEntries, ...materialEntries, ...decorationEntries]
         .map((item) => String(getReferenceId(item.component) || ""))
         .filter((id) => isValidId(id))
     ),
@@ -1475,6 +1596,22 @@ const calculateSkuDeliveryEstimate = async (
 
     dependencies.push(
       makeDependency("internal_material", component, ready, {
+        requiredQuantity: item.quantity,
+        requiredUnit: item.unit || "pc",
+      })
+    );
+  }
+
+  for (const item of decorationEntries) {
+    const component = componentMap.get(String(getReferenceId(item.component)));
+    const ready = resolveDependencyReadyDate(component, today, {
+      requiredQuantity: item.quantity,
+      requiredUnit: item.unit || "pc",
+      stockUnit: true,
+    });
+
+    dependencies.push(
+      makeDependency("decoration", component, ready, {
         requiredQuantity: item.quantity,
         requiredUnit: item.unit || "pc",
       })
@@ -1976,6 +2113,9 @@ const calculateCustomConfigurationEta = async (
 ========================================================= */
 
 const PRODUCT_MASTER_SHEET = "Product Master";
+const HAMPER_COMPOSITION_SHEET = "Hamper Composition";
+const CONTAINER_SETUP_SHEET = "HAMPORIUM Container Setup";
+const DECORATION_MASTER_SHEET = "Decoration Master";
 
 const normalizeMasterHeader = (value = "") =>
   String(value)
@@ -2099,7 +2239,31 @@ const getMasterRecordType = (row) => {
   return "component";
 };
 
-const getMasterComponentType = (row) => {
+const getMasterBuilderSection = (row) =>
+  masterText(row, ["Builder Section", "Builder Area", "Custom Builder Section"])
+    .trim()
+    .toLowerCase();
+
+const isMasterDecorationRow = (row, decorationMasterEntry = null) => {
+  const builderSection = getMasterBuilderSection(row);
+  const decorationType =
+    masterText(row, ["Decoration Type"]) || decorationMasterEntry?.decorationType || "";
+  const selectable = masterBoolean(
+    row,
+    ["Decoration Selectable?", "Decoration Selectable"],
+    decorationMasterEntry?.customerSelectable === true
+  );
+
+  return (
+    builderSection.includes("decoration") ||
+    Boolean(decorationType) ||
+    selectable === true
+  );
+};
+
+const getMasterComponentType = (row, { decoration = false } = {}) => {
+  if (decoration) return "non_food";
+
   const productType = masterText(row, ["Product Type"]).toLowerCase();
   const category = masterText(row, ["Category"]).toLowerCase();
   const taxonomy = masterText(row, ["Taxonomy Base ID (Auto)", "Taxonomy Base ID"])
@@ -2135,6 +2299,9 @@ const validPositiveWeight = (weight) =>
   Number.isFinite(Number(weight.value)) &&
   Number(weight.value) > 0 &&
   WEIGHT_UNITS.includes(weight.unit || "kg");
+
+const normalizeExternalSkuKey = (value) => String(value || "").trim();
+const normalizeCodeKey = (value) => String(value || "").trim().toUpperCase();
 
 const buildMasterCommonFields = (row, errors) => {
   const externalSku = masterText(row, [
@@ -2275,11 +2442,142 @@ const buildMasterCommonFields = (row, errors) => {
   };
 };
 
-const buildComponentMasterPayload = (row) => {
+const findWorkbookSheet = (workbook, names = []) =>
+  workbook.SheetNames.find((sheetName) =>
+    names.some(
+      (candidate) =>
+        normalizeMasterHeader(sheetName) === normalizeMasterHeader(candidate)
+    )
+  );
+
+const parseContainerSetupSheet = (workbook) => {
+  const sheetName = findWorkbookSheet(workbook, [
+    CONTAINER_SETUP_SHEET,
+    "Container Setup",
+    "Box Setup",
+  ]);
+
+  if (!sheetName) {
+    return { sheetName: null, bySku: new Map(), errors: [] };
+  }
+
+  const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], {
+    defval: null,
+    raw: true,
+  });
+
+  const bySku = new Map();
+  const errors = [];
+
+  rows.map(normalizeMasterRow).forEach((row, index) => {
+    const rowNumber = index + 2;
+    const sku = masterText(row, ["Container SKU", "Product SKU", "SKU"]);
+    if (!sku) return;
+
+    if (bySku.has(sku)) {
+      errors.push(`${CONTAINER_SETUP_SHEET} row ${rowNumber} duplicates Container SKU ${sku}`);
+      return;
+    }
+
+    const localErrors = [];
+    const outerLength = masterNumber(row, ["Outer L cm", "Outer Length cm"], "Outer L cm", localErrors);
+    const outerWidth = masterNumber(row, ["Outer W cm", "Outer Width cm"], "Outer W cm", localErrors);
+    const outerHeight = masterNumber(row, ["Outer H cm", "Outer Height cm"], "Outer H cm", localErrors);
+    const innerLength = masterNumber(row, ["True Inner L cm", "Inner L cm", "Inner Length cm"], "True Inner L cm", localErrors);
+    const innerWidth = masterNumber(row, ["True Inner W cm", "Inner W cm", "Inner Width cm"], "True Inner W cm", localErrors);
+    const innerHeight = masterNumber(row, ["True Inner H cm", "Inner H cm", "Inner Height cm"], "True Inner H cm", localErrors);
+    const maxContentWeight = masterNumber(row, ["Max Content Weight kg", "Max Safe Load kg"], "Max Content Weight kg", localErrors);
+    const usableVolumePercent = masterNumber(row, ["Usable Volume %"], "Usable Volume %", localErrors);
+    const maxItems = masterNumber(row, ["Max Items", "Max Content Items"], "Max Items", localErrors);
+    const defaultCourierDays = masterNumber(row, ["Default Courier Days", "Courier Days"], "Default Courier Days", localErrors);
+
+    if (localErrors.length) {
+      errors.push(...localErrors.map((message) => `${CONTAINER_SETUP_SHEET} row ${rowNumber}: ${message}`));
+    }
+
+    bySku.set(sku, {
+      outerDimensions:
+        [outerLength, outerWidth, outerHeight].every((value) => Number(value) > 0)
+          ? { length: outerLength, width: outerWidth, height: outerHeight, unit: "cm" }
+          : null,
+      innerDimensions:
+        [innerLength, innerWidth, innerHeight].every((value) => Number(value) > 0)
+          ? { length: innerLength, width: innerWidth, height: innerHeight, unit: "cm" }
+          : null,
+      maxContentWeight:
+        Number(maxContentWeight) > 0
+          ? { value: maxContentWeight, unit: "kg" }
+          : null,
+      usableVolumePercent,
+      maxItems,
+      defaultCourierDays,
+      customerSelectable: masterBoolean(
+        row,
+        ["Custom Builder Selectable", "Customer Selectable?", "Selectable?"],
+        true
+      ),
+    });
+  });
+
+  return { sheetName, bySku, errors };
+};
+
+const parseDecorationMasterSheet = (workbook) => {
+  const sheetName = findWorkbookSheet(workbook, [
+    DECORATION_MASTER_SHEET,
+    "Decorations",
+  ]);
+
+  if (!sheetName) {
+    return { sheetName: null, bySku: new Map(), errors: [] };
+  }
+
+  const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], {
+    defval: null,
+    raw: true,
+  });
+
+  const bySku = new Map();
+  const errors = [];
+
+  rows.map(normalizeMasterRow).forEach((row, index) => {
+    const rowNumber = index + 2;
+    const sku = masterText(row, ["Decoration SKU", "Product SKU", "SKU"]);
+    if (!sku) return;
+
+    if (bySku.has(sku)) {
+      errors.push(`${DECORATION_MASTER_SHEET} row ${rowNumber} duplicates Decoration SKU ${sku}`);
+      return;
+    }
+
+    const priceErrors = [];
+    const sellingPrice = masterNumber(row, ["Target Sell Price"], "Target Sell Price", priceErrors);
+    const taxPercent = masterNumber(row, ["Tax %"], "Tax %", priceErrors);
+    if (priceErrors.length) {
+      errors.push(...priceErrors.map((message) => `${DECORATION_MASTER_SHEET} row ${rowNumber}: ${message}`));
+    }
+
+    bySku.set(sku, {
+      decorationType: masterText(row, ["Decoration Type"]),
+      customerSelectable: masterBoolean(row, ["Customer Selectable?"], true),
+      countsTowardBoxCapacity: masterBoolean(row, ["Counts Toward Box Capacity?"], false),
+      sellingPrice,
+      taxPercent,
+      personalizable: masterBoolean(row, ["Personalizable?"], false),
+      imageUrl: masterText(row, ["Image / Asset URL", "Image URL"]),
+    });
+  });
+
+  return { sheetName, bySku, errors };
+};
+
+const buildComponentMasterPayload = (row, { decorationMasterEntry = null } = {}) => {
   const errors = [];
   const review = [];
   const common = buildMasterCommonFields(row, errors);
-  const type = getMasterComponentType(row);
+  const decoration = isMasterDecorationRow(row, decorationMasterEntry);
+  const type = getMasterComponentType(row, { decoration });
+  const hamperRole = decoration ? "decoration" : "content";
 
   if (!common.externalSku) errors.push("Product SKU is required");
   if (!common.name) errors.push("Product Name is required");
@@ -2288,6 +2586,7 @@ const buildComponentMasterPayload = (row) => {
     name: common.name,
     code: common.externalSku.toUpperCase(),
     type,
+    hamperRole,
     source: {
       type: "product_master",
       externalSku: common.externalSku,
@@ -2312,11 +2611,22 @@ const buildComponentMasterPayload = (row) => {
   setMasterField(payload, "piecesPerUom", common.piecesPerUom);
   setMasterField(payload, "productPriority", common.productPriority);
   setMasterField(payload, "mrp", common.mrp);
-  setMasterField(payload, "sellingPrice", common.sellingPrice);
+  setMasterField(
+    payload,
+    "sellingPrice",
+    decorationMasterEntry?.sellingPrice ?? common.sellingPrice
+  );
   setMasterField(payload, "latestUnitCost", common.latestUnitCost);
   setMasterField(payload, "actualLandedCost", common.actualLandedCost);
-  setMasterField(payload, "taxPercent", common.taxPercent);
-  payload.taxEnabled = common.taxPercent !== null && Number(common.taxPercent) > 0;
+  setMasterField(
+    payload,
+    "taxPercent",
+    decorationMasterEntry?.taxPercent ?? common.taxPercent
+  );
+  payload.taxEnabled =
+    payload.taxPercent !== null &&
+    payload.taxPercent !== undefined &&
+    Number(payload.taxPercent) > 0;
   payload.pricingSource = "product_master";
   payload.taxSource = "product_master";
   setMasterField(payload, "minGrossMarginPercent", common.minGrossMarginPercent);
@@ -2324,7 +2634,7 @@ const buildComponentMasterPayload = (row) => {
   setMasterField(payload, "leadTimeDays", common.leadTimeDays);
   setMasterField(payload, "shelfLifeDays", common.shelfLifeDays);
 
-  if (type !== "packaging" && common.expiryDate) {
+  if (type !== "packaging" && !decoration && common.expiryDate) {
     payload.expiryDate = common.expiryDate;
   }
 
@@ -2332,25 +2642,54 @@ const buildComponentMasterPayload = (row) => {
   if (common.weight) payload.weight = common.weight;
 
   payload.fragile = common.fragile;
-  payload.expiryTracked = common.expiryTracked;
-  payload.personalizable = common.personalizable;
+  payload.expiryTracked = decoration ? false : common.expiryTracked;
+  payload.personalizable =
+    decorationMasterEntry?.personalizable ?? common.personalizable;
   payload.hamperUse = common.hamperUse;
   payload.channels = common.channels;
   payload.isActive = common.isActive;
-  payload.customerSelectable = type !== "packaging" && common.hamperUse && common.isActive;
 
-  if (common.imageUrl) {
-    payload.images = [{ url: common.imageUrl, publicId: "", alt: common.name }];
+  if (decoration) {
+    payload.decorationType =
+      masterText(row, ["Decoration Type"]) ||
+      decorationMasterEntry?.decorationType ||
+      "Decoration";
+    payload.countsTowardBoxCapacity = false;
+    payload.customerSelectable =
+      common.isActive &&
+      masterBoolean(
+        row,
+        ["Decoration Selectable?", "Decoration Selectable"],
+        decorationMasterEntry?.customerSelectable !== false
+      );
+  } else {
+    payload.decorationType = "";
+    payload.countsTowardBoxCapacity = masterBoolean(
+      row,
+      ["Counts Toward Box Capacity?"],
+      type !== "packaging"
+    );
+    payload.customerSelectable =
+      type !== "packaging" && common.hamperUse && common.isActive;
+  }
+
+  const imageUrl = decorationMasterEntry?.imageUrl || common.imageUrl;
+  if (imageUrl) {
+    payload.images = [{ url: imageUrl, publicId: "", alt: common.name }];
   }
 
   if (common.sourceUpdatedAt) payload.source.sourceUpdatedAt = common.sourceUpdatedAt;
 
-  if (payload.customerSelectable) {
+  if (payload.customerSelectable && hamperRole !== "decoration") {
     if (!validPositiveDimensions(common.dimensions)) {
       review.push("Customer-selectable item requires Product Length, Width and Height");
     }
 
-    if (!common.weight || !Number.isFinite(Number(common.weight.value)) || Number(common.weight.value) <= 0) {
+    if (
+      !common.weight ||
+      !Number.isFinite(Number(common.weight.value)) ||
+      Number(common.weight.value) <= 0
+    ) {
       review.push("Customer-selectable item requires Net Product Weight");
     }
 
@@ -2359,17 +2698,59 @@ const buildComponentMasterPayload = (row) => {
     }
   }
 
+  if (decoration && payload.customerSelectable && payload.sellingPrice === undefined) {
+    review.push("Customer-selectable decoration requires Target Sell Price");
+  }
+
   return { payload, errors, review };
 };
 
-const buildContainerMasterPayload = (row) => {
+const buildContainerMasterPayload = (row, setupEntry = null) => {
   const errors = [];
   const review = [];
   const common = buildMasterCommonFields(row, errors);
+
   const maxSafeLoadKg = masterNumber(
     row,
-    ["Max Safe Load kg (Container Only)"],
+    ["Max Safe Load kg (Container Only)", "Max Content Weight kg (Container Only)"],
     "Max Safe Load kg",
+    errors
+  );
+
+  const innerWidth = masterNumber(
+    row,
+    ["True Inner Width cm (Container Only)", "True Inner W cm", "Inner Width cm"],
+    "True Inner Width cm",
+    errors
+  );
+  const innerLength = masterNumber(
+    row,
+    ["True Inner Length cm (Container Only)", "True Inner L cm", "Inner Length cm"],
+    "True Inner Length cm",
+    errors
+  );
+  const innerHeight = masterNumber(
+    row,
+    ["True Inner Height cm (Container Only)", "True Inner H cm", "Inner Height cm"],
+    "True Inner Height cm",
+    errors
+  );
+  const usableVolumePercent = masterNumber(
+    row,
+    ["Usable Volume % (Container Only)", "Usable Volume %"],
+    "Usable Volume %",
+    errors
+  );
+  const maxItems = masterNumber(
+    row,
+    ["Max Content Items (Container Only)", "Max Items"],
+    "Max Content Items",
+    errors
+  );
+  const defaultCourierDays = masterNumber(
+    row,
+    ["Default Courier Days", "Courier Days"],
+    "Default Courier Days",
     errors
   );
 
@@ -2404,22 +2785,59 @@ const buildContainerMasterPayload = (row) => {
   payload.taxEnabled = common.taxPercent !== null && Number(common.taxPercent) > 0;
   payload.pricingSource = "product_master";
   payload.taxSource = "product_master";
+  setMasterField(payload, "minGrossMarginPercent", common.minGrossMarginPercent);
   setMasterField(payload, "leadTimeDays", common.leadTimeDays);
 
-  if (validPositiveDimensions(common.dimensions)) {
-    payload.outerDimensions = common.dimensions;
+  const outerDimensions = validPositiveDimensions(common.dimensions)
+    ? common.dimensions
+    : setupEntry?.outerDimensions;
+  const rowInnerDimensions =
+    [innerLength, innerWidth, innerHeight].every((value) => Number(value) > 0)
+      ? {
+          length: innerLength,
+          width: innerWidth,
+          height: innerHeight,
+          unit: "cm",
+        }
+      : null;
+
+  const finalInnerDimensions = rowInnerDimensions || setupEntry?.innerDimensions || null;
+  const finalMaxContentWeight =
+    Number(maxSafeLoadKg) > 0
+      ? { value: maxSafeLoadKg, unit: "kg" }
+      : setupEntry?.maxContentWeight || null;
+
+  if (validPositiveDimensions(outerDimensions)) {
+    payload.outerDimensions = outerDimensions;
+  }
+  if (validPositiveDimensions(finalInnerDimensions)) {
+    payload.innerDimensions = finalInnerDimensions;
+  }
+  if (validPositiveWeight(finalMaxContentWeight)) {
+    payload.maxContentWeight = finalMaxContentWeight;
   }
 
-  if (maxSafeLoadKg !== null) {
-    payload.maxContentWeight = { value: maxSafeLoadKg, unit: "kg" };
-  }
+  const finalUsableVolumePercent =
+    usableVolumePercent ?? setupEntry?.usableVolumePercent ?? 85;
+  const finalMaxItems = maxItems ?? setupEntry?.maxItems ?? 0;
+  const finalCourierDays =
+    defaultCourierDays ?? setupEntry?.defaultCourierDays ?? null;
+
+  payload.usableVolumePercent = Number(finalUsableVolumePercent);
+  payload.maxItems = Number(finalMaxItems);
+  payload.defaultCourierDays =
+    finalCourierDays === null || finalCourierDays === ""
+      ? null
+      : Number(finalCourierDays);
 
   payload.hamperUse = common.hamperUse;
   payload.channels = common.channels;
   payload.isActive = common.isActive;
+  payload.customerSelectable =
+    common.isActive &&
+    common.hamperUse !== false &&
+    (setupEntry?.customerSelectable ?? true);
 
-  // customerSelectable is intentionally HAMPORIUM-owned for containers.
-  // Product Master sync must not overwrite the admin's custom-builder decision.
   if (common.imageUrl) {
     payload.images = [{ url: common.imageUrl, publicId: "", alt: common.name }];
   }
@@ -2429,9 +2847,41 @@ const buildContainerMasterPayload = (row) => {
   if (!payload.outerDimensions) {
     review.push("Container requires Product Length, Width and Height for outer dimensions");
   }
-
+  if (!payload.innerDimensions) {
+    review.push(
+      "Container requires true inner Length, Width and Height in Product Master or HAMPORIUM Container Setup"
+    );
+  }
   if (!payload.maxContentWeight || Number(payload.maxContentWeight.value) <= 0) {
-    review.push("Container requires Max Safe Load kg");
+    review.push("Container requires Max Content Weight / Max Safe Load kg");
+  }
+  if (
+    !Number.isFinite(Number(payload.usableVolumePercent)) ||
+    Number(payload.usableVolumePercent) < 1 ||
+    Number(payload.usableVolumePercent) > 100
+  ) {
+    review.push("Container requires Usable Volume % between 1 and 100");
+  }
+  if (!Number.isInteger(Number(payload.maxItems)) || Number(payload.maxItems) < 0) {
+    review.push("Container Max Content Items must be a non-negative whole number");
+  }
+
+  if (
+    payload.outerDimensions &&
+    payload.innerDimensions &&
+    validPositiveDimensions(payload.outerDimensions) &&
+    validPositiveDimensions(payload.innerDimensions)
+  ) {
+    const validationError = validateContainerPayload({
+      ...payload,
+      availability: { status: "in_stock" },
+      productionLeadTime: {
+        personalizationDays: 0,
+        assemblyDays: 0,
+        packingDays: 0,
+      },
+    });
+    if (validationError) review.push(validationError);
   }
 
   return { payload, errors, review };
@@ -2528,61 +2978,6 @@ const collectChangedFields = (current, incoming, prefix = "") => {
   return changes;
 };
 
-const findMasterExistingRecord = async (recordType, externalSku) => {
-  const Model = recordType === "container" ? Container : Component;
-  const OtherModel = recordType === "container" ? Component : Container;
-
-  const query = {
-    $or: [
-      { "source.externalSku": externalSku },
-      { code: String(externalSku).toUpperCase() },
-    ],
-  };
-
-  const existing = await Model.findOne(query).lean();
-  const conflicting = await OtherModel.findOne(query)
-    .select("_id name code source.externalSku")
-    .lean();
-
-  return { existing, conflicting };
-};
-
-const getComponentTypeChangeReview = async (existing, nextType) => {
-  if (!existing || existing.type === nextType) return null;
-
-  if (nextType === "packaging") {
-    const usedAsContent = await SKU.exists({
-      "hamperContents.component": existing._id,
-    });
-
-    if (usedAsContent) {
-      return "Component is used in ready-made hamper contents and cannot be changed to packaging automatically";
-    }
-  } else {
-    const [usedAsSkuMaterial, usedAsContainerMaterial] = await Promise.all([
-      SKU.exists({ "internalMaterials.component": existing._id }),
-      Container.exists({ "packingMaterials.component": existing._id }),
-    ]);
-
-    if (usedAsSkuMaterial || usedAsContainerMaterial) {
-      return "Packaging component is already used as internal material and cannot change type automatically";
-    }
-  }
-
-  return null;
-};
-
-
-const HAMPER_COMPOSITION_SHEET = "Hamper Composition";
-
-const findWorkbookSheet = (workbook, names = []) =>
-  workbook.SheetNames.find((sheetName) =>
-    names.some(
-      (candidate) =>
-        normalizeMasterHeader(sheetName) === normalizeMasterHeader(candidate)
-    )
-  );
-
 const parseHamperCompositionSheet = (workbook) => {
   const sheetName = findWorkbookSheet(workbook, [
     HAMPER_COMPOSITION_SHEET,
@@ -2619,17 +3014,18 @@ const parseHamperCompositionSheet = (workbook) => {
       "Product SKU",
     ]);
     const roleRaw = masterText(row, ["Role", "Item Role", "Type"]).toLowerCase();
-    const role = roleRaw.includes("container") || roleRaw === "box"
-      ? "container"
-      : roleRaw.includes("pack") || roleRaw.includes("material")
-        ? "packaging"
-        : "content";
+    const builderSection = masterText(row, ["Builder Section"]).toLowerCase();
+
+    let role = "content";
+    if (roleRaw.includes("container") || roleRaw === "box") role = "container";
+    else if (roleRaw.includes("decoration") || builderSection.includes("decoration")) role = "decoration";
+    else if (roleRaw.includes("pack") || roleRaw.includes("material")) role = "packaging";
+
     const quantityRaw = getMasterValue(row, ["Quantity", "Qty"]);
     const quantity = quantityRaw === null || quantityRaw === "" ? 1 : Number(quantityRaw);
     const sortOrderRaw = getMasterValue(row, ["Sort Order", "Sequence"]);
-    const sortOrder = sortOrderRaw === null || sortOrderRaw === ""
-      ? index
-      : Number(sortOrderRaw);
+    const sortOrder =
+      sortOrderRaw === null || sortOrderRaw === "" ? index : Number(sortOrderRaw);
 
     if (!hamperSku || !childSku) {
       errors.push(`Hamper Composition row ${rowNumber} requires Hamper SKU and Item SKU`);
@@ -2658,6 +3054,11 @@ const parseHamperCompositionSheet = (workbook) => {
       isOptional: masterBoolean(row, ["Optional?", "Is Optional"], false),
       specification: masterText(row, ["Specification"]),
       notes: masterText(row, ["Notes"]),
+      countsTowardBoxCapacity: masterBoolean(
+        row,
+        ["Counts Toward Box Capacity?"],
+        role === "content"
+      ),
     };
 
     if (!byHamperSku.has(hamperSku)) byHamperSku.set(hamperSku, []);
@@ -2667,51 +3068,105 @@ const parseHamperCompositionSheet = (workbook) => {
   return { sheetName, byHamperSku, errors };
 };
 
-const findSourceComponent = async (externalSku) =>
-  Component.findOne({
-    $or: [
-      { "source.externalSku": externalSku },
-      { code: String(externalSku).toUpperCase() },
-    ],
-  }).lean();
+const addLookupRecord = (map, record) => {
+  if (!record) return;
+  const externalSku = normalizeExternalSkuKey(record?.source?.externalSku);
+  const code = normalizeCodeKey(record?.code);
+  if (externalSku) map.set(externalSku, record);
+  if (code) map.set(code, record);
+};
 
-const findSourceContainer = async (externalSku) =>
-  Container.findOne({
-    $or: [
-      { "source.externalSku": externalSku },
-      { code: String(externalSku).toUpperCase() },
-    ],
-  }).lean();
+const getLookupRecord = (map, sku) => {
+  if (!map) return null;
+  return map.get(normalizeExternalSkuKey(sku)) || map.get(normalizeCodeKey(sku)) || null;
+};
 
-const resolveReadyMadeCategory = async (name) => {
+const buildExistingCatalogContext = async ({ allSkus = [], categoryNames = [] } = {}) => {
+  const normalizedSkus = [...new Set(allSkus.map(normalizeExternalSkuKey).filter(Boolean))];
+  const upperCodes = normalizedSkus.map(normalizeCodeKey);
+
+  const componentQuery = normalizedSkus.length
+    ? {
+        $or: [
+          { "source.externalSku": { $in: normalizedSkus } },
+          { code: { $in: upperCodes } },
+        ],
+      }
+    : { _id: null };
+  const containerQuery = componentQuery;
+  const skuQuery = componentQuery;
+
+  const [components, containers, skus, categories] = await Promise.all([
+    Component.find(componentQuery).lean(),
+    Container.find(containerQuery).lean(),
+    SKU.find(skuQuery).lean(),
+    Category.find({}).lean(),
+  ]);
+
+  const productIds = [...new Set(skus.map((sku) => String(sku.product || "")).filter(isValidId))];
+  const products = productIds.length
+    ? await Product.find({ _id: { $in: productIds } }).lean()
+    : [];
+
+  const productsById = new Map(products.map((product) => [String(product._id), product]));
+  const componentsBySku = new Map();
+  const containersBySku = new Map();
+  const skusBySku = new Map();
+  const readyProductsBySku = new Map();
+
+  for (const component of components) addLookupRecord(componentsBySku, component);
+  for (const container of containers) addLookupRecord(containersBySku, container);
+  for (const sku of skus) {
+    addLookupRecord(skusBySku, sku);
+    const product = productsById.get(String(sku.product));
+    const externalSku = normalizeExternalSkuKey(sku?.source?.externalSku || sku.code);
+    if (product && externalSku) readyProductsBySku.set(externalSku, product);
+    if (product && sku.code) readyProductsBySku.set(normalizeCodeKey(sku.code), product);
+  }
+
+  const categoriesBySlug = new Map();
+  const categoriesByName = new Map();
+  for (const category of categories) {
+    categoriesBySlug.set(String(category.slug || "").toLowerCase(), category);
+    categoriesByName.set(String(category.name || "").trim().toLowerCase(), category);
+  }
+
+  for (const name of categoryNames) {
+    const key = String(name || "").trim().toLowerCase();
+    if (!key) continue;
+    const slug = createSlug(name);
+    if (!categoriesByName.has(key) && categoriesBySlug.has(slug)) {
+      categoriesByName.set(key, categoriesBySlug.get(slug));
+    }
+  }
+
+  return {
+    componentsBySku,
+    containersBySku,
+    skusBySku,
+    readyProductsBySku,
+    productsById,
+    categoriesBySlug,
+    categoriesByName,
+  };
+};
+
+const resolveReadyMadeCategoryFromContext = (name, context) => {
   const normalizedName = String(name || "").trim();
   if (!normalizedName) return null;
 
-  const slug = createSlug(normalizedName);
-  return Category.findOne({
-    $or: [
-      { slug },
-      { name: { $regex: `^${escapeRegex(normalizedName)}$`, $options: "i" } },
-    ],
-  }).lean();
+  return (
+    context.categoriesByName.get(normalizedName.toLowerCase()) ||
+    context.categoriesBySlug.get(createSlug(normalizedName)) ||
+    null
+  );
 };
 
-const findReadyMadeExisting = async (externalSku) => {
-  const sku = await SKU.findOne({
-    $or: [
-      { "source.externalSku": externalSku },
-      { code: String(externalSku).toUpperCase() },
-    ],
-  }).lean();
-
-  const product = sku?.product
-    ? await Product.findById(sku.product).lean()
-    : await Product.findOne({ "source.externalSku": externalSku }).lean();
-
-  return { sku, product };
-};
-
-const buildReadyMadeMasterPayload = async (row, compositionEntries = []) => {
+const buildReadyMadeMasterPayload = async (
+  row,
+  compositionEntries = [],
+  context
+) => {
   const errors = [];
   const review = [];
   const common = buildMasterCommonFields(row, errors);
@@ -2746,11 +3201,10 @@ const buildReadyMadeMasterPayload = async (row, compositionEntries = []) => {
   const containerEntries = compositionEntries.filter((entry) => entry.role === "container");
   const contentEntries = compositionEntries.filter((entry) => entry.role === "content");
   const materialEntries = compositionEntries.filter((entry) => entry.role === "packaging");
+  const decorationEntries = compositionEntries.filter((entry) => entry.role === "decoration");
 
   if (compositionEntries.length === 0) {
-    review.push(
-      `No ${HAMPER_COMPOSITION_SHEET} rows were found for this ready-made hamper SKU`
-    );
+    review.push(`No ${HAMPER_COMPOSITION_SHEET} rows were found for this ready-made hamper SKU`);
   }
 
   if (containerEntries.length !== 1) {
@@ -2761,31 +3215,33 @@ const buildReadyMadeMasterPayload = async (row, compositionEntries = []) => {
     review.push("Ready-made hamper requires at least one customer-facing content item");
   }
 
-  const container = containerEntries.length === 1
-    ? await findSourceContainer(containerEntries[0].childSku)
-    : null;
+  const container =
+    containerEntries.length === 1
+      ? getLookupRecord(context.sourceContainersBySku, containerEntries[0].childSku)
+      : null;
 
   if (containerEntries.length === 1 && !container) {
-    review.push(`Container SKU ${containerEntries[0].childSku} is not imported in HAMPORIUM`);
-  } else if (container && !container.isActive) {
+    review.push(`Container SKU ${containerEntries[0].childSku} is not present in this Product Master or HAMPORIUM`);
+  } else if (container && container.isActive === false) {
     review.push(`Container ${container.name} is inactive`);
   } else if (container && !validPositiveDimensions(container.innerDimensions)) {
-    review.push(`Container ${container.name} requires completed inner dimensions`);
+    review.push(`Container ${container.name} requires completed true inner dimensions`);
   }
 
   const hamperContents = [];
   const internalMaterials = [];
-  const componentMap = new Map();
+  const decorations = [];
+  const physicalComponentMap = new Map();
 
   for (const entry of contentEntries) {
-    const component = await findSourceComponent(entry.childSku);
+    const component = getLookupRecord(context.sourceComponentsBySku, entry.childSku);
 
     if (!component) {
-      review.push(`Content SKU ${entry.childSku} is not imported in HAMPORIUM`);
+      review.push(`Content SKU ${entry.childSku} is not present in this Product Master or HAMPORIUM`);
       continue;
     }
 
-    if (!component.isActive) {
+    if (component.isActive === false) {
       review.push(`${component.name} is inactive`);
       continue;
     }
@@ -2795,9 +3251,14 @@ const buildReadyMadeMasterPayload = async (row, compositionEntries = []) => {
       continue;
     }
 
-    componentMap.set(String(component._id), component);
+    if ((component.hamperRole || "content") === "decoration") {
+      review.push(`${component.name} is a decoration and cannot be stored as hamper content`);
+      continue;
+    }
+
+    physicalComponentMap.set(entry.childSku, component);
     hamperContents.push({
-      component: component._id,
+      component: entry.childSku,
       quantity: entry.quantity,
       unit: entry.unit || "pc",
       displayName: entry.displayName || component.name,
@@ -2807,20 +3268,20 @@ const buildReadyMadeMasterPayload = async (row, compositionEntries = []) => {
   }
 
   for (const entry of materialEntries) {
-    const component = await findSourceComponent(entry.childSku);
+    const component = getLookupRecord(context.sourceComponentsBySku, entry.childSku);
 
     if (!component) {
-      review.push(`Packaging SKU ${entry.childSku} is not imported in HAMPORIUM`);
+      review.push(`Packaging SKU ${entry.childSku} is not present in this Product Master or HAMPORIUM`);
       continue;
     }
 
-    if (!component.isActive || component.type !== "packaging") {
+    if (component.isActive === false || component.type !== "packaging") {
       review.push(`${component.name} must be an active packaging component`);
       continue;
     }
 
     internalMaterials.push({
-      component: component._id,
+      component: entry.childSku,
       quantity: entry.quantity,
       unit: entry.unit || "pc",
       specification: entry.specification || "",
@@ -2828,7 +3289,34 @@ const buildReadyMadeMasterPayload = async (row, compositionEntries = []) => {
     });
   }
 
-  if (container && hamperContents.length === contentEntries.length && hamperContents.length > 0) {
+  for (const entry of decorationEntries) {
+    const component = getLookupRecord(context.sourceComponentsBySku, entry.childSku);
+
+    if (!component) {
+      review.push(`Decoration SKU ${entry.childSku} is not present in this Product Master or HAMPORIUM`);
+      continue;
+    }
+
+    if (component.isActive === false || (component.hamperRole || "content") !== "decoration") {
+      review.push(`${component.name} must be an active decoration component`);
+      continue;
+    }
+
+    decorations.push({
+      component: entry.childSku,
+      quantity: entry.quantity,
+      unit: entry.unit || "pc",
+      displayName: entry.displayName || component.name,
+      sortOrder: entry.sortOrder,
+      isOptional: entry.isOptional,
+    });
+  }
+
+  if (
+    container &&
+    hamperContents.length === contentEntries.length &&
+    hamperContents.length > 0
+  ) {
     const selections = hamperContents
       .filter((item) => !item.isOptional)
       .map((item) => ({
@@ -2836,7 +3324,11 @@ const buildReadyMadeMasterPayload = async (row, compositionEntries = []) => {
         quantity: Number(item.quantity),
       }));
 
-    const physical = evaluatePhysicalConfiguration(container, selections, componentMap);
+    const physical = evaluatePhysicalConfiguration(
+      container,
+      selections,
+      physicalComponentMap
+    );
     if (!physical.valid) {
       review.push(
         `Fixed hamper composition does not pass the common fit engine: ${configurationReasonMessage(physical.reason)}`
@@ -2844,7 +3336,7 @@ const buildReadyMadeMasterPayload = async (row, compositionEntries = []) => {
     }
   }
 
-  const category = categoryName ? await resolveReadyMadeCategory(categoryName) : null;
+  const category = resolveReadyMadeCategoryFromContext(categoryName, context.existingContext);
   const source = {
     type: "product_master",
     externalSku: common.externalSku,
@@ -2901,9 +3393,10 @@ const buildReadyMadeMasterPayload = async (row, compositionEntries = []) => {
     images: common.imageUrl
       ? [{ url: common.imageUrl, publicId: "", alt: common.name }]
       : [],
-    container: container?._id || null,
+    container: containerEntries[0]?.childSku || null,
     hamperContents,
     internalMaterials,
+    decorations,
     packagedDimensions: validPositiveDimensions(common.dimensions)
       ? common.dimensions
       : { length: null, width: null, height: null, unit: "cm" },
@@ -2938,6 +3431,7 @@ const buildReadyMadeMasterPayload = async (row, compositionEntries = []) => {
         0
       ),
       packagingLines: materialEntries.length,
+      decorationLines: decorationEntries.length,
     },
   };
 };
@@ -2952,9 +3446,8 @@ const calculateReadyMadeHamperMetrics = (sku) => {
     if (item.isOptional) continue;
     const quantity = Number(item.quantity || 0);
     totalUnits += quantity;
-    const component = item.component && typeof item.component === "object"
-      ? item.component
-      : null;
+    const component =
+      item.component && typeof item.component === "object" ? item.component : null;
     const grams = component
       ? weightToGrams(component.weight?.value, component.weight?.unit)
       : null;
@@ -2989,7 +3482,11 @@ const calculateReadyMadeHamperMetrics = (sku) => {
   };
 };
 
-const analyzeProductMasterBuffer = async (buffer, filename = "") => {
+const analyzeProductMasterBuffer = async (
+  buffer,
+  filename = "",
+  { replaceMode = true } = {}
+) => {
   const workbook = XLSX.read(buffer, {
     type: "buffer",
     cellDates: true,
@@ -3016,61 +3513,126 @@ const analyzeProductMasterBuffer = async (buffer, filename = "") => {
   }
 
   const composition = parseHamperCompositionSheet(workbook);
+  const containerSetup = parseContainerSetupSheet(workbook);
+  const decorationMaster = parseDecorationMasterSheet(workbook);
   const normalizedRows = rows.map(normalizeMasterRow);
   const skuCounts = new Map();
+  const rowMeta = [];
+  const allSkus = new Set();
+  const categoryNames = new Set();
 
-  for (const row of normalizedRows) {
-    const sku = masterText(row, [
-      "Product SKU (10 digits numeric — immutable)",
-      "Product SKU",
-      "SKU",
-    ]);
-    if (sku) skuCounts.set(sku, (skuCounts.get(sku) || 0) + 1);
-  }
-
-  const results = [];
-
-  for (let index = 0; index < normalizedRows.length; index += 1) {
-    const row = normalizedRows[index];
-    const rowNumber = index + 2;
-    const recordType = getMasterRecordType(row);
+  normalizedRows.forEach((row, index) => {
     const externalSku = masterText(row, [
       "Product SKU (10 digits numeric — immutable)",
       "Product SKU",
       "SKU",
     ]);
+    const recordType = getMasterRecordType(row);
     const name = masterText(row, ["Product Name", "Name"]);
+    const rowNumber = index + 2;
+
+    if (externalSku) {
+      skuCounts.set(externalSku, (skuCounts.get(externalSku) || 0) + 1);
+      allSkus.add(externalSku);
+    }
+
+    if (recordType === "ready_made_hamper") {
+      const categoryName = masterText(row, [
+        "Website Category",
+        "Ready Made Category",
+        "Ready-Made Category",
+        "Category",
+      ]);
+      if (categoryName) categoryNames.add(categoryName);
+    }
+
+    rowMeta.push({ row, rowNumber, recordType, externalSku, name });
+  });
+
+  for (const entries of composition.byHamperSku.values()) {
+    for (const entry of entries) allSkus.add(entry.childSku);
+  }
+
+  const existingContext = await buildExistingCatalogContext({
+    allSkus: [...allSkus],
+    categoryNames: [...categoryNames],
+  });
+
+  const builtBaseByRow = new Map();
+  const workbookComponentsBySku = new Map();
+  const workbookContainersBySku = new Map();
+
+  for (const meta of rowMeta) {
+    if (meta.recordType === "ready_made_hamper") continue;
+
+    const built =
+      meta.recordType === "container"
+        ? buildContainerMasterPayload(
+            meta.row,
+            containerSetup.bySku.get(meta.externalSku) || null
+          )
+        : buildComponentMasterPayload(meta.row, {
+            decorationMasterEntry:
+              decorationMaster.bySku.get(meta.externalSku) || null,
+          });
+
+    builtBaseByRow.set(meta.rowNumber, built);
+
+    if (meta.externalSku && built.errors.length === 0) {
+      if (meta.recordType === "container") {
+        addLookupRecord(workbookContainersBySku, built.payload);
+      } else {
+        addLookupRecord(workbookComponentsBySku, built.payload);
+      }
+    }
+  }
+
+  const sourceComponentsBySku = new Map(existingContext.componentsBySku);
+  const sourceContainersBySku = new Map(existingContext.containersBySku);
+  for (const [key, value] of workbookComponentsBySku.entries()) {
+    sourceComponentsBySku.set(key, value);
+  }
+  for (const [key, value] of workbookContainersBySku.entries()) {
+    sourceContainersBySku.set(key, value);
+  }
+
+  const context = {
+    existingContext,
+    sourceComponentsBySku,
+    sourceContainersBySku,
+  };
+
+  const results = [];
+
+  for (const meta of rowMeta) {
+    const { row, rowNumber, recordType, externalSku, name } = meta;
 
     if (recordType === "ready_made_hamper") {
       const built = await buildReadyMadeMasterPayload(
         row,
-        composition.byHamperSku.get(externalSku) || []
+        composition.byHamperSku.get(externalSku) || [],
+        context
       );
 
       if (externalSku && skuCounts.get(externalSku) > 1) {
         built.errors.push("Duplicate Product SKU exists more than once in this workbook");
       }
 
-      const crossConflict = externalSku
-        ? await Promise.all([
-            Component.findOne({
-              $or: [
-                { "source.externalSku": externalSku },
-                { code: externalSku.toUpperCase() },
-              ],
-            }).select("name").lean(),
-            Container.findOne({
-              $or: [
-                { "source.externalSku": externalSku },
-                { code: externalSku.toUpperCase() },
-              ],
-            }).select("name").lean(),
-          ])
-        : [null, null];
+      const componentConflict = getLookupRecord(
+        existingContext.componentsBySku,
+        externalSku
+      );
+      const containerConflict = getLookupRecord(
+        existingContext.containersBySku,
+        externalSku
+      );
+      const manualCrossConflict = [componentConflict, containerConflict].find(
+        (record) => record && record?.source?.type !== "product_master"
+      );
 
-      if (crossConflict[0] || crossConflict[1]) {
+      if (manualCrossConflict) {
         built.review.push(
-          `Product SKU already exists as a ${crossConflict[0] ? "component" : "container"}`
+          `Product SKU is already owned by a manual ${componentConflict ? "component" : "container"} record`
         );
       }
 
@@ -3088,7 +3650,19 @@ const analyzeProductMasterBuffer = async (buffer, filename = "") => {
         continue;
       }
 
-      const existing = await findReadyMadeExisting(externalSku);
+      const existingSku = getLookupRecord(existingContext.skusBySku, externalSku);
+      const existingProduct = existingSku
+        ? existingContext.productsById.get(String(existingSku.product)) || null
+        : getLookupRecord(existingContext.readyProductsBySku, externalSku);
+
+      if (
+        (existingSku && existingSku?.source?.type !== "product_master") ||
+        (existingProduct && existingProduct?.source?.type !== "product_master")
+      ) {
+        built.review.push(
+          "Ready-made hamper SKU is already owned by a manual catalogue record"
+        );
+      }
 
       if (built.review.length > 0) {
         results.push({
@@ -3100,31 +3674,38 @@ const analyzeProductMasterBuffer = async (buffer, filename = "") => {
           reason: [...new Set(built.review)].join("; "),
           changedFields: [],
           compositionSummary: built.compositionSummary,
+          _payload: {
+            product: built.productPayload,
+            sku: built.skuPayload,
+            categoryName: built.categoryName,
+            categoryId: built.categoryId,
+          },
         });
         continue;
       }
 
-      const productIncoming = {
-        ...built.productPayload,
-        category: built.categoryId || null,
-      };
-      const skuIncoming = built.skuPayload;
-      const productChanges = existing.product
-        ? collectChangedFields(existing.product, productIncoming).map(
-            (field) => `product.${field}`
-          )
-        : [];
-      const skuChanges = existing.sku
-        ? collectChangedFields(existing.sku, skuIncoming).map(
-            (field) => `sku.${field}`
-          )
-        : [];
-      const changedFields = [...productChanges, ...skuChanges];
-      const action = !existing.product || !existing.sku
-        ? "CREATE"
-        : changedFields.length > 0
-          ? "UPDATE"
-          : "SKIP";
+      const action = !existingProduct || !existingSku ? "CREATE" : "UPDATE";
+      const changedFields = [];
+      if (existingProduct) {
+        changedFields.push(
+          ...collectChangedFields(existingProduct, {
+            ...built.productPayload,
+            category: built.categoryId || existingProduct.category,
+          }).map((field) => `product.${field}`)
+        );
+      }
+      if (existingSku) {
+        changedFields.push(
+          ...collectChangedFields(existingSku, {
+            ...built.skuPayload,
+            container: undefined,
+            hamperContents: undefined,
+            internalMaterials: undefined,
+            decorations: undefined,
+          }).map((field) => `sku.${field}`)
+        );
+        changedFields.push("sku.composition");
+      }
 
       results.push({
         rowNumber,
@@ -3137,9 +3718,9 @@ const analyzeProductMasterBuffer = async (buffer, filename = "") => {
             ? built.categoryId
               ? "New ready-made hamper Product + SKU"
               : `New ready-made hamper Product + SKU; website category \"${built.categoryName}\" will be created`
-            : action === "UPDATE"
-              ? "Existing ready-made hamper has Product Master / composition changes"
-              : "No Product Master or composition changes detected",
+            : replaceMode
+              ? "Existing Product Master ready-made hamper will be replaced by this workbook"
+              : "Existing ready-made hamper has Product Master / composition changes",
         changedFields,
         compositionSummary: built.compositionSummary,
         _payload: {
@@ -3148,15 +3729,13 @@ const analyzeProductMasterBuffer = async (buffer, filename = "") => {
           categoryName: built.categoryName,
           categoryId: built.categoryId,
         },
-        _existingProductId: existing.product?._id || null,
-        _existingSkuId: existing.sku?._id || null,
+        _existingProductId: existingProduct?._id || null,
+        _existingSkuId: existingSku?._id || null,
       });
       continue;
     }
 
-    const built = recordType === "container"
-      ? buildContainerMasterPayload(row)
-      : buildComponentMasterPayload(row);
+    const built = builtBaseByRow.get(rowNumber);
 
     if (externalSku && skuCounts.get(externalSku) > 1) {
       built.errors.push("Duplicate Product SKU exists more than once in this workbook");
@@ -3175,49 +3754,29 @@ const analyzeProductMasterBuffer = async (buffer, filename = "") => {
       continue;
     }
 
-    const { existing, conflicting } = await findMasterExistingRecord(
-      recordType,
-      externalSku
-    );
+    const ownMap =
+      recordType === "container"
+        ? existingContext.containersBySku
+        : existingContext.componentsBySku;
+    const otherMap =
+      recordType === "container"
+        ? existingContext.componentsBySku
+        : existingContext.containersBySku;
+    const existing = getLookupRecord(ownMap, externalSku);
+    const conflicting = getLookupRecord(otherMap, externalSku);
 
-    if (conflicting) {
-      results.push({
-        rowNumber,
-        externalSku,
-        name,
-        recordType,
-        action: "REVIEW",
-        reason: `Product SKU already exists as a ${recordType === "container" ? "component" : "container"}: ${conflicting.name}`,
-        changedFields: [],
-      });
-      continue;
+    const reviewMessages = [...built.review];
+
+    if (conflicting && conflicting?.source?.type !== "product_master") {
+      reviewMessages.push(
+        `Product SKU already exists as a manual ${recordType === "container" ? "component" : "container"}: ${conflicting.name}`
+      );
     }
 
-    let reviewMessages = [...built.review];
-
-    if (recordType === "container") {
-      if (existing && validPositiveDimensions(existing.outerDimensions)) {
-        reviewMessages = reviewMessages.filter(
-          (message) =>
-            message !==
-            "Container requires Product Length, Width and Height for outer dimensions"
-        );
-      }
-
-      if (existing && validPositiveWeight(existing.maxContentWeight)) {
-        reviewMessages = reviewMessages.filter(
-          (message) => message !== "Container requires Max Safe Load kg"
-        );
-      }
-
-      if (!existing || !validPositiveDimensions(existing.innerDimensions)) {
-        reviewMessages.push(
-          "Inner container dimensions are not supplied by this Product Master and must be completed in HAMPORIUM before import"
-        );
-      }
-    } else if (existing) {
-      const typeReview = await getComponentTypeChangeReview(existing, built.payload.type);
-      if (typeReview) reviewMessages.push(typeReview);
+    if (existing && existing?.source?.type !== "product_master") {
+      reviewMessages.push(
+        "Product SKU is already owned by a manual catalogue record and will not be overwritten"
+      );
     }
 
     if (reviewMessages.length > 0) {
@@ -3257,9 +3816,10 @@ const analyzeProductMasterBuffer = async (buffer, filename = "") => {
       externalSku,
       name,
       recordType,
-      action: changedFields.length > 0 ? "UPDATE" : "SKIP",
-      reason:
-        changedFields.length > 0
+      action: replaceMode ? "UPDATE" : changedFields.length > 0 ? "UPDATE" : "SKIP",
+      reason: replaceMode
+        ? "Existing Product Master record will be replaced by this workbook"
+        : changedFields.length > 0
           ? "Existing record has Product Master changes"
           : "No Product Master changes detected",
       changedFields,
@@ -3268,13 +3828,19 @@ const analyzeProductMasterBuffer = async (buffer, filename = "") => {
     });
   }
 
+  const allSheetErrors = [
+    ...composition.errors,
+    ...containerSetup.errors,
+    ...decorationMaster.errors,
+  ];
+
   const summary = {
     totalRows: results.length,
     create: 0,
     update: 0,
     skip: 0,
     review: 0,
-    error: composition.errors.length,
+    error: allSheetErrors.length,
     components: { create: 0, update: 0, skip: 0, review: 0, error: 0 },
     containers: { create: 0, update: 0, skip: 0, review: 0, error: 0 },
     readyMadeHampers: { create: 0, update: 0, skip: 0, review: 0, error: 0 },
@@ -3284,11 +3850,12 @@ const analyzeProductMasterBuffer = async (buffer, filename = "") => {
     const key = result.action.toLowerCase();
     if (Object.prototype.hasOwnProperty.call(summary, key)) summary[key] += 1;
 
-    const group = result.recordType === "container"
-      ? summary.containers
-      : result.recordType === "ready_made_hamper"
-        ? summary.readyMadeHampers
-        : summary.components;
+    const group =
+      result.recordType === "container"
+        ? summary.containers
+        : result.recordType === "ready_made_hamper"
+          ? summary.readyMadeHampers
+          : summary.components;
 
     if (Object.prototype.hasOwnProperty.call(group, key)) group[key] += 1;
   }
@@ -3297,9 +3864,12 @@ const analyzeProductMasterBuffer = async (buffer, filename = "") => {
     filename,
     sheetName,
     compositionSheetName: composition.sheetName,
-    compositionErrors: composition.errors,
+    containerSetupSheetName: containerSetup.sheetName,
+    decorationSheetName: decorationMaster.sheetName,
+    compositionErrors: allSheetErrors,
     summary,
     results,
+    replaceMode,
   };
 };
 
@@ -3316,24 +3886,26 @@ const buildContainerReviewData = (result) => {
 
   return {
     outerDimensions: payload.outerDimensions || null,
+    innerDimensions: payload.innerDimensions || null,
     maxContentWeight: payload.maxContentWeight || null,
     hasSourceOuterDimensions: validPositiveDimensions(payload.outerDimensions),
+    hasSourceInnerDimensions: validPositiveDimensions(payload.innerDimensions),
     hasSourceMaxContentWeight: validPositiveWeight(payload.maxContentWeight),
-    material: "",
-    usableVolumePercent: 85,
-    maxItems: 0,
+    material: payload.material || "",
+    usableVolumePercent: payload.usableVolumePercent ?? 85,
+    maxItems: payload.maxItems ?? 0,
     productionLeadTime: {
       personalizationDays: 0,
       assemblyDays: 0,
       packingDays: 0,
     },
-    defaultCourierDays: null,
+    defaultCourierDays: payload.defaultCourierDays ?? null,
     availability: {
       status: "in_stock",
       availableQuantity: null,
       nextAvailableDate: null,
     },
-    customerSelectable: payload.hamperUse !== false && payload.isActive !== false,
+    customerSelectable: payload.customerSelectable !== false,
     sortOrder: 0,
     sellingPrice: payload.sellingPrice ?? null,
     mrp: payload.mrp ?? null,
@@ -3370,6 +3942,191 @@ const parseContainerReviewCompletion = (raw) => {
   }
 };
 
+const replaceProductMasterCatalog = async () => {
+  const [importedProducts, importedCategories] = await Promise.all([
+    Product.find({ "source.type": "product_master" })
+      .select("_id category")
+      .lean(),
+    Category.find({ "source.type": "product_master" })
+      .select("_id")
+      .lean(),
+  ]);
+
+  const productIds = importedProducts.map((product) => product._id);
+  const candidateCategoryIds = [
+    ...new Set([
+      ...importedProducts
+        .map((product) => String(product.category || ""))
+        .filter(isValidId),
+      ...importedCategories.map((category) => String(category._id)),
+    ]),
+  ];
+
+  const [skuDelete, productDelete, containerDelete, componentDelete] = await Promise.all([
+    SKU.deleteMany({
+      $or: [
+        { "source.type": "product_master" },
+        ...(productIds.length ? [{ product: { $in: productIds } }] : []),
+      ],
+    }),
+    Product.deleteMany({ "source.type": "product_master" }),
+    Container.deleteMany({ "source.type": "product_master" }),
+    Component.deleteMany({ "source.type": "product_master" }),
+  ]);
+
+  let deletedCategories = 0;
+  if (candidateCategoryIds.length) {
+    const categoriesStillUsed = await Product.distinct("category", {
+      category: { $in: candidateCategoryIds },
+    });
+    const usedSet = new Set(categoriesStillUsed.map(String));
+    const removableIds = candidateCategoryIds.filter((id) => !usedSet.has(String(id)));
+
+    if (removableIds.length) {
+      const result = await Category.deleteMany({
+        _id: { $in: removableIds },
+        $or: [
+          { "source.type": "product_master" },
+          { source: { $exists: false } },
+          { "source.type": { $exists: false } },
+        ],
+      });
+      deletedCategories = result.deletedCount || 0;
+    }
+  }
+
+  return {
+    products: productDelete.deletedCount || 0,
+    skus: skuDelete.deletedCount || 0,
+    components: componentDelete.deletedCount || 0,
+    containers: containerDelete.deletedCount || 0,
+    categories: deletedCategories,
+  };
+};
+
+const buildImportedBaseLookup = async () => {
+  const [components, containers] = await Promise.all([
+    Component.find({ "source.type": "product_master" }).lean(),
+    Container.find({ "source.type": "product_master" }).lean(),
+  ]);
+
+  const componentsBySku = new Map();
+  const containersBySku = new Map();
+  for (const component of components) addLookupRecord(componentsBySku, component);
+  for (const container of containers) addLookupRecord(containersBySku, container);
+
+  return { componentsBySku, containersBySku };
+};
+
+const resolveReadyMadeReferences = (skuPayload, baseLookup) => {
+  const resolved = {
+    ...skuPayload,
+    hamperContents: [],
+    internalMaterials: [],
+    decorations: [],
+  };
+
+  if (skuPayload.container) {
+    const container = getLookupRecord(baseLookup.containersBySku, skuPayload.container);
+    if (!container) {
+      throw new Error(`Container SKU ${skuPayload.container} was not imported`);
+    }
+    resolved.container = container._id;
+  } else {
+    resolved.container = null;
+  }
+
+  const expiryDates = [];
+
+  for (const item of skuPayload.hamperContents || []) {
+    const component = getLookupRecord(baseLookup.componentsBySku, item.component);
+    if (!component) {
+      throw new Error(`Content SKU ${item.component} was not imported`);
+    }
+    if (component.type === "packaging" || (component.hamperRole || "content") === "decoration") {
+      throw new Error(`${component.name} is not valid ready-made hamper content`);
+    }
+
+    resolved.hamperContents.push({
+      ...item,
+      component: component._id,
+    });
+
+    if (!item.isOptional && component.type === "food" && component.expiryDate) {
+      const date = new Date(component.expiryDate);
+      if (!Number.isNaN(date.getTime())) expiryDates.push(date);
+    }
+  }
+
+  for (const item of skuPayload.internalMaterials || []) {
+    const component = getLookupRecord(baseLookup.componentsBySku, item.component);
+    if (!component) {
+      throw new Error(`Packaging SKU ${item.component} was not imported`);
+    }
+    if (component.type !== "packaging") {
+      throw new Error(`${component.name} is not an internal packaging component`);
+    }
+
+    resolved.internalMaterials.push({
+      ...item,
+      component: component._id,
+    });
+  }
+
+  for (const item of skuPayload.decorations || []) {
+    const component = getLookupRecord(baseLookup.componentsBySku, item.component);
+    if (!component) {
+      throw new Error(`Decoration SKU ${item.component} was not imported`);
+    }
+    if ((component.hamperRole || "content") !== "decoration") {
+      throw new Error(`${component.name} is not a decoration component`);
+    }
+
+    resolved.decorations.push({
+      ...item,
+      component: component._id,
+    });
+  }
+
+  resolved.earliestExpiryDate = expiryDates.length
+    ? new Date(Math.min(...expiryDates.map((date) => date.getTime())))
+    : null;
+
+  return resolved;
+};
+
+const ensureImportedCategory = async (categoryName, importedAt) => {
+  const normalizedName = String(categoryName || "").trim();
+  if (!normalizedName) throw new Error("Ready-made hamper category is required");
+
+  const slug = createSlug(normalizedName);
+  let category = await Category.findOne({
+    $or: [
+      { slug },
+      { name: { $regex: `^${escapeRegex(normalizedName)}$`, $options: "i" } },
+    ],
+  });
+
+  if (category) return category;
+
+  category = await Category.create({
+    name: normalizedName,
+    slug: await ensureUniqueSlug(Category, normalizedName),
+    description: "",
+    image: "",
+    imagePublicId: "",
+    isActive: true,
+    sortOrder: 0,
+    source: {
+      type: "product_master",
+      externalSku: `category:${slug}`,
+      lastSyncedAt: importedAt,
+    },
+  });
+
+  return category;
+};
+
 /* =========================================================
    ADMIN PRODUCT MASTER IMPORT
 ========================================================= */
@@ -3384,21 +4141,25 @@ export const previewProductMasterImport = asyncHandler(async (req, res) => {
 
   const analysis = await analyzeProductMasterBuffer(
     req.file.buffer,
-    req.file.originalname || ""
+    req.file.originalname || "",
+    { replaceMode: true }
   );
 
   res.status(200).json({
     success: true,
-    message: "Product Master analyzed successfully. No MongoDB data was changed.",
+    message:
+      "Product Master analyzed successfully. Confirm Import will replace the previous Product Master catalogue with this workbook.",
+    importMode: "replace_product_master",
     filename: analysis.filename,
     sheetName: analysis.sheetName,
     compositionSheetName: analysis.compositionSheetName,
+    containerSetupSheetName: analysis.containerSetupSheetName,
+    decorationSheetName: analysis.decorationSheetName,
     compositionErrors: analysis.compositionErrors,
     summary: analysis.summary,
     results: analysis.results.map(publicImportResult),
   });
 });
-
 
 export const completeProductMasterContainerReview = asyncHandler(
   async (req, res) => {
@@ -3422,7 +4183,8 @@ export const completeProductMasterContainerReview = asyncHandler(
 
     const analysis = await analyzeProductMasterBuffer(
       req.file.buffer,
-      req.file.originalname || ""
+      req.file.originalname || "",
+      { replaceMode: true }
     );
 
     const item = analysis.results.find(
@@ -3467,15 +4229,13 @@ export const completeProductMasterContainerReview = asyncHandler(
 
     const existingPlain = container ? container.toObject() : {};
 
-    // Source-owned values always win when Product Master provides them.
-    // Local completion is only used for operational fields that Product Master
-    // does not own or does not supply.
     const outerDimensions =
       sourcePayload.outerDimensions ||
       completion.outerDimensions ||
       existingPlain.outerDimensions;
 
     const innerDimensions =
+      sourcePayload.innerDimensions ||
       completion.innerDimensions ||
       existingPlain.innerDimensions;
 
@@ -3487,23 +4247,21 @@ export const completeProductMasterContainerReview = asyncHandler(
     if (!validPositiveDimensions(outerDimensions)) {
       return res.status(400).json({
         success: false,
-        message:
-          "Outer dimensions are required. Product Master does not provide them, so complete them in HAMPORIUM.",
+        message: "Valid outer Length, Width and Height are required",
       });
     }
 
     if (!validPositiveDimensions(innerDimensions)) {
       return res.status(400).json({
         success: false,
-        message: "Valid inner Length, Width and Height are required",
+        message: "Valid true inner Length, Width and Height are required",
       });
     }
 
     if (!validPositiveWeight(maxContentWeight)) {
       return res.status(400).json({
         success: false,
-        message:
-          "Maximum content weight is required. Product Master does not provide a valid Max Safe Load.",
+        message: "Maximum content weight is required",
       });
     }
 
@@ -3520,27 +4278,19 @@ export const completeProductMasterContainerReview = asyncHandler(
         currentLeadTime.personalizationDays ??
         0,
       assemblyDays:
-        requestedLeadTime.assemblyDays ??
-        currentLeadTime.assemblyDays ??
-        0,
+        requestedLeadTime.assemblyDays ?? currentLeadTime.assemblyDays ?? 0,
       packingDays:
-        requestedLeadTime.packingDays ??
-        currentLeadTime.packingDays ??
-        0,
+        requestedLeadTime.packingDays ?? currentLeadTime.packingDays ?? 0,
     };
 
     const leadTimeError = validateProductionLeadTime(productionLeadTime);
     if (leadTimeError) {
-      return res.status(400).json({
-        success: false,
-        message: leadTimeError,
-      });
+      return res.status(400).json({ success: false, message: leadTimeError });
     }
 
     const currentAvailability = toPlainObject(existingPlain.availability);
     const requestedAvailability =
-      completion.availability &&
-      typeof completion.availability === "object"
+      completion.availability && typeof completion.availability === "object"
         ? completion.availability
         : {};
 
@@ -3548,9 +4298,7 @@ export const completeProductMasterContainerReview = asyncHandler(
       ...currentAvailability,
       ...requestedAvailability,
       status:
-        requestedAvailability.status ||
-        currentAvailability.status ||
-        "in_stock",
+        requestedAvailability.status || currentAvailability.status || "in_stock",
     };
 
     const availabilityError = validateAvailabilityPayload(availability, {
@@ -3559,45 +4307,47 @@ export const completeProductMasterContainerReview = asyncHandler(
     });
 
     if (availabilityError) {
-      return res.status(400).json({
-        success: false,
-        message: availabilityError,
-      });
+      return res.status(400).json({ success: false, message: availabilityError });
     }
 
     const usableVolumePercent =
-      completion.usableVolumePercent !== undefined &&
+      sourcePayload.usableVolumePercent ??
+      (completion.usableVolumePercent !== undefined &&
       completion.usableVolumePercent !== null &&
       completion.usableVolumePercent !== ""
         ? Number(completion.usableVolumePercent)
-        : Number(existingPlain.usableVolumePercent ?? 85);
+        : Number(existingPlain.usableVolumePercent ?? 85));
 
     const maxItems =
-      completion.maxItems !== undefined &&
+      sourcePayload.maxItems ??
+      (completion.maxItems !== undefined &&
       completion.maxItems !== null &&
       completion.maxItems !== ""
         ? Number(completion.maxItems)
-        : Number(existingPlain.maxItems ?? 0);
+        : Number(existingPlain.maxItems ?? 0));
 
     const requestedCourierDays =
-      completion.defaultCourierDays !== undefined
+      sourcePayload.defaultCourierDays ??
+      (completion.defaultCourierDays !== undefined
         ? completion.defaultCourierDays
-        : existingPlain.defaultCourierDays;
+        : existingPlain.defaultCourierDays);
 
     const courier = parseCourierDays(requestedCourierDays, null);
     if (!courier.valid) {
-      return res.status(400).json({
-        success: false,
-        message: courier.message,
-      });
+      return res.status(400).json({ success: false, message: courier.message });
     }
 
     let customerSelectable =
-      completion.customerSelectable !== undefined
-        ? parseBoolean(completion.customerSelectable)
-        : existingPlain.customerSelectable;
+      sourcePayload.customerSelectable !== undefined
+        ? Boolean(sourcePayload.customerSelectable)
+        : completion.customerSelectable !== undefined
+          ? parseBoolean(completion.customerSelectable)
+          : existingPlain.customerSelectable;
 
-    if (completion.customerSelectable !== undefined && customerSelectable === undefined) {
+    if (
+      completion.customerSelectable !== undefined &&
+      customerSelectable === undefined
+    ) {
       return res.status(400).json({
         success: false,
         message: "customerSelectable must be true or false",
@@ -3649,9 +4399,7 @@ export const completeProductMasterContainerReview = asyncHandler(
       packingMaterials: materialsResult.items,
       productionLeadTime: normalizeProductionLeadTime(productionLeadTime),
       defaultCourierDays: courier.value,
-      availability: normalizeAvailability(availability, {
-        stockUnit: false,
-      }),
+      availability: normalizeAvailability(availability, { stockUnit: false }),
       customerSelectable,
       sortOrder:
         completion.sortOrder !== undefined
@@ -3688,10 +4436,7 @@ export const completeProductMasterContainerReview = asyncHandler(
     });
 
     if (validationError) {
-      return res.status(400).json({
-        success: false,
-        message: validationError,
-      });
+      return res.status(400).json({ success: false, message: validationError });
     }
 
     let created = false;
@@ -3727,85 +4472,84 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
     });
   }
 
-  const initialAnalysis = await analyzeProductMasterBuffer(
+  const preflight = await analyzeProductMasterBuffer(
     req.file.buffer,
-    req.file.originalname || ""
+    req.file.originalname || "",
+    { replaceMode: true }
   );
+
+  const blockingRows = preflight.results.filter((item) =>
+    ["ERROR", "REVIEW"].includes(item.action)
+  );
+
+  if (preflight.compositionErrors.length > 0 || blockingRows.length > 0) {
+    return res.status(409).json({
+      success: false,
+      message:
+        "Import was not started because the workbook still has errors or review items. No existing catalogue data was deleted.",
+      importMode: "replace_product_master",
+      filename: preflight.filename,
+      sheetName: preflight.sheetName,
+      compositionSheetName: preflight.compositionSheetName,
+      containerSetupSheetName: preflight.containerSetupSheetName,
+      decorationSheetName: preflight.decorationSheetName,
+      compositionErrors: preflight.compositionErrors,
+      summary: preflight.summary,
+      results: preflight.results.map(publicImportResult),
+    });
+  }
+
+  const removed = await replaceProductMasterCatalog();
+
+  const analysis = await analyzeProductMasterBuffer(
+    req.file.buffer,
+    req.file.originalname || "",
+    { replaceMode: true }
+  );
+
+  const postResetBlocking = analysis.results.filter((item) =>
+    ["ERROR", "REVIEW"].includes(item.action)
+  );
+
+  if (analysis.compositionErrors.length > 0 || postResetBlocking.length > 0) {
+    const error = new Error(
+      "Catalogue reset completed, but the workbook became invalid during the fresh import analysis. Re-run Analyze File and fix the reported rows."
+    );
+    error.statusCode = 409;
+    throw error;
+  }
 
   const importedAt = new Date();
   const resultByRow = new Map();
   const summary = {
-    totalRows: initialAnalysis.summary.totalRows,
+    totalRows: analysis.summary.totalRows,
     created: 0,
     updated: 0,
     skipped: 0,
     review: 0,
-    errors: initialAnalysis.compositionErrors?.length || 0,
+    errors: 0,
+    removed,
   };
 
-  const importBaseRecord = async (item) => {
-    if (["REVIEW", "ERROR", "SKIP"].includes(item.action)) return;
-
-    const Model = item.recordType === "container" ? Container : Component;
-    const payload = {
-      ...item._payload,
-      source: {
-        ...(item._payload?.source || {}),
-        type: "product_master",
-        externalSku: item.externalSku,
-        lastSyncedAt: importedAt,
-      },
-    };
-
-    if (item.action === "CREATE") {
-      await Model.create(payload);
-    } else {
-      const document = await Model.findById(item._existingId);
-      if (!document) throw new Error("Record disappeared after preview analysis");
-
-      const oldComponentType =
-        item.recordType === "component" ? document.type : null;
-      const oldComponentExpiry =
-        item.recordType === "component" ? comparableDateValue(document.expiryDate) : null;
-
-      document.set(payload);
-      await document.save();
-
-      if (item.recordType === "component") {
-        const componentTypeChanged = oldComponentType !== document.type;
-        const componentExpiryChanged =
-          oldComponentExpiry !== comparableDateValue(document.expiryDate);
-
-        if (componentTypeChanged || componentExpiryChanged) {
-          await syncSkuExpiryForComponent(document._id);
-        }
-      }
-    }
-  };
-
-  // Pass 1: Component + Container. This lets ready-made rows reference records
-  // created/updated from the same workbook when we analyze again below.
-  for (const item of initialAnalysis.results) {
+  for (const item of analysis.results) {
     if (item.recordType === "ready_made_hamper") continue;
 
-    if (item.action === "REVIEW") {
-      resultByRow.set(item.rowNumber, publicImportResult(item));
-      continue;
-    }
-    if (item.action === "ERROR") {
-      resultByRow.set(item.rowNumber, publicImportResult(item));
-      continue;
-    }
-    if (item.action === "SKIP") {
-      resultByRow.set(item.rowNumber, publicImportResult(item));
-      continue;
-    }
-
     try {
-      await importBaseRecord(item);
+      const Model = item.recordType === "container" ? Container : Component;
+      const payload = {
+        ...item._payload,
+        source: {
+          ...(item._payload?.source || {}),
+          type: "product_master",
+          externalSku: item.externalSku,
+          lastSyncedAt: importedAt,
+        },
+      };
+
+      await Model.create(payload);
       resultByRow.set(item.rowNumber, {
         ...publicImportResult(item),
-        action: item.action === "CREATE" ? "CREATED" : "UPDATED",
+        action: "CREATED",
       });
     } catch (error) {
       resultByRow.set(item.rowNumber, {
@@ -3816,89 +4560,53 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
     }
   }
 
-  // Pass 2: re-analyze so ready-made hamper composition can reference any
-  // Component/Container rows imported in Pass 1.
-  const refreshedAnalysis = await analyzeProductMasterBuffer(
-    req.file.buffer,
-    req.file.originalname || ""
+  const baseErrors = [...resultByRow.values()].filter(
+    (item) => item.action === "ERROR"
   );
 
-  for (const item of refreshedAnalysis.results) {
-    if (item.recordType !== "ready_made_hamper") continue;
+  if (baseErrors.length === 0) {
+    const baseLookup = await buildImportedBaseLookup();
 
-    if (["REVIEW", "ERROR", "SKIP"].includes(item.action)) {
-      resultByRow.set(item.rowNumber, publicImportResult(item));
-      continue;
-    }
+    for (const item of analysis.results) {
+      if (item.recordType !== "ready_made_hamper") continue;
 
-    try {
-      let categoryId = item._payload.categoryId;
-      const categoryName = item._payload.categoryName;
+      try {
+        const category = await ensureImportedCategory(
+          item._payload.categoryName,
+          importedAt
+        );
 
-      if (!categoryId) {
-        const existingCategory = await resolveReadyMadeCategory(categoryName);
-        if (existingCategory) {
-          categoryId = existingCategory._id;
-        } else {
-          const category = await Category.create({
-            name: categoryName,
-            slug: await ensureUniqueSlug(Category, categoryName),
-            description: "",
-            image: "",
-            imagePublicId: "",
-            isActive: true,
-            sortOrder: 0,
-          });
-          categoryId = category._id;
-        }
-      }
+        const productPayload = {
+          ...item._payload.product,
+          category: category._id,
+          source: {
+            ...(item._payload.product.source || {}),
+            type: "product_master",
+            externalSku: item.externalSku,
+            lastSyncedAt: importedAt,
+          },
+        };
 
-      const productPayload = {
-        ...item._payload.product,
-        category: categoryId,
-        source: {
-          ...(item._payload.product.source || {}),
-          type: "product_master",
-          externalSku: item.externalSku,
-          lastSyncedAt: importedAt,
-        },
-      };
-      const skuPayload = {
-        ...item._payload.sku,
-        source: {
-          ...(item._payload.sku.source || {}),
-          type: "product_master",
-          externalSku: item.externalSku,
-          lastSyncedAt: importedAt,
-        },
-      };
+        const skuPayload = resolveReadyMadeReferences(
+          {
+            ...item._payload.sku,
+            source: {
+              ...(item._payload.sku.source || {}),
+              type: "product_master",
+              externalSku: item.externalSku,
+              lastSyncedAt: importedAt,
+            },
+          },
+          baseLookup
+        );
 
-      const contentsResult = await validateAndNormalizeHamperContents(
-        skuPayload.hamperContents || []
-      );
-      if (!contentsResult.valid) throw new Error(contentsResult.message);
-
-      const materialsResult = await validateAndNormalizeMaterialItems(
-        skuPayload.internalMaterials || [],
-        { fieldName: "internalMaterials" }
-      );
-      if (!materialsResult.valid) throw new Error(materialsResult.message);
-
-      skuPayload.hamperContents = contentsResult.items;
-      skuPayload.internalMaterials = materialsResult.items;
-      skuPayload.earliestExpiryDate = contentsResult.earliestExpiryDate;
-
-      let product;
-      let sku;
-
-      if (item.action === "CREATE") {
-        product = await Product.create({
+        const product = await Product.create({
           ...productPayload,
           slug: await ensureUniqueSlug(Product, productPayload.name),
         });
 
         try {
-          sku = await SKU.create({
+          await SKU.create({
             ...skuPayload,
             product: product._id,
           });
@@ -3906,37 +4614,34 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
           await Product.findByIdAndDelete(product._id);
           throw error;
         }
-      } else {
-        product = await Product.findById(item._existingProductId);
-        sku = await SKU.findById(item._existingSkuId);
 
-        if (!product || !sku) {
-          throw new Error("Ready-made Product/SKU disappeared after preview analysis");
-        }
+        await syncProductPriceRange(product._id);
 
-        product.set(productPayload);
-        await product.save();
-
-        sku.set(skuPayload);
-        await sku.save();
+        resultByRow.set(item.rowNumber, {
+          ...publicImportResult(item),
+          action: "CREATED",
+        });
+      } catch (error) {
+        resultByRow.set(item.rowNumber, {
+          ...publicImportResult(item),
+          action: "ERROR",
+          reason: error.message || "Unable to import ready-made hamper",
+        });
       }
-
-      await syncProductPriceRange(product._id);
-
-      resultByRow.set(item.rowNumber, {
-        ...publicImportResult(item),
-        action: item.action === "CREATE" ? "CREATED" : "UPDATED",
-      });
-    } catch (error) {
+    }
+  } else {
+    for (const item of analysis.results) {
+      if (item.recordType !== "ready_made_hamper") continue;
       resultByRow.set(item.rowNumber, {
         ...publicImportResult(item),
         action: "ERROR",
-        reason: error.message || "Unable to import ready-made hamper",
+        reason:
+          "Ready-made hamper was not imported because one or more base component/container rows failed",
       });
     }
   }
 
-  const results = [...initialAnalysis.results]
+  const results = [...analysis.results]
     .sort((a, b) => a.rowNumber - b.rowNumber)
     .map((item) => resultByRow.get(item.rowNumber) || publicImportResult(item));
 
@@ -3952,11 +4657,14 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
     success: summary.errors === 0,
     message:
       summary.errors === 0
-        ? "Product Master import completed"
-        : "Product Master import completed with some row errors",
-    filename: initialAnalysis.filename,
-    sheetName: initialAnalysis.sheetName,
-    compositionSheetName: refreshedAnalysis.compositionSheetName,
+        ? "Previous Product Master catalogue was replaced successfully with the new workbook"
+        : "Previous Product Master catalogue was cleared and the new import completed with row errors",
+    importMode: "replace_product_master",
+    filename: analysis.filename,
+    sheetName: analysis.sheetName,
+    compositionSheetName: analysis.compositionSheetName,
+    containerSetupSheetName: analysis.containerSetupSheetName,
+    decorationSheetName: analysis.decorationSheetName,
     summary,
     results,
   });
@@ -3972,7 +4680,6 @@ export const getComponents = asyncHandler(async (req, res) => {
   const filter = {
     isActive: true,
     customerSelectable: true,
-    hamperUse: { $ne: false },
     type: { $in: PUBLIC_COMPONENT_TYPES },
   };
 
@@ -3997,6 +4704,7 @@ export const getComponents = asyncHandler(async (req, res) => {
     if (hamperRole === "decoration") {
       filter.hamperRole = "decoration";
     } else {
+      filter.hamperUse = { $ne: false };
       filter.$and = [
         {
           $or: [
@@ -4007,6 +4715,17 @@ export const getComponents = asyncHandler(async (req, res) => {
         },
       ];
     }
+  } else {
+    filter.hamperUse = { $ne: false };
+    filter.$and = [
+      {
+        $or: [
+          { hamperRole: "content" },
+          { hamperRole: { $exists: false } },
+          { hamperRole: null },
+        ],
+      },
+    ];
   }
 
   if (channel) {
@@ -4034,7 +4753,7 @@ export const getComponents = asyncHandler(async (req, res) => {
 
   const components = await Component.find(filter)
     .select(
-      "name code type hamperRole brand description images skuBarcode sizePack uom piecesPerUom sourceProductType taxonomyBaseId categoryCode category subcategory segment productPriority mrp sellingPrice taxEnabled taxPercent hsnSac discount dimensions weight fragile dietary expiryTracked shelfLifeDays expiryDate personalizable personalizationMethod hamperUse channels availability.status availability.availableQuantity availability.unit availability.nextAvailableDate"
+      "name code type hamperRole decorationType countsTowardBoxCapacity brand description images skuBarcode sizePack uom piecesPerUom sourceProductType taxonomyBaseId categoryCode category subcategory segment productPriority mrp sellingPrice taxEnabled taxPercent hsnSac discount dimensions weight fragile dietary expiryTracked shelfLifeDays expiryDate personalizable personalizationMethod hamperUse channels availability.status availability.availableQuantity availability.unit availability.nextAvailableDate"
     )
     .sort({ productPriority: 1, name: 1 })
     .lean();
@@ -4204,7 +4923,6 @@ export const validateConfiguration = asyncHandler(async (req, res) => {
   const componentFilter = {
     isActive: true,
     customerSelectable: true,
-    hamperUse: { $ne: false },
     type: { $in: PUBLIC_COMPONENT_TYPES },
   };
 
@@ -4213,7 +4931,7 @@ export const validateConfiguration = asyncHandler(async (req, res) => {
 
   const baseComponents = await Component.find(componentFilter)
     .select(
-      "_id name code type hamperRole brand images category subcategory segment mrp sellingPrice taxEnabled taxPercent hsnSac discount dimensions weight fragile dietary expiryTracked shelfLifeDays expiryDate personalizable personalizationMethod channels availability isActive customerSelectable hamperUse"
+      "_id name code type hamperRole decorationType countsTowardBoxCapacity brand images category subcategory segment mrp sellingPrice taxEnabled taxPercent hsnSac discount dimensions weight fragile dietary expiryTracked shelfLifeDays expiryDate personalizable personalizationMethod channels availability isActive customerSelectable hamperUse"
     )
     .lean();
 
@@ -4224,7 +4942,11 @@ export const validateConfiguration = asyncHandler(async (req, res) => {
   for (const selectedId of selectedIds) {
     const component = componentMap.get(String(selectedId));
 
-    if (!component || (component.hamperRole || "content") === "decoration") {
+    if (
+      !component ||
+      component.hamperUse === false ||
+      (component.hamperRole || "content") === "decoration"
+    ) {
       return res.status(400).json({
         success: false,
         message:
@@ -4643,7 +5365,7 @@ export const getProductBySlug = asyncHandler(async (req, res) => {
     isActive: true,
   })
     .select(
-      "product code name optionValues baseSellingPrice mrp taxEnabled taxPercent hsnSac discount price compareAtPrice images container hamperContents internalMaterials packagedDimensions packagedWeight productionLeadTime defaultCourierDays earliestExpiryDate isActive sortOrder createdAt updatedAt"
+      "product code name optionValues baseSellingPrice mrp taxEnabled taxPercent hsnSac discount price compareAtPrice images container hamperContents internalMaterials decorations packagedDimensions packagedWeight productionLeadTime defaultCourierDays earliestExpiryDate isActive sortOrder createdAt updatedAt"
     )
     .populate({
       path: "container",
@@ -4653,7 +5375,12 @@ export const getProductBySlug = asyncHandler(async (req, res) => {
     .populate({
       path: "hamperContents.component",
       select:
-        "name code type brand images sizePack uom dimensions weight fragile dietary expiryTracked shelfLifeDays expiryDate personalizable personalizationMethod availability",
+        "name code type hamperRole brand images sizePack uom dimensions weight fragile dietary expiryTracked shelfLifeDays expiryDate personalizable personalizationMethod availability",
+    })
+    .populate({
+      path: "decorations.component",
+      select:
+        "name code type hamperRole decorationType brand images sizePack uom personalizable personalizationMethod availability sellingPrice taxEnabled taxPercent hsnSac discount",
     })
     .sort({ sortOrder: 1, price: 1 })
     .lean();
@@ -5162,7 +5889,13 @@ export const createComponent = asyncHandler(async (req, res) => {
       ? false
       : expiryTrackedValue ?? type === "food";
   const finalSelectable =
-    type === "packaging" || !finalHamperUse ? false : selectableValue ?? false;
+    type === "packaging"
+      ? false
+      : finalHamperRole === "decoration"
+        ? selectableValue ?? false
+        : !finalHamperUse
+          ? false
+          : selectableValue ?? false;
 
   const validationError = validateComponentPayload({
     ...req.body,
@@ -5211,6 +5944,7 @@ export const createComponent = asyncHandler(async (req, res) => {
   if (component.hamperRole === "decoration") {
     component.expiryTracked = false;
     component.expiryDate = null;
+    component.countsTowardBoxCapacity = false;
   }
 
   await component.save();
@@ -5300,16 +6034,37 @@ export const updateComponent = asyncHandler(async (req, res) => {
     }
   }
 
+  if (
+    nextHamperRole !== "decoration" &&
+    (component.hamperRole || "content") === "decoration"
+  ) {
+    const usedAsDecoration = await SKU.exists({
+      "decorations.component": component._id,
+    });
+
+    if (usedAsDecoration) {
+      return res.status(409).json({
+        success: false,
+        message:
+          "Component is used in ready-made hamper decorations and cannot leave the decoration role",
+      });
+    }
+  }
+
   if (req.body.type !== undefined && nextType !== component.type) {
     if (nextType === "packaging") {
-      const usedAsContent = await SKU.exists({
-        "hamperContents.component": component._id,
+      const usedAsContentOrDecoration = await SKU.exists({
+        $or: [
+          { "hamperContents.component": component._id },
+          { "decorations.component": component._id },
+        ],
       });
 
-      if (usedAsContent) {
+      if (usedAsContentOrDecoration) {
         return res.status(409).json({
           success: false,
-          message: "Component is used in hamper contents and cannot be changed to packaging",
+          message:
+            "Component is used in hamper contents/decorations and cannot be changed to packaging",
         });
       }
     } else {
@@ -5351,7 +6106,8 @@ export const updateComponent = asyncHandler(async (req, res) => {
     nextSelectable = value;
   }
 
-  if (nextType === "packaging" || !nextHamperUse) nextSelectable = false;
+  if (nextType === "packaging") nextSelectable = false;
+  if (nextHamperRole !== "decoration" && !nextHamperUse) nextSelectable = false;
 
   let nextExpiryTracked = Boolean(component.expiryTracked);
   if (req.body.expiryTracked !== undefined) {
@@ -5450,6 +6206,9 @@ export const updateComponent = asyncHandler(async (req, res) => {
   component.hamperUse = nextHamperUse;
   component.expiryTracked = nextExpiryTracked;
   component.customerSelectable = nextSelectable;
+  if (component.hamperRole === "decoration") {
+    component.countsTowardBoxCapacity = false;
+  }
 
   await component.save();
 
@@ -5484,6 +6243,7 @@ export const deleteComponent = asyncHandler(async (req, res) => {
     $or: [
       { "hamperContents.component": component._id },
       { "internalMaterials.component": component._id },
+      { "decorations.component": component._id },
     ],
   });
 
@@ -5980,6 +6740,7 @@ export const getAdminProductById = asyncHandler(async (req, res) => {
   const rawSkus = await SKU.find({ product: product._id })
     .populate("container")
     .populate("hamperContents.component")
+    .populate("decorations.component")
     .populate("internalMaterials.component")
     .sort({ sortOrder: 1, createdAt: 1 })
     .lean();
@@ -6180,6 +6941,7 @@ export const createSKU = asyncHandler(async (req, res) => {
     images,
     container,
     hamperContents,
+    decorations,
     internalMaterials,
     packagedDimensions,
     packagedWeight,
@@ -6296,6 +7058,11 @@ export const createSKU = asyncHandler(async (req, res) => {
     return res.status(400).json({ success: false, message: contentsResult.message });
   }
 
+  const decorationsResult = await validateAndNormalizeDecorations(decorations || []);
+  if (!decorationsResult.valid) {
+    return res.status(400).json({ success: false, message: decorationsResult.message });
+  }
+
   const materialsResult = await validateAndNormalizeMaterialItems(internalMaterials || [], {
     fieldName: "internalMaterials",
   });
@@ -6337,6 +7104,7 @@ export const createSKU = asyncHandler(async (req, res) => {
     images: Array.isArray(images) ? images : [],
     container: containerResult.containerId,
     hamperContents: contentsResult.items,
+    decorations: decorationsResult.items,
     internalMaterials: materialsResult.items,
     packagedDimensions: packagedDimensions ? normalizeDimensions(packagedDimensions) : undefined,
     packagedWeight: packagedWeight ? normalizeWeight(packagedWeight) : undefined,
@@ -6498,6 +7266,21 @@ export const updateSKU = asyncHandler(async (req, res) => {
     sku.earliestExpiryDate = contentsResult.earliestExpiryDate;
   } else {
     sku.earliestExpiryDate = await calculateEarliestExpiryDate(sku.hamperContents);
+  }
+
+  if (req.body.decorations !== undefined) {
+    const decorationsResult = await validateAndNormalizeDecorations(
+      req.body.decorations
+    );
+
+    if (!decorationsResult.valid) {
+      return res.status(400).json({
+        success: false,
+        message: decorationsResult.message,
+      });
+    }
+
+    sku.decorations = decorationsResult.items;
   }
 
   if (req.body.internalMaterials !== undefined) {

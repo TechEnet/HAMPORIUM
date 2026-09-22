@@ -97,6 +97,25 @@ const componentSchema = new mongoose.Schema(
       default: "content",
       index: true,
     },
+
+    /*
+     * Decoration metadata is intentionally separate from gift-product capacity.
+     * A decoration can still have physical dimensions for procurement/inventory,
+     * but those dimensions are never consumed by the custom-hamper fit engine.
+     */
+    decorationType: {
+      type: String,
+      trim: true,
+      default: "",
+      maxlength: 120,
+      index: true,
+    },
+    countsTowardBoxCapacity: {
+      type: Boolean,
+      default: true,
+      index: true,
+    },
+
     brand: { type: String, trim: true, default: "", maxlength: 120 },
     description: { type: String, trim: true, default: "", maxlength: 2000 },
     images: { type: [componentImageSchema], default: [] },
@@ -160,13 +179,43 @@ const componentSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+componentSchema.pre("validate", function normalizeComponentRole() {
+  if (this.type === "packaging") {
+    this.hamperRole = "content";
+    this.customerSelectable = false;
+    this.countsTowardBoxCapacity = false;
+    this.decorationType = "";
+    this.expiryTracked = false;
+    this.expiryDate = null;
+  }
+
+  if (this.hamperRole === "decoration") {
+    this.type = "non_food";
+    this.countsTowardBoxCapacity = false;
+    this.expiryTracked = false;
+    this.expiryDate = null;
+  }
+});
+
 componentSchema.path("discount.value").validate(function validateDiscountValue(value) {
   if (!this.discount?.enabled) return true;
   if (this.discount.type === "percentage") return Number(value) <= 100;
   return true;
 }, "Percentage discount cannot exceed 100");
 
-componentSchema.index({ type: 1, hamperRole: 1, isActive: 1, customerSelectable: 1, name: 1 });
+componentSchema.index({
+  type: 1,
+  hamperRole: 1,
+  isActive: 1,
+  customerSelectable: 1,
+  name: 1,
+});
+componentSchema.index({
+  hamperRole: 1,
+  decorationType: 1,
+  isActive: 1,
+  customerSelectable: 1,
+});
 componentSchema.index({ "availability.status": 1, isActive: 1 });
 componentSchema.index({ category: 1, subcategory: 1, segment: 1, isActive: 1 });
 componentSchema.index({ "channels.wedding": 1, isActive: 1, customerSelectable: 1 });
