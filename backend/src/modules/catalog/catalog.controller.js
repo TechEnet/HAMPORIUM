@@ -1770,7 +1770,10 @@ const packRectangles = (box, instances) => {
 
 const configurationReasonMessage = (reason) => {
   const map = {
+    INVALID_CONTAINER_DATA:
+      "Box true inner dimensions, usable volume or max content weight are missing",
     INVALID_COMPONENT_DATA: "Product physical dimensions or weight are missing",
+    INVALID_SELECTION_DATA: "Hamper composition contains an invalid quantity",
     DIMENSION_NOT_FIT: "Product dimensions do not fit this box",
     MAX_ITEMS_EXCEEDED: "Box item-count capacity exceeded",
     USABLE_VOLUME_EXCEEDED: "Not enough usable box space",
@@ -1783,13 +1786,34 @@ const configurationReasonMessage = (reason) => {
   return map[reason] || "Configuration is not valid";
 };
 
-const evaluatePhysicalConfiguration = (container, selections, componentMap) => {
+const evaluatePhysicalConfiguration = (
+  container,
+  selections = [],
+  componentMap = new Map()
+) => {
+  /*
+   * The same fit engine is used by live builder validation and Product Master
+   * preview. Incomplete container data must become a normal REVIEW result, not
+   * a server exception.
+   */
+  if (!container || !validPositiveDimensions(container.innerDimensions)) {
+    return { valid: false, reason: "INVALID_CONTAINER_DATA" };
+  }
+
   const inner = container.innerDimensions;
   const box = {
     length: dimensionToCm(inner.length, inner.unit),
     width: dimensionToCm(inner.width, inner.unit),
     height: dimensionToCm(inner.height, inner.unit),
   };
+
+  if (
+    ![box.length, box.width, box.height].every(
+      (value) => Number.isFinite(value) && value > 0
+    )
+  ) {
+    return { valid: false, reason: "INVALID_CONTAINER_DATA" };
+  }
 
   const boxCapacity = calculateContainerCapacity(container);
   const maxWeightGrams = weightToGrams(
@@ -1798,20 +1822,46 @@ const evaluatePhysicalConfiguration = (container, selections, componentMap) => {
   );
   const maxItems = Number(container.maxItems || 0);
 
+  if (
+    !boxCapacity ||
+    !Number.isFinite(Number(boxCapacity.usableVolumeCm3)) ||
+    Number(boxCapacity.usableVolumeCm3) <= 0 ||
+    !Number.isFinite(maxWeightGrams) ||
+    maxWeightGrams <= 0
+  ) {
+    return { valid: false, reason: "INVALID_CONTAINER_DATA" };
+  }
+
+  const normalizedSelections = Array.isArray(selections) ? selections : [];
+
+  if (!componentMap || typeof componentMap.get !== "function") {
+    return { valid: false, reason: "INVALID_COMPONENT_DATA" };
+  }
+
   const instances = [];
   let itemCount = 0;
   let usedVolumeCm3 = 0;
   let usedWeightGrams = 0;
 
-  for (const selection of selections) {
-    const component = componentMap.get(String(selection.componentId));
+  for (const selection of normalizedSelections) {
+    const quantity = Number(selection?.quantity);
+
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      return {
+        valid: false,
+        reason: "INVALID_SELECTION_DATA",
+        componentId: selection?.componentId || null,
+      };
+    }
+
+    const component = componentMap.get(String(selection?.componentId || ""));
     const physical = getComponentPhysicalData(component);
 
     if (!physical) {
       return {
         valid: false,
         reason: "INVALID_COMPONENT_DATA",
-        componentId: selection.componentId,
+        componentId: selection?.componentId || null,
       };
     }
 
@@ -1819,17 +1869,17 @@ const evaluatePhysicalConfiguration = (container, selections, componentMap) => {
       return {
         valid: false,
         reason: "DIMENSION_NOT_FIT",
-        componentId: selection.componentId,
+        componentId: selection?.componentId || null,
       };
     }
 
-    itemCount += selection.quantity;
-    usedVolumeCm3 += physical.volumeCm3 * selection.quantity;
-    usedWeightGrams += physical.weightGrams * selection.quantity;
+    itemCount += quantity;
+    usedVolumeCm3 += physical.volumeCm3 * quantity;
+    usedWeightGrams += physical.weightGrams * quantity;
 
-    for (let i = 0; i < selection.quantity; i += 1) {
+    for (let i = 0; i < quantity; i += 1) {
       instances.push({
-        componentId: selection.componentId,
+        componentId: selection?.componentId || null,
         ...physical,
       });
     }
@@ -3245,6 +3295,15 @@ const buildReadyMadeMasterPayload = async (
     review.push(`Container ${container.name} is inactive`);
   } else if (container && !validPositiveDimensions(container.innerDimensions)) {
     review.push(`Container ${container.name} requires completed true inner dimensions`);
+  } else if (container && !validPositiveWeight(container.maxContentWeight)) {
+    review.push(`Container ${container.name} requires Max Content Weight / Max Safe Load`);
+  } else if (
+    container &&
+    (!Number.isFinite(Number(container.usableVolumePercent)) ||
+      Number(container.usableVolumePercent) < 1 ||
+      Number(container.usableVolumePercent) > 100)
+  ) {
+    review.push(`Container ${container.name} requires Usable Volume % between 1 and 100`);
   }
 
   const hamperContents = [];
@@ -3333,6 +3392,11 @@ const buildReadyMadeMasterPayload = async (
 
   if (
     container &&
+    validPositiveDimensions(container.innerDimensions) &&
+    validPositiveWeight(container.maxContentWeight) &&
+    Number.isFinite(Number(container.usableVolumePercent)) &&
+    Number(container.usableVolumePercent) >= 1 &&
+    Number(container.usableVolumePercent) <= 100 &&
     hamperContents.length === contentEntries.length &&
     hamperContents.length > 0
   ) {
