@@ -91,6 +91,74 @@ const partnerPromoSnapshotSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const promotionSnapshotSchema = new mongoose.Schema(
+  {
+    promotion: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Promotion",
+      required: true,
+    },
+    type: {
+      type: String,
+      enum: [
+        "automatic_sale",
+        "public_coupon",
+        "client_coupon",
+        "customer_care",
+        "first_order",
+      ],
+      required: true,
+    },
+    code: {
+      type: String,
+      trim: true,
+      uppercase: true,
+      default: "",
+      maxlength: 40,
+    },
+    name: { type: String, trim: true, required: true, maxlength: 180 },
+    customerLabel: { type: String, trim: true, default: "", maxlength: 120 },
+    discountType: {
+      type: String,
+      enum: ["percentage", "fixed"],
+      default: "percentage",
+    },
+    discountValue: { type: Number, min: 0, default: 0 },
+    discountAmount: { type: Number, min: 0, default: 0 },
+    taxReductionAmount: { type: Number, min: 0, default: 0 },
+    customerSavings: { type: Number, min: 0, default: 0 },
+    appliedSkus: [{ type: mongoose.Schema.Types.ObjectId, ref: "SKU" }],
+    appliedAt: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
+
+const partnerCommissionSnapshotSchema = new mongoose.Schema(
+  {
+    partner: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Partner",
+      required: true,
+    },
+    referralCode: {
+      type: String,
+      trim: true,
+      uppercase: true,
+      required: true,
+      maxlength: 40,
+    },
+    rate: { type: Number, min: 0, max: 100, required: true },
+    eligibleValue: { type: Number, min: 0, required: true },
+    basis: {
+      type: String,
+      enum: ["order_taxable_value"],
+      default: "order_taxable_value",
+    },
+    lockedAt: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
+
 const discountSnapshotSchema = new mongoose.Schema(
   {
     enabled: { type: Boolean, default: false },
@@ -306,7 +374,14 @@ const orderItemSchema = new mongoose.Schema(
     baseLineTotal: { type: Number, min: 0, default: undefined },
     discount: { type: discountSnapshotSchema, default: undefined },
 
-    // Separate from catalogue discount so partner promo can be audited.
+    // Separate discount buckets keep catalogue, HAMPORIUM promotion and partner
+    // promo values independently auditable.
+    promotionDiscountAmount: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
+
     partnerPromoDiscountAmount: {
       type: Number,
       min: 0,
@@ -343,6 +418,16 @@ const addressSnapshotSchema = new mongoose.Schema(
     state: String,
     postalCode: String,
     country: String,
+  },
+  { _id: false }
+);
+
+const deliveryPlanSchema = new mongoose.Schema(
+  {
+    materialsReadyDate: { type: Date, default: null },
+    dispatchReadyDate: { type: Date, default: null },
+    expectedDeliveryDate: { type: Date, default: null },
+    calculatedAt: { type: Date, default: Date.now },
   },
   { _id: false }
 );
@@ -538,6 +623,11 @@ const orderSchema = new mongoose.Schema(
       },
     },
 
+    deliveryPlan: {
+      type: deliveryPlanSchema,
+      default: undefined,
+    },
+
     giftMessage: {
       type: String,
       trim: true,
@@ -552,14 +642,27 @@ const orderSchema = new mongoose.Schema(
       default: undefined,
     },
 
+    promotionSnapshots: {
+      type: [promotionSnapshotSchema],
+      default: [],
+    },
+
     partnerPromo: {
       type: partnerPromoSnapshotSchema,
       default: undefined,
     },
 
+    // Private checkout-time lock for partner commission. This is deliberately
+    // excluded from normal queries and customer responses.
+    partnerCommissionSnapshot: {
+      type: partnerCommissionSnapshotSchema,
+      default: undefined,
+      select: false,
+    },
+
     /*
      * baseSubtotal = before all discounts/GST
-     * discountAmount = catalogue discount + partner promo discount
+     * discountAmount = catalogue + HAMPORIUM promotion + partner promo discounts
      * taxableAmount = after all discounts, before GST
      * subtotal = final item total including GST, before shipping
      */
@@ -622,9 +725,12 @@ orderSchema.index(
 orderSchema.index({ rfq: 1, createdAt: -1 });
 orderSchema.index({ user: 1, createdAt: -1 });
 orderSchema.index({ paymentStatus: 1, paidAt: -1 });
+orderSchema.index({ status: 1, deliveryDate: 1 });
 orderSchema.index({ "partnerAttribution.partner": 1, createdAt: -1 });
 orderSchema.index({ "partnerPromo.partner": 1, createdAt: -1 });
 orderSchema.index({ "partnerPromo.code": 1, createdAt: -1 });
+orderSchema.index({ "promotionSnapshots.promotion": 1, createdAt: -1 });
+orderSchema.index({ "promotionSnapshots.code": 1, createdAt: -1 });
 orderSchema.index({ "cancellation.status": 1, "cancellation.requestedAt": -1 });
 orderSchema.index(
   { invoiceNumber: 1 },

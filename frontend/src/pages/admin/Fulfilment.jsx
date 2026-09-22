@@ -1,16 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+
 import api from "../../api/api.js";
 
+const DISPLAY_FONT =
+  "'Cormorant Garamond', 'Playfair Display', Georgia, serif";
 
-const pretty = (value) =>
-  String(value || "—")
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (char) =>
-      char.toUpperCase()
-    );
-
-
-const formatDate = (value) => {
+const formatDate = (
+  value,
+  includeTime = false
+) => {
   if (!value) return "—";
 
   const date = new Date(value);
@@ -19,82 +18,112 @@ const formatDate = (value) => {
     return "—";
   }
 
-  return date.toLocaleDateString("en-IN", {
+  return date.toLocaleString("en-IN", {
     day: "2-digit",
     month: "short",
     year: "numeric",
+    ...(includeTime
+      ? {
+          hour: "2-digit",
+          minute: "2-digit",
+        }
+      : {}),
   });
 };
-
 
 const getError = (error) =>
   error?.response?.data?.message ||
   error?.message ||
   "Something went wrong.";
 
+const pretty = (value) =>
+  String(value || "—")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
 
-const getShipments = (data = {}) =>
-  data.shipments ||
-  data.fulfilments ||
-  data.items ||
-  [];
+const isDelayed = (shipment) => {
+  const expected =
+    shipment?.productionJob?.expectedDeliveryDate;
 
+  if (!expected) return false;
 
-const getProductionJobs = (data = {}) =>
-  data.productionJobs ||
-  data.jobs ||
-  data.items ||
-  [];
+  if (shipment.status === "delivered") {
+    return false;
+  }
 
+  return new Date() > new Date(expected);
+};
 
-const statusClass = (status) => {
+const getStatusLabel = (status) => {
   switch (status) {
-    case "delivered":
-      return "bg-emerald-50 text-emerald-700";
-    case "dispatched":
-    case "in_transit":
-      return "bg-blue-50 text-blue-700";
-    case "out_for_delivery":
-      return "bg-violet-50 text-violet-700";
-    case "failed":
-    case "returned":
-      return "bg-red-50 text-red-700";
-    case "cancelled":
-      return "bg-gray-100 text-gray-500";
+    case "created":
     case "label_ready":
-      return "bg-amber-50 text-amber-700";
+      return "Ready to Dispatch";
+    case "dispatched":
+      return "Dispatched";
+    case "in_transit":
+      return "In Transit";
+    case "out_for_delivery":
+      return "Out for Delivery";
+    case "delivered":
+      return "Delivered";
+    case "failed":
+      return "Delivery Failed";
+    case "returned":
+      return "Returned";
+    case "cancelled":
+      return "Cancelled";
     default:
-      return "bg-orange-50 text-[#F97316]";
+      return pretty(status);
   }
 };
 
+const statusTone = (status) => {
+  if (status === "delivered") {
+    return {
+      dot: "bg-emerald-500",
+      text: "text-emerald-700",
+      soft: "bg-emerald-50",
+    };
+  }
 
-const emptyForm = {
-  productionJob: "",
+  if (
+    [
+      "dispatched",
+      "in_transit",
+      "out_for_delivery",
+    ].includes(status)
+  ) {
+    return {
+      dot: "bg-blue-500",
+      text: "text-blue-700",
+      soft: "bg-blue-50",
+    };
+  }
 
-  recipientName: "",
-  recipientPhone: "",
+  if (
+    [
+      "failed",
+      "returned",
+      "cancelled",
+    ].includes(status)
+  ) {
+    return {
+      dot: "bg-red-500",
+      text: "text-red-600",
+      soft: "bg-red-50",
+    };
+  }
 
-  line1: "",
-  line2: "",
-  city: "",
-  state: "",
-  postalCode: "",
-  country: "India",
-
-  carrier: "",
-  trackingNumber: "",
-  trackingUrl: "",
-
-  notes: "",
+  return {
+    dot: "bg-[#F47822]",
+    text: "text-[#B95713]",
+    soft: "bg-[#FFF5EC]",
+  };
 };
-
 
 const Fulfilment = () => {
   const [shipments, setShipments] =
-    useState([]);
-
-  const [productionJobs, setProductionJobs] =
     useState([]);
 
   const [selectedId, setSelectedId] =
@@ -103,1682 +132,1094 @@ const Fulfilment = () => {
   const [loading, setLoading] =
     useState(true);
 
-  const [saving, setSaving] =
+  const [working, setWorking] =
     useState(false);
-
-  const [error, setError] =
-    useState("");
 
   const [search, setSearch] =
     useState("");
 
-  const [statusFilter, setStatusFilter] =
+  const [error, setError] =
     useState("");
 
-  const [createOpen, setCreateOpen] =
-    useState(false);
+  const [message, setMessage] =
+    useState("");
 
-  const [form, setForm] =
-    useState(emptyForm);
-
-  const [trackingForm, setTrackingForm] =
+  const [courier, setCourier] =
     useState({
       carrier: "",
       trackingNumber: "",
-      trackingUrl: "",
-      notes: "",
     });
 
-  const [actionNote, setActionNote] =
-    useState("");
-
-
-  const loadData = async ({
+  const loadShipments = async ({
     preserveSelection = true,
   } = {}) => {
     try {
       setLoading(true);
       setError("");
 
-      const [
-        shipmentResponse,
-        productionResponse,
-      ] = await Promise.all([
-        api.get("/fulfilment"),
-        api.get("/production"),
-      ]);
-
-      const shipmentList =
-        getShipments(
-          shipmentResponse.data
-        );
-
-      const jobs =
-        getProductionJobs(
-          productionResponse.data
-        );
-
-      setShipments(
-        shipmentList
+      const response = await api.get(
+        "/fulfilment",
+        {
+          params: {
+            limit: 100,
+            sourceType: "order",
+          },
+        }
       );
 
-      setProductionJobs(
-        jobs
-      );
+      const list =
+        response.data.shipments || [];
+
+      setShipments(list);
 
       if (
         !preserveSelection ||
         !selectedId ||
-        !shipmentList.some(
-          (item) =>
-            item._id === selectedId
+        !list.some(
+          (shipment) =>
+            shipment._id === selectedId
         )
       ) {
         setSelectedId(
-          shipmentList[0]?._id ||
-            ""
+          list[0]?._id || ""
         );
       }
-    } catch (err) {
-      setError(getError(err));
+    } catch (requestError) {
+      setError(getError(requestError));
     } finally {
       setLoading(false);
     }
   };
 
-
   useEffect(() => {
-    loadData({
+    void loadShipments({
       preserveSelection: false,
     });
   }, []);
 
-
-  const selected =
-    useMemo(
-      () =>
-        shipments.find(
-          (shipment) =>
-            shipment._id ===
-            selectedId
-        ) || null,
-      [shipments, selectedId]
-    );
-
+  const selectedShipment = useMemo(
+    () =>
+      shipments.find(
+        (shipment) =>
+          shipment._id === selectedId
+      ) || null,
+    [shipments, selectedId]
+  );
 
   useEffect(() => {
-    if (!selected) return;
+    if (!selectedShipment) return;
 
-    setTrackingForm({
+    setCourier({
       carrier:
-        selected.carrier || "",
-
+        selectedShipment.carrier || "",
       trackingNumber:
-        selected.trackingNumber ||
-        "",
-
-      trackingUrl:
-        selected.trackingUrl ||
-        "",
-
-      notes:
-        selected.notes || "",
+        selectedShipment.trackingNumber || "",
     });
+  }, [selectedShipment?._id]);
 
-    setActionNote("");
-  }, [selected?._id]);
+  const filteredShipments = useMemo(() => {
+    const query = search.trim().toLowerCase();
 
+    if (!query) return shipments;
 
-  const readyJobs =
-    useMemo(
-      () =>
-        productionJobs.filter(
-          (job) =>
-            [
-              "ready_to_ship",
-              "shipped",
-            ].includes(job.stage)
-        ),
-      [productionJobs]
+    return shipments.filter((shipment) =>
+      [
+        shipment.shipmentCode,
+        shipment.trackingNumber,
+        shipment.recipientName,
+        shipment.sourceId,
+        shipment.productionJob?.jobCode,
+        shipment.customerUser?.name,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(query)
     );
+  }, [shipments, search]);
 
+  const summary = useMemo(
+    () => ({
+      total: shipments.length,
+      ready: shipments.filter((item) =>
+        ["created", "label_ready"].includes(
+          item.status
+        )
+      ).length,
+      moving: shipments.filter((item) =>
+        [
+          "dispatched",
+          "in_transit",
+          "out_for_delivery",
+        ].includes(item.status)
+      ).length,
+      delayed: shipments.filter(
+        (item) => isDelayed(item)
+      ).length,
+    }),
+    [shipments]
+  );
 
-  const filteredShipments =
-    useMemo(() => {
-      const query =
-        search.trim().toLowerCase();
+  const run = async (action) => {
+    try {
+      setWorking(true);
+      setError("");
+      setMessage("");
 
-      return shipments.filter(
-        (shipment) => {
-          const matchesStatus =
-            !statusFilter ||
-            shipment.status ===
-              statusFilter;
+      const response = await action();
 
-          const recipient =
-            shipment.recipientName ||
-            shipment.recipient?.name ||
-            "";
-
-          const searchable = [
-            shipment.shipmentCode,
-            shipment.trackingNumber,
-            shipment.carrier,
-            recipient,
-            shipment.productionJob
-              ?.title,
-            shipment.productionJob
-              ?.jobCode,
-          ]
-            .filter(Boolean)
-            .join(" ")
-            .toLowerCase();
-
-          const matchesSearch =
-            !query ||
-            searchable.includes(
-              query
-            );
-
-          return (
-            matchesStatus &&
-            matchesSearch
-          );
-        }
+      setMessage(
+        response?.data?.message ||
+          "Updated successfully."
       );
-    }, [
-      shipments,
-      search,
-      statusFilter,
-    ]);
 
-
-  const stats =
-    useMemo(
-      () => ({
-        total:
-          shipments.length,
-
-        dispatchDue:
-          shipments.filter(
-            (item) =>
-              [
-                "created",
-                "label_ready",
-              ].includes(
-                item.status
-              )
-          ).length,
-
-        moving:
-          shipments.filter(
-            (item) =>
-              [
-                "dispatched",
-                "in_transit",
-                "out_for_delivery",
-              ].includes(
-                item.status
-              )
-          ).length,
-
-        exceptions:
-          shipments.filter(
-            (item) =>
-              [
-                "failed",
-                "returned",
-              ].includes(
-                item.status
-              )
-          ).length,
-      }),
-      [shipments]
-    );
-
-
-  const handleChange = (
-    event
-  ) => {
-    const {
-      name,
-      value,
-    } = event.target;
-
-    setForm((current) => ({
-      ...current,
-      [name]: value,
-    }));
+      await loadShipments();
+    } catch (requestError) {
+      setError(getError(requestError));
+    } finally {
+      setWorking(false);
+    }
   };
 
+  const saveAndDispatch = async () => {
+    if (!selectedShipment) return;
 
-  const createShipment = async (
-    event
-  ) => {
-    event.preventDefault();
+    const carrier = courier.carrier.trim();
+    const trackingNumber =
+      courier.trackingNumber.trim();
 
-    if (
-      !form.productionJob ||
-      !form.recipientName.trim() ||
-      !form.line1.trim() ||
-      !form.city.trim() ||
-      !form.state.trim() ||
-      !form.postalCode.trim()
-    ) {
+    if (!carrier || !trackingNumber) {
       setError(
-        "Production job, recipient name and complete delivery address are required."
+        "Enter courier name and AWB / tracking number."
       );
-
       return;
     }
 
-    try {
-      setSaving(true);
-      setError("");
+    await run(async () => {
+      await api.patch(
+        `/fulfilment/${selectedShipment._id}`,
+        {
+          carrier,
+          trackingNumber,
+          trackingUrl: "",
+        }
+      );
 
-      const payload = {
-        productionJob:
-          form.productionJob,
-
-        recipientName:
-          form.recipientName.trim(),
-
-        recipientPhone:
-          form.recipientPhone.trim(),
-
-        shippingAddress: {
-          line1:
-            form.line1.trim(),
-
-          line2:
-            form.line2.trim(),
-
-          city:
-            form.city.trim(),
-
-          state:
-            form.state.trim(),
-
-          postalCode:
-            form.postalCode.trim(),
-
-          country:
-            form.country.trim() ||
-            "India",
-        },
-
-        carrier:
-          form.carrier.trim(),
-
-        trackingNumber:
-          form.trackingNumber.trim(),
-
-        trackingUrl:
-          form.trackingUrl.trim(),
-
-        notes:
-          form.notes.trim(),
-      };
-
-      const response =
-        await api.post(
-          "/fulfilment",
-          payload
-        );
-
-      setForm(emptyForm);
-      setCreateOpen(false);
-
-      await loadData({
-        preserveSelection: false,
-      });
-
-      const created =
-        response.data.shipment ||
-        response.data.fulfilment;
-
-      if (created?._id) {
-        setSelectedId(
-          created._id
-        );
-      }
-    } catch (err) {
-      setError(getError(err));
-    } finally {
-      setSaving(false);
-    }
+      return api.post(
+        `/fulfilment/${selectedShipment._id}/dispatch`,
+        {}
+      );
+    });
   };
 
+  const moveStatus = async (status) => {
+    if (!selectedShipment) return;
 
-  const saveTracking =
-    async () => {
-      if (!selected) return;
+    await run(() =>
+      api.patch(
+        `/fulfilment/${selectedShipment._id}/status`,
+        {
+          status,
+        }
+      )
+    );
+  };
 
-      try {
-        setSaving(true);
-        setError("");
+  const markDelivered = async () => {
+    if (!selectedShipment) return;
 
-        await api.patch(
-          `/fulfilment/${selected._id}`,
-          {
-            carrier:
-              trackingForm.carrier.trim(),
-
-            trackingNumber:
-              trackingForm.trackingNumber.trim(),
-
-            trackingUrl:
-              trackingForm.trackingUrl.trim(),
-
-            notes:
-              trackingForm.notes.trim(),
-          }
-        );
-
-        await loadData();
-      } catch (err) {
-        setError(
-          getError(err)
-        );
-      } finally {
-        setSaving(false);
-      }
-    };
-
-
-  const changeStatus =
-    async (status) => {
-      if (!selected) return;
-
-      try {
-        setSaving(true);
-        setError("");
-
-        await api.patch(
-          `/fulfilment/${selected._id}/status`,
-          {
-            status,
-            note:
-              actionNote.trim(),
-          }
-        );
-
-        setActionNote("");
-
-        await loadData();
-      } catch (err) {
-        setError(
-          getError(err)
-        );
-      } finally {
-        setSaving(false);
-      }
-    };
-
-
-  const dispatchShipment =
-    async () => {
-      if (!selected) return;
-
-      if (
-        !trackingForm.carrier.trim() ||
-        !trackingForm.trackingNumber.trim()
-      ) {
-        setError(
-          "Carrier and tracking number are required before dispatch."
-        );
-
-        return;
-      }
-
-      try {
-        setSaving(true);
-        setError("");
-
-        await api.patch(
-          `/fulfilment/${selected._id}`,
-          {
-            carrier:
-              trackingForm.carrier.trim(),
-
-            trackingNumber:
-              trackingForm.trackingNumber.trim(),
-
-            trackingUrl:
-              trackingForm.trackingUrl.trim(),
-
-            notes:
-              trackingForm.notes.trim(),
-          }
-        );
-
-        await api.post(
-          `/fulfilment/${selected._id}/dispatch`,
-          {
-            carrier:
-              trackingForm.carrier.trim(),
-
-            trackingNumber:
-              trackingForm.trackingNumber.trim(),
-
-            trackingUrl:
-              trackingForm.trackingUrl.trim(),
-
-            note:
-              actionNote.trim(),
-          }
-        );
-
-        setActionNote("");
-
-        await loadData();
-      } catch (err) {
-        setError(
-          getError(err)
-        );
-      } finally {
-        setSaving(false);
-      }
-    };
-
-
-  const deliverShipment =
-    async () => {
-      if (!selected) return;
-
-      try {
-        setSaving(true);
-        setError("");
-
-        await api.post(
-          `/fulfilment/${selected._id}/deliver`,
-          {
-            note:
-              actionNote.trim(),
-          }
-        );
-
-        setActionNote("");
-
-        await loadData();
-      } catch (err) {
-        setError(
-          getError(err)
-        );
-      } finally {
-        setSaving(false);
-      }
-    };
-
+    await run(() =>
+      api.post(
+        `/fulfilment/${selectedShipment._id}/deliver`,
+        {}
+      )
+    );
+  };
 
   return (
-    <div className="space-y-6 pb-12">
-
+    <main
+      className="mx-auto w-full max-w-[1500px] pb-16 text-[#181715]"
+      style={{
+        fontFamily: "'Manrope', Arial, sans-serif",
+      }}
+    >
       {/* HEADER */}
 
-      <div className="flex flex-col gap-4 rounded-[22px] bg-[#171717] p-6 text-white sm:flex-row sm:items-center sm:justify-between">
+      <header className="border-b border-black/[0.08] pb-7">
+        <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+          <div>
+            <p className="text-[13px] font-extrabold uppercase tracking-[0.13em] text-[#9A7118]">
+              Delivery
+            </p>
 
-        <div>
-          <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#D4AF37]">
-            Phase 9 · Logistics
-          </p>
+            <h1
+              style={{ fontFamily: DISPLAY_FONT }}
+              className="mt-2 text-[48px] font-semibold leading-none tracking-[-0.045em] sm:text-[58px]"
+            >
+              Ship &{" "}
+              <span className="italic text-[#B18422]">
+                Deliver
+              </span>
+            </h1>
 
-          <h1 className="mt-2 text-2xl font-black">
-            Fulfilment
-          </h1>
-
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-white/55">
-            Create shipments, assign tracking, dispatch orders and close delivery exceptions. Retail customers see a simplified Confirmed → Preparing → Packed → Dispatched → Delivered timeline.
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={() =>
-            setCreateOpen(true)
-          }
-          className="rounded-xl bg-[#F97316] px-5 py-3 text-xs font-extrabold text-white transition hover:bg-orange-600"
-        >
-          + Create Shipment
-        </button>
-
-      </div>
-
-
-      {error && (
-        <div className="flex items-start justify-between gap-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          <span>{error}</span>
+            <p className="mt-4 max-w-[720px] text-[15px] leading-7 text-black/52">
+              Packed orders come here automatically. Add the courier and AWB number, dispatch the parcel and keep the delivery status updated.
+            </p>
+          </div>
 
           <button
             type="button"
             onClick={() =>
-              setError("")
+              loadShipments()
             }
-            className="font-bold"
+            className="w-fit border-b border-black/20 pb-1 text-[13px] font-extrabold uppercase tracking-[0.06em] text-black/55 transition hover:border-[#F47822] hover:text-[#F47822]"
           >
-            ×
+            Refresh
           </button>
+        </div>
+      </header>
+
+      {/* MESSAGES */}
+
+      {error && (
+        <div className="mt-5 border-l-[3px] border-red-500 pl-4">
+          <p className="text-[14px] font-semibold leading-6 text-red-600">
+            {error}
+          </p>
         </div>
       )}
 
+      {message && (
+        <div className="mt-5 border-l-[3px] border-emerald-500 pl-4">
+          <p className="text-[14px] font-semibold leading-6 text-emerald-700">
+            {message}
+          </p>
+        </div>
+      )}
 
-      {/* STATS */}
+      {/* SUMMARY */}
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat
-          label="Shipments"
-          value={stats.total}
+      <section className="grid grid-cols-2 border-b border-black/[0.08] md:grid-cols-4">
+        <SummaryStat
+          label="All Deliveries"
+          value={summary.total}
         />
 
-        <Stat
-          label="Dispatch Due"
-          value={
-            stats.dispatchDue
-          }
+        <SummaryStat
+          label="Ready to Dispatch"
+          value={summary.ready}
         />
 
-        <Stat
-          label="In Transit"
-          value={stats.moving}
+        <SummaryStat
+          label="In Delivery"
+          value={summary.moving}
         />
 
-        <Stat
-          label="Exceptions"
-          value={
-            stats.exceptions
-          }
+        <SummaryStat
+          label="Delayed"
+          value={summary.delayed}
+          danger={summary.delayed > 0}
         />
-      </div>
+      </section>
 
+      {/* SEARCH */}
 
-      {/* FILTERS */}
+      <section className="border-b border-black/[0.08] py-5">
+        <div className="flex items-end gap-4">
+          <div className="min-w-0 flex-1">
+            <label className="text-[12px] font-bold uppercase tracking-[0.06em] text-black/38">
+              Search Deliveries
+            </label>
 
-      <div className="flex flex-col gap-3 rounded-[18px] border border-black/[0.06] bg-white p-4 sm:flex-row">
+            <input
+              value={search}
+              onChange={(event) =>
+                setSearch(event.target.value)
+              }
+              placeholder="Customer, shipment code, order or AWB"
+              className="mt-2 h-11 w-full border-0 border-b border-black/[0.15] bg-transparent px-0 text-[15px] font-semibold outline-none placeholder:text-black/25 focus:border-[#F47822]"
+            />
+          </div>
 
-        <input
-          value={search}
-          onChange={(event) =>
-            setSearch(
-              event.target.value
-            )
-          }
-          placeholder="Search recipient, tracking, carrier..."
-          className="h-11 min-w-0 flex-1 rounded-xl border border-black/10 px-4 text-sm outline-none focus:border-[#F97316]"
-        />
+          <p className="hidden pb-3 text-[13px] font-semibold text-black/35 sm:block">
+            {filteredShipments.length} shown
+          </p>
+        </div>
+      </section>
 
-        <select
-          value={statusFilter}
-          onChange={(event) =>
-            setStatusFilter(
-              event.target.value
-            )
-          }
-          className="h-11 rounded-xl border border-black/10 bg-white px-4 text-sm outline-none focus:border-[#F97316]"
-        >
-          <option value="">
-            All statuses
-          </option>
+      {/* WORKSPACE */}
 
-          {[
-            "created",
-            "label_ready",
-            "dispatched",
-            "in_transit",
-            "out_for_delivery",
-            "delivered",
-            "failed",
-            "returned",
-            "cancelled",
-          ].map((status) => (
-            <option
-              key={status}
-              value={status}
-            >
-              {pretty(status)}
-            </option>
-          ))}
-        </select>
+      <div className="grid gap-8 pt-7 xl:grid-cols-[420px_minmax(0,1fr)]">
+        {/* LEFT */}
 
-        <button
-          type="button"
-          onClick={() =>
-            loadData()
-          }
-          className="h-11 rounded-xl border border-black/10 px-5 text-xs font-extrabold transition hover:border-[#F97316] hover:text-[#F97316]"
-        >
-          Refresh
-        </button>
-
-      </div>
-
-
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(420px,1.1fr)]">
-
-        {/* LIST */}
-
-        <div className="overflow-hidden rounded-[20px] border border-black/[0.06] bg-white">
-
-          <div className="border-b border-black/[0.06] px-5 py-4">
-            <p className="text-sm font-black">
-              Shipment Queue
+        <section className="min-w-0 xl:border-r xl:border-black/[0.08] xl:pr-8">
+          <div className="mb-4">
+            <p className="text-[13px] font-extrabold uppercase tracking-[0.08em] text-black/45">
+              Delivery Queue
             </p>
 
-            <p className="mt-1 text-[11px] text-black/45">
-              {filteredShipments.length} shipment(s)
+            <p className="mt-1 text-[13px] leading-5 text-black/38">
+              Select a delivery to continue.
             </p>
           </div>
 
           {loading ? (
-            <div className="p-8 text-center text-sm text-black/40">
-              Loading shipments...
+            <div className="border-y border-black/[0.08] py-10 text-[14px] text-black/45">
+              Loading deliveries...
             </div>
           ) : !filteredShipments.length ? (
-            <div className="p-8 text-center text-sm text-black/40">
-              No shipments found.
+            <div className="border-y border-black/[0.08] py-10">
+              <p className="text-[17px] font-extrabold">
+                No deliveries waiting
+              </p>
+
+              <p className="mt-2 text-[14px] leading-6 text-black/42">
+                Packed orders will appear here automatically.
+              </p>
             </div>
           ) : (
-            <div className="max-h-[680px] divide-y divide-black/[0.05] overflow-y-auto">
-
+            <div className="border-t border-black/[0.08]">
               {filteredShipments.map(
-                (shipment) => (
-                  <button
-                    key={
-                      shipment._id
-                    }
-                    type="button"
-                    onClick={() =>
-                      setSelectedId(
-                        shipment._id
-                      )
-                    }
-                    className={`w-full p-5 text-left transition ${
-                      selectedId ===
-                      shipment._id
-                        ? "bg-[#FFF9F2]"
-                        : "hover:bg-gray-50"
-                    }`}
-                  >
+                (shipment) => {
+                  const active =
+                    shipment._id ===
+                    selectedId;
 
-                    <div className="flex items-start justify-between gap-4">
+                  return (
+                    <button
+                      key={shipment._id}
+                      type="button"
+                      onClick={() =>
+                        setSelectedId(
+                          shipment._id
+                        )
+                      }
+                      className={`w-full border-b border-black/[0.08] py-5 text-left transition ${
+                        active
+                          ? "border-l-[3px] border-l-[#F47822] bg-[#FFF9F2] pl-5 pr-3"
+                          : "px-1 hover:bg-black/[0.018]"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0">
+                          <p className="truncate text-[16px] font-extrabold">
+                            {shipment.recipientName ||
+                              "Customer"}
+                          </p>
 
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-black">
-                          {shipment.recipientName ||
-                            shipment
-                              .recipient
-                              ?.name ||
-                            "Shipment"}
-                        </p>
+                          <p className="mt-1 truncate text-[13px] font-medium text-black/42">
+                            {shipment.shipmentCode}
+                          </p>
+                        </div>
 
-                        <p className="mt-1 truncate text-[10px] text-black/40">
-                          {shipment.shipmentCode ||
-                            shipment._id}
-                        </p>
+                        <DeliveryStatus
+                          status={
+                            shipment.status
+                          }
+                        />
                       </div>
 
-                      <span
-                        className={`shrink-0 rounded-full px-3 py-1 text-[9px] font-extrabold ${statusClass(
-                          shipment.status
-                        )}`}
-                      >
-                        {pretty(
-                          shipment.status
-                        )}
-                      </span>
+                      <div className="mt-5 grid grid-cols-2 gap-4">
+                        <QueueMeta
+                          label="Deliver By"
+                          value={formatDate(
+                            shipment
+                              .productionJob
+                              ?.expectedDeliveryDate
+                          )}
+                        />
 
-                    </div>
+                        <QueueMeta
+                          label="AWB"
+                          value={
+                            shipment.trackingNumber ||
+                            "Not added"
+                          }
+                        />
+                      </div>
 
-                    <div className="mt-4 grid grid-cols-2 gap-3 text-[10px]">
-                      <Mini
-                        label="Carrier"
-                        value={
-                          shipment.carrier
-                        }
-                      />
-
-                      <Mini
-                        label="Tracking"
-                        value={
-                          shipment.trackingNumber
-                        }
-                      />
-
-                      <Mini
-                        label="City"
-                        value={
-                          shipment
-                            .shippingAddress
-                            ?.city
-                        }
-                      />
-
-                      <Mini
-                        label="Created"
-                        value={formatDate(
-                          shipment.createdAt
-                        )}
-                      />
-                    </div>
-
-                  </button>
-                )
+                      {isDelayed(
+                        shipment
+                      ) && (
+                        <p className="mt-4 border-l-2 border-red-500 pl-3 text-[12px] font-extrabold text-red-600">
+                          Delivery delayed
+                        </p>
+                      )}
+                    </button>
+                  );
+                }
               )}
-
             </div>
           )}
+        </section>
 
-        </div>
+        {/* RIGHT */}
 
+        <section className="min-w-0">
+          {!selectedShipment ? (
+            <EmptySelection
+              title="Select a delivery"
+              text="Choose a delivery from the left to continue."
+            />
+          ) : (
+            <>
+              <DeliveryHeader
+                shipment={selectedShipment}
+              />
 
-        {/* DETAIL */}
-
-        {!selected ? (
-          <div className="flex min-h-[360px] items-center justify-center rounded-[20px] border border-dashed border-black/15 bg-white text-sm text-black/40">
-            Select a shipment.
-          </div>
-        ) : (
-          <div className="space-y-5">
-
-            <section className="rounded-[20px] border border-black/[0.06] bg-white p-6">
-
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-[10px] font-extrabold uppercase tracking-[0.15em] text-[#F97316]">
-                    Shipment
-                  </p>
-
-                  <h2 className="mt-2 text-xl font-black">
-                    {selected.recipientName ||
-                      selected.recipient
-                        ?.name ||
-                      "Shipment"}
-                  </h2>
-
-                  <p className="mt-1 break-all text-[10px] text-black/35">
-                    {selected.shipmentCode ||
-                      selected._id}
+              {isDelayed(
+                selectedShipment
+              ) && (
+                <div className="border-b border-black/[0.08] py-5">
+                  <p className="border-l-[3px] border-red-500 pl-4 text-[14px] font-semibold leading-6 text-red-600">
+                    Expected delivery date has passed. Please prioritise this order.
                   </p>
                 </div>
+              )}
 
-                <span
-                  className={`rounded-full px-3 py-1.5 text-[10px] font-extrabold ${statusClass(
-                    selected.status
-                  )}`}
-                >
-                  {pretty(
-                    selected.status
-                  )}
-                </span>
-              </div>
-
-
-              <div className="mt-6 grid gap-4 sm:grid-cols-2">
-
-                <Info
-                  label="Production Job"
-                  value={
-                    selected
-                      .productionJob
-                      ?.title ||
-                    selected
-                      .productionJob
-                      ?.jobCode ||
-                    selected.productionJob
-                  }
-                />
-
-                <Info
-                  label="Source"
-                  value={
-                    selected.sourceType
-                      ? `${pretty(selected.sourceType)} · ${selected.sourceId || "—"}`
-                      : selected.sourceId || "—"
-                  }
-                />
-
-                <Info
-                  label="Phone"
-                  value={
-                    selected.recipientPhone ||
-                    selected.recipient
-                      ?.phone
-                  }
-                />
-
-                <Info
-                  label="Carrier"
-                  value={
-                    selected.carrier
-                  }
-                />
-
-                <Info
-                  label="Tracking Number"
-                  value={
-                    selected.trackingNumber
-                  }
-                />
-
-                <Info
-                  label="Dispatched"
-                  value={formatDate(
-                    selected.dispatchedAt
-                  )}
-                />
-
-                <Info
-                  label="Delivered"
-                  value={formatDate(
-                    selected.deliveredAt
-                  )}
-                />
-
-              </div>
-
-
-              <div className="mt-5 rounded-xl bg-[#FFF9F2] p-4">
-                <p className="text-[9px] font-extrabold uppercase tracking-wider text-black/35">
-                  Delivery Address
-                </p>
-
-                <p className="mt-2 text-sm leading-6 text-black/65">
-                  {[
-                    selected
-                      .shippingAddress
-                      ?.line1,
-                    selected
-                      .shippingAddress
-                      ?.line2,
-                    selected
-                      .shippingAddress
-                      ?.city,
-                    selected
-                      .shippingAddress
-                      ?.state,
-                    selected
-                      .shippingAddress
-                      ?.postalCode,
-                    selected
-                      .shippingAddress
-                      ?.country,
-                  ]
-                    .filter(Boolean)
-                    .join(", ") ||
-                    "—"}
-                </p>
-              </div>
-
-            </section>
-
-
-            {/* TRACKING */}
-
-            {![
-              "delivered",
-              "returned",
-              "cancelled",
-            ].includes(
-              selected.status
-            ) && (
-              <section className="rounded-[20px] border border-black/[0.06] bg-white p-6">
-
-                <h3 className="text-sm font-black">
-                  Carrier & Tracking
-                </h3>
-
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-
-                  <Field
-                    label="Carrier"
-                    value={
-                      trackingForm.carrier
-                    }
-                    onChange={(event) =>
-                      setTrackingForm(
-                        (current) => ({
-                          ...current,
-                          carrier:
-                            event
-                              .target
-                              .value,
-                        })
-                      )
-                    }
-                  />
-
-                  <Field
-                    label="Tracking Number"
-                    value={
-                      trackingForm.trackingNumber
-                    }
-                    onChange={(event) =>
-                      setTrackingForm(
-                        (current) => ({
-                          ...current,
-                          trackingNumber:
-                            event
-                              .target
-                              .value,
-                        })
-                      )
-                    }
-                  />
-
-                  <div className="sm:col-span-2">
-                    <Field
-                      label="Tracking URL"
-                      value={
-                        trackingForm.trackingUrl
-                      }
-                      onChange={(event) =>
-                        setTrackingForm(
-                          (current) => ({
-                            ...current,
-                            trackingUrl:
-                              event
-                                .target
-                                .value,
-                          })
-                        )
-                      }
-                    />
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <label className="block">
-                      <span className="mb-1.5 block text-[9px] font-extrabold uppercase tracking-wider text-black/40">
-                        Internal Notes
-                      </span>
-
-                      <textarea
-                        rows="3"
-                        value={
-                          trackingForm.notes
-                        }
-                        onChange={(
-                          event
-                        ) =>
-                          setTrackingForm(
-                            (
-                              current
-                            ) => ({
-                              ...current,
-                              notes:
-                                event
-                                  .target
-                                  .value,
-                            })
-                          )
-                        }
-                        className="w-full rounded-xl border border-black/10 p-3 text-sm outline-none focus:border-[#F97316]"
-                      />
-                    </label>
-                  </div>
-
-                </div>
-
-                <button
-                  type="button"
-                  disabled={saving}
-                  onClick={
-                    saveTracking
-                  }
-                  className="mt-4 rounded-xl border border-black/10 px-5 py-2.5 text-xs font-extrabold transition hover:border-[#F97316] hover:text-[#F97316] disabled:opacity-50"
-                >
-                  Save Tracking
-                </button>
-
-              </section>
-            )}
-
-
-            {/* ACTIONS */}
-
-            {!["delivered", "cancelled"].includes(selected.status) && (
-              <section className="rounded-[20px] border border-black/[0.06] bg-white p-6">
-
-                <h3 className="text-sm font-black">
-                  Shipment Actions
-                </h3>
-
-                <input
-                  value={actionNote}
-                  onChange={(event) =>
-                    setActionNote(
-                      event.target.value
-                    )
-                  }
-                  placeholder="Optional operational note"
-                  className="mt-4 h-11 w-full rounded-xl border border-black/10 px-3 text-sm outline-none focus:border-[#F97316]"
-                />
-
-                <div className="mt-4 flex flex-wrap gap-2">
-
-                  {selected.status ===
-                    "created" && (
-                    <ActionButton
-                      disabled={
-                        saving
-                      }
-                      onClick={() =>
-                        changeStatus(
-                          "label_ready"
-                        )
-                      }
-                    >
-                      Label Ready
-                    </ActionButton>
-                  )}
-
-                  {[
-                    "created",
-                    "label_ready",
-                  ].includes(
-                    selected.status
-                  ) && (
-                    <ActionButton
-                      primary
-                      disabled={
-                        saving
-                      }
-                      onClick={
-                        dispatchShipment
-                      }
-                    >
-                      Dispatch
-                    </ActionButton>
-                  )}
-
-                  {[
-                    "dispatched",
-                    "in_transit",
-                  ].includes(
-                    selected.status
-                  ) && (
-                    <ActionButton
-                      disabled={
-                        saving
-                      }
-                      onClick={() =>
-                        changeStatus(
-                          "in_transit"
-                        )
-                      }
-                    >
-                      In Transit
-                    </ActionButton>
-                  )}
-
-                  {[
-                    "dispatched",
-                    "in_transit",
-                  ].includes(
-                    selected.status
-                  ) && (
-                    <ActionButton
-                      disabled={
-                        saving
-                      }
-                      onClick={() =>
-                        changeStatus(
-                          "out_for_delivery"
-                        )
-                      }
-                    >
-                      Out for Delivery
-                    </ActionButton>
-                  )}
-
-                  {[
-                    "dispatched",
-                    "in_transit",
-                    "out_for_delivery",
-                  ].includes(
-                    selected.status
-                  ) && (
-                    <ActionButton
-                      success
-                      disabled={
-                        saving
-                      }
-                      onClick={
-                        deliverShipment
-                      }
-                    >
-                      Mark Delivered
-                    </ActionButton>
-                  )}
-
-                  {![
-                    "delivered",
-                    "returned",
-                  ].includes(
-                    selected.status
-                  ) && (
-                    <ActionButton
-                      danger
-                      disabled={
-                        saving
-                      }
-                      onClick={() =>
-                        changeStatus(
-                          "failed"
-                        )
-                      }
-                    >
-                      Delivery Failed
-                    </ActionButton>
-                  )}
-
-                  {selected.status ===
-                    "failed" && (
-                    <ActionButton
-                      danger
-                      disabled={
-                        saving
-                      }
-                      onClick={() =>
-                        changeStatus(
-                          "returned"
-                        )
-                      }
-                    >
-                      Returned
-                    </ActionButton>
-                  )}
-
-                </div>
-
-              </section>
-            )}
-
-
-            {selected.trackingUrl && (
-              <a
-                href={
-                  selected.trackingUrl
+              <DeliveryProgress
+                status={
+                  selectedShipment.status
                 }
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center justify-between rounded-[18px] bg-[#171717] px-5 py-4 text-xs font-extrabold text-white transition hover:bg-[#F97316]"
-              >
-                Open Courier Tracking
-                <span>↗</span>
-              </a>
-            )}
+              />
 
+              <NextDeliveryAction
+                shipment={
+                  selectedShipment
+                }
+                courier={courier}
+                setCourier={setCourier}
+                working={working}
+                onDispatch={
+                  saveAndDispatch
+                }
+                onMove={moveStatus}
+                onDeliver={
+                  markDelivered
+                }
+              />
 
-            {/* HISTORY */}
+              <DeliveryAddress
+                shipment={
+                  selectedShipment
+                }
+              />
 
-            <section className="rounded-[20px] border border-black/[0.06] bg-white p-6">
+              <DeliveryTimeline
+                shipment={
+                  selectedShipment
+                }
+              />
+            </>
+          )}
+        </section>
+      </div>
+    </main>
+  );
+};
 
-              <h3 className="text-sm font-black">
-                Shipment History
-              </h3>
+const DeliveryHeader = ({
+  shipment,
+}) => (
+  <section className="border-b border-black/[0.08] pb-7">
+    <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
+      <div className="min-w-0">
+        <p className="text-[13px] font-extrabold uppercase tracking-[0.08em] text-[#9A7118]">
+          {shipment.shipmentCode}
+        </p>
 
-              <div className="mt-4 space-y-4">
+        <h2
+          style={{
+            fontFamily: DISPLAY_FONT,
+          }}
+          className="mt-2 text-[40px] font-semibold leading-none tracking-[-0.03em] sm:text-[46px]"
+        >
+          {shipment.recipientName ||
+            "Delivery"}
+        </h2>
 
-                {!selected.history
-                  ?.length ? (
-                  <p className="text-sm text-black/40">
-                    No shipment history.
-                  </p>
-                ) : (
-                  [
-                    ...selected
-                      .history,
-                  ]
-                    .reverse()
-                    .map(
-                      (
-                        history,
-                        index
-                      ) => (
-                        <div
-                          key={
-                            history._id ||
-                            index
-                          }
-                          className="flex gap-3"
-                        >
-                          <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[#F97316]" />
-
-                          <div>
-                            <p className="text-xs font-bold">
-                              {pretty(
-                                history.status
-                              )}
-                            </p>
-
-                            {history.note && (
-                              <p className="mt-1 text-[11px] leading-5 text-black/50">
-                                {
-                                  history.note
-                                }
-                              </p>
-                            )}
-
-                            <p className="mt-1 text-[9px] text-black/30">
-                              {formatDate(
-                                history.at ||
-                                  history.changedAt ||
-                                  history.createdAt
-                              )}
-                            </p>
-                          </div>
-                        </div>
-                      )
-                    )
-                )}
-
-              </div>
-
-            </section>
-
-          </div>
+        {shipment.recipientPhone && (
+          <p className="mt-2 text-[15px] font-semibold text-black/50">
+            {shipment.recipientPhone}
+          </p>
         )}
-
       </div>
 
+      <DeliveryStatus
+        status={shipment.status}
+        large
+      />
+    </div>
 
-      {/* CREATE SHIPMENT */}
+    <div className="mt-7 grid grid-cols-2 gap-x-8 gap-y-6 sm:grid-cols-4">
+      <Detail
+        label="Expected Delivery"
+        value={formatDate(
+          shipment.productionJob
+            ?.expectedDeliveryDate
+        )}
+      />
 
-      {createOpen && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/55 p-4">
+      <Detail
+        label="Courier"
+        value={
+          shipment.carrier ||
+          "Not added"
+        }
+      />
 
-          <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[22px] bg-white shadow-2xl">
+      <Detail
+        label="AWB"
+        value={
+          shipment.trackingNumber ||
+          "Not added"
+        }
+      />
 
-            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-black/[0.06] bg-white px-6 py-5">
-              <div>
-                <p className="text-[10px] font-extrabold uppercase tracking-[0.15em] text-[#F97316]">
-                  Fulfilment
-                </p>
+      <Detail
+        label="Delivered"
+        value={formatDate(
+          shipment.deliveredAt,
+          true
+        )}
+      />
+    </div>
 
-                <h2 className="mt-1 text-lg font-black">
-                  Create Shipment
-                </h2>
+    {shipment.sourceId && (
+      <Link
+        to={`/admin/orders/${shipment.sourceId}`}
+        className="mt-6 inline-flex items-center gap-2 border-b border-[#F47822]/40 pb-1 text-[13px] font-extrabold uppercase tracking-[0.05em] text-[#F47822] transition hover:border-[#181715] hover:text-[#181715]"
+      >
+        View Full Order
+        <span>→</span>
+      </Link>
+    )}
+  </section>
+);
+
+const DeliveryProgress = ({
+  status,
+}) => {
+  const rank = {
+    created: 0,
+    label_ready: 0,
+    dispatched: 1,
+    in_transit: 2,
+    out_for_delivery: 3,
+    delivered: 4,
+  };
+
+  const current =
+    rank[status] ?? 0;
+
+  const steps = [
+    "Ready",
+    "Dispatched",
+    "In Transit",
+    "Out for Delivery",
+    "Delivered",
+  ];
+
+  return (
+    <section className="border-b border-black/[0.08] py-7">
+      <p className="mb-5 text-[13px] font-extrabold uppercase tracking-[0.07em] text-black/42">
+        Delivery Progress
+      </p>
+
+      <div className="grid gap-3 sm:grid-cols-5">
+        {steps.map((step, index) => {
+          const complete =
+            current >= index;
+
+          const active =
+            current === index;
+
+          return (
+            <div key={step}>
+              <div className="flex items-center gap-3">
+                <span
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-[13px] font-extrabold ${
+                    complete
+                      ? "border-emerald-500 bg-emerald-500 text-white"
+                      : active
+                        ? "border-[#F47822] text-[#F47822]"
+                        : "border-black/15 text-black/30"
+                  }`}
+                >
+                  {complete ? "✓" : index + 1}
+                </span>
+
+                <span
+                  className={`text-[13px] font-bold ${
+                    complete
+                      ? "text-black/70"
+                      : active
+                        ? "text-[#B95713]"
+                        : "text-black/35"
+                  }`}
+                >
+                  {step}
+                </span>
               </div>
-
-              <button
-                type="button"
-                onClick={() =>
-                  setCreateOpen(false)
-                }
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-100"
-              >
-                ×
-              </button>
             </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+};
 
+const NextDeliveryAction = ({
+  shipment,
+  courier,
+  setCourier,
+  working,
+  onDispatch,
+  onMove,
+  onDeliver,
+}) => {
+  const status = shipment.status;
 
-            <form
-              onSubmit={
-                createShipment
-              }
-              className="space-y-6 p-6"
-            >
+  if (
+    ["created", "label_ready"].includes(
+      status
+    )
+  ) {
+    return (
+      <section className="border-b border-black/[0.08] py-7">
+        <ActionEyebrow>
+          Next Action
+        </ActionEyebrow>
 
-              <div>
-                <label className="mb-1.5 block text-[10px] font-extrabold uppercase tracking-wider text-black/45">
-                  Production Job *
-                </label>
+        <h3 className="mt-2 text-[22px] font-extrabold">
+          Add courier and dispatch
+        </h3>
 
-                <select
-                  name="productionJob"
-                  value={
-                    form.productionJob
-                  }
-                  onChange={
-                    handleChange
-                  }
-                  className="h-11 w-full rounded-xl border border-black/10 bg-white px-3 text-sm outline-none focus:border-[#F97316]"
-                >
-                  <option value="">
-                    Select ready job
-                  </option>
+        <p className="mt-2 max-w-[700px] text-[14px] leading-6 text-black/50">
+          After booking the parcel, enter the courier name and the AWB / tracking number provided by the courier.
+        </p>
 
-                  {readyJobs.map(
-                    (job) => (
-                      <option
-                        key={
-                          job._id
-                        }
-                        value={
-                          job._id
-                        }
-                      >
-                        {job.title ||
-                          job.productionId ||
-                          job._id}
-                      </option>
-                    )
-                  )}
-                </select>
+        <div className="mt-6 grid gap-6 sm:grid-cols-2">
+          <Field
+            label="Courier"
+            value={courier.carrier}
+            onChange={(value) =>
+              setCourier(
+                (current) => ({
+                  ...current,
+                  carrier: value,
+                })
+              )
+            }
+            placeholder="Delhivery, Blue Dart, DTDC..."
+          />
 
-                {!readyJobs.length && (
-                  <p className="mt-2 text-[10px] text-amber-700">
-                    No production job is currently
-                    ready to ship.
-                  </p>
-                )}
-              </div>
-
-
-              <div className="grid gap-4 sm:grid-cols-2">
-
-                <Input
-                  label="Recipient Name *"
-                  name="recipientName"
-                  value={
-                    form.recipientName
-                  }
-                  onChange={
-                    handleChange
-                  }
-                />
-
-                <Input
-                  label="Recipient Phone"
-                  name="recipientPhone"
-                  value={
-                    form.recipientPhone
-                  }
-                  onChange={
-                    handleChange
-                  }
-                />
-
-                <div className="sm:col-span-2">
-                  <Input
-                    label="Address Line 1 *"
-                    name="line1"
-                    value={
-                      form.line1
-                    }
-                    onChange={
-                      handleChange
-                    }
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <Input
-                    label="Address Line 2"
-                    name="line2"
-                    value={
-                      form.line2
-                    }
-                    onChange={
-                      handleChange
-                    }
-                  />
-                </div>
-
-                <Input
-                  label="City *"
-                  name="city"
-                  value={
-                    form.city
-                  }
-                  onChange={
-                    handleChange
-                  }
-                />
-
-                <Input
-                  label="State *"
-                  name="state"
-                  value={
-                    form.state
-                  }
-                  onChange={
-                    handleChange
-                  }
-                />
-
-                <Input
-                  label="Pincode *"
-                  name="postalCode"
-                  value={
-                    form.postalCode
-                  }
-                  onChange={
-                    handleChange
-                  }
-                />
-
-                <Input
-                  label="Country"
-                  name="country"
-                  value={
-                    form.country
-                  }
-                  onChange={
-                    handleChange
-                  }
-                />
-
-              </div>
-
-
-              <div className="border-t border-black/[0.06] pt-6">
-
-                <p className="text-sm font-black">
-                  Courier Details
-                </p>
-
-                <div className="mt-4 grid gap-4 sm:grid-cols-2">
-
-                  <Input
-                    label="Carrier"
-                    name="carrier"
-                    value={
-                      form.carrier
-                    }
-                    onChange={
-                      handleChange
-                    }
-                  />
-
-                  <Input
-                    label="Tracking Number"
-                    name="trackingNumber"
-                    value={
-                      form.trackingNumber
-                    }
-                    onChange={
-                      handleChange
-                    }
-                  />
-
-                  <div className="sm:col-span-2">
-                    <Input
-                      label="Tracking URL"
-                      name="trackingUrl"
-                      value={
-                        form.trackingUrl
-                      }
-                      onChange={
-                        handleChange
-                      }
-                    />
-                  </div>
-
-                </div>
-
-              </div>
-
-
-              <div>
-                <label className="mb-1.5 block text-[10px] font-extrabold uppercase tracking-wider text-black/45">
-                  Notes
-                </label>
-
-                <textarea
-                  name="notes"
-                  rows="3"
-                  value={form.notes}
-                  onChange={
-                    handleChange
-                  }
-                  className="w-full rounded-xl border border-black/10 p-3 text-sm outline-none focus:border-[#F97316]"
-                />
-              </div>
-
-
-              <div className="flex justify-end gap-3 border-t border-black/[0.06] pt-5">
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    setCreateOpen(false)
-                  }
-                  className="rounded-xl border border-black/10 px-5 py-3 text-xs font-bold"
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="rounded-xl bg-[#F97316] px-6 py-3 text-xs font-extrabold text-white disabled:opacity-50"
-                >
-                  {saving
-                    ? "Creating..."
-                    : "Create Shipment"}
-                </button>
-
-              </div>
-
-            </form>
-
-          </div>
-
+          <Field
+            label="AWB / Tracking Number"
+            value={
+              courier.trackingNumber
+            }
+            onChange={(value) =>
+              setCourier(
+                (current) => ({
+                  ...current,
+                  trackingNumber: value,
+                })
+              )
+            }
+            placeholder="Enter courier tracking number"
+          />
         </div>
-      )}
 
+        <button
+          type="button"
+          disabled={working}
+          onClick={onDispatch}
+          className="mt-6 min-h-[48px] bg-[#181715] px-7 text-[13px] font-extrabold uppercase tracking-[0.05em] text-white transition hover:bg-[#F47822] disabled:opacity-40"
+        >
+          Save & Dispatch
+        </button>
+      </section>
+    );
+  }
+
+  if (status === "dispatched") {
+    return (
+      <ActionBlock
+        title="Parcel has been dispatched"
+        text="When the courier starts moving the parcel through its network, update it to In Transit."
+        button="Mark In Transit"
+        working={working}
+        onClick={() =>
+          onMove("in_transit")
+        }
+      />
+    );
+  }
+
+  if (status === "in_transit") {
+    return (
+      <ActionBlock
+        title="Parcel is in transit"
+        text="When the parcel goes with the delivery executive for the final delivery, update it to Out for Delivery."
+        button="Mark Out for Delivery"
+        working={working}
+        onClick={() =>
+          onMove(
+            "out_for_delivery"
+          )
+        }
+      />
+    );
+  }
+
+  if (
+    status ===
+    "out_for_delivery"
+  ) {
+    return (
+      <ActionBlock
+        success
+        title="Parcel is out for delivery"
+        text="Mark delivered only after you have confirmation that the customer received the parcel."
+        button="Mark Delivered"
+        working={working}
+        onClick={onDeliver}
+      />
+    );
+  }
+
+  if (status === "delivered") {
+    return (
+      <section className="border-b border-black/[0.08] py-7">
+        <ActionEyebrow>
+          Delivery Complete
+        </ActionEyebrow>
+
+        <h3 className="mt-2 text-[22px] font-extrabold text-emerald-700">
+          Order delivered successfully
+        </h3>
+
+        <p className="mt-2 text-[14px] leading-6 text-black/50">
+          The order is marked delivered and the customer has been updated.
+        </p>
+      </section>
+    );
+  }
+
+  if (status === "failed") {
+    return (
+      <section className="border-b border-black/[0.08] py-7">
+        <p className="text-[12px] font-extrabold uppercase tracking-[0.08em] text-red-600">
+          Delivery Issue
+        </p>
+
+        <h3 className="mt-2 text-[22px] font-extrabold">
+          Delivery failed
+        </h3>
+
+        <div className="mt-5 flex flex-wrap gap-4">
+          <button
+            type="button"
+            disabled={working}
+            onClick={() =>
+              onMove(
+                "out_for_delivery"
+              )
+            }
+            className="min-h-[48px] bg-[#181715] px-6 text-[13px] font-extrabold uppercase tracking-[0.05em] text-white disabled:opacity-40"
+          >
+            Retry Delivery
+          </button>
+
+          <button
+            type="button"
+            disabled={working}
+            onClick={() =>
+              onMove("returned")
+            }
+            className="min-h-[48px] px-2 text-[13px] font-extrabold uppercase tracking-[0.05em] text-red-600 disabled:opacity-40"
+          >
+            Mark Returned
+          </button>
+        </div>
+      </section>
+    );
+  }
+
+  return null;
+};
+
+const ActionBlock = ({
+  title,
+  text,
+  button,
+  onClick,
+  working,
+  success = false,
+}) => (
+  <section className="border-b border-black/[0.08] py-7">
+    <ActionEyebrow>
+      Next Action
+    </ActionEyebrow>
+
+    <h3 className="mt-2 text-[22px] font-extrabold">
+      {title}
+    </h3>
+
+    <p className="mt-2 max-w-[700px] text-[14px] leading-6 text-black/50">
+      {text}
+    </p>
+
+    <button
+      type="button"
+      disabled={working}
+      onClick={onClick}
+      className={`mt-5 min-h-[48px] px-7 text-[13px] font-extrabold uppercase tracking-[0.05em] text-white disabled:opacity-40 ${
+        success
+          ? "bg-emerald-600"
+          : "bg-[#181715]"
+      }`}
+    >
+      {button}
+    </button>
+  </section>
+);
+
+const DeliveryAddress = ({
+  shipment,
+}) => (
+  <section className="border-b border-black/[0.08] py-7">
+    <p className="text-[13px] font-extrabold uppercase tracking-[0.07em] text-black/42">
+      Delivery Address
+    </p>
+
+    <p className="mt-3 max-w-[760px] text-[15px] font-medium leading-7 text-black/58">
+      {formatAddress(
+        shipment.shippingAddress
+      )}
+    </p>
+  </section>
+);
+
+const DeliveryTimeline = ({
+  shipment,
+}) => {
+  if (!shipment.history?.length) {
+    return null;
+  }
+
+  return (
+    <section className="pt-7">
+      <div className="border-b border-black/[0.08] pb-4">
+        <p className="text-[13px] font-extrabold uppercase tracking-[0.07em] text-black/42">
+          Timeline
+        </p>
+
+        <h3
+          style={{
+            fontFamily: DISPLAY_FONT,
+          }}
+          className="mt-1 text-[34px] font-semibold tracking-[-0.02em]"
+        >
+          Delivery Updates
+        </h3>
+      </div>
+
+      <div>
+        {[...shipment.history]
+          .reverse()
+          .map(
+            (
+              entry,
+              index
+            ) => (
+              <div
+                key={`${entry.status}-${entry.at}-${index}`}
+                className="grid gap-4 border-b border-black/[0.07] py-5 sm:grid-cols-[180px_minmax(0,1fr)]"
+              >
+                <div>
+                  <p className="text-[14px] font-extrabold">
+                    {getStatusLabel(
+                      entry.status
+                    )}
+                  </p>
+
+                  <p className="mt-1 text-[12px] font-medium text-black/35">
+                    {formatDate(
+                      entry.at,
+                      true
+                    )}
+                  </p>
+                </div>
+
+                <p className="text-[13px] leading-6 text-black/48">
+                  {entry.note ||
+                    "Status updated."}
+                </p>
+              </div>
+            )
+          )}
+      </div>
+    </section>
+  );
+};
+
+const DeliveryStatus = ({
+  status,
+  large = false,
+}) => {
+  const tone =
+    statusTone(status);
+
+  return (
+    <div
+      className={`inline-flex shrink-0 items-center gap-2 rounded-full ${tone.soft} ${
+        large
+          ? "px-3.5 py-2"
+          : "px-2.5 py-1.5"
+      }`}
+    >
+      <span
+        className={`rounded-full ${tone.dot} ${
+          large
+            ? "h-2.5 w-2.5"
+            : "h-2 w-2"
+        }`}
+      />
+
+      <span
+        className={`font-extrabold ${tone.text} ${
+          large
+            ? "text-[13px]"
+            : "text-[12px]"
+        }`}
+      >
+        {getStatusLabel(status)}
+      </span>
     </div>
   );
 };
 
-
-const Stat = ({
+const SummaryStat = ({
   label,
   value,
+  danger = false,
 }) => (
-  <div className="rounded-[18px] border border-black/[0.06] bg-white p-5">
-    <p className="text-[10px] font-extrabold uppercase tracking-wider text-black/35">
+  <div className="border-r border-black/[0.08] py-5 pr-4 last:border-r-0 md:px-5 md:first:pl-0">
+    <p className="text-[12px] font-bold uppercase tracking-[0.06em] text-black/35">
       {label}
     </p>
 
-    <p className="mt-2 text-2xl font-black">
+    <p
+      style={{
+        fontFamily: DISPLAY_FONT,
+      }}
+      className={`mt-1 text-[32px] font-semibold leading-none ${
+        danger
+          ? "text-red-600"
+          : ""
+      }`}
+    >
       {value}
     </p>
   </div>
 );
 
-
-const Mini = ({
+const QueueMeta = ({
   label,
   value,
 }) => (
   <div>
-    <p className="text-black/35">
+    <p className="text-[12px] font-semibold text-black/35">
       {label}
     </p>
 
-    <p className="mt-0.5 truncate font-bold text-black/65">
-      {pretty(value)}
+    <p className="mt-1 truncate text-[13px] font-bold text-black/62">
+      {value}
     </p>
   </div>
 );
 
-
-const Info = ({
+const Detail = ({
   label,
   value,
 }) => (
   <div>
-    <p className="text-[9px] font-extrabold uppercase tracking-wider text-black/35">
+    <p className="text-[12px] font-bold uppercase tracking-[0.05em] text-black/35">
       {label}
     </p>
 
-    <p className="mt-1 break-words text-xs font-bold text-black/70">
-      {pretty(value)}
+    <p className="mt-2 break-words text-[15px] font-semibold leading-5 text-black/70">
+      {value}
     </p>
   </div>
 );
-
 
 const Field = ({
   label,
-  ...props
+  value,
+  onChange,
+  placeholder,
 }) => (
   <label className="block">
-    <span className="mb-1.5 block text-[9px] font-extrabold uppercase tracking-wider text-black/40">
+    <span className="text-[13px] font-bold text-black/48">
       {label}
     </span>
 
     <input
-      {...props}
-      className="h-11 w-full rounded-xl border border-black/10 px-3 text-sm outline-none focus:border-[#F97316]"
+      value={value}
+      onChange={(event) =>
+        onChange(
+          event.target.value
+        )
+      }
+      placeholder={placeholder}
+      className="mt-2 h-12 w-full border-0 border-b border-black/[0.15] bg-transparent px-0 text-[15px] font-semibold outline-none placeholder:text-black/25 focus:border-[#F47822]"
     />
   </label>
 );
 
+const ActionEyebrow = ({ children }) => (
+  <p className="text-[12px] font-extrabold uppercase tracking-[0.08em] text-[#A65B1C]">
+    {children}
+  </p>
+);
 
-const Input = ({
-  label,
-  ...props
+const EmptySelection = ({
+  title,
+  text,
 }) => (
-  <label className="block">
-    <span className="mb-1.5 block text-[10px] font-extrabold uppercase tracking-wider text-black/45">
-      {label}
-    </span>
+  <div className="flex min-h-[420px] items-center justify-center border-y border-black/[0.08] text-center">
+    <div>
+      <p
+        style={{
+          fontFamily: DISPLAY_FONT,
+        }}
+        className="text-[36px] font-semibold"
+      >
+        {title}
+      </p>
 
-    <input
-      {...props}
-      className="h-11 w-full rounded-xl border border-black/10 px-3 text-sm outline-none focus:border-[#F97316]"
-    />
-  </label>
+      <p className="mt-2 text-[14px] leading-6 text-black/42">
+        {text}
+      </p>
+    </div>
+  </div>
 );
 
-
-const ActionButton = ({
-  children,
-  primary,
-  success,
-  danger,
-  ...props
-}) => {
-  let style =
-    "border border-black/10 bg-white text-[#171717] hover:border-[#F97316] hover:text-[#F97316]";
-
-  if (primary) {
-    style =
-      "bg-[#F97316] text-white";
-  }
-
-  if (success) {
-    style =
-      "bg-emerald-600 text-white";
-  }
-
-  if (danger) {
-    style =
-      "bg-red-50 text-red-700 hover:bg-red-600 hover:text-white";
-  }
-
-  return (
-    <button
-      type="button"
-      {...props}
-      className={`rounded-xl px-4 py-2.5 text-[10px] font-extrabold transition disabled:cursor-not-allowed disabled:opacity-40 ${style}`}
-    >
-      {children}
-    </button>
-  );
-};
-
+const formatAddress = (address) =>
+  address
+    ? [
+        address.line1,
+        address.line2,
+        address.city,
+        address.state,
+        address.postalCode,
+        address.country,
+      ]
+        .filter(Boolean)
+        .join(", ")
+    : "—";
 
 export default Fulfilment;

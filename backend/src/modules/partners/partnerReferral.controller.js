@@ -1,35 +1,48 @@
 import mongoose from "mongoose";
-
 import Partner from "./partner.model.js";
 import PartnerReferral from "./partnerReferral.model.js";
 import PartnerProject from "./partnerProject.model.js";
 import Showcase from "../showcases/showcase.model.js";
-
 import asyncHandler from "../../utils/asyncHandler.js";
 import createAuditLog from "../../helpers/createAuditLog.js";
-
 import {
   PARTNER_REFERRAL_STATUS,
   PARTNER_STATUS,
 } from "../../constants/statuses.js";
-
 const clean = (value, maxLength = 160) =>
   String(value || "")
     .trim()
     .replace(/\s+/g, " ")
     .slice(0, maxLength);
-
 const normalizeCode = (value) => clean(value, 40).toUpperCase();
 const sameId = (a, b) => String(a || "") === String(b || "");
-
 const findApprovedPartnerByCode = async (code) =>
   Partner.findOne({
     referralCode: normalizeCode(code),
     status: PARTNER_STATUS.APPROVED,
   }).select(
-    "partnerId referralCode businessName status owner +customerDiscountRate"
+    "partnerId referralCode businessName status owner members.user members.isActive +customerDiscountRate +defaultCommissionRate"
   );
 
+const isSelfReferral = (partner, userId) => {
+  if (!partner || !userId) return false;
+  if (sameId(partner.owner, userId)) return true;
+
+  return (partner.members || []).some(
+    (member) => member?.isActive && sameId(member.user, userId)
+  );
+};
+
+const resolveCommissionRate = (partner, project) => {
+  const override = project?.commissionRateOverride;
+  const rawRate =
+    override !== null && override !== undefined
+      ? Number(override)
+      : Number(partner?.defaultCommissionRate || 0);
+
+  if (!Number.isFinite(rawRate)) return 0;
+  return Math.max(0, Math.min(100, rawRate));
+};
 const validateProjectAndShowcase = async ({
   partnerId,
   projectId,
@@ -37,48 +50,45 @@ const validateProjectAndShowcase = async ({
 }) => {
   let project = null;
   let showcase = null;
-
   if (projectId) {
     if (!mongoose.isValidObjectId(projectId)) {
       return { error: "Invalid partner project ID" };
     }
-
     project = await PartnerProject.findOne({
       _id: projectId,
       partner: partnerId,
-    }).select("_id");
-
+    }).select("_id +commissionRateOverride");
     if (!project) {
       return { error: "Partner project does not belong to this referral" };
     }
   }
-
   if (showcaseId) {
     if (!mongoose.isValidObjectId(showcaseId)) {
       return { error: "Invalid showcase ID" };
     }
-
     showcase = await Showcase.findOne({
       _id: showcaseId,
       partner: partnerId,
     }).select("_id project");
-
     if (!showcase) {
       return { error: "Showcase does not belong to this referral" };
     }
-
     if (project && !sameId(showcase.project, project._id)) {
       return { error: "Showcase does not belong to the selected project" };
     }
-
     if (!project && showcase.project) {
-      project = { _id: showcase.project };
+      project = await PartnerProject.findOne({
+        _id: showcase.project,
+        partner: partnerId,
+      }).select("_id +commissionRateOverride");
+
+      if (!project) {
+        return { error: "Showcase project is unavailable" };
+      }
     }
   }
-
   return { project, showcase };
 };
-
 const buildSnapshot = ({ partner, referral, project, showcase, source }) => ({
   partner: partner._id,
   referral: referral?._id || null,
@@ -89,8 +99,10 @@ const buildSnapshot = ({ partner, referral, project, showcase, source }) => ({
   acquiredAt: referral?.acquiredAt || new Date(),
   source: clean(source, 80) || referral?.source || "partner_referral",
 });
-
-const buildPromo = (partner) => ({
+// Internal promo resolution. commissionRate is intentionally never returned
+// by public referral endpoints; it is consumed only while creating the order's
+// private commission snapshot.
+const buildPromo = (partner, project = null) => ({
   partner: partner._id,
   partnerId: partner.partnerId,
   referralCode: partner.referralCode,
@@ -99,8 +111,8 @@ const buildPromo = (partner) => ({
     0,
     Math.min(100, Number(partner.customerDiscountRate || 0))
   ),
+  commissionRate: resolveCommissionRate(partner, project),
 });
-
 const upsertExplicitReferral = async ({
   userId,
   partner,
@@ -110,7 +122,6 @@ const upsertExplicitReferral = async ({
 }) => {
   const now = new Date();
   let referral = await PartnerReferral.findOne({ user: userId });
-
   if (!referral) {
     try {
       referral = await PartnerReferral.create({
@@ -128,10 +139,8 @@ const upsertExplicitReferral = async ({
       referral = await PartnerReferral.findOne({ user: userId });
     }
   }
-
   if (referral) {
     const partnerChanged = !sameId(referral.partner, partner._id);
-
     referral.partner = partner._id;
     referral.referralCode = partner.referralCode;
     referral.source = clean(source, 80) || "promo_code";
@@ -141,21 +150,16 @@ const upsertExplicitReferral = async ({
     referral.revokedAt = null;
     referral.revokedBy = null;
     referral.revokeReason = "";
-
     if (partnerChanged || !referral.acquiredAt) {
       referral.acquiredAt = now;
     }
-
     await referral.save();
   }
-
   return referral;
 };
-
 export const resolveReferralPublic = asyncHandler(async (req, res) => {
   const code = normalizeCode(req.params.code);
   const partner = code ? await findApprovedPartnerByCode(code) : null;
-
   if (!partner) {
     return res.status(404).json({
       success: false,
@@ -163,7 +167,6 @@ export const resolveReferralPublic = asyncHandler(async (req, res) => {
       message: "Partner referral is unavailable",
     });
   }
-
   res.json({
     success: true,
     valid: true,
@@ -178,7 +181,6 @@ export const resolveReferralPublic = asyncHandler(async (req, res) => {
     },
   });
 });
-
 /*
  * Attribution rules for orders:
  * 1. An explicitly submitted approved code is authoritative for that order.
@@ -197,25 +199,27 @@ export const resolvePartnerAttributionForOrder = async ({
   source = "checkout",
 }) => {
   if (!userId || !mongoose.isValidObjectId(userId)) return null;
-
   const code = normalizeCode(referralCode);
-
   if (code) {
     const partner = await findApprovedPartnerByCode(code);
     if (!partner) return null;
+
+    if (isSelfReferral(partner, userId)) {
+      const error = new Error("You cannot use your own partner referral code.");
+      error.statusCode = 403;
+      throw error;
+    }
 
     const context = await validateProjectAndShowcase({
       partnerId: partner._id,
       projectId,
       showcaseId,
     });
-
     if (context.error) {
       const error = new Error(context.error);
       error.statusCode = 400;
       throw error;
     }
-
     const referral = await upsertExplicitReferral({
       userId,
       partner,
@@ -223,7 +227,6 @@ export const resolvePartnerAttributionForOrder = async ({
       showcase: context.showcase,
       source,
     });
-
     return {
       referral,
       snapshot: buildSnapshot({
@@ -233,34 +236,28 @@ export const resolvePartnerAttributionForOrder = async ({
         showcase: context.showcase,
         source: clean(source, 80) || "promo_code",
       }),
-      promo: buildPromo(partner),
+      promo: buildPromo(partner, context.project),
     };
   }
-
   // Normal retail checkout without a submitted code must stay unattributed.
   if (!projectId && !showcaseId) return null;
-
   const referral = await PartnerReferral.findOne({
     user: userId,
     status: PARTNER_REFERRAL_STATUS.ACTIVE,
   }).populate("partner", "partnerId referralCode businessName status owner");
-
   if (!referral || referral.partner?.status !== PARTNER_STATUS.APPROVED) {
     return null;
   }
-
   const context = await validateProjectAndShowcase({
     partnerId: referral.partner._id,
     projectId,
     showcaseId,
   });
-
   if (context.error) {
     const error = new Error(context.error);
     error.statusCode = 400;
     throw error;
   }
-
   return {
     referral,
     snapshot: {
@@ -276,7 +273,6 @@ export const resolvePartnerAttributionForOrder = async ({
     promo: null,
   };
 };
-
 export const claimReferral = asyncHandler(async (req, res) => {
   const result = await resolvePartnerAttributionForOrder({
     userId: req.user._id,
@@ -285,21 +281,19 @@ export const claimReferral = asyncHandler(async (req, res) => {
     showcaseId: req.body.showcaseId || null,
     source: req.body.source || "partner_link",
   });
-
   if (!result) {
     return res.status(404).json({
       success: false,
       message: "Valid approved partner referral not found",
     });
   }
-
   await createAuditLog({
     req,
     action: "partner_referral_claimed",
     module: "partners",
     entityType: "partner_referral",
     entityId: result.referral?._id || result.snapshot.partner,
-    description: "Persistent partner referral attribution established.",
+    description: "Partner referral code linked to the customer account.",
     metadata: {
       partnerId: result.snapshot.partner,
       referralCode: result.snapshot.referralCode,
@@ -307,10 +301,9 @@ export const claimReferral = asyncHandler(async (req, res) => {
       showcaseId: result.snapshot.showcase,
     },
   });
-
   res.status(200).json({
     success: true,
-    message: "Partner referral linked to your account",
+    message: "Partner referral code linked to your account",
     referral: {
       id: result.referral?._id || null,
       referralCode: result.snapshot.referralCode,
@@ -321,7 +314,6 @@ export const claimReferral = asyncHandler(async (req, res) => {
     },
   });
 });
-
 export const getMyReferral = asyncHandler(async (req, res) => {
   const referral = await PartnerReferral.findOne({
     user: req.user._id,
@@ -334,11 +326,9 @@ export const getMyReferral = asyncHandler(async (req, res) => {
     .populate("project", "projectId title status")
     .populate("showcase", "showcaseId title status")
     .lean();
-
   if (!referral) {
     return res.json({ success: true, referral: null });
   }
-
   res.json({
     success: true,
     referral: {
@@ -365,26 +355,22 @@ export const getMyReferral = asyncHandler(async (req, res) => {
     },
   });
 });
-
 export const clearMyReferral = asyncHandler(async (req, res) => {
   const referral = await PartnerReferral.findOne({
     user: req.user._id,
     status: PARTNER_REFERRAL_STATUS.ACTIVE,
   });
-
   if (!referral) {
     return res.status(200).json({
       success: true,
       message: "No active partner referral is linked to your account",
     });
   }
-
   referral.status = PARTNER_REFERRAL_STATUS.REVOKED;
   referral.revokedAt = new Date();
   referral.revokedBy = req.user._id;
   referral.revokeReason = "Cleared by customer";
   await referral.save();
-
   await createAuditLog({
     req,
     action: "partner_referral_cleared_by_customer",
@@ -393,26 +379,21 @@ export const clearMyReferral = asyncHandler(async (req, res) => {
     entityId: referral._id,
     description: "Customer cleared the active partner referral.",
   });
-
   res.json({ success: true, message: "Partner promo/referral cleared" });
 });
-
 export const revokeReferralAdmin = asyncHandler(async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) {
     return res.status(400).json({ success: false, message: "Invalid referral ID" });
   }
-
   const referral = await PartnerReferral.findById(req.params.id);
   if (!referral) {
     return res.status(404).json({ success: false, message: "Referral not found" });
   }
-
   referral.status = PARTNER_REFERRAL_STATUS.REVOKED;
   referral.revokedAt = new Date();
   referral.revokedBy = req.user._id;
   referral.revokeReason = clean(req.body.reason, 1000);
   await referral.save();
-
   await createAuditLog({
     req,
     action: "partner_referral_revoked",
@@ -422,6 +403,5 @@ export const revokeReferralAdmin = asyncHandler(async (req, res) => {
     description: "Persistent partner referral revoked by internal staff.",
     metadata: { reason: referral.revokeReason },
   });
-
   res.json({ success: true, message: "Referral revoked", referral });
 });

@@ -56,10 +56,13 @@ export const AddressManager = ({ embedded = false }) => {
       setError("");
 
       const response = await api.get("/users/addresses");
-      setAddresses(response.data.addresses || []);
-    } catch (error) {
+
+      setAddresses(
+        response.data.addresses || []
+      );
+    } catch (requestError) {
       setError(
-        error.response?.data?.message ||
+        requestError.response?.data?.message ||
           "Unable to load addresses"
       );
     } finally {
@@ -68,17 +71,22 @@ export const AddressManager = ({ embedded = false }) => {
   };
 
   useEffect(() => {
-    loadAddresses();
+    void loadAddresses();
   }, []);
 
   useEffect(() => {
-    if (!modalOpen) return;
+    if (!modalOpen) return undefined;
 
     const handleEscape = (event) => {
-      if (event.key === "Escape") closeModal();
+      if (event.key === "Escape") {
+        closeModal();
+      }
     };
 
-    window.addEventListener("keydown", handleEscape);
+    window.addEventListener(
+      "keydown",
+      handleEscape
+    );
 
     return () =>
       window.removeEventListener(
@@ -91,75 +99,101 @@ export const AddressManager = ({ embedded = false }) => {
     if (!modalOpen) {
       setAddressSuggestions([]);
       setSuggestionsLoading(false);
-      return;
+      return undefined;
     }
 
-    if (suppressSuggestionsRef.current) {
+    if (
+      suppressSuggestionsRef.current
+    ) {
       suppressSuggestionsRef.current = false;
-      return;
+      return undefined;
     }
 
     const query =
-      String(form.addressLine1 || "").trim();
+      String(
+        form.addressLine1 || ""
+      ).trim();
 
     if (query.length < 3) {
       setAddressSuggestions([]);
       setSuggestionsLoading(false);
-      return;
+      return undefined;
     }
 
     let active = true;
 
-    const timer = window.setTimeout(
-      async () => {
-        setSuggestionsLoading(true);
-
-        try {
-          const response = await api.post(
-            "/delivery/address-suggestions",
-            {
-              query,
-              limit: 6,
-            }
+    const timer =
+      window.setTimeout(
+        async () => {
+          setSuggestionsLoading(
+            true
           );
 
-          if (active) {
-            setAddressSuggestions(
-              response.data?.suggestions || []
-            );
+          try {
+            const response =
+              await api.post(
+                "/delivery/address-suggestions",
+                {
+                  query,
+                  limit: 6,
+                }
+              );
+
+            if (active) {
+              setAddressSuggestions(
+                response.data
+                  ?.suggestions ||
+                  []
+              );
+            }
+          } catch {
+            if (active) {
+              setAddressSuggestions(
+                []
+              );
+            }
+          } finally {
+            if (active) {
+              setSuggestionsLoading(
+                false
+              );
+            }
           }
-        } catch {
-          if (active) {
-            setAddressSuggestions([]);
-          }
-        } finally {
-          if (active) {
-            setSuggestionsLoading(false);
-          }
-        }
-      },
-      350
-    );
+        },
+        350
+      );
 
     return () => {
       active = false;
-      window.clearTimeout(timer);
+      window.clearTimeout(
+        timer
+      );
     };
   }, [
     form.addressLine1,
     modalOpen,
   ]);
 
-  const handleChange = (event) => {
-    const { name, value, type, checked } =
-      event.target;
+  const handleChange = (
+    event
+  ) => {
+    const {
+      name,
+      value,
+      type,
+      checked,
+    } = event.target;
 
     const nextValue =
       type === "checkbox"
         ? checked
-        : name === "postalCode"
+        : name ===
+            "postalCode"
           ? String(value)
-              .replace(/\D/g, "")
+              .replace(
+                /\D/g,
+                ""
+              )
               .slice(0, 6)
           : value;
 
@@ -169,98 +203,124 @@ export const AddressManager = ({ embedded = false }) => {
     }));
   };
 
-  const applySuggestedAddress = (suggestion) => {
-    if (!suggestion) {
-      return;
-    }
+  const applySuggestedAddress =
+    (suggestion) => {
+      if (!suggestion) {
+        return;
+      }
 
-    suppressSuggestionsRef.current = true;
-
-    const area =
-      suggestion.neighborhood ||
-      suggestion.locality ||
-      suggestion.district ||
-      "";
-
-    setForm((current) => ({
-      ...current,
-      addressLine1:
-        suggestion.addressLine1 ||
-        suggestion.name ||
-        current.addressLine1,
-      addressLine2:
-        area || current.addressLine2,
-      city:
-        suggestion.city ||
-        current.city,
-      state:
-        suggestion.state ||
-        current.state,
-      postalCode:
-        suggestion.pincode ||
-        current.postalCode,
-      country:
-        suggestion.country ||
-        current.country ||
-        "India",
-    }));
-
-    setAddressSuggestions([]);
-
-    applyDeliveryLocation(
-      suggestion
-    );
-  };
-
-  const handleUseCurrentLocation = async () => {
-    setError("");
-    setDetectingLocation(true);
-
-    try {
-      const location =
-        await detectCurrentLocation();
-
-      suppressSuggestionsRef.current = true;
+      suppressSuggestionsRef.current =
+        true;
 
       const area =
-        location?.neighborhood ||
-        location?.locality ||
-        location?.district ||
+        suggestion.neighborhood ||
+        suggestion.locality ||
+        suggestion.district ||
         "";
 
       setForm((current) => ({
         ...current,
+
         addressLine1:
-          location?.addressLine1 ||
-          location?.name ||
+          suggestion.addressLine1 ||
+          suggestion.name ||
           current.addressLine1,
+
         addressLine2:
-          area || current.addressLine2,
+          area ||
+          current.addressLine2,
+
         city:
-          location?.city ||
+          suggestion.city ||
           current.city,
+
         state:
-          location?.state ||
+          suggestion.state ||
           current.state,
+
         postalCode:
-          location?.pincode ||
+          suggestion.pincode ||
           current.postalCode,
+
         country:
-          location?.country ||
+          suggestion.country ||
           current.country ||
           "India",
       }));
 
       setAddressSuggestions([]);
-    } catch (requestError) {
-      setError(
-        requestError?.message ||
-          "Unable to detect your current location. You can still enter the address manually."
+
+      applyDeliveryLocation(
+        suggestion
       );
-    } finally {
-      setDetectingLocation(false);
-    }
-  };
+    };
+
+  const handleUseCurrentLocation =
+    async () => {
+      setError("");
+      setDetectingLocation(
+        true
+      );
+
+      try {
+        const location =
+          await detectCurrentLocation();
+
+        suppressSuggestionsRef.current =
+          true;
+
+        const area =
+          location?.neighborhood ||
+          location?.locality ||
+          location?.district ||
+          "";
+
+        setForm((current) => ({
+          ...current,
+
+          addressLine1:
+            location?.addressLine1 ||
+            location?.name ||
+            current.addressLine1,
+
+          addressLine2:
+            area ||
+            current.addressLine2,
+
+          city:
+            location?.city ||
+            current.city,
+
+          state:
+            location?.state ||
+            current.state,
+
+          postalCode:
+            location?.pincode ||
+            current.postalCode,
+
+          country:
+            location?.country ||
+            current.country ||
+            "India",
+        }));
+
+        setAddressSuggestions(
+          []
+        );
+      } catch (
+        requestError
+      ) {
+        setError(
+          requestError?.message ||
+            "Unable to detect your current location. You can still enter the address manually."
+        );
+      } finally {
+        setDetectingLocation(
+          false
+        );
+      }
+    };
 
   const openNewAddress = () => {
     setEditingId(null);
@@ -271,25 +331,57 @@ export const AddressManager = ({ embedded = false }) => {
     setModalOpen(true);
   };
 
-  const startEdit = (address) => {
-    setEditingId(address._id);
+  const startEdit = (
+    address
+  ) => {
+    setEditingId(
+      address._id
+    );
 
     setForm({
-      label: address.label || "Home",
-      fullName: address.fullName || "",
-      phone: address.phone || "",
+      label:
+        address.label ||
+        "Home",
+
+      fullName:
+        address.fullName ||
+        "",
+
+      phone:
+        address.phone ||
+        "",
+
       addressLine1:
-        address.addressLine1 || "",
+        address.addressLine1 ||
+        "",
+
       addressLine2:
-        address.addressLine2 || "",
-      landmark: address.landmark || "",
-      city: address.city || "",
-      state: address.state || "",
+        address.addressLine2 ||
+        "",
+
+      landmark:
+        address.landmark ||
+        "",
+
+      city:
+        address.city ||
+        "",
+
+      state:
+        address.state ||
+        "",
+
       postalCode:
-        address.postalCode || "",
-      country: address.country || "India",
+        address.postalCode ||
+        "",
+
+      country:
+        address.country ||
+        "India",
+
       isDefault:
-        address.isDefault || false,
+        address.isDefault ||
+        false,
     });
 
     setError("");
@@ -307,7 +399,9 @@ export const AddressManager = ({ embedded = false }) => {
     setAddressSuggestions([]);
   };
 
-  const handleSubmit = async (event) => {
+  const handleSubmit = async (
+    event
+  ) => {
     event.preventDefault();
 
     setError("");
@@ -325,7 +419,10 @@ export const AddressManager = ({ embedded = false }) => {
           "Address updated successfully."
         );
       } else {
-        await api.post("/users/addresses", form);
+        await api.post(
+          "/users/addresses",
+          form
+        );
 
         setMessage(
           "New address added successfully."
@@ -337,9 +434,12 @@ export const AddressManager = ({ embedded = false }) => {
       setForm(emptyForm);
 
       await loadAddresses();
-    } catch (error) {
+    } catch (
+      requestError
+    ) {
       setError(
-        error.response?.data?.message ||
+        requestError.response
+          ?.data?.message ||
           "Unable to save address"
       );
     } finally {
@@ -347,302 +447,399 @@ export const AddressManager = ({ embedded = false }) => {
     }
   };
 
-  const deleteAddress = async (addressId) => {
-    const confirmed = window.confirm(
-      "Delete this saved address?"
-    );
+  const deleteAddress =
+    async (addressId) => {
+      const confirmed =
+        window.confirm(
+          "Delete this saved address?"
+        );
 
-    if (!confirmed) return;
+      if (!confirmed) {
+        return;
+      }
 
-    try {
-      setError("");
-      setMessage("");
+      try {
+        setError("");
+        setMessage("");
 
-      await api.delete(
-        `/users/addresses/${addressId}`
-      );
+        await api.delete(
+          `/users/addresses/${addressId}`
+        );
 
-      setMessage(
-        "Address removed successfully."
-      );
+        setMessage(
+          "Address removed successfully."
+        );
 
-      await loadAddresses();
-    } catch (error) {
-      setError(
-        error.response?.data?.message ||
-          "Unable to delete address"
-      );
-    }
-  };
+        await loadAddresses();
+      } catch (
+        requestError
+      ) {
+        setError(
+          requestError.response
+            ?.data?.message ||
+            "Unable to delete address"
+        );
+      }
+    };
 
   return (
     <>
+      <style>{`
+        .address-link {
+          position: relative;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+
+          transition:
+            color .3s ease,
+            transform .3s cubic-bezier(.22,1,.36,1);
+        }
+
+        .address-link::after {
+          content: "";
+          position: absolute;
+          left: 0;
+          bottom: -5px;
+
+          width: 0;
+          height: 1px;
+
+          background:
+            linear-gradient(
+              90deg,
+              #F47822,
+              #C49A2B
+            );
+
+          transition:
+            width .35s cubic-bezier(.22,1,.36,1);
+        }
+
+        .address-link:hover {
+          color: #F47822;
+          transform: translateX(2px);
+        }
+
+        .address-link:hover::after {
+          width: 100%;
+        }
+
+        .address-field {
+          border-bottom:
+            1px solid
+            rgba(24,23,21,.14);
+
+          transition:
+            border-color .25s ease;
+        }
+
+        .address-field:focus-within {
+          border-color: #F47822;
+        }
+      `}</style>
+
       <section
         className={
           embedded
-            ? "mt-7"
-            : "w-full text-[#171717]"
+            ? "mt-5 border-t border-black/[0.09] pt-9"
+            : "w-full text-[#181715]"
         }
       >
-        {/* HEADER */}
-        <div className="flex flex-col gap-4 border-b border-black/[0.06] pb-5 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <div className="flex items-center gap-2.5">
-              <span className="h-px w-6 bg-[#D4AF37]" />
+        {/* =================================================
+            HEADER
+        ================================================= */}
 
-              <p className="text-[8px] font-extrabold uppercase tracking-[0.2em] text-[#A9812C]">
-                Delivery Details
-              </p>
-            </div>
+        <div className="flex flex-col gap-5 border-b border-black/[0.09] pb-5 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#916B17]">
+              Delivery
+            </p>
 
             <h2
-              style={{ fontFamily: DISPLAY_FONT }}
-              className="mt-2 text-[30px] font-semibold leading-none tracking-[-0.02em]"
+              style={{
+                fontFamily:
+                  DISPLAY_FONT,
+              }}
+              className="mt-1 text-[38px] font-semibold leading-none tracking-[-0.03em]"
             >
-              Saved Addresses
+              Saved addresses
             </h2>
-
-            <p className="mt-2 text-[10px] font-medium leading-5 text-black/40">
-              Manage the addresses used for
-              orders, gifting and checkout.
-            </p>
           </div>
 
           <button
             type="button"
-            onClick={openNewAddress}
-            className="group inline-flex h-[42px] w-fit items-center justify-center gap-2 rounded-[10px] bg-[#171717] px-4 text-[9px] font-extrabold uppercase tracking-[0.08em] text-white transition hover:bg-[#F97316]"
+            onClick={
+              openNewAddress
+            }
+            className="address-link w-fit text-[11px] font-extrabold uppercase tracking-[0.08em] text-[#181715]"
           >
-            <span className="text-[17px] font-light leading-none">
-              +
-            </span>
-            Add New Address
+            + Add address
           </button>
         </div>
 
-        {/* SUCCESS */}
+        {/* =================================================
+            MESSAGES
+        ================================================= */}
+
         {message && (
-          <div className="mt-4 flex items-center gap-3 rounded-[10px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-[10px] font-semibold text-emerald-700">
-            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100 text-[10px]">
-              ✓
-            </span>
-
+          <p className="mt-5 border-l-2 border-emerald-500 pl-4 text-[12px] font-semibold text-emerald-700">
             {message}
-          </div>
+          </p>
         )}
 
-        {/* ERROR OUTSIDE MODAL */}
-        {error && !modalOpen && (
-          <div className="mt-4 rounded-[10px] border border-red-200 bg-red-50 px-4 py-3 text-[10px] font-semibold text-red-700">
-            {error}
-          </div>
-        )}
+        {error &&
+          !modalOpen && (
+            <p className="mt-5 border-l-2 border-red-500 pl-4 text-[12px] font-semibold text-red-600">
+              {error}
+            </p>
+          )}
 
-        {/* ADDRESSES */}
+        {/* =================================================
+            LIST
+        ================================================= */}
+
         {loading ? (
-          <div className="mt-5 rounded-[16px] border border-black/[0.06] bg-white px-5 py-10 text-center text-[11px] text-black/40">
-            Loading saved addresses...
-          </div>
-        ) : addresses.length === 0 ? (
+          <AddressLoading />
+        ) : addresses.length ===
+          0 ? (
           <button
             type="button"
-            onClick={openNewAddress}
-            className="group mt-5 flex w-full flex-col items-center justify-center rounded-[16px] border border-dashed border-black/10 bg-white px-6 py-9 text-center transition hover:border-[#F97316]/35 hover:bg-[#FFFDFC]"
+            onClick={
+              openNewAddress
+            }
+            className="group flex min-h-[220px] w-full items-center justify-center border-b border-black/[0.09] text-center"
           >
-            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#FFF1E8] text-[#F97316] transition group-hover:scale-105">
-              <LocationIcon />
-            </span>
+            <div>
+              <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-full border border-[#C49A2B]/30 text-[#A77B1D] transition group-hover:border-[#F47822] group-hover:text-[#F47822]">
+                <LocationIcon />
+              </span>
 
-            <p className="mt-3 text-[12px] font-bold text-[#171717]">
-              Add your first delivery address
-            </p>
+              <p
+                style={{
+                  fontFamily:
+                    DISPLAY_FONT,
+                }}
+                className="mt-5 text-[30px] font-semibold"
+              >
+                Add your first address
+              </p>
 
-            <p className="mt-1 text-[9px] font-medium text-black/35">
-              Save an address once and reuse it
-              during checkout.
-            </p>
+              <p className="mt-2 text-[11px] font-medium text-black/35">
+                Save once and reuse it during checkout.
+              </p>
+            </div>
           </button>
         ) : (
-          <div className="mt-5 grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
-            {addresses.map((address) => (
-              <AddressCard
-                key={address._id}
-                address={address}
-                onEdit={() =>
-                  startEdit(address)
-                }
-                onDelete={() =>
-                  deleteAddress(address._id)
-                }
-              />
-            ))}
+          <div>
+            {addresses.map(
+              (address) => (
+                <AddressRow
+                  key={
+                    address._id
+                  }
+                  address={
+                    address
+                  }
+                  onEdit={() =>
+                    startEdit(
+                      address
+                    )
+                  }
+                  onDelete={() =>
+                    deleteAddress(
+                      address._id
+                    )
+                  }
+                />
+              )
+            )}
 
-            {/* ADD ANOTHER */}
             <button
               type="button"
-              onClick={openNewAddress}
-              className="group min-h-[190px] rounded-[15px] border border-dashed border-black/10 bg-white p-5 text-left transition hover:border-[#F97316]/35 hover:bg-[#FFFDFC]"
+              onClick={
+                openNewAddress
+              }
+              className="address-link mt-7 text-[11px] font-bold text-black/50"
             >
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#FFF1E8] text-[20px] font-light text-[#F97316]">
-                +
-              </div>
-
-              <p className="mt-5 text-[12px] font-bold">
-                Add another address
-              </p>
-
-              <p className="mt-1 max-w-[210px] text-[9px] leading-4 text-black/35">
-                Save home, office or another
-                preferred delivery location.
-              </p>
+              + Add another address
             </button>
           </div>
         )}
       </section>
 
       {/* ==================================================
-          ADDRESS MODAL
+          MODAL
       ================================================== */}
 
       {modalOpen && (
         <div
-          className="fixed inset-0 z-[500] flex items-center justify-center bg-black/55 p-4 backdrop-blur-[3px]"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
+          className="fixed inset-0 z-[500] flex items-center justify-center bg-black/55 p-4 backdrop-blur-[4px]"
+          onMouseDown={(
+            event
+          ) => {
+            if (
+              event.target ===
+              event.currentTarget
+            ) {
               closeModal();
             }
           }}
         >
-          <div className="max-h-[92vh] w-full max-w-[720px] overflow-y-auto rounded-[20px] bg-[#FBFAF8] shadow-[0_30px_100px_rgba(0,0,0,.28)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {/* MODAL HEADER */}
-            <div className="sticky top-0 z-10 flex items-start justify-between border-b border-black/[0.06] bg-[#FBFAF8]/95 px-5 py-5 backdrop-blur-xl sm:px-6">
+          <div className="max-h-[92vh] w-full max-w-[760px] overflow-y-auto bg-[#FCFAF6] shadow-[0_30px_100px_rgba(0,0,0,.24)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {/* HEADER */}
+
+            <div className="sticky top-0 z-20 flex items-start justify-between border-b border-black/[0.09] bg-[#FCFAF6]/95 px-6 py-5 backdrop-blur-xl sm:px-8">
               <div>
-                <p className="text-[8px] font-extrabold uppercase tracking-[0.2em] text-[#F97316]">
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#916B17]">
                   {editingId
-                    ? "Update Address"
+                    ? "Edit Address"
                     : "New Address"}
                 </p>
 
                 <h3
                   style={{
-                    fontFamily: DISPLAY_FONT,
+                    fontFamily:
+                      DISPLAY_FONT,
                   }}
-                  className="mt-1 text-[28px] font-semibold leading-none"
+                  className="mt-1 text-[34px] font-semibold leading-none tracking-[-0.025em]"
                 >
-                  {editingId
-                    ? "Edit Delivery Address"
-                    : "Add Delivery Address"}
+                  Delivery details
                 </h3>
-
-                <p className="mt-2 text-[9px] font-medium text-black/35">
-                  Enter the recipient and
-                  delivery information below.
-                </p>
               </div>
 
               <button
                 type="button"
-                onClick={closeModal}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-black/[0.07] bg-white text-[18px] text-black/45 transition hover:bg-[#171717] hover:text-white"
+                onClick={
+                  closeModal
+                }
+                aria-label="Close"
+                className="text-[26px] font-light leading-none text-black/35 transition hover:text-[#181715]"
               >
                 ×
               </button>
             </div>
 
             {/* FORM */}
+
             <form
-              onSubmit={handleSubmit}
-              className="p-5 sm:p-6"
+              onSubmit={
+                handleSubmit
+              }
+              className="px-6 py-7 sm:px-8"
             >
               {error && (
-                <div className="mb-5 rounded-[10px] border border-red-200 bg-red-50 px-4 py-3 text-[10px] font-semibold text-red-700">
+                <p className="mb-6 border-l-2 border-red-500 pl-4 text-[12px] font-semibold text-red-600">
                   {error}
-                </div>
+                </p>
               )}
 
-              {/* RECIPIENT */}
               <FormSection
                 number="01"
                 title="Recipient"
               >
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
                   <Field
                     label="Address Label"
                     name="label"
-                    value={form.label}
-                    onChange={handleChange}
+                    value={
+                      form.label
+                    }
+                    onChange={
+                      handleChange
+                    }
                     placeholder="Home, Office..."
                   />
 
                   <Field
                     label="Full Name"
                     name="fullName"
-                    value={form.fullName}
-                    onChange={handleChange}
+                    value={
+                      form.fullName
+                    }
+                    onChange={
+                      handleChange
+                    }
                     required
                   />
 
                   <Field
                     label="Phone Number"
                     name="phone"
-                    value={form.phone}
-                    onChange={handleChange}
+                    value={
+                      form.phone
+                    }
+                    onChange={
+                      handleChange
+                    }
                     required
                   />
                 </div>
               </FormSection>
 
-              {/* LOCATION */}
               <FormSection
                 number="02"
-                title="Delivery Location"
+                title="Location"
               >
-                <div className="mb-4 flex flex-col gap-3 rounded-[12px] border border-[#F97316]/15 bg-[#FFF8F2] p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="mb-6 flex flex-col gap-4 border-y border-black/[0.08] py-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <p className="text-[10px] font-extrabold text-[#171717]">
-                      Fill address faster
+                    <p className="text-[12px] font-bold">
+                      Use current location
                     </p>
 
-                    <p className="mt-1 text-[9px] leading-4 text-black/40">
-                      Detect your current location, or type the address manually below.
+                    <p className="mt-1 text-[10px] leading-5 text-black/38">
+                      Detect your location or enter the address manually.
                     </p>
                   </div>
 
                   <button
                     type="button"
-                    onClick={handleUseCurrentLocation}
-                    disabled={detectingLocation}
-                    className="inline-flex h-[40px] shrink-0 items-center justify-center gap-2 rounded-[9px] border border-[#F97316]/30 bg-white px-4 text-[9px] font-extrabold uppercase tracking-[0.05em] text-[#F97316] transition hover:border-[#F97316] disabled:cursor-not-allowed disabled:opacity-50"
+                    onClick={
+                      handleUseCurrentLocation
+                    }
+                    disabled={
+                      detectingLocation
+                    }
+                    className="address-link w-fit text-[10px] font-extrabold uppercase tracking-[0.07em] text-[#F47822] disabled:pointer-events-none disabled:opacity-40"
                   >
                     <LocationIcon />
+
                     {detectingLocation
                       ? "Detecting..."
-                      : "Use Current Location"}
+                      : "Use location"}
                   </button>
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
                   <div className="relative sm:col-span-2">
                     <Field
                       label="Address Line 1"
                       name="addressLine1"
-                      value={form.addressLine1}
-                      onChange={handleChange}
-                      placeholder="Start typing house, street or building"
+                      value={
+                        form.addressLine1
+                      }
+                      onChange={
+                        handleChange
+                      }
+                      placeholder="House, street or building"
                       autoComplete="off"
                       required
                     />
 
                     {(suggestionsLoading ||
-                      addressSuggestions.length > 0) && (
-                      <div className="absolute left-0 right-0 top-[68px] z-30 overflow-hidden rounded-[10px] border border-black/[0.08] bg-white shadow-[0_18px_45px_rgba(23,23,23,.14)]">
+                      addressSuggestions.length >
+                        0) && (
+                      <div className="absolute left-0 right-0 top-[65px] z-30 border border-black/[0.09] bg-white shadow-[0_18px_45px_rgba(23,23,23,.13)]">
                         {suggestionsLoading ? (
-                          <div className="px-4 py-3 text-[9px] font-semibold text-black/35">
+                          <p className="px-4 py-3 text-[11px] font-medium text-black/35">
                             Finding address suggestions...
-                          </div>
+                          </p>
                         ) : (
                           addressSuggestions.map(
-                            (suggestion, index) => (
+                            (
+                              suggestion,
+                              index
+                            ) => (
                               <button
                                 key={
                                   suggestion.mapboxId ||
@@ -654,15 +851,15 @@ export const AddressManager = ({ embedded = false }) => {
                                     suggestion
                                   )
                                 }
-                                className="block w-full border-b border-black/[0.05] px-4 py-3 text-left transition last:border-b-0 hover:bg-[#FFF8F2]"
+                                className="block w-full border-b border-black/[0.06] px-4 py-3 text-left transition last:border-b-0 hover:bg-[#FBF6ED]"
                               >
-                                <p className="text-[10px] font-bold text-[#171717]">
+                                <p className="text-[12px] font-bold">
                                   {suggestion.name ||
                                     suggestion.addressLine1 ||
                                     "Suggested address"}
                                 </p>
 
-                                <p className="mt-1 line-clamp-2 text-[9px] leading-4 text-black/40">
+                                <p className="mt-1 line-clamp-2 text-[10px] leading-5 text-black/40">
                                   {suggestion.label ||
                                     suggestion.formattedAddress}
                                 </p>
@@ -678,8 +875,12 @@ export const AddressManager = ({ embedded = false }) => {
                     <Field
                       label="Address Line 2"
                       name="addressLine2"
-                      value={form.addressLine2}
-                      onChange={handleChange}
+                      value={
+                        form.addressLine2
+                      }
+                      onChange={
+                        handleChange
+                      }
                       placeholder="Area / locality"
                     />
                   </div>
@@ -688,8 +889,12 @@ export const AddressManager = ({ embedded = false }) => {
                     <Field
                       label="Landmark"
                       name="landmark"
-                      value={form.landmark}
-                      onChange={handleChange}
+                      value={
+                        form.landmark
+                      }
+                      onChange={
+                        handleChange
+                      }
                       placeholder="Nearby landmark"
                     />
                   </div>
@@ -697,73 +902,96 @@ export const AddressManager = ({ embedded = false }) => {
                   <Field
                     label="City"
                     name="city"
-                    value={form.city}
-                    onChange={handleChange}
+                    value={
+                      form.city
+                    }
+                    onChange={
+                      handleChange
+                    }
                     required
                   />
 
                   <Field
                     label="State"
                     name="state"
-                    value={form.state}
-                    onChange={handleChange}
+                    value={
+                      form.state
+                    }
+                    onChange={
+                      handleChange
+                    }
                     required
                   />
 
                   <Field
                     label="Postal Code"
                     name="postalCode"
-                    value={form.postalCode}
-                    onChange={handleChange}
+                    value={
+                      form.postalCode
+                    }
+                    onChange={
+                      handleChange
+                    }
                     required
                   />
 
                   <Field
                     label="Country"
                     name="country"
-                    value={form.country}
-                    onChange={handleChange}
+                    value={
+                      form.country
+                    }
+                    onChange={
+                      handleChange
+                    }
                   />
                 </div>
               </FormSection>
 
-              {/* DEFAULT */}
-              <label className="mt-5 flex cursor-pointer items-center justify-between gap-4 rounded-[12px] border border-black/[0.07] bg-white px-4 py-3.5">
+              <label className="mt-7 flex cursor-pointer items-center justify-between gap-5 border-y border-black/[0.08] py-4">
                 <div>
-                  <p className="text-[11px] font-bold">
+                  <p className="text-[12px] font-bold">
                     Default delivery address
                   </p>
 
-                  <p className="mt-1 text-[9px] text-black/35">
-                    Prefer this address during
-                    checkout.
+                  <p className="mt-1 text-[10px] text-black/35">
+                    Prefer this address during checkout.
                   </p>
                 </div>
 
                 <input
                   type="checkbox"
                   name="isDefault"
-                  checked={form.isDefault}
-                  onChange={handleChange}
-                  className="h-4 w-4 shrink-0 accent-[#F97316]"
+                  checked={
+                    form.isDefault
+                  }
+                  onChange={
+                    handleChange
+                  }
+                  className="h-4 w-4 shrink-0 accent-[#F47822]"
                 />
               </label>
 
-              {/* ACTIONS */}
-              <div className="mt-6 flex justify-end gap-3 border-t border-black/[0.06] pt-5">
+              <div className="mt-7 flex justify-end gap-6 border-t border-black/[0.09] pt-6">
                 <button
                   type="button"
-                  onClick={closeModal}
-                  disabled={submitting}
-                  className="h-[44px] rounded-[10px] border border-black/10 bg-white px-5 text-[9px] font-extrabold uppercase tracking-[0.07em] text-black/45 transition hover:border-black/30 hover:text-black disabled:opacity-50"
+                  onClick={
+                    closeModal
+                  }
+                  disabled={
+                    submitting
+                  }
+                  className="address-link text-[10px] font-bold uppercase tracking-[0.08em] text-black/45 disabled:opacity-40"
                 >
                   Cancel
                 </button>
 
                 <button
                   type="submit"
-                  disabled={submitting}
-                  className="h-[44px] rounded-[10px] bg-[#F97316] px-6 text-[9px] font-extrabold uppercase tracking-[0.07em] text-white shadow-[0_10px_25px_rgba(249,115,22,.18)] transition hover:bg-[#171717] disabled:opacity-50"
+                  disabled={
+                    submitting
+                  }
+                  className="min-h-[44px] bg-[#181715] px-6 text-[10px] font-extrabold uppercase tracking-[0.08em] text-white transition hover:bg-[#F47822] disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {submitting
                     ? "Saving..."
@@ -781,78 +1009,82 @@ export const AddressManager = ({ embedded = false }) => {
 };
 
 /* ======================================================
-   ADDRESS CARD
+   ADDRESS ROW
 ====================================================== */
 
-const AddressCard = ({
+const AddressRow = ({
   address,
   onEdit,
   onDelete,
 }) => (
-  <div
-    className={`relative min-h-[190px] rounded-[15px] border bg-white p-5 transition hover:shadow-[0_10px_30px_rgba(23,23,23,.05)] ${
-      address.isDefault
-        ? "border-[#D4AF37]/40"
-        : "border-black/[0.07]"
-    }`}
-  >
-    <div className="flex items-start justify-between gap-4">
-      <div className="flex items-center gap-2">
-        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#FFF1E8] text-[#F97316]">
-          <LocationIcon />
+  <article className="grid gap-5 border-b border-black/[0.09] py-7 md:grid-cols-[150px_minmax(0,1fr)_auto] md:items-start md:gap-8">
+    <div>
+      <div className="flex items-center gap-2 text-[#916B17]">
+        <LocationIcon />
+
+        <span className="text-[12px] font-bold">
+          {address.label ||
+            "Address"}
         </span>
-
-        <div>
-          <p className="text-[11px] font-extrabold">
-            {address.label || "Address"}
-          </p>
-
-          {address.isDefault && (
-            <p className="mt-0.5 text-[7px] font-extrabold uppercase tracking-[0.12em] text-[#A9812C]">
-              Default Address
-            </p>
-          )}
-        </div>
       </div>
 
+      {address.isDefault && (
+        <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.08em] text-[#A77B1D]">
+          Default
+        </p>
+      )}
+    </div>
+
+    <div>
+      <p
+        style={{
+          fontFamily:
+            DISPLAY_FONT,
+        }}
+        className="text-[25px] font-semibold leading-none"
+      >
+        {address.fullName}
+      </p>
+
+      <p className="mt-2 text-[11px] font-medium text-black/40">
+        {address.phone}
+      </p>
+
+      <p className="mt-3 max-w-[720px] text-[12px] leading-6 text-black/52">
+        {address.addressLine1}
+
+        {address.addressLine2 &&
+          `, ${address.addressLine2}`}
+
+        {address.landmark &&
+          `, ${address.landmark}`}
+
+        {", "}
+
+        {address.city},{" "}
+        {address.state}{" "}
+        {address.postalCode}
+      </p>
+    </div>
+
+    <div className="flex gap-5 md:flex-col md:items-end">
       <button
         type="button"
         onClick={onEdit}
-        className="text-[9px] font-extrabold uppercase tracking-[0.06em] text-[#F97316] hover:underline"
+        className="address-link text-[10px] font-bold uppercase tracking-[0.07em] text-black/50"
       >
         Edit
       </button>
-    </div>
 
-    <p className="mt-4 text-[11px] font-bold">
-      {address.fullName}
-    </p>
-
-    <p className="mt-1 text-[9px] text-black/40">
-      {address.phone}
-    </p>
-
-    <p className="mt-3 text-[10px] leading-5 text-black/50">
-      {address.addressLine1}
-      {address.addressLine2 &&
-        `, ${address.addressLine2}`}
-      {address.landmark &&
-        `, ${address.landmark}`}
-      <br />
-      {address.city}, {address.state}{" "}
-      {address.postalCode}
-    </p>
-
-    <div className="mt-4 border-t border-black/[0.05] pt-3">
       <button
         type="button"
         onClick={onDelete}
-        className="text-[8px] font-extrabold uppercase tracking-[0.08em] text-red-400 transition hover:text-red-600"
+        className="address-link text-[10px] font-bold uppercase tracking-[0.07em] text-red-500"
       >
-        Remove Address
+        Remove
       </button>
     </div>
-  </div>
+  </article>
 );
 
 /* ======================================================
@@ -864,38 +1096,69 @@ const FormSection = ({
   title,
   children,
 }) => (
-  <div className="not-first:mt-6">
-    <div className="mb-4 flex items-center gap-3">
-      <span className="font-serif text-[10px] italic text-[#D4AF37]">
+  <section className="mt-8 first:mt-0">
+    <div className="mb-5 flex items-center gap-3">
+      <span className="font-serif text-[11px] italic text-[#C49A2B]">
         {number}
       </span>
 
-      <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-black/40">
+      <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-black/40">
         {title}
       </p>
 
-      <span className="h-px flex-1 bg-black/[0.06]" />
+      <span className="h-px flex-1 bg-black/[0.08]" />
     </div>
 
     {children}
-  </div>
+  </section>
 );
 
 /* ======================================================
    FIELD
 ====================================================== */
 
-const Field = ({ label, ...props }) => (
+const Field = ({
+  label,
+  ...props
+}) => (
   <label className="block">
-    <span className="mb-1.5 block text-[8px] font-extrabold uppercase tracking-[0.09em] text-black/45">
+    <span className="text-[10px] font-semibold text-black/38">
       {label}
     </span>
 
-    <input
-      {...props}
-      className="h-[46px] w-full rounded-[10px] border border-black/[0.09] bg-white px-3.5 text-[11px] font-semibold outline-none transition placeholder:text-black/25 focus:border-[#F97316] focus:ring-4 focus:ring-[#F97316]/10"
-    />
+    <div className="address-field mt-2">
+      <input
+        {...props}
+        className="h-[44px] w-full bg-transparent px-0 text-[12px] font-semibold outline-none placeholder:text-black/25"
+      />
+    </div>
   </label>
+);
+
+/* ======================================================
+   LOADING
+====================================================== */
+
+const AddressLoading = () => (
+  <div>
+    {[1, 2].map(
+      (item) => (
+        <div
+          key={item}
+          className="grid animate-pulse gap-5 border-b border-black/[0.07] py-7 md:grid-cols-[150px_1fr_90px]"
+        >
+          <div className="h-4 w-20 bg-black/[0.04]" />
+
+          <div>
+            <div className="h-7 w-44 bg-black/[0.05]" />
+            <div className="mt-4 h-3 w-72 max-w-full bg-black/[0.035]" />
+          </div>
+
+          <div className="h-3 w-14 bg-black/[0.04]" />
+        </div>
+      )
+    )}
+  </div>
 );
 
 /* ======================================================
@@ -911,6 +1174,7 @@ const LocationIcon = () => (
     strokeLinecap="round"
     strokeLinejoin="round"
     className="h-4 w-4"
+    aria-hidden="true"
   >
     <path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z" />
     <circle cx="12" cy="10" r="2.5" />

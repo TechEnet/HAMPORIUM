@@ -48,11 +48,10 @@ const Profile = () => {
       const response = await api.patch("/users/me", form);
 
       setUser(response.data.user);
-
       setMessage("Profile updated successfully.");
-    } catch (error) {
+    } catch (requestError) {
       setError(
-        error.response?.data?.message ||
+        requestError.response?.data?.message ||
           "Unable to update profile"
       );
     } finally {
@@ -61,143 +60,278 @@ const Profile = () => {
   };
 
   return (
-    <div
-      className="mx-auto w-full max-w-[1380px] text-[#171717]"
+    <main
+      className="profile-page mx-auto w-full max-w-[1400px] pb-16 text-[#181715]"
       style={{
         fontFamily: "'Manrope', Arial, sans-serif",
       }}
     >
-      {/* PAGE HEADING */}
-      <div className="border-b border-black/[0.07] pb-5">
-        <h1
-          style={{ fontFamily: DISPLAY_FONT }}
-          className="text-[42px] font-semibold leading-none tracking-[-0.035em] sm:text-[48px]"
-        >
-          My Profile
-        </h1>
-      </div>
+      <style>{`
+        .profile-page {
+          --profile-orange: #F47822;
+          --profile-gold: #C49A2B;
+          --profile-deep-gold: #916B17;
+          --profile-ink: #181715;
+        }
 
-      {/* PROFILE CARD */}
-      <section className="mt-5 overflow-hidden rounded-[18px] border border-black/[0.06] bg-white shadow-[0_8px_30px_rgba(23,23,23,.035)]">
-        {/* TOP USER INFO */}
-        <div className="flex flex-col gap-5 border-b border-black/[0.06] bg-[#FFFDFC] px-5 py-5 sm:flex-row sm:items-center lg:px-6">
-          <div className="flex min-w-0 items-center gap-4">
-            <div className="flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-full border border-[#D4AF37]/25 bg-[#171717] font-serif text-[20px] font-semibold text-[#F97316]">
-              {initials}
-            </div>
+        .profile-hero {
+          position: relative;
+          isolation: isolate;
+          overflow: hidden;
+        }
 
-            <div className="min-w-0">
-              <p
-                style={{ fontFamily: DISPLAY_FONT }}
-                className="truncate text-[26px] font-semibold leading-none"
-              >
-                {user?.name || "Customer"}
-              </p>
+        .profile-hero::after {
+          content: "H";
+          position: absolute;
+          right: 0;
+          top: -78px;
+          z-index: -1;
 
-              <p className="mt-2 truncate text-[11px] font-medium text-black/40">
-                {user?.email}
-              </p>
+          font-family: ${DISPLAY_FONT};
+          font-size: clamp(170px, 21vw, 320px);
+          font-style: italic;
+          font-weight: 600;
+          line-height: 1;
 
-              {user?.phone && (
-                <p className="mt-1 text-[10px] font-medium text-black/35">
-                  {user.phone}
-                </p>
-              )}
-            </div>
+          color: rgba(196, 154, 43, .045);
+          pointer-events: none;
+        }
+
+        .profile-gold {
+          background:
+            linear-gradient(
+              120deg,
+              #936B16,
+              #D2AA3C 48%,
+              #A47A1D
+            );
+
+          -webkit-background-clip: text;
+          background-clip: text;
+          color: transparent;
+        }
+
+        .profile-field {
+          position: relative;
+          border-bottom: 1px solid rgba(24, 23, 21, .13);
+          transition:
+            border-color .25s ease;
+        }
+
+        .profile-field:focus-within {
+          border-color: var(--profile-orange);
+        }
+
+        .profile-save {
+          position: relative;
+          overflow: hidden;
+          transition:
+            transform .3s cubic-bezier(.22,1,.36,1),
+            background-color .3s ease;
+        }
+
+        .profile-save::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+
+          background:
+            linear-gradient(
+              110deg,
+              transparent 33%,
+              rgba(255,255,255,.2) 50%,
+              transparent 67%
+            );
+
+          transform: translateX(-140%);
+          transition: transform .7s cubic-bezier(.16,1,.3,1);
+        }
+
+        .profile-save:hover {
+          transform: translateY(-2px);
+        }
+
+        .profile-save:hover::after {
+          transform: translateX(140%);
+        }
+
+        @media (max-width: 767px) {
+          .profile-hero::after {
+            right: -30px;
+            top: -20px;
+            font-size: 190px;
+          }
+        }
+      `}</style>
+
+      {/* =====================================================
+          PAGE HEADER
+      ===================================================== */}
+
+      <header className="profile-hero border-b border-black/[0.09] pb-8">
+        <div className="flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#916B17]">
+              Account
+            </p>
+
+            <h1
+              style={{ fontFamily: DISPLAY_FONT }}
+              className="mt-2 text-[56px] font-semibold leading-[0.88] tracking-[-0.055em] sm:text-[70px]"
+            >
+              My{" "}
+              <span className="profile-gold italic">
+                Profile.
+              </span>
+            </h1>
           </div>
+
+          <p className="max-w-[420px] text-[12px] font-medium leading-6 text-black/40">
+            Keep your contact details current for orders, delivery updates and support.
+          </p>
+        </div>
+      </header>
+
+      {/* =====================================================
+          IDENTITY
+      ===================================================== */}
+
+      <section className="grid gap-8 border-b border-black/[0.09] py-8 lg:grid-cols-[110px_minmax(0,1fr)] lg:items-center">
+        <div className="flex h-[90px] w-[90px] items-center justify-center rounded-full border border-[#C49A2B]/30 bg-[#181715]">
+          <span
+            style={{ fontFamily: DISPLAY_FONT }}
+            className="text-[31px] font-semibold italic text-[#D4AF37]"
+          >
+            {initials}
+          </span>
         </div>
 
-        {/* FORM */}
-        <div className="p-5 lg:p-6">
-          <h2
+        <div className="min-w-0">
+          <p
             style={{ fontFamily: DISPLAY_FONT }}
-            className="text-[28px] font-semibold leading-none"
+            className="truncate text-[35px] font-semibold leading-none tracking-[-0.025em]"
           >
-            Account Details
-          </h2>
+            {user?.name || "Customer"}
+          </p>
 
-          {message && (
-            <div className="mt-4 flex items-center gap-3 rounded-[10px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-[10px] font-semibold text-emerald-700">
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100 text-[9px]">
-                ✓
-              </span>
-              {message}
-            </div>
-          )}
-
-          {error && (
-            <div className="mt-4 rounded-[10px] border border-red-200 bg-red-50 px-4 py-3 text-[10px] font-semibold text-red-700">
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="mt-5">
-            <div className="grid gap-4 md:grid-cols-3">
-              <ProfileField label="Full Name" icon={<UserIcon />}>
-                <input
-                  type="text"
-                  value={form.name}
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      name: event.target.value,
-                    }))
-                  }
-                  required
-                  className="h-full min-w-0 flex-1 bg-transparent text-[12px] font-semibold outline-none"
-                />
-              </ProfileField>
-
-              <ProfileField
-                label="Email Address"
-                icon={<MailIcon />}
-                disabled
-              >
-                <input
-                  type="email"
-                  value={user?.email || ""}
-                  disabled
-                  className="h-full min-w-0 flex-1 cursor-not-allowed bg-transparent text-[12px] font-semibold text-black/40 outline-none"
-                />
-              </ProfileField>
-
-              <ProfileField label="Phone Number" icon={<PhoneIcon />}>
-                <input
-                  type="tel"
-                  value={form.phone}
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      phone: event.target.value,
-                    }))
-                  }
-                  placeholder="Add phone number"
-                  className="h-full min-w-0 flex-1 bg-transparent text-[12px] font-semibold outline-none placeholder:text-black/25"
-                />
-              </ProfileField>
-            </div>
-
-            <div className="mt-5 border-t border-black/[0.06] pt-4">
-              <button
-                type="submit"
-                disabled={submitting}
-                className="group ml-auto flex h-[46px] items-center justify-center gap-2 rounded-[10px] bg-[#F97316] px-6 text-[10px] font-extrabold uppercase tracking-[0.07em] text-white shadow-[0_10px_24px_rgba(249,115,22,.16)] transition hover:bg-[#171717] disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {submitting ? "Saving..." : "Save Changes"}
-                {!submitting && (
-                  <span className="transition group-hover:translate-x-0.5">
-                    →
-                  </span>
-                )}
-              </button>
-            </div>
-          </form>
+          <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-[12px] font-medium text-black/42">
+            {user?.email && <span>{user.email}</span>}
+            {user?.phone && (
+              <>
+                <span className="text-black/15">•</span>
+                <span>{user.phone}</span>
+              </>
+            )}
+          </div>
         </div>
       </section>
 
-      {/* ADDRESS MANAGER */}
+      {/* =====================================================
+          ACCOUNT DETAILS
+      ===================================================== */}
+
+      <section className="py-9">
+        <div className="flex flex-col gap-5 border-b border-black/[0.09] pb-5 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2
+              style={{ fontFamily: DISPLAY_FONT }}
+              className="text-[36px] font-semibold tracking-[-0.03em]"
+            >
+              Account details
+            </h2>
+          </div>
+
+          <p className="text-[11px] font-medium text-black/35">
+            Email cannot be changed here.
+          </p>
+        </div>
+
+        {message && (
+          <p className="mt-5 border-l-2 border-emerald-500 pl-4 text-[12px] font-semibold text-emerald-700">
+            {message}
+          </p>
+        )}
+
+        {error && (
+          <p className="mt-5 border-l-2 border-red-500 pl-4 text-[12px] font-semibold text-red-600">
+            {error}
+          </p>
+        )}
+
+        <form onSubmit={handleSubmit} className="mt-7">
+          <div className="grid gap-x-10 gap-y-7 md:grid-cols-3">
+            <ProfileField
+              label="Full Name"
+              icon={<UserIcon />}
+            >
+              <input
+                type="text"
+                value={form.name}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    name: event.target.value,
+                  }))
+                }
+                required
+                className="h-full min-w-0 flex-1 bg-transparent text-[13px] font-semibold outline-none"
+              />
+            </ProfileField>
+
+            <ProfileField
+              label="Email Address"
+              icon={<MailIcon />}
+              disabled
+            >
+              <input
+                type="email"
+                value={user?.email || ""}
+                disabled
+                className="h-full min-w-0 flex-1 cursor-not-allowed bg-transparent text-[13px] font-semibold text-black/38 outline-none"
+              />
+            </ProfileField>
+
+            <ProfileField
+              label="Phone Number"
+              icon={<PhoneIcon />}
+            >
+              <input
+                type="tel"
+                value={form.phone}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    phone: event.target.value,
+                  }))
+                }
+                placeholder="Add phone number"
+                className="h-full min-w-0 flex-1 bg-transparent text-[13px] font-semibold outline-none placeholder:text-black/25"
+              />
+            </ProfileField>
+          </div>
+
+          <div className="mt-8 flex justify-end border-t border-black/[0.08] pt-6">
+            <button
+              type="submit"
+              disabled={submitting}
+              className="profile-save inline-flex min-h-[46px] items-center justify-center gap-4 bg-[#181715] px-6 text-[10px] font-extrabold uppercase tracking-[0.09em] text-white hover:bg-[#F47822] disabled:cursor-not-allowed disabled:opacity-45"
+            >
+              {submitting ? "Saving..." : "Save Changes"}
+
+              {!submitting && (
+                <span className="text-[15px]">→</span>
+              )}
+            </button>
+          </div>
+        </form>
+      </section>
+
+      {/* =====================================================
+          ADDRESS MANAGER
+      ===================================================== */}
+
       <AddressManager embedded />
-    </div>
+    </main>
   );
 };
 
@@ -208,20 +342,19 @@ const ProfileField = ({
   disabled = false,
 }) => (
   <label className="block">
-    <span className="mb-2 block text-[9px] font-extrabold uppercase tracking-[0.09em] text-black/45">
+    <span className="text-[10px] font-semibold text-black/38">
       {label}
     </span>
 
     <div
-      className={`flex h-[50px] items-center rounded-[12px] border px-4 transition ${
-        disabled
-          ? "border-black/[0.05] bg-black/[0.025]"
-          : "border-black/[0.09] bg-[#FFFDFC] focus-within:border-[#F97316] focus-within:ring-4 focus-within:ring-[#F97316]/10"
+      className={`profile-field mt-2 flex h-[48px] items-center ${
+        disabled ? "opacity-65" : ""
       }`}
     >
       <span className="mr-3 shrink-0 text-black/25">
         {icon}
       </span>
+
       {children}
     </div>
   </label>
@@ -232,10 +365,11 @@ const Icon = ({ children }) => (
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
-    strokeWidth="1.6"
+    strokeWidth="1.55"
     strokeLinecap="round"
     strokeLinejoin="round"
     className="h-[18px] w-[18px]"
+    aria-hidden="true"
   >
     {children}
   </svg>

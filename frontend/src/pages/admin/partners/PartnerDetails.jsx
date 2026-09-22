@@ -1,16 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-
 import api from "../../../api/api.js";
 import StatusBadge from "../../../components/StatusBadge.jsx";
 import {
   PARTNER_CAPABILITIES,
   PARTNER_TYPES,
 } from "../../../constants/partnerOptions.js";
-
 const PartnerDetails = () => {
   const { id } = useParams();
-
   const [partner, setPartner] = useState(null);
   const [projects, setProjects] = useState([]);
   const [commissions, setCommissions] = useState([]);
@@ -18,7 +15,6 @@ const PartnerDetails = () => {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-
   const [review, setReview] = useState({
     status: "under_review",
     note: "",
@@ -27,11 +23,9 @@ const PartnerDetails = () => {
     agreementVersion: "1.0",
     agreementNote: "",
   });
-
   const load = async () => {
     setLoading(true);
     setError("");
-
     try {
       const [partnerResponse, projectsResponse, commissionsResponse] =
         await Promise.all([
@@ -43,13 +37,10 @@ const PartnerDetails = () => {
             params: { partnerId: id },
           }),
         ]);
-
       const nextPartner = partnerResponse.data.partner;
-
       setPartner(nextPartner);
       setProjects(projectsResponse.data.projects || []);
       setCommissions(commissionsResponse.data.commissions || []);
-
       setReview((current) => ({
         ...current,
         status:
@@ -77,11 +68,9 @@ const PartnerDetails = () => {
       setLoading(false);
     }
   };
-
   useEffect(() => {
     void load();
   }, [id]);
-
   const summary = useMemo(
     () => ({
       commission: commissions.reduce(
@@ -97,11 +86,9 @@ const PartnerDetails = () => {
     }),
     [commissions]
   );
-
   const submitReview = async () => {
     const commissionRate = Number(review.defaultCommissionRate || 0);
     const customerDiscountRate = Number(review.customerDiscountRate || 0);
-
     if (
       !Number.isFinite(commissionRate) ||
       commissionRate < 0 ||
@@ -110,7 +97,6 @@ const PartnerDetails = () => {
       setError("Commission rate must be between 0 and 100.");
       return;
     }
-
     if (
       !Number.isFinite(customerDiscountRate) ||
       customerDiscountRate < 0 ||
@@ -119,11 +105,9 @@ const PartnerDetails = () => {
       setError("Customer promo discount must be between 0 and 100.");
       return;
     }
-
     setBusy(true);
     setError("");
     setMessage("");
-
     try {
       const response = await api.patch(
         `/partners/admin/${id}/review`,
@@ -136,11 +120,9 @@ const PartnerDetails = () => {
           agreementNote: review.agreementNote,
         }
       );
-
       setMessage(
         response.data.message || "Partner review updated."
       );
-
       await load();
     } catch (requestError) {
       setError(
@@ -151,16 +133,13 @@ const PartnerDetails = () => {
       setBusy(false);
     }
   };
-
   const validateProject = async (project) => {
     const approved = window.confirm(
       "Approve this project and enter client pricing? Choose Cancel to request changes."
     );
-
     if (!approved) {
       const note = window.prompt("Reason / changes required?");
       if (!note) return;
-
       try {
         await api.patch(
           `/partners/projects/${project._id}/validate`,
@@ -176,22 +155,17 @@ const PartnerDetails = () => {
       }
       return;
     }
-
     const itemPricing = [];
-
     for (const item of project.items || []) {
       const title =
         item.product?.name ||
         item.requestedTitle ||
         "Gift option";
-
       const value = window.prompt(
         `Client price for ${title}?`,
         String(item.clientPrice || 0)
       );
-
       if (value === null) return;
-
       itemPricing.push({
         itemId: item._id,
         validationStatus: "approved",
@@ -199,7 +173,6 @@ const PartnerDetails = () => {
         validationNote: "Approved by HAMPORIUM.",
       });
     }
-
     try {
       await api.patch(
         `/partners/projects/${project._id}/validate`,
@@ -209,7 +182,6 @@ const PartnerDetails = () => {
           note: "Validated by HAMPORIUM.",
         }
       );
-
       setMessage("Project validated and client pricing approved.");
       await load();
     } catch (requestError) {
@@ -219,7 +191,6 @@ const PartnerDetails = () => {
       );
     }
   };
-
   if (loading) {
     return (
       <div className="rounded-2xl border bg-white p-8">
@@ -227,7 +198,6 @@ const PartnerDetails = () => {
       </div>
     );
   }
-
   if (!partner) {
     return (
       <div className="rounded-xl bg-red-50 p-4 text-red-700">
@@ -235,13 +205,10 @@ const PartnerDetails = () => {
       </div>
     );
   }
-
   const partnerTypeLabel =
     PARTNER_TYPES.find(([value]) => value === partner.partnerType)?.[1] ||
     format(partner.partnerType);
-
   const capabilityMap = new Map(PARTNER_CAPABILITIES);
-
   return (
     <div className="space-y-7 pb-12">
       <Link
@@ -250,7 +217,6 @@ const PartnerDetails = () => {
       >
         ← Partner Applications
       </Link>
-
       <div className="flex flex-col gap-5 border-b border-black/[0.07] pb-7 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#D4AF37]">
@@ -265,19 +231,16 @@ const PartnerDetails = () => {
         </div>
         <StatusBadge status={partner.status} />
       </div>
-
       {error && (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
           {error}
         </div>
       )}
-
       {message && (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">
           {message}
         </div>
       )}
-
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
         <Stat label="Projects" value={projects.length} />
         <Stat label="Commission Records" value={commissions.length} />
@@ -292,7 +255,6 @@ const PartnerDetails = () => {
           value={`${Number(partner.customerDiscountRate || 0)}%`}
         />
       </div>
-
       <section className="overflow-hidden rounded-[22px] border border-[#D4AF37]/25 bg-[#171717] text-white">
         <div className="grid lg:grid-cols-[1fr_.8fr_.8fr]">
           <div className="p-6">
@@ -306,13 +268,11 @@ const PartnerDetails = () => {
               Customers must explicitly apply or arrive through this code for partner attribution.
             </p>
           </div>
-
           <CommercialStat
             label="Commission Rate"
             value={`${Number(partner.defaultCommissionRate || 0)}%`}
             note="Partner earning rate on eligible attributed paid value."
           />
-
           <CommercialStat
             label="Customer Discount"
             value={`${Number(partner.customerDiscountRate || 0)}%`}
@@ -320,7 +280,6 @@ const PartnerDetails = () => {
           />
         </div>
       </section>
-
       <section className="rounded-[22px] border border-black/10 bg-white p-6">
         <p className="text-[9px] font-black uppercase tracking-wider text-[#F97316]">
           Application Review
@@ -328,7 +287,6 @@ const PartnerDetails = () => {
         <h2 className="mt-1 text-xl font-black">
           Status & commercial approval
         </h2>
-
         <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           <label>
             <span className={labelClass}>Review status</span>
@@ -351,7 +309,6 @@ const PartnerDetails = () => {
               )}
             </select>
           </label>
-
           <Input
             label="Commission rate %"
             type="number"
@@ -366,9 +323,8 @@ const PartnerDetails = () => {
               }))
             }
           />
-
           <Input
-            label="Customer promo %"
+            label="Customer discount % (partner code)"
             type="number"
             min="0"
             max="100"
@@ -381,7 +337,6 @@ const PartnerDetails = () => {
               }))
             }
           />
-
           <Input
             label="Agreement version"
             value={review.agreementVersion}
@@ -392,7 +347,6 @@ const PartnerDetails = () => {
               }))
             }
           />
-
           <button
             type="button"
             onClick={submitReview}
@@ -402,8 +356,11 @@ const PartnerDetails = () => {
             {busy ? "Updating..." : "Update Review"}
           </button>
         </div>
+        <div className="mt-4 border-l-2 border-[#D4AF37] bg-[#FFF9F2] px-4 py-3 text-xs leading-6 text-black/55">
+        <strong className="text-[#171717]">Partner-code rule:</strong> the code is an exclusive retail promotion slot. Automatic retail commission is created only after a successful captured payment and only when this partner code is actually stored on that order. No partner code means no automatic retail commission. Commission uses only the promo-eligible SKU taxable value after the partner discount; custom-hamper value is not silently included.
+      </div>
 
-        <div className="mt-4 grid gap-4 md:grid-cols-2">
+      <div className="mt-4 grid gap-4 md:grid-cols-2">
           <label>
             <span className={labelClass}>Review note</span>
             <textarea
@@ -418,7 +375,6 @@ const PartnerDetails = () => {
               className={textareaClass}
             />
           </label>
-
           <label>
             <span className={labelClass}>Agreement note</span>
             <textarea
@@ -435,7 +391,6 @@ const PartnerDetails = () => {
           </label>
         </div>
       </section>
-
       <section className="rounded-[22px] border border-black/10 bg-white p-6">
         <p className="text-[9px] font-black uppercase tracking-wider text-[#F97316]">
           Onboarding Details
@@ -443,7 +398,6 @@ const PartnerDetails = () => {
         <h2 className="mt-1 text-xl font-black">
           Business & verification
         </h2>
-
         <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <Info label="Partner type" value={partnerTypeLabel} />
           <Info label="Business type" value={format(partner.businessType)} />
@@ -483,7 +437,6 @@ const PartnerDetails = () => {
           />
           <Info label="Referral code" value={partner.referralCode || "—"} />
         </div>
-
         <div className="mt-5 rounded-xl bg-[#FFF9F2] p-4">
           <p className="text-[9px] font-black uppercase tracking-wider text-black/35">
             About
@@ -492,7 +445,6 @@ const PartnerDetails = () => {
             {partner.about || "—"}
           </p>
         </div>
-
         <div className="mt-5">
           <p className={labelClass}>Capabilities</p>
           <div className="flex flex-wrap gap-2">
@@ -506,12 +458,10 @@ const PartnerDetails = () => {
             ))}
           </div>
         </div>
-
         <div className="mt-5 grid gap-4 md:grid-cols-2">
           <List label="Supply categories" values={partner.supplyCategories} />
           <List label="Services offered" values={partner.servicesOffered} />
         </div>
-
         <div className="mt-5 grid gap-4 md:grid-cols-2">
           <List
             label="Service areas"
@@ -531,15 +481,7 @@ const PartnerDetails = () => {
             ].filter(Boolean)}
           />
         </div>
-
-        <Link
-          to="/admin/documents"
-          className="mt-5 inline-flex rounded-xl border border-black/10 px-4 py-2.5 text-[10px] font-black text-[#F97316] hover:border-[#F97316]"
-        >
-          Open document console →
-        </Link>
-      </section>
-
+</section>
       <section className="rounded-[22px] border border-black/10 bg-white p-6">
         <p className="text-[9px] font-black uppercase tracking-wider text-[#F97316]">
           Projects
@@ -547,7 +489,6 @@ const PartnerDetails = () => {
         <h2 className="mt-1 text-xl font-black">
           HAMPORIUM validation queue
         </h2>
-
         <div className="mt-5 space-y-3">
           {projects.map((project) => (
             <div key={project._id} className="rounded-xl bg-[#FFF9F2] p-4">
@@ -561,7 +502,6 @@ const PartnerDetails = () => {
                     {project.client?.name} · {project.items?.length || 0} option(s)
                   </p>
                 </div>
-
                 <div className="flex items-center gap-2">
                   <StatusBadge status={project.status} />
                   {["submitted", "under_review", "changes_requested"].includes(
@@ -579,13 +519,11 @@ const PartnerDetails = () => {
               </div>
             </div>
           ))}
-
           {!projects.length && (
             <p className="text-sm text-black/40">No projects.</p>
           )}
         </div>
       </section>
-
       <section className="rounded-[22px] bg-[#171717] p-6 text-white">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -603,7 +541,6 @@ const PartnerDetails = () => {
             Open commission ledger →
           </Link>
         </div>
-
         <div className="mt-5 space-y-3">
           {commissions.slice(0, 8).map((commission) => (
             <div
@@ -624,7 +561,6 @@ const PartnerDetails = () => {
               </div>
             </div>
           ))}
-
           {!commissions.length && (
             <p className="text-sm text-white/40">
               No commission records.
@@ -635,16 +571,12 @@ const PartnerDetails = () => {
     </div>
   );
 };
-
 const inputClass =
   "h-12 w-full rounded-xl border border-black/10 bg-white px-4 text-sm outline-none focus:border-[#F97316]";
-
 const textareaClass =
   "w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-[#F97316]";
-
 const labelClass =
   "mb-2 block text-[9px] font-black uppercase tracking-wider text-black/40";
-
 const Input = ({
   label,
   value,
@@ -667,7 +599,6 @@ const Input = ({
     />
   </label>
 );
-
 const CommercialStat = ({ label, value, note }) => (
   <div className="border-t border-white/10 p-6 lg:border-l lg:border-t-0">
     <p className="text-[9px] font-black uppercase tracking-[0.14em] text-white/35">
@@ -677,7 +608,6 @@ const CommercialStat = ({ label, value, note }) => (
     <p className="mt-2 text-[10px] leading-5 text-white/40">{note}</p>
   </div>
 );
-
 const Info = ({ label, value }) => (
   <div className="rounded-xl bg-[#FFF9F2] p-4">
     <p className="text-[9px] font-black uppercase tracking-wider text-black/35">
@@ -686,7 +616,6 @@ const Info = ({ label, value }) => (
     <p className="mt-1 break-words text-sm font-black">{value || "—"}</p>
   </div>
 );
-
 const List = ({ label, values = [] }) => (
   <div className="rounded-xl border border-black/[0.06] p-4">
     <p className={labelClass}>{label}</p>
@@ -706,7 +635,6 @@ const List = ({ label, values = [] }) => (
     </div>
   </div>
 );
-
 const Stat = ({ label, value }) => (
   <div className="rounded-2xl border border-black/[0.06] bg-white p-5">
     <p className="text-[9px] font-black uppercase tracking-wider text-black/35">
@@ -715,17 +643,14 @@ const Stat = ({ label, value }) => (
     <p className="mt-2 break-words text-xl font-black">{value}</p>
   </div>
 );
-
 const money = (value) =>
   new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
     maximumFractionDigits: 2,
   }).format(Number(value || 0));
-
 const format = (value = "") =>
   String(value || "—")
     .replaceAll("_", " ")
     .replace(/\b\w/g, (char) => char.toUpperCase());
-
 export default PartnerDetails;

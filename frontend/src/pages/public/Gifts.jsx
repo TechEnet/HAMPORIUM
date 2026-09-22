@@ -678,13 +678,6 @@ const Gifts = () => {
     });
   };
 
-  const totalProducts =
-    Number(
-      pagination?.total ||
-        products.length ||
-        0
-    );
-
   const catalogueMeta =
     getCatalogueMeta({
       filters,
@@ -1829,7 +1822,7 @@ const Gifts = () => {
         `}
       </style>
 
-      <section className="w-full px-3 pb-14 pt-[96px] sm:px-4 sm:pb-16 sm:pt-[104px] md:px-5 lg:px-6 lg:pb-20 lg:pt-[112px] xl:px-7 2xl:px-8">
+      <section className="w-full px-3 pb-6 pt-[96px] sm:px-4 sm:pb-8 sm:pt-[104px] md:px-5 lg:px-6 lg:pb-10 lg:pt-[112px] xl:px-7 2xl:px-8">
         {/* MOBILE FILTER */}
 
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3 lg:hidden">
@@ -1888,7 +1881,7 @@ const Gifts = () => {
           {/* PRODUCT AREA */}
 
           <div className="min-w-0 lg:pl-5 xl:pl-7 2xl:pl-8">
-            <div className="flex flex-col gap-5 border-b border-black/[0.08] pb-5 sm:flex-row sm:items-end sm:justify-between">
+            <div className="flex flex-col gap-4 border-b border-black/[0.08] pb-4 sm:flex-row sm:items-end sm:justify-between">
               <div className="max-w-[760px]">
                 <div className="flex items-center gap-2">
                   <span className="h-px w-7 bg-[#F47822]" />
@@ -1912,19 +1905,6 @@ const Gifts = () => {
                   }
                 </h1>
 
-                <p className="mt-3 max-w-[700px] text-[12px] font-medium leading-6 text-black/45 sm:text-[13px]">
-                  {
-                    catalogueMeta.description
-                  }
-                </p>
-
-                <p className="mt-3 text-[10px] font-medium text-black/35 sm:text-[11px]">
-                  Showing{" "}
-                  {products.length}{" "}
-                  of{" "}
-                  {totalProducts}{" "}
-                  hampers
-                </p>
               </div>
 
               <div className="hidden items-center gap-3 lg:flex">
@@ -2096,7 +2076,7 @@ const Gifts = () => {
                 </div>
 
                 {pagination && (
-                  <div className="mt-12 border-t border-black/[0.08] pt-8">
+                  <div className="mt-7 border-t border-black/[0.07] pt-4 pb-1">
                     <Pagination
                       pagination={
                         pagination

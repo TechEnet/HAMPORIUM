@@ -94,6 +94,52 @@ const normalizeProductionItem = (item) => ({
   notes: item.notes || "",
 });
 
+const doneOrNotRequired = (value) =>
+  [
+    PRODUCTION_ITEM_STATUS.DONE,
+    PRODUCTION_ITEM_STATUS.NOT_REQUIRED,
+  ].includes(value);
+
+const allItemsDone = (items, field) =>
+  Array.isArray(items) &&
+  items.length > 0 &&
+  items.every((item) => doneOrNotRequired(item[field]));
+
+const hasPersonalization = (items) =>
+  (items || []).some((item) => item.personalizationRequired);
+
+const personalizationDone = (items) => {
+  const requiredItems = (items || []).filter(
+    (item) => item.personalizationRequired
+  );
+
+  if (!requiredItems.length) return true;
+
+  return requiredItems.every((item) =>
+    doneOrNotRequired(item.personalizationStatus)
+  );
+};
+
+const firstProductionStage = (job) =>
+  hasPersonalization(job.items)
+    ? PRODUCTION_STAGE.PERSONALIZATION
+    : PRODUCTION_STAGE.ASSEMBLY;
+
+const getResumeStage = (job) => {
+  const history = Array.isArray(job.history) ? [...job.history].reverse() : [];
+
+  const previous = history.find(
+    (entry) =>
+      entry.stage &&
+      entry.stage !== PRODUCTION_STAGE.ON_HOLD &&
+      entry.stage !== PRODUCTION_STAGE.SHIPPED &&
+      entry.stage !== PRODUCTION_STAGE.DELIVERED &&
+      entry.stage !== PRODUCTION_STAGE.CANCELLED
+  );
+
+  return previous?.stage || PRODUCTION_STAGE.CONFIRMED;
+};
+
 const formatPersonalizationDetails = (personalization) => {
   if (!personalization?.enabled) return "";
   const lines = [];
@@ -233,8 +279,34 @@ export const ensureProductionJobForOrder = async (
   });
 
   if (existing) {
+    let shouldSave = false;
+
     if (!existing.sourceKey) {
       existing.sourceKey = sourceKey;
+      shouldSave = true;
+    }
+
+    if (
+      !existing.dueDate &&
+      (order.deliveryPlan?.dispatchReadyDate || order.deliveryDate)
+    ) {
+      existing.dueDate =
+        order.deliveryPlan?.dispatchReadyDate ||
+        order.deliveryDate;
+      shouldSave = true;
+    }
+
+    if (
+      !existing.expectedDeliveryDate &&
+      (order.deliveryPlan?.expectedDeliveryDate || order.deliveryDate)
+    ) {
+      existing.expectedDeliveryDate =
+        order.deliveryPlan?.expectedDeliveryDate ||
+        order.deliveryDate;
+      shouldSave = true;
+    }
+
+    if (shouldSave) {
       try {
         await existing.save();
       } catch (error) {
@@ -263,7 +335,14 @@ export const ensureProductionJobForOrder = async (
     items,
     priority: "normal",
     assignedTo: null,
-    dueDate: order.deliveryDate || null,
+    dueDate:
+      order.deliveryPlan?.dispatchReadyDate ||
+      order.deliveryDate ||
+      null,
+    expectedDeliveryDate:
+      order.deliveryPlan?.expectedDeliveryDate ||
+      order.deliveryDate ||
+      null,
     notes: buildOrderJobNotes(order),
     stage: PRODUCTION_STAGE.CONFIRMED,
     createdBy: actorId || null,
@@ -386,6 +465,7 @@ export const createProductionJob = async (req, res) => {
     priority = "normal",
     assignedTo,
     dueDate,
+    expectedDeliveryDate,
     notes = "",
   } = req.body;
 
@@ -433,6 +513,7 @@ export const createProductionJob = async (req, res) => {
       priority,
       assignedTo: assignedTo || null,
       dueDate: dueDate || null,
+      expectedDeliveryDate: expectedDeliveryDate || null,
       notes,
       stage: PRODUCTION_STAGE.CONFIRMED,
       createdBy: req.user._id,
@@ -552,6 +633,7 @@ export const updateProductionJob = async (req, res) => {
     "priority",
     "assignedTo",
     "dueDate",
+    "expectedDeliveryDate",
     "notes",
   ];
 
@@ -602,7 +684,7 @@ export const updateProductionStage = async (req, res) => {
   ) {
     return res.status(400).json({
       message:
-        "Shipped and delivered statuses are controlled by fulfilment.",
+        "Shipping and delivery are controlled only from Fulfilment.",
     });
   }
 
@@ -619,18 +701,67 @@ export const updateProductionStage = async (req, res) => {
       job.stage
     )
   ) {
-    return res.status(400).json({
+    return res.status(409).json({
       message: `Cannot move a ${job.stage} production job.`,
     });
   }
 
-  if (stage === PRODUCTION_STAGE.CANCELLED && job.sourceType === "order") {
-    const linkedOrder = await Order.findById(job.sourceId).select("status");
+  if (stage === job.stage) {
+    return res.status(200).json({
+      message: "Production stage is already up to date.",
+      job,
+    });
+  }
 
-    if (linkedOrder && linkedOrder.status !== ORDER_STATUS.CANCELLED) {
+  if (job.sourceType === "order") {
+    if (stage === PRODUCTION_STAGE.CANCELLED) {
+      const linkedOrder = await Order.findById(job.sourceId).select(
+        "status"
+      );
+
+      if (linkedOrder && linkedOrder.status !== ORDER_STATUS.CANCELLED) {
+        return res.status(409).json({
+          message:
+            "Retail production can be cancelled only through the order cancellation workflow.",
+        });
+      }
+    } else if (stage === PRODUCTION_STAGE.ON_HOLD) {
+      if (
+        [
+          PRODUCTION_STAGE.SHIPPED,
+          PRODUCTION_STAGE.DELIVERED,
+          PRODUCTION_STAGE.CANCELLED,
+        ].includes(job.stage)
+      ) {
+        return res.status(409).json({
+          message: "This production job can no longer be put on hold.",
+        });
+      }
+    } else if (job.stage === PRODUCTION_STAGE.ON_HOLD) {
+      const resumeStage = getResumeStage(job);
+
+      if (stage !== resumeStage) {
+        return res.status(409).json({
+          message: `Resume this job at ${String(resumeStage).replaceAll(
+            "_",
+            " "
+          )}.`,
+        });
+      }
+    } else if (job.stage === PRODUCTION_STAGE.CONFIRMED) {
+      const allowedStartStage = firstProductionStage(job);
+
+      if (stage !== allowedStartStage) {
+        return res.status(409).json({
+          message: `Start production at ${String(
+            allowedStartStage
+          ).replaceAll("_", " ")}.`,
+        });
+      }
+    } else {
       return res.status(409).json({
         message:
-          "Retail production can be cancelled only through the order cancellation workflow.",
+          "Retail production advances from item completion and QC. Update the current production step instead of skipping stages.",
       });
     }
   }
@@ -649,13 +780,26 @@ export const updateProductionStage = async (req, res) => {
   await job.save();
   await syncRetailOrderFromProduction(job);
 
-  await createNotification({
-    recipient: job.customerUser?._id || job.customerUser,
-    title: "Production Update",
-    message: `${job.jobCode} moved to ${stage.replaceAll("_", " ")}.`,
-    entityId: job._id,
-    actionUrl: "/account/orders",
-  });
+  if (
+    job.sourceType !== "order" ||
+    previousStage === PRODUCTION_STAGE.CONFIRMED ||
+    previousStage === PRODUCTION_STAGE.ON_HOLD ||
+    stage === PRODUCTION_STAGE.ON_HOLD
+  ) {
+    await createNotification({
+      recipient: job.customerUser?._id || job.customerUser,
+      title:
+        stage === PRODUCTION_STAGE.ON_HOLD
+          ? "Production Update"
+          : "Order Preparation Update",
+      message:
+        stage === PRODUCTION_STAGE.ON_HOLD
+          ? `${job.jobCode} is temporarily on hold.`
+          : `${job.jobCode} is now being prepared.`,
+      entityId: job._id,
+      actionUrl: "/account/orders",
+    });
+  }
 
   await createAuditLog({
     req,
@@ -663,11 +807,11 @@ export const updateProductionStage = async (req, res) => {
     module: "production",
     entityType: "production_job",
     entityId: job._id,
-    description: `${job.jobCode}: ${previousStage} → ${stage}`,
+    description: `${job.jobCode}: ${previousStage} → ${job.stage}`,
     changes: {
       stage: {
         from: previousStage,
-        to: stage,
+        to: job.stage,
       },
     },
   });
@@ -684,6 +828,19 @@ export const updateProductionItem = async (req, res) => {
   if (!job) {
     return res.status(404).json({
       message: "Production job not found.",
+    });
+  }
+
+  if (
+    [
+      PRODUCTION_STAGE.READY_TO_SHIP,
+      PRODUCTION_STAGE.SHIPPED,
+      PRODUCTION_STAGE.DELIVERED,
+      PRODUCTION_STAGE.CANCELLED,
+    ].includes(job.stage)
+  ) {
+    return res.status(409).json({
+      message: "Production items can no longer be changed at this stage.",
     });
   }
 
@@ -708,6 +865,31 @@ export const updateProductionItem = async (req, res) => {
     "notes",
   ];
 
+  if (job.sourceType === "order") {
+    const stageFieldMap = {
+      [PRODUCTION_STAGE.PERSONALIZATION]: "personalizationStatus",
+      [PRODUCTION_STAGE.ASSEMBLY]: "assemblyStatus",
+      [PRODUCTION_STAGE.PACKING]: "packingStatus",
+    };
+
+    const activeStatusField = stageFieldMap[job.stage] || null;
+
+    for (const field of statusFields) {
+      if (
+        Object.prototype.hasOwnProperty.call(req.body, field) &&
+        field !== activeStatusField
+      ) {
+        return res.status(409).json({
+          message:
+            job.stage === PRODUCTION_STAGE.QC
+              ? "Use the QC action for quality-control results."
+              : `Only ${activeStatusField || "the active production step"} can be updated right now.`,
+        });
+      }
+    }
+  }
+
+  const previousStage = job.stage;
   const changes = {};
 
   for (const field of allowedFields) {
@@ -733,6 +915,14 @@ export const updateProductionItem = async (req, res) => {
   job.updatedBy = req.user._id;
 
   await job.save();
+  await syncRetailOrderFromProduction(job);
+
+  if (
+    previousStage !== job.stage &&
+    job.stage === PRODUCTION_STAGE.READY_TO_SHIP
+  ) {
+    // Shipment creation is handled by productionAutomation.service.js.
+  }
 
   await createAuditLog({
     req,
@@ -744,11 +934,19 @@ export const updateProductionItem = async (req, res) => {
     changes,
     metadata: {
       itemId: item._id,
+      previousStage,
+      currentStage: job.stage,
     },
   });
 
   res.json({
-    message: "Production item updated.",
+    message:
+      previousStage !== job.stage
+        ? `Item updated. Production moved to ${String(job.stage).replaceAll(
+            "_",
+            " "
+          )}.`
+        : "Production item updated.",
     job,
     item,
   });
@@ -772,7 +970,7 @@ export const submitQCResult = async (req, res) => {
   }
 
   if (job.stage !== PRODUCTION_STAGE.QC) {
-    return res.status(400).json({
+    return res.status(409).json({
       message: "Production job must be in QC stage.",
     });
   }
@@ -784,6 +982,12 @@ export const submitQCResult = async (req, res) => {
   job.updatedBy = req.user._id;
 
   if (status === QC_STATUS.PASSED) {
+    for (const item of job.items || []) {
+      if (item.qcStatus !== PRODUCTION_ITEM_STATUS.NOT_REQUIRED) {
+        item.qcStatus = PRODUCTION_ITEM_STATUS.DONE;
+      }
+    }
+
     job.stage = PRODUCTION_STAGE.PACKING;
 
     job.history.push({
@@ -792,30 +996,21 @@ export const submitQCResult = async (req, res) => {
       by: req.user._id,
     });
   } else {
+    for (const item of job.items || []) {
+      if (item.qcStatus !== PRODUCTION_ITEM_STATUS.NOT_REQUIRED) {
+        item.qcStatus = PRODUCTION_ITEM_STATUS.PENDING;
+      }
+    }
+
     job.history.push({
       stage: PRODUCTION_STAGE.QC,
-      note: "QC failed. Rework required.",
+      note: "QC failed. Rework is required before packing.",
       by: req.user._id,
     });
   }
 
   await job.save();
   await syncRetailOrderFromProduction(job);
-
-  await createNotification({
-    recipient: job.customerUser?._id || job.customerUser,
-    title:
-      status === QC_STATUS.PASSED
-        ? "Quality Check Completed"
-        : "Production Update",
-    message:
-      status === QC_STATUS.PASSED
-        ? `${job.jobCode} passed quality checks and moved to packing.`
-        : `${job.jobCode} requires production rework after quality checks.`,
-    entityId: job._id,
-    actionUrl: "/account/orders",
-    type: NOTIFICATION_TYPE.QC,
-  });
 
   await createAuditLog({
     req,
@@ -828,7 +1023,11 @@ export const submitQCResult = async (req, res) => {
   });
 
   res.json({
-    message: `QC ${status}.`,
+    message:
+      status === QC_STATUS.PASSED
+        ? "QC passed. Production moved to packing."
+        : "QC failed. Keep the job in QC until rework is complete.",
     job,
   });
 };
+

@@ -31,6 +31,7 @@ import fulfilmentRoutes from "./modules/fulfilment/fulfilment.routes.js";
 import notificationRoutes from "./modules/notifications/notification.routes.js";
 import auditRoutes from "./modules/audit/audit.routes.js";
 
+import promotionRoutes from "./modules/promotions/promotion.routes.js";
 const router = Router();
 
 router.get("/health", (req, res) => {
@@ -76,5 +77,7 @@ router.use("/production", productionRoutes);
 router.use("/fulfilment", fulfilmentRoutes);
 router.use("/notifications", notificationRoutes);
 router.use("/audit", auditRoutes);
+
+router.use("/promotions", promotionRoutes);
 
 export default router;

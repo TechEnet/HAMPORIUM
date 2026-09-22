@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -9,6 +10,13 @@ import { Link, useNavigate } from "react-router-dom";
 
 import api from "../../api/api.js";
 import Loader from "../../components/Loader.jsx";
+import {
+  PromotionAnnouncement,
+  PromotionHomeBanner,
+  PromotionProductBadge,
+  findPromotionForProduct,
+  useWebsitePromotions,
+} from "../../components/WebsitePromotions.jsx";
 
 import heroVideo from "../../assets/hmp.mp4";
 import hamperOneLuxury from "../../assets/images/hamper_one_luxury.webp";
@@ -44,22 +52,22 @@ const DISPLAY_FONT =
 
 const HOME_IMAGES = {
   hero:
-    "https://images.unsplash.com/photo-1783331256641-c147508169b0?auto=format&fit=crop&w=1900&q=92",
+    bestsellerExecutiveLuxury,
 
   festival:
-    "https://images.unsplash.com/photo-1760602672748-6a570286ce73?auto=format&fit=crop&w=1300&q=90",
+    bestsellerFestiveLuxury,
 
   corporate:
-    "https://images.unsplash.com/photo-1783331256641-c147508169b0?auto=format&fit=crop&w=1300&q=90",
+    bestsellerExecutiveLuxury,
 
   wedding:
-    "https://images.unsplash.com/photo-1774284235324-f0d55c371823?auto=format&fit=crop&w=1300&q=90",
+    bestsellerWeddingLuxury,
 
   curated:
-    "https://images.unsplash.com/photo-1629610306962-a8aa73153d0e?auto=format&fit=crop&w=1300&q=90",
+    journeySignature1,
 
   why:
-    "https://images.unsplash.com/photo-1633870929971-891656f9a150?auto=format&fit=crop&w=1500&q=90",
+    storyImg3,
 
   bestseller1:
     bestsellerFestiveLuxury,
@@ -77,28 +85,28 @@ const HOME_IMAGES = {
     bestsellerCelebrationLuxury,
 
   custom:
-    "https://images.unsplash.com/photo-1774284235324-f0d55c371823?auto=format&fit=crop&w=1600&q=92",
+    journeyBuild1,
 
   hamperOne:
-    "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?auto=format&fit=crop&w=1800&q=92",
+    hamperOneLuxury,
 
   editorialCustom:
-    "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?auto=format&fit=crop&w=1600&q=92",
+    journeyBuild2,
 
   hamperOneFeature:
-    "https://images.unsplash.com/photo-1658993813819-348c8efaa762?auto=format&fit=crop&w=1600&q=92",
+    hamperOneLuxury,
 
   hamperOneSecondary:
-    "https://images.unsplash.com/photo-1769805222413-9422a0027c68?auto=format&fit=crop&w=1400&q=92",
+    bestsellerCelebrationLuxury,
 
   editorialHover1:
-    "https://images.unsplash.com/photo-1658993813819-348c8efaa762?auto=format&fit=crop&w=1500&q=92",
+    journeySignature2,
 
   editorialHover2:
-    "https://images.unsplash.com/photo-1629610306962-a8aa73153d0e?auto=format&fit=crop&w=1500&q=92",
+    journeyBuild2,
 
   editorialHover3:
-    "https://images.unsplash.com/photo-1783331256641-c147508169b0?auto=format&fit=crop&w=1500&q=92",
+    journeyBulk2,
 
   journeySignature1:
     journeySignature1,
@@ -119,13 +127,13 @@ const HOME_IMAGES = {
     journeyBulk2,
 
   momentBirthday:
-    "https://images.unsplash.com/photo-1607344645866-009c320b63e0?auto=format&fit=crop&w=1500&q=92",
+    journeySignature1,
 
   momentAnniversary:
-    "https://images.unsplash.com/photo-1513883049090-d0b7439799bf?auto=format&fit=crop&w=1500&q=92",
+    journeyBuild2,
 
   finalCta:
-    "https://images.unsplash.com/photo-1602173574767-37ac01994b2a?auto=format&fit=crop&w=1900&q=92",
+    bestsellerCelebrationLuxury,
 
   storyCurated:
     storyImg1,
@@ -137,7 +145,7 @@ const HOME_IMAGES = {
     storyImg3,
 
   universalFallback:
-    "https://images.unsplash.com/photo-1783331256641-c147508169b0?auto=format&fit=crop&w=1400&q=88",
+    bestsellerExecutiveLuxury,
 };
 
 // ======================================================
@@ -187,43 +195,9 @@ const FALLBACK_PRODUCTS = [
 ];
 
 // ======================================================
-// HOMEPAGE REVIEW FALLBACKS
+// REVIEW DATA
+// Customer testimonials are rendered only from the public reviews endpoint.
 // ======================================================
-
-const FALLBACK_HOME_REVIEWS = [
-  {
-    id: "fallback-review-1",
-    name: "Priya Mehta",
-    rating: 5,
-    context: "Wedding Hamper",
-    displayMessage:
-      "Absolutely beautiful hamper and such thoughtful details.",
-  },
-  {
-    id: "fallback-review-2",
-    name: "Rohan Kapoor",
-    rating: 5,
-    context: "Corporate Gifting",
-    displayMessage:
-      "Elegant, premium and beautifully presented. Our clients loved it.",
-  },
-  {
-    id: "fallback-review-3",
-    name: "Aanya Sharma",
-    rating: 5,
-    context: "Birthday Hamper",
-    displayMessage:
-      "It felt personal, polished and genuinely special from the first look.",
-  },
-  {
-    id: "fallback-review-4",
-    name: "Meera Sinha",
-    rating: 5,
-    context: "Festive Hamper",
-    displayMessage:
-      "Beautiful presentation, thoughtful curation and a lovely unboxing experience.",
-  },
-];
 
 // ======================================================
 // HOMEPAGE INTERACTION OPTIONS
@@ -299,7 +273,7 @@ const GIFT_BUDGETS = [
 
 const HOME_SECTION_NAV = [
   { id: "journey", label: "Journey" },
-  { id: "concierge", label: "Concierge" },
+  // { id: "concierge", label: "Concierge" }, // Temporarily hidden
   { id: "bestsellers", label: "Bestsellers" },
   { id: "hamper-one", label: "HAMPER ONE" },
   { id: "brand", label: "Brand Story" },
@@ -339,1237 +313,170 @@ const resolveProductImage = (
 
 const Home = () => {
   const navigate = useNavigate();
-
-  const [giftOccasion, setGiftOccasion] =
-    useState("birthday");
-
-  const [giftBudget, setGiftBudget] =
-    useState("1500-3000");
-
-  const [products, setProducts] =
-    useState([]);
-
-  const [loading, setLoading] =
-    useState(true);
-
-  const [customerReviews, setCustomerReviews] =
-    useState([]);
-
-  const [reviewsLoading, setReviewsLoading] =
-    useState(true);
-
-  const [activeReviewIndex, setActiveReviewIndex] =
-    useState(0);
-
-  const [introStage, setIntroStage] =
-    useState("loading");
-
-  const [heroVideoReady, setHeroVideoReady] =
-    useState(false);
-
-  const [introFinished, setIntroFinished] =
-    useState(false);
-
-  const [activeHomeSection, setActiveHomeSection] =
-    useState("journey");
-
-  const [giftRevealActive, setGiftRevealActive] =
-    useState(false);
-
+  const [giftOccasion, setGiftOccasion] = useState("birthday");
+  const [giftBudget, setGiftBudget] = useState("1500-3000");
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [catalogueError, setCatalogueError] = useState("");
+  const [catalogueAttempt, setCatalogueAttempt] = useState(0);
+  const [customerReviews, setCustomerReviews] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(true);
+  const [introFinished, setIntroFinished] = useState(false);
+  const [activeHomeSection, setActiveHomeSection] = useState("journey");
+  const [giftRevealActive, setGiftRevealActive] = useState(false);
   const homeRef = useRef(null);
-  const heroVideoRef = useRef(null);
-  const lastHeroVideoTimeRef = useRef(0);
   const giftRevealTimerRef = useRef(null);
+  const giftNavigatingRef = useRef(false);
+  const reducedMotion = useMediaPreference("(prefers-reduced-motion: reduce)");
+  const { promotions: websitePromotions } = useWebsitePromotions();
 
-  const reviewSlides = useMemo(() => {
-    if (customerReviews.length) {
-      return customerReviews.map((review, index) => ({
-        ...review,
-        id:
-          review?._id ||
-          review?.id ||
-          `live-review-${index}`,
-        name:
-          review?.user?.name ||
-          review?.customer?.name ||
-          review?.userName ||
-          review?.name ||
-          "Verified Customer",
-        context:
-          review?.productName ||
-          review?.product?.name ||
-          "HAMPORIUM Hamper",
-        rating: Math.max(
-          1,
-          Math.min(
-            5,
-            Number(review?.rating || 5)
-          )
-        ),
-      }));
-    }
+  const finishCinematicIntro = useCallback(() => setIntroFinished(true), []);
+  useHomeEnhancements(homeRef, reducedMotion, setActiveHomeSection);
 
-    return FALLBACK_HOME_REVIEWS;
-  }, [customerReviews]);
-
-  // ======================================================
-  // CINEMATIC INTRO / HEADER VISIBILITY
-  // ======================================================
-
+  // The existing catalogue endpoint and filter contract are retained.
+  // A stale response never overwrites a newer request or an unmounted page.
   useEffect(() => {
-    document.documentElement.dataset.hamporiumIntro =
-      "active";
-
-    window.dispatchEvent(
-      new CustomEvent(
-        "hamporium:intro-state",
-        {
-          detail: {
-            active: true,
-          },
-        }
-      )
-    );
-
-    return () => {
-      delete document.documentElement.dataset.hamporiumIntro;
-
-      window.dispatchEvent(
-        new CustomEvent(
-          "hamporium:intro-state",
-          {
-            detail: {
-              active: false,
-            },
-          }
-        )
-      );
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!heroVideoReady) {
-      return undefined;
-    }
-
-    const leaveTimer =
-      window.setTimeout(() => {
-        setIntroStage("leaving");
-      }, 450);
-
-    const playTimer =
-      window.setTimeout(async () => {
-        setIntroStage("hidden");
-
-        const video =
-          heroVideoRef.current;
-
-        if (!video) return;
-
-        try {
-          video.currentTime = 0;
-
-          await video.play();
-        } catch (error) {
-          console.warn(
-            "Hero video autoplay was blocked:",
-            error
-          );
-        }
-      }, 1150);
-
-    return () => {
-      window.clearTimeout(
-        leaveTimer
-      );
-
-      window.clearTimeout(
-        playTimer
-      );
-    };
-  }, [heroVideoReady]);
-
-  const finishCinematicIntro = () => {
-    setIntroFinished((finished) => {
-      if (finished) {
-        return finished;
-      }
-
-      delete document.documentElement.dataset.hamporiumIntro;
-
-      window.dispatchEvent(
-        new CustomEvent(
-          "hamporium:intro-state",
-          {
-            detail: {
-              active: false,
-            },
-          }
-        )
-      );
-
-      return true;
-    });
-  };
-
-  const handleHeroVideoTimeUpdate = (event) => {
-    if (introFinished) {
-      return;
-    }
-
-    const video =
-      event.currentTarget;
-
-    const duration =
-      Number(video.duration || 0);
-
-    const currentTime =
-      Number(video.currentTime || 0);
-
-    const previousTime =
-      Number(
-        lastHeroVideoTimeRef.current || 0
-      );
-
-    /*
-      Native `loop` keeps the video playing smoothly and does not
-      fire `ended`. We detect only the FIRST wrap from the end back
-      to the beginning. At that moment the header is revealed, but
-      the video itself is never paused/restarted by React.
-    */
-    if (
-      duration > 0 &&
-      previousTime > duration * 0.72 &&
-      currentTime < duration * 0.28
-    ) {
-      finishCinematicIntro();
-    }
-
-    lastHeroVideoTimeRef.current =
-      currentTime;
-  };
-
-  useEffect(() => {
-    if (introFinished) {
-      return undefined;
-    }
-
-    const revealHeaderOnScroll = () => {
-      if (window.scrollY > 72) {
-        finishCinematicIntro();
-      }
-    };
-
-    revealHeaderOnScroll();
-
-    window.addEventListener(
-      "scroll",
-      revealHeaderOnScroll,
-      {
-        passive: true,
-      }
-    );
-
-    return () => {
-      window.removeEventListener(
-        "scroll",
-        revealHeaderOnScroll
-      );
-    };
-  }, [introFinished]);
-
-  // ======================================================
-  // CINEMATIC SCROLL MOTION
-  // One RAF-driven listener updates CSS variables only, so the
-  // full homepage does not re-render on every scroll tick.
-  // ======================================================
-
-  useEffect(() => {
-    const root = homeRef.current;
-
-    if (!root) {
-      return undefined;
-    }
-
-    const hero = root.querySelector(
-      ".hp-hero-stage"
-    );
-
-    let frame = 0;
-
-    const updateMotion = () => {
-      frame = 0;
-
-      const pageHeight = Math.max(
-        1,
-        document.documentElement.scrollHeight -
-          window.innerHeight
-      );
-
-      const pageProgress = Math.max(
-        0,
-        Math.min(1, window.scrollY / pageHeight)
-      );
-
-      root.style.setProperty(
-        "--hp-scroll-progress",
-        pageProgress.toFixed(4)
-      );
-
-      if (!hero) {
-        return;
-      }
-
-      const heroRect = hero.getBoundingClientRect();
-      const heroTravel = Math.max(
-        1,
-        heroRect.height * 0.76
-      );
-
-      const handoffProgress = Math.max(
-        0,
-        Math.min(
-          1,
-          -heroRect.top / heroTravel
-        )
-      );
-
-      root.style.setProperty(
-        "--hp-hero-scale",
-        (1 + handoffProgress * 0.055).toFixed(4)
-      );
-
-      root.style.setProperty(
-        "--hp-hero-dim",
-        (handoffProgress * 0.28).toFixed(4)
-      );
-
-      root.style.setProperty(
-        "--hp-hero-line-scale",
-        handoffProgress.toFixed(4)
-      );
-
-      root.style.setProperty(
-        "--hp-journey-shift",
-        `${Math.max(0, (1 - handoffProgress) * 34).toFixed(1)}px`
-      );
-    };
-
-    const requestUpdate = () => {
-      if (frame) {
-        return;
-      }
-
-      frame = window.requestAnimationFrame(
-        updateMotion
-      );
-    };
-
-    updateMotion();
-
-    window.addEventListener(
-      "scroll",
-      requestUpdate,
-      { passive: true }
-    );
-
-    window.addEventListener(
-      "resize",
-      requestUpdate,
-      { passive: true }
-    );
-
-    return () => {
-      if (frame) {
-        window.cancelAnimationFrame(frame);
-      }
-
-      window.removeEventListener(
-        "scroll",
-        requestUpdate
-      );
-
-      window.removeEventListener(
-        "resize",
-        requestUpdate
-      );
-    };
-  }, []);
-
-  // ======================================================
-  // DESKTOP SECTION NAVIGATOR
-  // ======================================================
-
-  useEffect(() => {
-    const root = homeRef.current;
-
-    if (
-      !root ||
-      typeof window === "undefined" ||
-      !("IntersectionObserver" in window)
-    ) {
-      return undefined;
-    }
-
-    const sections = HOME_SECTION_NAV
-      .map((item) =>
-        root.querySelector(
-          `[data-home-section="${item.id}"]`
-        )
-      )
-      .filter(Boolean);
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort(
-            (a, b) =>
-              b.intersectionRatio -
-              a.intersectionRatio
-          );
-
-        if (visible[0]) {
-          const id =
-            visible[0].target.dataset
-              .homeSection;
-
-          if (id) {
-            setActiveHomeSection(id);
-          }
-        }
-      },
-      {
-        root: null,
-        rootMargin: "-30% 0px -52% 0px",
-        threshold: [0, 0.01, 0.1, 0.25],
-      }
-    );
-
-    sections.forEach((section) => {
-      observer.observe(section);
-    });
-
-    return () => {
-      observer.disconnect();
-    };
-  }, []);
-
-  // ======================================================
-  // STORY TYPOGRAPHY STAGGER
-  // ======================================================
-
-  useEffect(() => {
-    const root = homeRef.current;
-
-    if (!root) {
-      return undefined;
-    }
-
-    const pages = Array.from(
-      root.querySelectorAll(
-        ".hp-story-page"
-      )
-    );
-
-    if (!pages.length) {
-      return undefined;
-    }
-
-    if (
-      typeof window === "undefined" ||
-      !("IntersectionObserver" in window)
-    ) {
-      pages.forEach((page) => {
-        page.classList.add(
-          "is-story-visible"
-        );
-      });
-
-      return undefined;
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (
-            entry.isIntersecting &&
-            entry.intersectionRatio >= 0.34
-          ) {
-            entry.target.classList.add(
-              "is-story-visible"
-            );
-
-            observer.unobserve(
-              entry.target
-            );
-          }
-        });
-      },
-      {
-        threshold: [0.18, 0.34, 0.55],
-      }
-    );
-
-    pages.forEach((page) => {
-      observer.observe(page);
-    });
-
-    return () => {
-      observer.disconnect();
-    };
-  }, []);
-
-  // ======================================================
-  // DESKTOP POINTER SPOTLIGHT + FINAL CTA DEPTH
-  // V52: RAF-throttled to avoid high-frequency style writes.
-  // ======================================================
-
-  useEffect(() => {
-    const root = homeRef.current;
-
-    if (!root || typeof window === "undefined") {
-      return undefined;
-    }
-
-    const finePointer = window.matchMedia(
-      "(pointer: fine)"
-    );
-
-    const reducedMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)"
-    );
-
-    if (
-      !finePointer.matches ||
-      reducedMotion.matches
-    ) {
-      return undefined;
-    }
-
-    const cleanups = [];
-
-    const spotlightNodes = Array.from(
-      root.querySelectorAll(
-        ".hp-pointer-glow"
-      )
-    );
-
-    spotlightNodes.forEach((node) => {
-      let frame = 0;
-      let latestX = 0;
-      let latestY = 0;
-
-      const paint = () => {
-        frame = 0;
-
-        const rect =
-          node.getBoundingClientRect();
-
-        node.style.setProperty(
-          "--hp-pointer-x",
-          `${latestX - rect.left}px`
-        );
-
-        node.style.setProperty(
-          "--hp-pointer-y",
-          `${latestY - rect.top}px`
-        );
-
-        node.style.setProperty(
-          "--hp-pointer-opacity",
-          "1"
-        );
-      };
-
-      const handleMove = (event) => {
-        latestX = event.clientX;
-        latestY = event.clientY;
-
-        if (!frame) {
-          frame =
-            window.requestAnimationFrame(
-              paint
-            );
-        }
-      };
-
-      const handleLeave = () => {
-        if (frame) {
-          window.cancelAnimationFrame(
-            frame
-          );
-          frame = 0;
-        }
-
-        node.style.setProperty(
-          "--hp-pointer-opacity",
-          "0"
-        );
-      };
-
-      node.addEventListener(
-        "pointermove",
-        handleMove,
-        { passive: true }
-      );
-
-      node.addEventListener(
-        "pointerleave",
-        handleLeave
-      );
-
-      cleanups.push(() => {
-        if (frame) {
-          window.cancelAnimationFrame(
-            frame
-          );
-        }
-
-        node.removeEventListener(
-          "pointermove",
-          handleMove
-        );
-
-        node.removeEventListener(
-          "pointerleave",
-          handleLeave
-        );
-      });
-    });
-
-    const finalZone = root.querySelector(
-      ".hp-final-parallax-zone"
-    );
-
-    if (finalZone) {
-      let frame = 0;
-      let latestX = 0;
-      let latestY = 0;
-
-      const paintFinal = () => {
-        frame = 0;
-
-        const rect =
-          finalZone.getBoundingClientRect();
-
-        const normalizedX =
-          (latestX - rect.left) /
-            Math.max(1, rect.width) -
-          0.5;
-
-        const normalizedY =
-          (latestY - rect.top) /
-            Math.max(1, rect.height) -
-          0.5;
-
-        finalZone.style.setProperty(
-          "--hp-final-x",
-          `${(normalizedX * 10).toFixed(2)}px`
-        );
-
-        finalZone.style.setProperty(
-          "--hp-final-y",
-          `${(normalizedY * 6).toFixed(2)}px`
-        );
-      };
-
-      const handleFinalMove = (event) => {
-        latestX = event.clientX;
-        latestY = event.clientY;
-
-        if (!frame) {
-          frame =
-            window.requestAnimationFrame(
-              paintFinal
-            );
-        }
-      };
-
-      const resetFinal = () => {
-        if (frame) {
-          window.cancelAnimationFrame(
-            frame
-          );
-          frame = 0;
-        }
-
-        finalZone.style.setProperty(
-          "--hp-final-x",
-          "0px"
-        );
-
-        finalZone.style.setProperty(
-          "--hp-final-y",
-          "0px"
-        );
-      };
-
-      finalZone.addEventListener(
-        "pointermove",
-        handleFinalMove,
-        { passive: true }
-      );
-
-      finalZone.addEventListener(
-        "pointerleave",
-        resetFinal
-      );
-
-      cleanups.push(() => {
-        if (frame) {
-          window.cancelAnimationFrame(
-            frame
-          );
-        }
-
-        finalZone.removeEventListener(
-          "pointermove",
-          handleFinalMove
-        );
-
-        finalZone.removeEventListener(
-          "pointerleave",
-          resetFinal
-        );
-      });
-    }
-
-    return () => {
-      cleanups.forEach((cleanup) =>
-        cleanup()
-      );
-    };
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (giftRevealTimerRef.current) {
-        window.clearTimeout(
-          giftRevealTimerRef.current
-        );
-      }
-    };
-  }, []);
-
-  // ======================================================
-  // MOBILE 70/30 SNAP RAIL ACTIVE CARD
-  // ======================================================
-
-  useEffect(() => {
-    if (
-      typeof window === "undefined" ||
-      !("IntersectionObserver" in window)
-    ) {
-      return undefined;
-    }
-
-    const mediaQuery =
-      window.matchMedia(
-        "(max-width: 1023px)"
-      );
-
-    let cleanupObservers = [];
-
-    const setupRails = () => {
-      cleanupObservers.forEach(
-        (cleanup) => cleanup()
-      );
-
-      cleanupObservers = [];
-
-      const rails =
-        document.querySelectorAll(
-          ".hp-snap-rail"
-        );
-
-      rails.forEach((rail) => {
-        const items =
-          Array.from(
-            rail.children
-          );
-
-        if (!items.length) {
-          return;
-        }
-
-        items.forEach((item) => {
-          item.classList.remove(
-            "is-mobile-active"
-          );
-        });
-
-        items[0].classList.add(
-          "is-mobile-active"
-        );
-
-        if (!mediaQuery.matches) {
-          return;
-        }
-
-        const observer =
-          new IntersectionObserver(
-            (entries) => {
-              entries.forEach(
-                (entry) => {
-                  if (
-                    entry.intersectionRatio >=
-                    0.68
-                  ) {
-                    items.forEach(
-                      (item) => {
-                        item.classList.remove(
-                          "is-mobile-active"
-                        );
-                      }
-                    );
-
-                    entry.target.classList.add(
-                      "is-mobile-active"
-                    );
-                  }
-                }
-              );
-            },
-            {
-              root: rail,
-              threshold: [
-                0.3,
-                0.5,
-                0.68,
-                0.8,
-                1,
-              ],
-            }
-          );
-
-        items.forEach(
-          (item) => {
-            observer.observe(
-              item
-            );
-          }
-        );
-
-        cleanupObservers.push(
-          () => {
-            observer.disconnect();
-          }
-        );
-      });
-    };
-
-    const frame =
-      window.requestAnimationFrame(
-        setupRails
-      );
-
-    const handleChange = () => {
-      setupRails();
-    };
-
-    mediaQuery.addEventListener?.(
-      "change",
-      handleChange
-    );
-
-    return () => {
-      window.cancelAnimationFrame(
-        frame
-      );
-
-      mediaQuery.removeEventListener?.(
-        "change",
-        handleChange
-      );
-
-      cleanupObservers.forEach(
-        (cleanup) => cleanup()
-      );
-    };
-  }, [
-    loading,
-    products.length,
-  ]);
-
-  // ======================================================
-  // LOAD PRODUCTS
-  // ======================================================
-
-  useEffect(() => {
-    const loadProducts = async () => {
-      try {
-        const response =
-          await api.get(
-            "/catalog/products?featured=true&limit=8"
-          );
-
-        setProducts(
-          response.data.products || []
-        );
-      } catch (error) {
-        console.error(
-          "Home catalogue error:",
-          error
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadProducts();
-  }, []);
-
-  // ======================================================
-  // HOMEPAGE CUSTOMER REVIEWS
-  // Pull only a few public reviews from featured products.
-  // ======================================================
-
-  useEffect(() => {
-    const reviewProducts = products
-      .filter((product) => product?._id)
-      .slice(0, 5);
-
-    if (!reviewProducts.length) {
-      setCustomerReviews([]);
-      setReviewsLoading(false);
-      return undefined;
-    }
-
     let active = true;
+    const controller = new AbortController();
+    setLoading(true);
+    setCatalogueError("");
+    api.get("/catalog/products?featured=true&limit=8", {
+      signal: controller.signal,
+      timeout: 12000,
+    }).then((response) => {
+      if (active) setProducts(Array.isArray(response.data?.products) ? response.data.products : []);
+    }).catch((error) => {
+      if (active && error?.code !== "ERR_CANCELED") {
+        setCatalogueError("The collection is taking a little longer to load.");
+      }
+    }).finally(() => { if (active) setLoading(false); });
+    return () => { active = false; controller.abort(); };
+  }, [catalogueAttempt]);
 
-    const loadCustomerReviews = async () => {
-      try {
-        setReviewsLoading(true);
+  useEffect(() => {
+    let active = true;
+    const controller = new AbortController();
 
-        const results = await Promise.allSettled(
-          reviewProducts.map(async (product) => {
-            const response = await api.get(
-              `/reviews/product/${product._id}`,
-              {
-                params: {
-                  page: 1,
-                  limit: 4,
-                },
-              }
-            );
+    setReviewsLoading(true);
 
-            const payload = response.data || {};
+    api.get("/reviews/homepage", {
+      signal: controller.signal,
+      timeout: 12000,
+    })
+      .then((response) => {
+        if (!active) return;
 
-            const rows =
-              payload.reviews ||
-              payload.items ||
-              payload.data?.reviews ||
-              payload.data?.items ||
-              (Array.isArray(payload.data)
-                ? payload.data
-                : []);
+        const payload = response.data || {};
+        const rows =
+          payload.reviews ||
+          payload.items ||
+          payload.data?.reviews ||
+          payload.data?.items ||
+          (Array.isArray(payload.data) ? payload.data : []);
 
-            if (!Array.isArray(rows)) {
-              return [];
-            }
+        const reviews = (Array.isArray(rows) ? rows : [])
+          .slice(0, 6)
+          .map((review, index) => {
+            const message = String(
+              review.comment ||
+              review.review ||
+              review.content ||
+              review.message ||
+              review.text ||
+              ""
+            ).trim();
 
-            return rows.map((review) => ({
+            const rating = Number(review.rating);
+            const context =
+              review.targetName ||
+              review.product?.name ||
+              (review.targetType === "custom_hamper"
+                ? "Custom Hamper"
+                : "HAMPORIUM Hamper");
+
+            return {
               ...review,
-              productName:
-                review.product?.name ||
-                product.name ||
-                "HAMPORIUM Hamper",
-              productSlug:
-                review.product?.slug ||
-                product.slug ||
-                "",
-            }));
+              id: String(review._id || review.id || `homepage-review-${index}`),
+              displayMessage: message,
+              name:
+                review.user?.name ||
+                review.customer?.name ||
+                review.userName ||
+                review.name ||
+                "HAMPORIUM customer",
+              context,
+              productSlug: review.product?.slug || "",
+              rating:
+                Number.isFinite(rating) && rating >= 1 && rating <= 5
+                  ? rating
+                  : null,
+            };
           })
-        );
+          .filter((review) => review.displayMessage);
 
-        if (!active) {
-          return;
-        }
-
-        const flattened = results
-          .filter(
-            (result) =>
-              result.status === "fulfilled"
-          )
-          .flatMap(
-            (result) =>
-              result.value || []
-          );
-
-        const unique = [];
-        const seen = new Set();
-
-        flattened.forEach((review, index) => {
-          const key =
-            review?._id ||
-            review?.id ||
-            `${review?.user?._id || review?.user?.name || "user"}-${review?.createdAt || index}`;
-
-          if (
-            seen.has(key) ||
-            unique.length >= 3
-          ) {
-            return;
-          }
-
-          const message =
-            review?.comment ||
-            review?.review ||
-            review?.content ||
-            review?.message ||
-            review?.text ||
-            "";
-
-          if (!String(message).trim()) {
-            return;
-          }
-
-          seen.add(key);
-
-          unique.push({
-            ...review,
-            displayMessage:
-              String(message).trim(),
-          });
-        });
-
-        setCustomerReviews(unique);
-      } catch (error) {
-        console.warn(
-          "Homepage reviews error:",
-          error
-        );
-
-        if (active) {
+        setCustomerReviews(reviews);
+      })
+      .catch((error) => {
+        if (active && error?.code !== "ERR_CANCELED") {
           setCustomerReviews([]);
         }
-      } finally {
-        if (active) {
-          setReviewsLoading(false);
-        }
-      }
-    };
-
-    void loadCustomerReviews();
+      })
+      .finally(() => {
+        if (active) setReviewsLoading(false);
+      });
 
     return () => {
       active = false;
+      controller.abort();
     };
-  }, [products]);
+  }, []);
 
-  useEffect(() => {
-    if (
-      reviewsLoading ||
-      reviewSlides.length <= 1
-    ) {
-      return undefined;
-    }
+  useEffect(() => () => window.clearTimeout(giftRevealTimerRef.current), []);
 
-    const timer =
-      window.setInterval(() => {
-        setActiveReviewIndex(
-          (current) =>
-            (current + 1) %
-            reviewSlides.length
-        );
-      }, 4500);
-
-    return () => {
-      window.clearInterval(timer);
-    };
-  }, [
-    reviewsLoading,
-    reviewSlides.length,
-  ]);
-
-  useEffect(() => {
-    setActiveReviewIndex(
-      (current) =>
-        reviewSlides.length
-          ? current %
-            reviewSlides.length
-          : 0
-    );
-  }, [reviewSlides.length]);
-
-  // ======================================================
-  // FIND THE RIGHT GIFT
-  // ======================================================
-
+  // Real query parameters, not an invented recommendation endpoint.
   const handleFindGift = () => {
-    const occasion =
-      GIFT_OCCASIONS.find(
-        (item) =>
-          item.id ===
-          giftOccasion
-      );
-
-    const budget =
-      GIFT_BUDGETS.find(
-        (item) =>
-          item.id ===
-          giftBudget
-      );
-
-    const params =
-      new URLSearchParams();
-
-    if (occasion?.search) {
-      params.set(
-        "search",
-        occasion.search
-      );
-    }
-
-    if (
-      budget?.minPrice !==
-        undefined
-    ) {
-      params.set(
-        "minPrice",
-        String(
-          budget.minPrice
-        )
-      );
-    }
-
-    if (
-      budget?.maxPrice !==
-        undefined
-    ) {
-      params.set(
-        "maxPrice",
-        String(
-          budget.maxPrice
-        )
-      );
-    }
-
-    const destination =
-      `/gifts?${params.toString()}`;
-
-    if (giftRevealTimerRef.current) {
-      window.clearTimeout(
-        giftRevealTimerRef.current
-      );
-    }
-
+    if (giftNavigatingRef.current) return;
+    const occasion = GIFT_OCCASIONS.find((item) => item.id === giftOccasion);
+    const budget = GIFT_BUDGETS.find((item) => item.id === giftBudget);
+    const params = new URLSearchParams();
+    if (occasion?.search) params.set("search", occasion.search);
+    if (budget?.minPrice !== undefined) params.set("minPrice", String(budget.minPrice));
+    if (budget?.maxPrice !== undefined) params.set("maxPrice", String(budget.maxPrice));
+    giftNavigatingRef.current = true;
     setGiftRevealActive(true);
-
-    const prefersReducedMotion =
-      typeof window !== "undefined" &&
-      window.matchMedia?.(
-        "(prefers-reduced-motion: reduce)"
-      ).matches;
-
-    giftRevealTimerRef.current =
-      window.setTimeout(
-        () => {
-          navigate(destination);
-        },
-        prefersReducedMotion
-          ? 80
-          : 720
-      );
+    window.clearTimeout(giftRevealTimerRef.current);
+    giftRevealTimerRef.current = window.setTimeout(() => {
+      navigate(`/gifts?${params.toString()}`);
+      giftNavigatingRef.current = false;
+      setGiftRevealActive(false);
+    }, reducedMotion ? 0 : 520);
   };
 
-  const activeGiftOccasion =
-    GIFT_OCCASIONS.find(
-      (occasion) =>
-        occasion.id ===
-        giftOccasion
-    ) ||
-    GIFT_OCCASIONS[0];
+  const activeGiftOccasion = GIFT_OCCASIONS.find((item) => item.id === giftOccasion) || GIFT_OCCASIONS[0];
+  const activeBudgetIndex = Math.max(0, GIFT_BUDGETS.findIndex((item) => item.id === giftBudget));
+  const activeBudget = GIFT_BUDGETS[activeBudgetIndex];
 
-  const activeBudgetIndex =
-    Math.max(
-      0,
-      GIFT_BUDGETS.findIndex(
-        (budget) =>
-          budget.id ===
-          giftBudget
-      )
-    );
-
-  const activeBudget =
-    GIFT_BUDGETS[
-      activeBudgetIndex
-    ];
-
-  // ======================================================
-  // LOVED PRODUCTS
-  // ======================================================
-
-  const lovedProducts =
-    useMemo(() => {
-      const images = [
-        HOME_IMAGES.bestseller1,
-        HOME_IMAGES.bestseller2,
-        HOME_IMAGES.bestseller3,
-        HOME_IMAGES.bestseller4,
-        HOME_IMAGES.bestseller5,
-      ];
-
-      if (!products.length) {
-        return FALLBACK_PRODUCTS;
-      }
-
-      return Array.from(
-        { length: 5 },
-        (_, index) => {
-          const product =
-            products[index];
-
-          const fallback =
-            FALLBACK_PRODUCTS[index];
-
-          if (!product) {
-            return fallback;
-          }
-
-          const price =
-            Number(
-              product.minPrice ??
-                product.price ??
-                product.sellingPrice ??
-                product.salePrice ??
-                fallback.price
-            ) || fallback.price;
-
-          return {
-            ...fallback,
-            ...product,
-
-            _id:
-              product._id ||
-              fallback._id,
-
-            name:
-              product.name ||
-              fallback.name,
-
-            slug:
-              product.slug || "",
-
-            price,
-
-            // Homepage bestsellers intentionally use the curated
-            // HAMPORIUM luxury campaign imagery below, while the
-            // live API still supplies name, price and product route.
-            image:
-              images[index] ||
-              resolveProductImage(
-                product,
-                fallback.image
-              ),
-          };
-        }
-      );
-    }, [products]);
+  const lovedProducts = useMemo(() => {
+    const campaignImages = [HOME_IMAGES.bestseller1, HOME_IMAGES.bestseller2,
+      HOME_IMAGES.bestseller3, HOME_IMAGES.bestseller4, HOME_IMAGES.bestseller5];
+    if (!products.length) {
+      // Campaign tiles are navigation, not purchasable inventory or live prices.
+      return FALLBACK_PRODUCTS.map((product) => ({ ...product, price: null, editorial: true }));
+    }
+    return products.slice(0, 8).map((product, index) => {
+      const value = product.minPrice ?? product.price ?? product.sellingPrice ?? product.salePrice;
+      const price = value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value)) ? Number(value) : null;
+      return {
+        ...product, _id: product._id || product.slug || `product-${index}`,
+        name: product.name || "HAMPORIUM Hamper", slug: product.slug || "", price,
+        image: campaignImages[index] || resolveProductImage(product, campaignImages[index % campaignImages.length]),
+        detailImage: resolveProductImage(product, campaignImages[index % campaignImages.length]),
+      };
+    });
+  }, [products]);
 
   return (
-    <main className="w-full overflow-x-clip bg-[#faf7f3] text-[#111111]">
+    <main className="hp-home-v65 w-full overflow-x-clip bg-[#faf7f3] text-[#111111]">
       <style>
         {`
           @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,600&family=Manrope:wght@400;500;600;700;800&display=swap');
@@ -1647,37 +554,6 @@ const Home = () => {
 
           .hp-bestseller-runway {
             position: relative;
-          }
-
-          @media (min-width: 1024px) {
-            .hp-bestseller-runway {
-              display: flex !important;
-              align-items: stretch;
-              gap: 14px;
-              overflow: visible;
-            }
-
-            .hp-bestseller-runway > .hp-reveal {
-              flex: 1 1 0%;
-              flex-grow: 1;
-              min-width: 0;
-              opacity: 1;
-              transform: none;
-              transition:
-                flex-grow .95s cubic-bezier(.22,1,.36,1),
-                opacity .55s ease;
-            }
-
-            .hp-bestseller-runway:hover > .hp-reveal {
-              flex-grow: .92;
-              opacity: .84;
-            }
-
-            .hp-bestseller-runway > .hp-reveal:hover {
-              flex-grow: 1.38;
-              opacity: 1;
-              z-index: 5;
-            }
           }
 
           .hp-bestseller-card {
@@ -2406,18 +1282,9 @@ const Home = () => {
             }
           }
 
-          .hp-reveal {
-            opacity: 0;
-            transform: translate3d(0, 34px, 0);
-            transition:
-              opacity .85s cubic-bezier(.22,1,.36,1),
-              transform .85s cubic-bezier(.22,1,.36,1);
-            will-change: opacity, transform;
-          }
-
-          .hp-reveal.is-visible {
+          .hp-reveal, .hp-reveal.is-visible {
             opacity: 1;
-            transform: translate3d(0, 0, 0);
+            transform: none;
           }
 
           .hp-premium-card {
@@ -3164,10 +2031,10 @@ const Home = () => {
 
           .hp-journey-grid > a:hover
           .hp-journey-base {
-            opacity: 0;
+            opacity: 1;
             transform:
               translateZ(0)
-              scale(1.045);
+              scale(1.035);
           }
 
           .hp-journey-grid > a:hover
@@ -4302,6 +3169,712 @@ const Home = () => {
               animation: none !important;
             }
           }
+          /* ==================================================
+             V65 / SIGNATURE MOTION
+             Scoped refinements; the approved visual identity stays intact.
+          ================================================== */
+          .hp-home-v65 { --hp-motion-ease: cubic-bezier(.22,1,.36,1); }
+          .hp-home-v65 *, .hp-home-quick-dialog * { box-sizing: border-box; }
+          .hp-home-v65 :where(button, a, input):focus-visible,
+          .hp-home-quick-dialog :where(button, a):focus-visible {
+            outline: 2px solid #F47822; outline-offset: 5px;
+          }
+          .hp-home-v65 button:disabled { cursor: not-allowed; }
+          .hp-home-v65 [data-home-section] { scroll-margin-top: 86px; }
+          .hp-home-v65 .hp-image-fallback {
+            display: grid; place-items: center;
+            background: radial-gradient(ellipse at 30% 20%, #d5b98e, #70604a);
+            color: #fff4dc;
+          }
+          .hp-home-v65 .hp-image-fallback > span { opacity: .7; }
+          .hp-home-v65 .hp-image-fallback svg { width: 48px; height: 48px; }
+          .hp-home-v65 .hp-reveal { will-change: auto; }
+          .hp-home-v65 .hp-story-kicker, .hp-home-v65 .hp-story-line {
+            opacity: 1; filter: none; transform: none;
+          }
+          .hp-home-v65 .hp-story-page.is-story-visible .hp-story-line {
+            animation: hpStoryLineEnter .8s var(--hp-motion-ease) both;
+            animation-delay: var(--hp-story-delay, 0ms);
+          }
+          @keyframes hpStoryLineEnter {
+            from { opacity: .25; transform: translate3d(0,18px,0); }
+            to { opacity: 1; transform: translate3d(0,0,0); }
+          }
+          .hp-home-v65 .hp-hamper-one-image {
+            clip-path: none; -webkit-clip-path: none; will-change: auto;
+          }
+          .hp-home-v65 .hp-story-image { will-change: auto; }
+          .hp-home-v65 .hp-concierge-card.is-active { animation: none; }
+          .hp-home-v65 .hp-concierge-card {
+            transition: transform .7s var(--hp-motion-ease), border-color .4s ease, box-shadow .4s ease;
+          }
+          .hp-home-v65 .hp-concierge-card:hover { transform: translateY(-5px); }
+          .hp-home-v65 .hp-concierge-card img { filter: none !important; }
+          .hp-home-v65 .hp-journey-base { opacity: 1 !important; }
+          .hp-home-v65 .hp-journey-base, .hp-home-v65 .hp-journey-hover {
+            will-change: auto; transition: opacity .8s ease, transform 1.2s var(--hp-motion-ease);
+          }
+          .hp-home-v65 .hp-journey-hover:not([data-loaded="true"]) { opacity: 0 !important; }
+          .hp-home-v65 .hp-gift-product-window img { will-change: auto; filter: none !important; }
+          .hp-home-v65 .hp-editorial-base, .hp-home-v65 .hp-editorial-hover { will-change: auto; }
+          .hp-home-v65 .hp-offscreen *, .hp-home-v65 [data-page-hidden="true"] * {
+            animation-play-state: paused !important;
+          }
+          .hp-home-v65 .hp-offscreen::before, .hp-home-v65 .hp-offscreen::after {
+            animation-play-state: paused !important;
+          }
+          .hp-home-v65 .hp-concierge-ambient, .hp-home-v65 .hp-review-glow,
+          .hp-home-v65 .hp-luxury-glow { animation: none; opacity: .2; }
+
+          /* Video stays full bleed. Controls do not cover the film. */
+          .hp-intro-loading { transition: opacity .42s ease; }
+          .hp-intro-loading.is-leaving { opacity: 0; pointer-events: none; }
+          .hp-intro-skip {
+            position: fixed; top: max(22px, env(safe-area-inset-top)); right: 28px;
+            z-index: 10001; min-height: 44px; padding: 0 20px; border-radius: 99px;
+            border: 1px solid #d5b86470; background: #15120de8; color: #fff4dc;
+            font: 600 12px/1 'Manrope',Arial,sans-serif; display: flex; align-items: center; gap: 16px;
+          }
+          .hp-hero-poster, .hp-hero-film {
+            position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center;
+          }
+          .hp-hero-film { opacity: 0; transition: opacity .85s ease; }
+          .hp-hero-film.is-ready { opacity: 1; }
+          .hp-hero-controls {
+            position: absolute; bottom: max(26px, env(safe-area-inset-bottom)); left: clamp(18px,4vw,70px);
+            right: clamp(18px,4vw,70px); z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+          }
+          .hp-hero-controls button {
+            display: inline-flex; align-items: center; gap: 13px; padding: 0 17px; min-height: 44px;
+            background: #12110dbf; color: #fff9e8; border: 1px solid #fff4d430; border-radius: 99px;
+            font-size: 12px; font-weight: 650; backdrop-filter: blur(5px); transition: background .3s ease;
+          }
+          .hp-hero-controls button:hover { background: #211c13; }
+          .hp-hero-controls svg { width: 16px; height: 16px; }
+          .hp-hero-fallback-copy {
+            position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: flex-start;
+            padding: 110px clamp(24px,5vw,88px); color: #fff4dc;
+            background: linear-gradient(90deg,#070604ed,#07060499 50%,#07060420);
+          }
+          .hp-hero-fallback-copy > p { font-size: 12px; letter-spacing: .24em; color: #edc868; }
+          .hp-hero-fallback-copy h2 { margin: 24px 0; max-width: 900px; font: 600 clamp(40px,5.5vw,94px)/.99 'Cormorant Garamond',Georgia,serif; }
+          .hp-hero-fallback-copy h2 em { color: #edc868; }
+          .hp-hero-fallback-copy a { min-height: 48px; display: inline-flex; align-items:center; gap: 28px; padding: 0 24px; background: #f47822; color: white; font-size: 13px; font-weight: 700; }
+
+          /* Navigable carousels: native scroll; no wheel or touch hijack. */
+          .hp-home-v65 .hp-rail-controls {
+            display: flex; gap: 22px; align-items: center; min-width: 0; margin: 20px 0 0;
+            color: #655747; font-size: 12px; letter-spacing: .06em; font-weight: 600;
+          }
+          .hp-home-v65 .hp-rail-controls p { margin: 0; white-space: nowrap; }
+          .hp-home-v65 .hp-rail-controls p > span { color: #30261c; }
+          .hp-home-v65 .hp-rail-controls-dark { color: #b6ac9a; }
+          .hp-home-v65 .hp-rail-controls-dark p > span { color: #f6e7c6; }
+          .hp-home-v65 .hp-rail-track { flex: 1; max-width: 230px; height: 2px; background: #ad997c30; }
+          .hp-home-v65 .hp-rail-track > span { height: 100%; display: block; background: #b98d2a; transition: width .5s var(--hp-motion-ease); }
+          .hp-home-v65 .hp-rail-arrows { margin-left: auto; display: flex; gap: 9px; }
+          .hp-home-v65 .hp-rail-arrows button {
+            display: grid; place-items: center; width: 46px; height: 46px; border: 1px solid #a989593d;
+            border-radius: 50%; color: #3a2b1a; background: #fffaf2; transition: color .3s ease, background .3s ease, border-color .3s ease;
+          }
+          .hp-home-v65 .hp-rail-controls-dark button { background: #fff6e409; color: #f1d582; border-color: #d4af3752; }
+          .hp-home-v65 .hp-rail-arrows button:not(:disabled):hover { background: #302319; color: #fff6e7; border-color: #302319; }
+          .hp-home-v65 .hp-rail-arrows button:disabled { opacity: .3; }
+          .hp-home-v65 .hp-snap-rail { position: relative; }
+          .hp-home-v65 .hp-snap-rail:focus-visible { outline: 2px solid #c9913b; outline-offset: 5px; }
+          .hp-home-v65 .hp-collection-interactive { margin-top: clamp(26px,3.5vw,52px); }
+          .hp-home-v65 .hp-bestseller-runway {
+            display: flex !important; gap: 18px !important; width: 100% !important; max-width: 100% !important;
+            overflow-x: auto; overflow-y: hidden; margin: 0; padding: 8px 0 14px !important; transform: none;
+            scroll-behavior: smooth; scroll-snap-type: x mandatory; scrollbar-width: none;
+            -webkit-overflow-scrolling: touch; overscroll-behavior-inline: contain; scroll-padding-inline: 0;
+          }
+          .hp-home-v65 .hp-bestseller-runway::-webkit-scrollbar { display: none; }
+          .hp-home-v65 .hp-bestseller-runway > * {
+            flex: 0 0 calc((100% - 54px) / 4) !important; width: calc((100% - 54px) / 4) !important;
+            max-width: calc((100% - 54px) / 4) !important; min-width: 0;
+            scale: 1 !important; opacity: 1 !important; transform: none !important; scroll-snap-align: start;
+          }
+          .hp-home-v65 .hp-bestseller-card { min-height: 0; height: 408px; padding: 12px; display: block; border-radius: 24px; }
+          .hp-home-v65 .hp-gift-package { min-height: 0; height: 100%; display: grid; grid-template-rows: minmax(0,1fr) auto; text-decoration: none; }
+          .hp-home-v65 .hp-gift-product-window { min-height: 0; border-radius: 14px; }
+          .hp-home-v65 .hp-bestseller-copy { min-height: 146px; padding: 15px 9px 5px; }
+          .hp-home-v65 .hp-bestseller-title { font-size: clamp(25px,1.85vw,32px); line-height: 1.01; }
+          .hp-home-v65 .hp-bestseller-price-label { font-size: 10px; letter-spacing: .10em; }
+          .hp-home-v65 .hp-bestseller-price { font-size: 19px; line-height: 1.3; }
+          .hp-home-v65 .hp-bestseller-copy .hp-bestseller-line { margin-bottom: 9px; }
+          .hp-home-v65 .hp-bestseller-meta { margin-top: 12px; }
+          .hp-home-v65 .hp-bestseller-card:hover { transform: translateY(-3px); }
+          .hp-home-v65 .hp-bestseller-card:hover .hp-bestseller-copy { transform: none; }
+          .hp-home-v65 .hp-quick-look {
+            position: absolute; top: 22px; right: 22px; z-index: 6; display: inline-flex; align-items: center; gap: 7px;
+            min-height: 38px; border: 1px solid #ead9bc; padding: 0 12px; border-radius: 99px;
+            background: #fffaf1f0; color: #332819; font: 700 11px/1 'Manrope',Arial,sans-serif;
+            opacity: 0; transform: translateY(5px); transition: opacity .28s ease, transform .4s var(--hp-motion-ease);
+          }
+          .hp-home-v65 .hp-quick-look svg { width: 16px; height: 16px; }
+          .hp-home-v65 .hp-bestseller-card:hover .hp-quick-look,
+          .hp-home-v65 .hp-bestseller-card:focus-within .hp-quick-look { opacity: 1; transform: none; }
+          .hp-home-v65 .hp-collection-notice { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 14px 0; color: #72573c; font-size: 13px; }
+          .hp-home-v65 .hp-collection-notice button { text-decoration: underline; min-height: 44px; font-weight: 750; }
+
+          /* Concierge: clear choices, not extra marketing boxes. */
+          .hp-home-v65 .hp-concierge-selection {
+            padding: 0 0 18px; margin: 0 0 20px; border-bottom: 1px solid #e4c98426;
+            font-size: 13px; line-height: 1.6; color: #f8e8c7;
+          }
+          .hp-home-v65 .hp-concierge-selection > span:first-child { color: #c0b29c; margin-right: 18px; font-size: 11px; letter-spacing: .07em; }
+          .hp-home-v65 .hp-budget-steps { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 7px; margin-top: 18px; }
+          .hp-home-v65 .hp-budget-steps button {
+            min-height: 44px; border-radius: 7px; border: 1px solid #fff3d424; padding: 8px 5px; font-size: 11px;
+            color: #d9cdb8; line-height: 1.5; font-weight: 650; background: #ffffff04; transition: color .25s ease, background .25s ease, border-color .25s ease;
+          }
+          .hp-home-v65 .hp-budget-steps button.is-selected { color: #ffda89; border-color: #d4af378c; background: #d4af3715; }
+          .hp-home-v65 .hp-budget-steps button:hover { background: #d4af3720; }
+          .hp-home-v65 .hp-concierge-range { min-height: 7px; cursor: pointer; }
+          .hp-home-v65 .hp-concierge-range:focus-visible { outline: 2px solid #f47822; outline-offset: 10px; }
+          .hp-home-v65 .hp-concierge-cta { min-width: 200px; font-size: 12px; transition: transform .4s var(--hp-motion-ease), box-shadow .3s ease; }
+          .hp-home-v65 .hp-concierge-cta:not(:disabled):hover { transform: translateY(-2px); }
+
+          /* Read-only preview. Native dialog supplies the top layer and focus trap. */
+          .hp-home-quick-dialog {
+            box-sizing: border-box; width: min(920px,calc(100vw - 32px)); max-height: calc(100dvh - 40px);
+            padding: 0; margin: auto; overflow: auto; border: 1px solid #d6c5ab; border-radius: 18px;
+            background: #fffcf8; color: #26201a; box-shadow: 0 28px 100px #0005;
+            font-family: 'Manrope',Arial,sans-serif;
+          }
+          .hp-home-quick-dialog[open] { animation: hpQuickOpen .3s var(--hp-motion-ease,cubic-bezier(.22,1,.36,1)); }
+          .hp-home-quick-dialog::backdrop { background: #100d0bbd; backdrop-filter: blur(5px); }
+          @keyframes hpQuickOpen { from { opacity:.4; transform: translateY(12px); } to { opacity:1; transform: none; } }
+          .hp-quick-layout { display: grid; grid-template-columns: 1fr 1fr; }
+          .hp-quick-photo { min-width: 0; height: 485px; background: #f1eade; padding: 18px; }
+          .hp-quick-photo img { width:100%; height:100%; object-fit:contain; }
+          .hp-quick-copy { min-width: 0; align-self: center; padding: 48px 36px 36px; }
+          .hp-quick-eyebrow { color: #987129; font-size: 10px; font-weight: 750; letter-spacing: .14em; }
+          .hp-quick-copy h2 { margin: 15px 0 18px; font: 600 clamp(32px,3vw,48px)/1.02 'Cormorant Garamond',Georgia,serif; }
+          .hp-quick-description { font-size: 14px; line-height:1.8; color:#6b5d4f; }
+          .hp-quick-price { margin: 20px 0 10px; font-size: 27px; font-weight: 750; }
+          .hp-quick-note { color:#756957; font-size:12px; line-height:1.7; padding-top:14px; border-top:1px solid #e6dccf; }
+          .hp-quick-link { display:flex; justify-content:space-between; align-items:center; min-height:50px; padding:0 20px; margin-top:24px; background:#f47822; color:#fff; font-size:13px; font-weight:750; text-decoration:none; border-radius:6px; }
+          .hp-quick-continue { display:block; min-height:44px; margin:8px auto 0; color:#776a59; background:transparent; border:0; font-size:12px; }
+          .hp-quick-close { position:absolute; top:12px; right:12px; z-index:3; display:grid; place-items:center; width:42px; height:42px; border-radius:50%; background:#fffdf8; border:1px solid #ddd0bc; color:#3a2b20; }
+
+          /* Customer reviews: real content, stable controls and pausable rotation. */
+          .hp-home-v65 .hp-reviews-interactive { min-width:0; width:100%; max-width:800px; margin-inline:auto; }
+          .hp-home-v65 .hp-review-surface, .hp-home-v65 .hp-review-loading, .hp-home-v65 .hp-review-empty {
+            border:1px solid #d4af3759; border-radius:24px; background:linear-gradient(135deg,#17120bd9,#0c0b09db);
+            padding:clamp(28px,3.5vw,52px); min-height:360px; box-shadow:0 18px 60px #0003;
+          }
+          .hp-home-v65 .hp-review-loading { background:#1f1b14; }
+          .hp-home-v65 .hp-review-content { position:relative; animation:hpQuickOpen .55s var(--hp-motion-ease); }
+          .hp-home-v65 .hp-review-quote-mark { position:absolute; top:-35px; right:0; color:#e7c66622; font:170px/1 Georgia,serif; pointer-events:none; }
+          .hp-home-v65 .hp-review-stars { display:flex; justify-content:center; gap:6px; color:#e8c766; font-size:20px; }
+          .hp-home-v65 .hp-review-stars .is-empty { opacity:.22; }
+          .hp-home-v65 .hp-review-content blockquote { position:relative; max-height:320px; overflow:auto; margin:24px 0; color:#fff3dc; text-align:center; font:600 clamp(26px,2.4vw,42px)/1.16 'Cormorant Garamond',Georgia,serif; }
+          .hp-home-v65 .hp-review-person { display:flex; justify-content:center; gap:14px; align-items:center; }
+          .hp-home-v65 .hp-review-person > span { width:46px; height:46px; border:1px solid #d4af375e; border-radius:50%; display:grid; place-items:center; color:#eccd76; background:#d4af3712; font-weight:750; flex-shrink:0; }
+          .hp-home-v65 .hp-review-person p { font-size:14px; font-weight:700; color:#fff6e9; }
+          .hp-home-v65 .hp-review-person small { display:block; margin-top:4px; color:#c5bba9; font-size:11px; }
+          .hp-home-v65 .hp-review-navigation { margin-top:20px; display:flex; align-items:center; justify-content:center; gap:10px; }
+          .hp-home-v65 .hp-review-navigation > button { width:44px; height:44px; display:grid; place-items:center; border:1px solid #dfba6052; border-radius:50%; background:#141008a3; color:#f3d581; }
+          .hp-home-v65 .hp-review-navigation > button:hover { background:#d4af3729; }
+          .hp-home-v65 .hp-review-navigation > button:disabled { opacity:.28; }
+          .hp-home-v65 .hp-review-index { margin-right:5px; font-size:12px; color:#f7dda0; }
+          .hp-home-v65 .hp-review-index > span { color:#c2b7a3; }
+          .hp-home-v65 .hp-review-dots { display:flex; align-items:center; }
+          .hp-home-v65 .hp-review-dots button { width:28px; height:44px; display:grid; place-items:center; background:none; border:0; }
+          .hp-home-v65 .hp-review-dots button > span { width:6px; height:6px; background:#e3d6bc66; border-radius:99px; transition:width .35s ease, background .35s ease; }
+          .hp-home-v65 .hp-review-dots button[aria-pressed="true"] > span { width:20px; background:#e7c365; }
+          .hp-home-v65 .hp-review-empty > span { color:#e5c462; }
+          .hp-home-v65 .hp-review-empty h3 { color:#fff0d2; margin:18px 0; font:600 38px/1.1 'Cormorant Garamond',Georgia,serif; }
+          .hp-home-v65 .hp-review-empty p { color:#d0c4ae; font-size:14px; line-height:1.8; }
+          .hp-home-v65 .hp-review-empty a { min-height:44px; display:inline-flex; gap:22px; align-items:center; color:#f4d887; margin-top:20px; font-size:13px; font-weight:700; }
+
+          @media (min-width:1024px) {
+            .hp-home-v65 .hp-rail-mobile-only { display:none; }
+            .hp-home-v65 .hp-journey-grid > a { min-width:0; }
+          }
+          @media (hover:hover) and (pointer:fine) and (min-width:1024px) {
+            .hp-home-v65 .hp-journey-grid:has(>a:focus-visible) { transition: grid-template-columns .95s var(--hp-motion-ease); }
+            .hp-home-v65 .hp-journey-grid:has(>a:nth-child(1):focus-visible) { grid-template-columns: minmax(0,1.28fr) minmax(0,.86fr) minmax(0,.86fr); }
+            .hp-home-v65 .hp-journey-grid:has(>a:nth-child(2):focus-visible) { grid-template-columns: minmax(0,.86fr) minmax(0,1.28fr) minmax(0,.86fr); }
+            .hp-home-v65 .hp-journey-grid:has(>a:nth-child(3):focus-visible) { grid-template-columns: minmax(0,.86fr) minmax(0,.86fr) minmax(0,1.28fr); }
+            .hp-home-v65 .hp-journey-grid > a:focus-visible .hp-journey-hover[data-loaded="true"] { opacity:1; transform:scale(1.015); }
+          }
+          @media (max-width:1023px) {
+            .hp-home-v65 .hp-snap-rail > *, .hp-home-v65 .hp-snap-rail > .is-mobile-active {
+              scale:1 !important; opacity:1 !important; will-change:auto !important;
+            }
+            .hp-home-v65 .hp-quick-look { opacity:1; transform:none; }
+            .hp-home-v65 .hp-bestseller-runway { padding:8px 16px 16px !important; gap:14px !important; scroll-padding-inline:16px; }
+            .hp-home-v65 .hp-bestseller-runway > * { flex-basis:calc((100% - 14px) / 2) !important; width:calc((100% - 14px) / 2) !important; max-width:calc((100% - 14px) / 2) !important; }
+            .hp-home-v65 .hp-rail-mobile-only, .hp-home-v65 .hp-bestseller-controls { margin-inline:16px; }
+            .hp-home-v65 .hp-section-heading { overflow-wrap:normal; }
+          }
+          @media (max-width:639px) {
+            .hp-home-v65 .hp-hero-stage { min-height:560px; }
+            .hp-home-v65 .hp-hero-controls { bottom:22px; left:14px; right:14px; }
+            .hp-home-v65 .hp-hero-controls button { font-size:11px; gap:8px; padding-inline:12px; }
+            .hp-home-v65 .hp-film-toggle span { display:none; }
+            .hp-home-v65 .hp-intro-skip { top:18px; right:16px; }
+            .hp-home-v65 .hp-rail-controls { gap:14px; }
+            .hp-home-v65 .hp-rail-arrows button { width:44px; height:44px; }
+            .hp-home-v65 .hp-rail-track { max-width:100px; }
+            .hp-home-v65 .hp-bestseller-runway > * { flex-basis:min(82vw,360px) !important; width:min(82vw,360px) !important; max-width:min(82vw,360px) !important; }
+            .hp-home-v65 .hp-bestseller-card { height:392px; }
+            .hp-home-v65 .hp-bestseller-title { font-size:29px; }
+            .hp-home-v65 .hp-bestseller-copy { min-height:139px; }
+            .hp-home-v65 .hp-budget-steps { grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+            .hp-home-v65 .hp-budget-steps button { font-size:12px; }
+            .hp-home-v65 .hp-concierge-selection > span:first-child { display:block; margin-bottom:4px; }
+            .hp-home-v65 .hp-concierge-cta { width:100%; }
+            .hp-home-v65 .hp-review-surface { min-height:350px; padding:28px 22px; }
+            .hp-home-v65 .hp-review-dots { display:none; }
+            .hp-home-v65 .hp-review-content blockquote { font-size:30px; }
+            .hp-home-quick-dialog { width:calc(100vw - 24px); max-height:calc(100dvh - 24px); border-radius:14px; }
+            .hp-quick-layout { grid-template-columns:1fr; }
+            .hp-quick-photo { height:250px; padding:14px; }
+            .hp-quick-copy { padding:24px; }
+            .hp-quick-copy h2 { font-size:34px; }
+          }
+          @media (hover:none), (pointer:coarse) {
+            .hp-home-v65 .hp-quick-look { opacity:1; transform:none; }
+            .hp-home-v65 .hp-bestseller-card:hover { transform:none; }
+            .hp-home-v65 .hp-concierge-card:hover { transform:none; }
+          }
+          @media (prefers-reduced-motion:reduce) {
+            .hp-home-v65 *, .hp-home-v65 *::before, .hp-home-v65 *::after,
+            .hp-home-quick-dialog, .hp-home-quick-dialog * {
+              animation:none !important; transition:none !important; scroll-behavior:auto !important;
+            }
+            .hp-home-v65 .hp-reveal, .hp-home-v65 .hp-story-line, .hp-home-v65 .hp-story-kicker {
+              opacity:1 !important; filter:none !important; transform:none !important;
+            }
+          }
+
+
+
+          /* ==================================================
+             V66 · GIFT COUTURE BESTSELLERS
+             Keep the original wrapped-gift card concept, but make
+             the packaging feel richer, more decorative and collectible.
+          ================================================== */
+          .hp-home-v65 .hp-bestseller-card {
+            --gift-jewel: color-mix(in srgb, var(--gift-accent) 78%, #fff 22%);
+            --gift-deep: color-mix(in srgb, var(--gift-paper) 70%, #000 30%);
+            overflow: hidden;
+            border-color: color-mix(in srgb, var(--gift-edge) 88%, transparent);
+            box-shadow:
+              0 30px 68px rgba(31,22,12,.15),
+              0 10px 28px rgba(31,22,12,.08),
+              inset 0 1px 0 rgba(255,255,255,.50),
+              inset 0 0 0 1px rgba(255,255,255,.08);
+          }
+
+          .hp-home-v65 .hp-bestseller-card::before {
+            opacity: .42;
+            background-image:
+              radial-gradient(circle at 20% 16%, rgba(255,255,255,.28) 0 1px, transparent 1.4px),
+              radial-gradient(circle at 78% 72%, rgba(93,60,16,.10) 0 .8px, transparent 1.1px),
+              repeating-linear-gradient(135deg, rgba(255,255,255,.035) 0 1px, transparent 1px 8px);
+            background-size: 18px 18px, 15px 15px, auto;
+            mix-blend-mode: soft-light;
+          }
+
+          .hp-home-v65 .hp-bestseller-card::after {
+            inset: 7px;
+            border-radius: 19px;
+            border: 1px solid color-mix(in srgb, var(--gift-accent) 58%, transparent);
+            box-shadow:
+              inset 0 0 0 1px rgba(255,255,255,.12),
+              inset 0 0 22px rgba(255,255,255,.035);
+          }
+
+          .hp-home-v65 .hp-bestseller-card:hover {
+            transform: translateY(-7px) scale(1.004);
+            box-shadow:
+              0 42px 90px rgba(31,22,12,.22),
+              0 15px 32px rgba(31,22,12,.10),
+              inset 0 1px 0 rgba(255,255,255,.54);
+          }
+
+          /* The ribbon stays the hero decorative language, now with satin stitching. */
+          .hp-home-v65 .hp-gift-wrap-layer {
+            z-index: 4;
+
+            /*
+              Keep the decorative wrapping on the photographic gift area only.
+              The vertical ribbon used to continue through the title / CTA area,
+              which made the copy look crossed out. The wrap now ends cleanly
+              at the image-to-copy seam while the card still reads as a gift box.
+            */
+            bottom: 154px;
+            overflow: hidden;
+            border-radius: 19px 19px 13px 13px;
+          }
+
+          .hp-home-v65 .hp-wrap-ribbon {
+            border-color: rgba(255,238,174,.30);
+            box-shadow:
+              inset 0 1px 0 rgba(255,255,255,.40),
+              inset 0 -1px 0 rgba(72,42,3,.18),
+              0 5px 14px rgba(42,25,5,.16);
+          }
+
+          .hp-home-v65 .hp-wrap-ribbon::before,
+          .hp-home-v65 .hp-wrap-ribbon::after {
+            content: "";
+            position: absolute;
+            pointer-events: none;
+            opacity: .52;
+          }
+
+          .hp-home-v65 .hp-wrap-ribbon-v::before,
+          .hp-home-v65 .hp-wrap-ribbon-v::after {
+            top: 0;
+            bottom: 0;
+            width: 1px;
+            background: repeating-linear-gradient(to bottom, rgba(255,249,219,.78) 0 4px, transparent 4px 8px);
+          }
+
+          .hp-home-v65 .hp-wrap-ribbon-v::before { left: 3px; }
+          .hp-home-v65 .hp-wrap-ribbon-v::after { right: 3px; }
+
+          .hp-home-v65 .hp-wrap-ribbon-h::before,
+          .hp-home-v65 .hp-wrap-ribbon-h::after,
+          .hp-home-v65 .hp-wrap-ribbon-diagonal::before,
+          .hp-home-v65 .hp-wrap-ribbon-diagonal::after {
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: repeating-linear-gradient(to right, rgba(255,249,219,.74) 0 4px, transparent 4px 8px);
+          }
+
+          .hp-home-v65 .hp-wrap-ribbon-h::before,
+          .hp-home-v65 .hp-wrap-ribbon-diagonal::before { top: 3px; }
+          .hp-home-v65 .hp-wrap-ribbon-h::after,
+          .hp-home-v65 .hp-wrap-ribbon-diagonal::after { bottom: 3px; }
+
+          .hp-home-v65 .hp-wrap-bow {
+            width: 82px;
+            height: 68px;
+            filter:
+              drop-shadow(0 12px 14px rgba(41,24,4,.25))
+              drop-shadow(0 2px 2px rgba(255,255,255,.14));
+          }
+
+          .hp-home-v65 .hp-wrap-bow-loop {
+            width: 39px;
+            height: 27px;
+            box-shadow:
+              inset 0 1px 0 rgba(255,255,255,.40),
+              inset 0 -5px 12px rgba(90,51,4,.16),
+              0 6px 12px rgba(35,20,3,.16);
+          }
+
+          .hp-home-v65 .hp-wrap-bow-knot {
+            width: 25px;
+            height: 24px;
+            box-shadow:
+              inset 0 2px 5px rgba(255,255,255,.34),
+              inset 0 -5px 9px rgba(76,43,5,.20),
+              0 7px 13px rgba(35,20,3,.18);
+          }
+
+          .hp-home-v65 .hp-wrap-bow-knot::after {
+            content: "";
+            position: absolute;
+            inset: 5px;
+            border-radius: 50%;
+            border: 1px solid rgba(255,247,208,.46);
+            box-shadow: inset 0 0 7px rgba(255,255,255,.22);
+          }
+
+          .hp-home-v65 .hp-wrap-bow-tail {
+            top: 31px;
+            height: 35px;
+          }
+
+          .hp-home-v65 .hp-bestseller-card:hover .hp-wrap-bow {
+            transform: translate3d(0,-3px,0) scale(1.06) rotate(-1.5deg);
+          }
+
+          /* Fine gold filigree corners around the gift package. */
+          .hp-home-v65 .hp-gift-corner {
+            position: absolute;
+            z-index: 5;
+            width: 34px;
+            height: 34px;
+            opacity: .68;
+            filter: drop-shadow(0 2px 7px rgba(91,56,8,.16));
+          }
+
+          .hp-home-v65 .hp-gift-corner::before,
+          .hp-home-v65 .hp-gift-corner::after {
+            content: "";
+            position: absolute;
+            background: linear-gradient(90deg, transparent, var(--gift-jewel));
+          }
+
+          .hp-home-v65 .hp-gift-corner::before {
+            width: 29px;
+            height: 1px;
+          }
+
+          .hp-home-v65 .hp-gift-corner::after {
+            width: 1px;
+            height: 29px;
+            background: linear-gradient(180deg, transparent, var(--gift-jewel));
+          }
+
+          .hp-home-v65 .hp-gift-corner-tl { top: 16px; left: 16px; transform: rotate(180deg); }
+          .hp-home-v65 .hp-gift-corner-tr { top: 16px; right: 16px; transform: rotate(-90deg); }
+          .hp-home-v65 .hp-gift-corner-bl { bottom: 16px; left: 16px; transform: rotate(90deg); }
+          .hp-home-v65 .hp-gift-corner-br { bottom: 16px; right: 16px; }
+
+          /* Tiny jewellery-like sparkles make each card feel hand-finished. */
+          .hp-home-v65 .hp-gift-sparkle {
+            position: absolute;
+            z-index: 5;
+            color: var(--gift-jewel);
+            font-family: Georgia, serif;
+            line-height: 1;
+            text-shadow: 0 0 10px color-mix(in srgb, var(--gift-accent) 44%, transparent);
+            opacity: .64;
+            transition: transform .55s var(--hp-motion-ease), opacity .35s ease;
+          }
+
+          .hp-home-v65 .hp-gift-sparkle-a { top: 23px; right: 54px; font-size: 12px; }
+          .hp-home-v65 .hp-gift-sparkle-b { bottom: 62px; left: 24px; font-size: 9px; }
+          .hp-home-v65 .hp-gift-sparkle-c { bottom: 25px; right: 58px; font-size: 11px; }
+
+          .hp-home-v65 .hp-bestseller-card:hover .hp-gift-sparkle-a { transform: translateY(-2px) rotate(16deg) scale(1.18); opacity: 1; }
+          .hp-home-v65 .hp-bestseller-card:hover .hp-gift-sparkle-b { transform: translate(-1px,-2px) rotate(-12deg) scale(1.15); opacity: .9; }
+          .hp-home-v65 .hp-bestseller-card:hover .hp-gift-sparkle-c { transform: translate(1px,-2px) rotate(12deg) scale(1.15); opacity: .9; }
+
+          .hp-home-v65 .hp-gift-product-window {
+            border-color: color-mix(in srgb, var(--gift-accent) 54%, transparent);
+            box-shadow:
+              0 16px 30px rgba(20,14,8,.12),
+              0 0 0 4px color-mix(in srgb, var(--gift-paper-2) 76%, transparent),
+              0 0 0 5px color-mix(in srgb, var(--gift-accent) 22%, transparent),
+              inset 0 1px 0 rgba(255,255,255,.13);
+          }
+
+          .hp-home-v65 .hp-gift-product-window::before {
+            content: "";
+            position: absolute;
+            inset: 8px;
+            z-index: 2;
+            border: 1px solid rgba(255,244,216,.26);
+            border-radius: 10px;
+            pointer-events: none;
+            box-shadow: inset 0 0 0 1px rgba(0,0,0,.04);
+          }
+
+          .hp-home-v65 .hp-gift-product-window::after {
+            z-index: 1;
+            background:
+              linear-gradient(to top, rgba(0,0,0,.32) 0%, rgba(0,0,0,.06) 30%, transparent 58%),
+              linear-gradient(115deg, rgba(255,239,189,.12) 0%, transparent 28%, transparent 72%, rgba(255,255,255,.08) 100%);
+          }
+
+          .hp-home-v65 .hp-gift-image-charm {
+            position: absolute;
+            z-index: 3;
+            right: 13px;
+            bottom: 13px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-height: 31px;
+            padding: 0 10px 0 6px;
+            border: 1px solid rgba(255,236,176,.44);
+            border-radius: 999px;
+            background: rgba(22,16,10,.54);
+            color: #FFF4D6;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            box-shadow: 0 8px 20px rgba(0,0,0,.18);
+            font-size: 8px;
+            font-weight: 800;
+            letter-spacing: .14em;
+            text-transform: uppercase;
+          }
+
+          .hp-home-v65 .hp-gift-image-charm > span {
+            display: grid;
+            place-items: center;
+            width: 19px;
+            height: 19px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 35% 30%, #F7E3A0, #C38F2D 56%, #76500F 100%);
+            color: #2B1A05;
+            font-family: 'Cormorant Garamond', Georgia, serif;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 0;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,.42);
+          }
+
+          .hp-home-v65 .hp-bestseller-copy {
+            position: relative;
+            overflow: hidden;
+            padding: 16px 10px 7px;
+          }
+
+          .hp-home-v65 .hp-bestseller-copy::before {
+            content: "";
+            position: absolute;
+            inset: auto -18px -40px auto;
+            width: 112px;
+            height: 112px;
+            border-radius: 50%;
+            border: 1px solid color-mix(in srgb, var(--gift-accent) 15%, transparent);
+            box-shadow:
+              0 0 0 9px color-mix(in srgb, var(--gift-accent) 4%, transparent),
+              0 0 0 22px color-mix(in srgb, var(--gift-accent) 3%, transparent);
+            pointer-events: none;
+          }
+
+          .hp-home-v65 .hp-bestseller-copy-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 9px;
+          }
+
+          .hp-home-v65 .hp-bestseller-copy-head .hp-bestseller-line {
+            margin: 0;
+            flex: 0 0 48px;
+          }
+
+          .hp-home-v65 .hp-gift-mini-mark {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--gift-muted);
+            font-size: 8px;
+            font-weight: 900;
+            letter-spacing: .13em;
+            text-transform: uppercase;
+          }
+
+          .hp-home-v65 .hp-gift-mini-mark::before {
+            content: "";
+            width: 16px;
+            height: 1px;
+            background: color-mix(in srgb, var(--gift-accent) 55%, transparent);
+          }
+
+          .hp-home-v65 .hp-bestseller-title {
+            position: relative;
+            z-index: 1;
+            text-shadow: 0 1px 0 rgba(255,255,255,.04);
+          }
+
+          .hp-home-v65 .hp-bestseller-meta {
+            position: relative;
+            z-index: 1;
+            padding-top: 11px;
+            border-top: 1px solid color-mix(in srgb, var(--gift-accent) 18%, transparent);
+          }
+
+          .hp-home-v65 .hp-bestseller-arrow {
+            position: relative;
+            overflow: hidden;
+            box-shadow:
+              0 9px 18px rgba(19,13,8,.09),
+              inset 0 0 0 4px color-mix(in srgb, var(--gift-accent) 5%, transparent);
+          }
+
+          .hp-home-v65 .hp-bestseller-arrow::after {
+            content: "";
+            position: absolute;
+            inset: 5px;
+            border-radius: 50%;
+            border: 1px solid color-mix(in srgb, var(--gift-accent) 19%, transparent);
+          }
+
+          /* Individual cards keep their original palette, but get unique decorative personality. */
+          .hp-home-v65 .hp-gift-variant-0 .hp-gift-corner,
+          .hp-home-v65 .hp-gift-variant-3 .hp-gift-corner { opacity: .82; }
+
+          .hp-home-v65 .hp-gift-variant-1 .hp-gift-image-charm,
+          .hp-home-v65 .hp-gift-variant-4 .hp-gift-image-charm {
+            background: rgba(5,12,9,.68);
+            border-color: rgba(231,199,112,.46);
+          }
+
+          .hp-home-v65 .hp-gift-variant-2 .hp-gift-image-charm {
+            background: rgba(74,31,23,.46);
+          }
+
+          .hp-home-v65 .hp-wrap-seal {
+            width: 46px;
+            height: 46px;
+            border: 1px solid rgba(255,239,180,.64);
+            box-shadow:
+              inset 0 1px 0 rgba(255,255,255,.34),
+              inset 0 -5px 12px rgba(92,55,8,.20),
+              0 10px 20px rgba(0,0,0,.20),
+              0 0 0 4px rgba(212,175,55,.07);
+          }
+
+          .hp-home-v65 .hp-wrap-seal::after {
+            content: "";
+            position: absolute;
+            inset: 6px;
+            border-radius: 50%;
+            border: 1px dashed rgba(255,241,191,.46);
+          }
+
+          @media (max-width: 1023px) {
+            .hp-home-v65 .hp-gift-corner { width: 29px; height: 29px; }
+            .hp-home-v65 .hp-gift-corner::before { width: 24px; }
+            .hp-home-v65 .hp-gift-corner::after { height: 24px; }
+            .hp-home-v65 .hp-gift-image-charm { right: 11px; bottom: 11px; }
+            .hp-home-v65 .hp-gift-sparkle-b { display: none; }
+          }
+
+          @media (max-width: 639px) {
+            .hp-home-v65 .hp-gift-wrap-layer {
+              bottom: 147px;
+              border-radius: 17px 17px 12px 12px;
+            }
+
+            .hp-home-v65 .hp-gift-corner-tl,
+            .hp-home-v65 .hp-gift-corner-tr { top: 13px; }
+            .hp-home-v65 .hp-gift-corner-bl,
+            .hp-home-v65 .hp-gift-corner-br { bottom: 13px; }
+            .hp-home-v65 .hp-gift-corner-tl,
+            .hp-home-v65 .hp-gift-corner-bl { left: 13px; }
+            .hp-home-v65 .hp-gift-corner-tr,
+            .hp-home-v65 .hp-gift-corner-br { right: 13px; }
+            .hp-home-v65 .hp-gift-image-charm {
+              min-height: 28px;
+              padding-right: 8px;
+              font-size: 7px;
+            }
+            .hp-home-v65 .hp-gift-image-charm > span { width: 17px; height: 17px; font-size: 10px; }
+            .hp-home-v65 .hp-gift-mini-mark { font-size: 7px; }
+          }
+
+          @media (hover:none), (pointer:coarse) {
+            .hp-home-v65 .hp-bestseller-card:hover { transform: none; }
+            .hp-home-v65 .hp-bestseller-card:hover .hp-gift-sparkle { transform: none; }
+          }
+
+          @media (prefers-reduced-motion: reduce) {
+            .hp-home-v65 .hp-gift-sparkle,
+            .hp-home-v65 .hp-wrap-bow { transition: none !important; }
+          }
+
+          .hp-home-v65 .hp-bestseller-title { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; overflow-wrap:anywhere; }
+          .hp-quick-copy h2 { overflow-wrap:anywhere; }
+          .hp-home-v65 .hp-review-content blockquote:focus-visible { outline:2px solid #D4AF37; outline-offset:6px; }
+
         `}
       </style>
 
@@ -4322,81 +3895,17 @@ const Home = () => {
           visible={introFinished}
         />
 
-        {/* ==================================================
-            CINEMATIC BRAND LOADER
-        =================================================== */}
+        <CinematicHero onIntroComplete={finishCinematicIntro} />
 
-        {introStage !== "hidden" && (
-          <div
-            className={`transition-all duration-700 ${
-              introStage === "leaving"
-                ? "pointer-events-none opacity-0"
-                : "opacity-100"
-            }`}
-          >
-            <Loader
-              fullscreen
-              brand
-              label="Preparing your HAMPORIUM experience"
-            />
-          </div>
-        )}
+        <PromotionAnnouncement
+          promotions={websitePromotions}
+          visible={introFinished}
+        />
 
-        {/* ==================================================
-            FULL SCREEN CINEMATIC VIDEO HERO
-        =================================================== */}
-
-        <section className="hp-hero-stage relative h-[100svh] min-h-[620px] w-full overflow-hidden bg-black">
-          <div className="hp-hero-motion-layer">
-          <video
-            ref={heroVideoRef}
-            muted
-            loop
-            playsInline
-            preload="auto"
-            onLoadedData={() => {
-              setHeroVideoReady(true);
-            }}
-            onCanPlay={() => {
-              setHeroVideoReady(true);
-            }}
-            onTimeUpdate={handleHeroVideoTimeUpdate}
-            onError={() => {
-              setHeroVideoReady(true);
-              setIntroStage("hidden");
-              finishCinematicIntro();
-            }}
-            style={{
-              transform: "translateZ(0)",
-              backfaceVisibility: "hidden",
-            }}
-            className={`absolute inset-0 h-full w-full transform-gpu object-cover object-center will-change-transform ${
-              heroVideoReady
-                ? "hp-hero-video-ready"
-                : "scale-[1.03] opacity-0"
-            }`}
-            aria-label="HAMPORIUM luxury gifting showcase"
-          >
-            <source
-              src={heroVideo}
-              type="video/mp4"
-            />
-          </video>
-
-          <div className="hp-hero-dim-layer" />
-          </div>
-
-          <div
-            className="hp-hero-handoff-line"
-            aria-hidden="true"
-          />
-
-          <span className="sr-only">
-            {introFinished
-              ? "HAMPORIUM video continues playing"
-              : "HAMPORIUM first video playback"}
-          </span>
-        </section>
+        <PromotionHomeBanner
+          promotions={websitePromotions}
+          visible={introFinished}
+        />
 
         {/* ==================================================
             CHOOSE YOUR GIFTING JOURNEY
@@ -4421,7 +3930,7 @@ const Home = () => {
               </div>
             </Reveal>
 
-            <div className="hp-journey-grid hp-snap-rail">
+            <InteractiveRail id="home-journey-rail" label="Ways to gift" className="hp-journey-grid hp-snap-rail" controlsClass="hp-rail-controls-dark hp-rail-mobile-only">
               {[
                 {
                   label: "01 · READY TO GIFT",
@@ -4549,15 +4058,17 @@ const Home = () => {
                   </Link>
                 )
               )}
-            </div>
+            </InteractiveRail>
           </div>
         </section>
 
 
         {/* ==================================================
             HAMPORIUM GIFT CONCIERGE · CINEMATIC CODED UI
+            TEMPORARILY HIDDEN — change false to true to restore.
         =================================================== */}
 
+        {false && (
         <section data-home-section="concierge" className={`hp-pointer-glow relative isolate overflow-hidden bg-[#090705] text-white ${giftRevealActive ? "is-gift-revealing" : ""}`}>
           {/* CLEAN BACKGROUND IMAGE ONLY */}
           <img
@@ -4927,7 +4438,7 @@ const Home = () => {
                 </p>
               </div>
 
-              <div className="hp-mobile-rail hp-snap-rail mt-6">
+              <InteractiveRail id="home-occasions-rail" label="Gift occasions" className="hp-mobile-rail hp-snap-rail mt-6" controlsClass="hp-rail-controls-dark">
                 {GIFT_OCCASIONS.map(
                   (
                     occasion
@@ -4942,6 +4453,7 @@ const Home = () => {
                           occasion.id
                         }
                         type="button"
+                        aria-pressed={active}
                         onClick={() =>
                           setGiftOccasion(
                             occasion.id
@@ -4994,7 +4506,7 @@ const Home = () => {
                     );
                   }
                 )}
-              </div>
+              </InteractiveRail>
             </div>
 
             {/* =============================================
@@ -5006,6 +4518,9 @@ const Home = () => {
               className="relative z-20"
             >
               <div className="mx-auto mt-12 max-w-[1180px] rounded-[30px] border border-[#D4AF37]/28 bg-[#15110D]/90 p-5 shadow-[0_28px_78px_rgba(0,0,0,.38)] backdrop-blur-xl sm:p-6 lg:p-7">
+                <p className="hp-concierge-selection" aria-live="polite" aria-atomic="true">
+                  <span>Your selection</span> {activeGiftOccasion.label} <span aria-hidden="true"> / </span> {activeBudget.label}
+                </p>
                 <div className="grid gap-6 lg:grid-cols-[0.72fr_1.35fr_auto] lg:items-center">
                   <div>
                     <p
@@ -5062,6 +4577,7 @@ const Home = () => {
                         }
                       }}
                       aria-label="Gift budget"
+                      aria-valuetext={activeBudget.label}
                       className="hp-concierge-range"
                       style={{
                         "--hp-range-progress": `${
@@ -5077,14 +4593,12 @@ const Home = () => {
                       }}
                     />
 
-                    <div className="mt-3 flex justify-between text-[10px] font-bold text-white/42">
-                      <span>
-                        ₹1,500
-                      </span>
-
-                      <span>
-                        ₹5,000+
-                      </span>
+                    <div className="hp-budget-steps" role="group" aria-label="Budget ranges">
+                      {GIFT_BUDGETS.map((budget) => (
+                        <button key={budget.id} type="button" aria-pressed={giftBudget === budget.id}
+                          className={giftBudget === budget.id ? "is-selected" : ""}
+                          onClick={() => setGiftBudget(budget.id)}>{budget.label}</button>
+                      ))}
                     </div>
                   </div>
 
@@ -5111,6 +4625,7 @@ const Home = () => {
 
           </div>
         </section>
+        )}
 
         {/* ==================================================
             BEST SELLERS · EDITORIAL RUNWAY
@@ -5145,25 +4660,13 @@ const Home = () => {
               </div>
             </Reveal>
 
-            <div className="hp-mobile-rail hp-snap-rail hp-bestseller-runway mt-12 lg:mt-14">
-              {loading ? (
-                [1, 2, 3, 4, 5].map((item) => (
-                  <ProductSkeleton key={item} />
-                ))
-              ) : (
-                lovedProducts.map((product, index) => (
-                  <Reveal
-                    key={product._id}
-                    delay={index * 55}
-                  >
-                    <LovedProductCard
-                      product={product}
-                      index={index}
-                    />
-                  </Reveal>
-                ))
-              )}
-            </div>
+            <BestsellerCollection
+              products={lovedProducts}
+              promotions={websitePromotions}
+              loading={loading}
+              error={catalogueError}
+              onRetry={() => setCatalogueAttempt((attempt) => attempt + 1)}
+            />
           </div>
         </section>
 
@@ -5487,7 +4990,7 @@ const Home = () => {
                 </p>
               </Reveal>
 
-              <div className="hp-mobile-rail hp-snap-rail mt-10 border-y border-black/10 lg:grid lg:grid-cols-2 lg:gap-0">
+              <InteractiveRail id="home-bulk-rail" label="Bulk gifting steps" className="hp-mobile-rail hp-snap-rail mt-10 border-y border-black/10 lg:grid lg:grid-cols-2 lg:gap-0" controlsClass="hp-rail-mobile-only">
                 {[
                   ["01", "Build One Design", "Choose the box, products, décor and personalisation.", HOME_IMAGES.festival],
                   ["02", "Choose Bulk Qty", "Set quantities for teams, weddings and large events.", HOME_IMAGES.wedding],
@@ -5532,7 +5035,7 @@ const Home = () => {
                     </div>
                   </div>
                 ))}
-              </div>
+              </InteractiveRail>
 
               <Reveal delay={160} className="mt-8 flex flex-wrap items-center gap-5">
                 <Link
@@ -5581,192 +5084,8 @@ const Home = () => {
               </div>
             </Reveal>
 
-            {/* SINGLE REVIEW ONLY */}
             <Reveal delay={100}>
-              {reviewsLoading ? (
-                <div className="mx-auto min-h-[390px] max-w-[760px] animate-pulse rounded-[30px] border border-white/[0.12] bg-black/35 backdrop-blur-md" />
-              ) : (
-                <div className="relative mx-auto w-full max-w-[820px]">
-                  <button
-                    type="button"
-                    aria-label="Previous review"
-                    onClick={() =>
-                      setActiveReviewIndex(
-                        (current) =>
-                          (current -
-                            1 +
-                            reviewSlides.length) %
-                          reviewSlides.length
-                      )
-                    }
-                    className="absolute left-0 top-1/2 z-20 hidden h-12 w-12 -translate-x-[135%] -translate-y-1/2 items-center justify-center rounded-full border border-[#D4AF37]/50 bg-black/18 text-[24px] text-[#F4D36A] backdrop-blur-md transition hover:bg-[#D4AF37] hover:text-black lg:flex"
-                  >
-                    ‹
-                  </button>
-
-                  <div
-                    key={
-                      reviewSlides[
-                        activeReviewIndex
-                      ]?.id ||
-                      activeReviewIndex
-                    }
-                    className="hp-review-enter relative overflow-hidden rounded-[30px] border border-[#D4AF37]/30 bg-black/22 px-6 py-10 shadow-[0_30px_90px_rgba(0,0,0,.22)] backdrop-blur-[10px] sm:px-10 sm:py-12 lg:px-14 lg:py-14"
-                  >
-                    <div className="pointer-events-none absolute -right-16 -top-16 h-52 w-52 rounded-full bg-[#D4AF37]/10 blur-[80px]" />
-
-                    <div className="relative z-10">
-                      <div className="flex justify-center gap-1.5 text-[20px] tracking-[0.12em] text-[#F0CD71]">
-                        {Array.from(
-                          { length: 5 },
-                          (_, index) => (
-                            <span
-                              key={index}
-                              className={`hp-review-star ${
-                                index <
-                                Number(
-                                  reviewSlides[
-                                    activeReviewIndex
-                                  ]?.rating || 5
-                                )
-                                  ? "text-[#F0CD71]"
-                                  : "text-[#F0CD71]/20"
-                              }`}
-                              style={{
-                                animationDelay: `${
-                                  95 + index * 70
-                                }ms`,
-                              }}
-                            >
-                              ★
-                            </span>
-                          )
-                        )}
-                      </div>
-
-                      <p
-                        style={{ fontFamily: DISPLAY_FONT }}
-                        className="mx-auto mt-8 max-w-[650px] text-center text-[31px] font-semibold leading-[1.08] text-[#FFF8EA] sm:text-[38px] lg:text-[44px]"
-                      >
-                        “{
-                          reviewSlides[
-                            activeReviewIndex
-                          ]?.displayMessage
-                        }”
-                      </p>
-
-                      <div className="mt-9 flex items-center justify-center gap-4">
-                        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-[#D4AF37]/35 bg-[#D4AF37]/10 text-[17px] font-black text-[#F0D477]">
-                          {String(
-                            reviewSlides[
-                              activeReviewIndex
-                            ]?.name ||
-                              "H"
-                          )
-                            .trim()
-                            .charAt(0)
-                            .toUpperCase()}
-                        </span>
-
-                        <div>
-                          <p className="text-[11px] font-black uppercase tracking-[0.16em] text-white">
-                            {
-                              reviewSlides[
-                                activeReviewIndex
-                              ]?.name
-                            }
-                          </p>
-
-                          <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.2em] text-white/42">
-                            {
-                              reviewSlides[
-                                activeReviewIndex
-                              ]?.context
-                            }
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    aria-label="Next review"
-                    onClick={() =>
-                      setActiveReviewIndex(
-                        (current) =>
-                          (current + 1) %
-                          reviewSlides.length
-                      )
-                    }
-                    className="absolute right-0 top-1/2 z-20 hidden h-12 w-12 translate-x-[135%] -translate-y-1/2 items-center justify-center rounded-full border border-[#D4AF37]/50 bg-black/18 text-[24px] text-[#F4D36A] backdrop-blur-md transition hover:bg-[#D4AF37] hover:text-black lg:flex"
-                  >
-                    ›
-                  </button>
-
-                  <div className="mt-7 flex items-center justify-center gap-2.5">
-                    {reviewSlides.map(
-                      (review, index) => (
-                        <button
-                          key={
-                            review.id ||
-                            index
-                          }
-                          type="button"
-                          aria-label={`Show review ${
-                            index + 1
-                          }`}
-                          onClick={() =>
-                            setActiveReviewIndex(
-                              index
-                            )
-                          }
-                          className={`h-2.5 rounded-full transition-all duration-500 ${
-                            index ===
-                            activeReviewIndex
-                              ? "w-8 bg-[#F0CD71]"
-                              : "w-2.5 bg-white/22 hover:bg-white/38"
-                          }`}
-                        />
-                      )
-                    )}
-                  </div>
-
-                  <div className="mt-6 flex justify-center gap-3 lg:hidden">
-                    <button
-                      type="button"
-                      aria-label="Previous review"
-                      onClick={() =>
-                        setActiveReviewIndex(
-                          (current) =>
-                            (current -
-                              1 +
-                              reviewSlides.length) %
-                            reviewSlides.length
-                        )
-                      }
-                      className="flex h-11 w-11 items-center justify-center rounded-full border border-[#D4AF37]/40 bg-black/18 text-[22px] text-[#F4D36A]"
-                    >
-                      ‹
-                    </button>
-
-                    <button
-                      type="button"
-                      aria-label="Next review"
-                      onClick={() =>
-                        setActiveReviewIndex(
-                          (current) =>
-                            (current + 1) %
-                            reviewSlides.length
-                        )
-                      }
-                      className="flex h-11 w-11 items-center justify-center rounded-full border border-[#D4AF37]/40 bg-black/18 text-[22px] text-[#F4D36A]"
-                    >
-                      ›
-                    </button>
-                  </div>
-                </div>
-              )}
+              <HomeReviewCarousel reviews={customerReviews} loading={reviewsLoading} />
             </Reveal>
           </div>
         </section>
@@ -5926,104 +5245,51 @@ const HomeSectionNavigator = ({
 // SCROLL REVEAL
 // ======================================================
 
-const Reveal = ({
-  children,
-  className = "",
-  delay = 0,
-}) => {
+const Reveal = ({ children, className = "", delay = 0 }) => {
   const ref = useRef(null);
-  const [visible, setVisible] = useState(false);
-
   useEffect(() => {
     const node = ref.current;
-
-    if (!node) return undefined;
-
-    if (
-      typeof window === "undefined" ||
-      !("IntersectionObserver" in window)
-    ) {
-      setVisible(true);
-      return undefined;
-    }
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setVisible(true);
-          observer.unobserve(entry.target);
-        }
-      },
-      {
-        threshold: 0.12,
-        rootMargin: "0px 0px -7% 0px",
-      }
-    );
-
+    if (!node || !window.IntersectionObserver || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return undefined;
+    let animation;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) return;
+      observer.unobserve(node);
+      // Animate only after intersection. Base CSS always remains visible.
+      // Never animate a focused control, and never gate content on image load.
+      if (node.contains(document.activeElement)) return;
+      animation = node.animate?.([
+        { opacity: 0.18, transform: "translate3d(0,18px,0)" },
+        { opacity: 1, transform: "translate3d(0,0,0)" },
+      ], { duration: 660, delay: Math.min(delay, 140), easing: "cubic-bezier(.22,1,.36,1)" });
+    }, { threshold: 0.01, rootMargin: "0px 0px 70px 0px" });
+    const revealFocused = () => animation?.cancel();
+    node.addEventListener("focusin", revealFocused);
     observer.observe(node);
-
-    return () => {
-      observer.disconnect();
-    };
-  }, []);
-
-  return (
-    <div
-      ref={ref}
-      className={`hp-reveal ${visible ? "is-visible" : ""} ${className}`}
-      style={{ transitionDelay: `${delay}ms` }}
-    >
-      {children}
-    </div>
-  );
+    return () => { observer.disconnect(); animation?.cancel(); node.removeEventListener("focusin", revealFocused); };
+  }, [delay]);
+  return <div ref={ref} className={`hp-reveal is-visible ${className}`}>{children}</div>;
 };
 
-// ======================================================
-// SMART IMAGE
-// ======================================================
-
-const SmartImage = ({
-  src,
-  alt,
-  className,
-  loading = "lazy",
-  fetchPriority,
-  decoding = "async",
-  style,
-  draggable = "false",
-}) => {
-  const [imageSrc, setImageSrc] =
-    useState(src);
-
-  const [failed, setFailed] =
-    useState(false);
-
+const SmartImage = ({ src, alt = "", className = "", loading = "lazy", fetchPriority,
+  decoding = "async", style, draggable = false, fallback = HOME_IMAGES.universalFallback }) => {
+  const ref = useRef(null);
+  const [failedSource, setFailedSource] = useState("");
+  const [unavailable, setUnavailable] = useState(false);
+  const imageSrc = !src || failedSource === src ? fallback : src;
   useEffect(() => {
-    setImageSrc(src);
-    setFailed(false);
-  }, [src]);
-
-  return (
-    <img
-      src={imageSrc}
-      alt={alt}
-      loading={loading}
-      fetchPriority={fetchPriority}
-      decoding={decoding}
-      className={className}
-      style={style}
-      draggable={draggable}
-      onError={() => {
-        if (!failed) {
-          setFailed(true);
-
-          setImageSrc(
-            HOME_IMAGES.universalFallback
-          );
-        }
-      }}
-    />
+    setUnavailable(false);
+    if (ref.current) ref.current.dataset.loaded = ref.current.complete && ref.current.naturalWidth > 0 ? "true" : "false";
+  }, [imageSrc]);
+  if (unavailable) return (
+    <span role={alt ? "img" : undefined} aria-label={alt ? `${alt} - image unavailable` : undefined}
+      aria-hidden={alt ? undefined : true} className={`hp-image-fallback ${className}`} style={style}>
+      <span aria-hidden="true"><GiftIcon /></span>
+    </span>
   );
+  return <img ref={ref} src={imageSrc} alt={alt} loading={loading} fetchPriority={fetchPriority}
+    decoding={decoding} className={className} style={style} draggable={draggable}
+    onLoad={(event) => { event.currentTarget.dataset.loaded = "true"; }}
+    onError={() => { if (imageSrc !== fallback) setFailedSource(src); else setUnavailable(true); }} />;
 };
 
 // ======================================================
@@ -6056,26 +5322,13 @@ const PromiseCard = ({
 // PRODUCT CARD
 // ======================================================
 
-const LovedProductCard = ({
-  product,
-  index = 0,
-}) => {
-  const destination = product.slug
-    ? `/products/${product.slug}`
-    : "/gifts";
-
-  const variant =
-    Number(index || 0) % 5;
-
+const LovedProductCard = ({ product, index = 0, onPreview, promotion }) => {
+  const destination = product.slug ? `/products/${product.slug}` : "/gifts";
   return (
-    <Link
-      to={destination}
-      className={`hp-bestseller-card hp-gift-variant-${variant} group`}
-    >
-      <div
-        className="hp-gift-wrap-layer"
-        aria-hidden="true"
-      >
+    <article className={`hp-bestseller-card hp-gift-variant-${index % 5} group`}>
+      <PromotionProductBadge promotion={promotion} />
+
+      <div className="hp-gift-wrap-layer" aria-hidden="true">
         <span className="hp-wrap-ribbon hp-wrap-ribbon-v" />
         <span className="hp-wrap-ribbon hp-wrap-ribbon-h" />
         <span className="hp-wrap-ribbon hp-wrap-ribbon-diagonal" />
@@ -6088,47 +5341,73 @@ const LovedProductCard = ({
           <span className="hp-wrap-bow-tail hp-wrap-bow-tail-right" />
         </span>
 
-        <span className="hp-wrap-seal">
-          H
-        </span>
+        <span className="hp-wrap-seal">H</span>
+
+        <span className="hp-gift-corner hp-gift-corner-tl" />
+        <span className="hp-gift-corner hp-gift-corner-tr" />
+        <span className="hp-gift-corner hp-gift-corner-bl" />
+        <span className="hp-gift-corner hp-gift-corner-br" />
+
+        <span className="hp-gift-sparkle hp-gift-sparkle-a">✦</span>
+        <span className="hp-gift-sparkle hp-gift-sparkle-b">◆</span>
+        <span className="hp-gift-sparkle hp-gift-sparkle-c">✦</span>
       </div>
 
-      <div className="hp-gift-package">
+      <Link to={destination} className="hp-gift-package" aria-label={`View ${product.name}`}>
         <div className="hp-gift-product-window">
           <SmartImage
             src={product.image}
             alt={product.name}
             className="absolute inset-0 h-full w-full object-cover object-center"
           />
+
+          <span className="hp-gift-image-charm" aria-hidden="true">
+            <span>H</span>
+            Signature
+          </span>
         </div>
 
         <div className="hp-bestseller-copy">
-          <span className="hp-bestseller-line" />
+          <div className="hp-bestseller-copy-head" aria-hidden="true">
+            <span className="hp-bestseller-line" />
+            <span className="hp-gift-mini-mark">Curated gift</span>
+          </div>
 
-          <h3 className="hp-bestseller-title">
-            {product.name}
-          </h3>
+          <h3 className="hp-bestseller-title">{product.name}</h3>
 
           <div className="hp-bestseller-meta">
             <div>
               <p className="hp-bestseller-price-label">
-                Starting at
+                {product.editorial ? "Explore this style" : "Starting at"}
               </p>
-
               <p className="hp-bestseller-price">
-                ₹{Number(
-                  product.price || 0
-                ).toLocaleString("en-IN")}
+                {product.price !== null
+                  ? formatHomePrice(product.price)
+                  : product.editorial
+                    ? "View collection"
+                    : "View options"}
               </p>
             </div>
 
-            <span className="hp-bestseller-arrow">
-              →
+            <span className="hp-bestseller-arrow" aria-hidden="true">
+              &#8594;
             </span>
           </div>
         </div>
-      </div>
-    </Link>
+      </Link>
+
+      {!product.editorial && (
+        <button
+          type="button"
+          className="hp-quick-look"
+          aria-label={`Preview ${product.name}`}
+          onClick={onPreview}
+        >
+          <HomeControlIcon type="eye" />
+          <span>Quick look</span>
+        </button>
+      )}
+    </article>
   );
 };
 
@@ -6364,6 +5643,467 @@ const BulkIcon = () => (
   <IconBase>
     <path d="M5 5h6v6H5V5ZM13 5h6v6h-6V5ZM5 13h6v6H5v-6ZM13 13h6v6h-6v-6Z" />
   </IconBase>
+);
+
+// ======================================================
+// SIGNATURE MOTION: LOCAL HELPERS (no animation dependency)
+// ======================================================
+const formatHomePrice = (value) => new Intl.NumberFormat("en-IN", {
+  style: "currency", currency: "INR", minimumFractionDigits: 0, maximumFractionDigits: 2,
+}).format(Number(value));
+
+const useMediaPreference = (query) => {
+  const [matches, setMatches] = useState(() => typeof window !== "undefined" && window.matchMedia(query).matches);
+  useEffect(() => {
+    const media = window.matchMedia(query);
+    const update = () => setMatches(media.matches);
+    update();
+    media.addEventListener?.("change", update);
+    return () => media.removeEventListener?.("change", update);
+  }, [query]);
+  return matches;
+};
+
+const useHomeEnhancements = (homeRef, reducedMotion, setActiveSection) => {
+  useEffect(() => {
+    const root = homeRef.current;
+    if (!root) return undefined;
+    const sections = Array.from(root.querySelectorAll("[data-home-section]"));
+    const stories = Array.from(root.querySelectorAll(".hp-story-page"));
+    let frame = 0;
+    let pointerFrame = 0;
+    let lastPointerNode = null;
+    let pointer = null;
+    let pageTravel = 1;
+    let heroTravel = 1;
+    const paint = () => {
+      frame = 0;
+      const y = Math.max(0, window.scrollY);
+      const p = Math.max(0, Math.min(1, y / heroTravel));
+      root.style.setProperty("--hp-scroll-progress", Math.min(1, y / pageTravel).toFixed(4));
+      root.style.setProperty("--hp-hero-scale", reducedMotion ? "1" : (1 + p * 0.025).toFixed(4));
+      root.style.setProperty("--hp-hero-dim", (p * 0.18).toFixed(4));
+      root.style.setProperty("--hp-hero-line-scale", p.toFixed(4));
+    };
+    const schedule = () => { if (!frame && !document.hidden) frame = window.requestAnimationFrame(paint); };
+    const measure = () => {
+      pageTravel = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+      heroTravel = Math.max(1, (root.querySelector(".hp-hero-stage")?.offsetHeight || window.innerHeight) * 0.85);
+      schedule();
+    };
+    const visibility = () => { root.dataset.pageHidden = String(document.hidden); if (!document.hidden) measure(); };
+    const resize = window.ResizeObserver ? new ResizeObserver(measure) : null;
+    resize?.observe(root);
+    window.addEventListener("scroll", schedule, { passive: true });
+    window.addEventListener("resize", measure, { passive: true });
+    document.addEventListener("visibilitychange", visibility);
+    measure(); visibility();
+
+    const inBand = new Map();
+    const navigationObserver = window.IntersectionObserver ? new IntersectionObserver((entries) => {
+      entries.forEach((entry) => inBand.set(entry.target, entry.isIntersecting));
+      const active = sections.filter((section) => inBand.get(section)).at(-1);
+      if (active) setActiveSection(active.dataset.homeSection);
+    }, { rootMargin: "-22% 0px -54% 0px", threshold: [0, 0.01, 0.2] }) : null;
+    sections.forEach((section) => navigationObserver?.observe(section));
+    const ambientObserver = window.IntersectionObserver ? new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        entry.target.classList.toggle("hp-offscreen", !entry.isIntersecting);
+        if (entry.isIntersecting && entry.target.classList.contains("hp-story-page")) entry.target.classList.add("is-story-visible");
+      });
+    }, { rootMargin: "150px 0px", threshold: 0 }) : null;
+    [...sections, ...stories].forEach((node) => ambientObserver?.observe(node));
+    if (!ambientObserver || reducedMotion) stories.forEach((node) => node.classList.add("is-story-visible"));
+
+    const paintPointer = () => {
+      pointerFrame = 0;
+      if (!pointer || !lastPointerNode) return;
+      const rect = lastPointerNode.getBoundingClientRect();
+      lastPointerNode.style.setProperty("--hp-pointer-x", `${pointer.x - rect.left}px`);
+      lastPointerNode.style.setProperty("--hp-pointer-y", `${pointer.y - rect.top}px`);
+      lastPointerNode.style.setProperty("--hp-pointer-opacity", "0.65");
+      if (lastPointerNode.classList.contains("hp-final-parallax-zone")) {
+        lastPointerNode.style.setProperty("--hp-final-x", `${((pointer.x - rect.left) / rect.width - 0.5) * 6}px`);
+        lastPointerNode.style.setProperty("--hp-final-y", `${((pointer.y - rect.top) / rect.height - 0.5) * 4}px`);
+      }
+    };
+    const clearPointer = () => {
+      if (pointerFrame) window.cancelAnimationFrame(pointerFrame);
+      pointerFrame = 0;
+      lastPointerNode?.style.setProperty("--hp-pointer-opacity", "0");
+      lastPointerNode?.style.setProperty("--hp-final-x", "0px");
+      lastPointerNode?.style.setProperty("--hp-final-y", "0px");
+      lastPointerNode = null;
+    };
+    const onPointer = (event) => {
+      if (event.pointerType !== "mouse") return;
+      const node = event.target.closest(".hp-pointer-glow");
+      if (lastPointerNode !== node) { clearPointer(); lastPointerNode = node; }
+      if (!node) return;
+      pointer = { x: event.clientX, y: event.clientY };
+      if (!pointerFrame) pointerFrame = requestAnimationFrame(paintPointer);
+    };
+    if (!reducedMotion && window.matchMedia("(hover:hover) and (pointer:fine)").matches) {
+      root.addEventListener("pointermove", onPointer, { passive: true });
+      root.addEventListener("pointerleave", clearPointer);
+    }
+    return () => {
+      resize?.disconnect(); navigationObserver?.disconnect(); ambientObserver?.disconnect();
+      window.cancelAnimationFrame(frame); clearPointer();
+      window.removeEventListener("scroll", schedule); window.removeEventListener("resize", measure);
+      document.removeEventListener("visibilitychange", visibility);
+      root.removeEventListener("pointermove", onPointer); root.removeEventListener("pointerleave", clearPointer);
+      [...sections, ...stories].forEach((node) => node.classList.remove("hp-offscreen"));
+    };
+  }, [homeRef, reducedMotion, setActiveSection]);
+};
+
+const CinematicHero = ({ onIntroComplete }) => {
+  const videoRef = useRef(null);
+  const stageRef = useRef(null);
+  const completeRef = useRef(false);
+  const manualPauseRef = useRef(false);
+  const insideRef = useRef(true);
+  const reducedMotion = useMediaPreference("(prefers-reduced-motion: reduce)");
+  const [saveData] = useState(() => typeof navigator !== "undefined" && Boolean(navigator.connection?.saveData));
+  const [seen] = useState(() => { try { return sessionStorage.getItem("hamporium:home-intro-seen") === "1"; } catch { return false; } });
+  const [phase, setPhase] = useState(seen ? "hidden" : "loading");
+  const [ready, setReady] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [paused, setPaused] = useState(true);
+  const [playRequested, setPlayRequested] = useState(false);
+  const [finished, setFinished] = useState(false);
+  const allowVideo = playRequested || (!reducedMotion && !saveData);
+  const notify = useCallback((active) => {
+    if (active) document.documentElement.dataset.hamporiumIntro = "active";
+    else delete document.documentElement.dataset.hamporiumIntro;
+    window.dispatchEvent(new CustomEvent("hamporium:intro-state", { detail: { active } }));
+  }, []);
+  const finish = useCallback(() => {
+    if (completeRef.current) return;
+    completeRef.current = true;
+    setFinished(true); setPhase("hidden"); notify(false); onIntroComplete();
+    try { sessionStorage.setItem("hamporium:home-intro-seen", "1"); } catch { /* Storage may be unavailable. */ }
+  }, [notify, onIntroComplete]);
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      if (completeRef.current) notify(false);
+      else if (seen || !allowVideo) finish();
+      else notify(true);
+    });
+
+    const escapeIntro = (event) => {
+      if (event.key === "Escape") finish();
+    };
+
+    // Any intentional scroll means the visitor wants to move on. Finish the
+    // intro immediately so the global Header can become visible.
+    const onScroll = () => {
+      if (window.scrollY > 12) finish();
+    };
+
+    // This timeout only protects against a video that never becomes playable.
+    // It does NOT stop a video that is already playing, so the header remains
+    // hidden for the full first playback.
+    const loadFailSafe = window.setTimeout(() => {
+      if (!videoRef.current?.readyState) {
+        setFailed(true);
+        finish();
+      }
+    }, 12000);
+
+    const loaderWait = window.setTimeout(() => setPhase("hidden"), 2200);
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("keydown", escapeIntro);
+    onScroll();
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(loadFailSafe);
+      window.clearTimeout(loaderWait);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("keydown", escapeIntro);
+      notify(false);
+    };
+  }, [seen, allowVideo, finish, notify]);
+
+  const tryPlay = useCallback(() => {
+    const video = videoRef.current;
+    if (!video || !allowVideo || failed || manualPauseRef.current || document.hidden || !insideRef.current) return;
+    const promise = video.play();
+    promise?.catch(() => { setPaused(true); finish(); });
+  }, [allowVideo, failed, finish]);
+  useEffect(() => {
+    if (!ready) return undefined;
+    setPhase((current) => current === "loading" ? "leaving" : current);
+    const timer = window.setTimeout(() => { setPhase("hidden"); tryPlay(); }, seen ? 0 : 420);
+    return () => window.clearTimeout(timer);
+  }, [ready, seen, tryPlay]);
+
+  useEffect(() => {
+    const update = () => {
+      if (document.hidden || !insideRef.current || !allowVideo) videoRef.current?.pause();
+      else if (ready) tryPlay();
+    };
+    const observer = window.IntersectionObserver ? new IntersectionObserver(([entry]) => {
+      insideRef.current = entry.isIntersecting; update();
+    }, { threshold: 0.03 }) : null;
+    if (stageRef.current) observer?.observe(stageRef.current);
+    document.addEventListener("visibilitychange", update);
+    update();
+    return () => { observer?.disconnect(); document.removeEventListener("visibilitychange", update); videoRef.current?.pause(); };
+  }, [allowVideo, ready, tryPlay]);
+
+  const toggle = () => {
+    if (!paused && allowVideo) {
+      // Pausing the first-play film is treated as opting out of the intro.
+      manualPauseRef.current = true;
+      videoRef.current?.pause();
+      finish();
+      return;
+    }
+
+    manualPauseRef.current = false;
+    setPlayRequested(true);
+
+    // If this is still the first intro, keep the Header hidden while playback
+    // resumes. Returning visitors keep their normal visible Header.
+    if (!completeRef.current) notify(true);
+
+    if (allowVideo) tryPlay();
+  };
+  const explore = () => { finish(); document.querySelector('[data-home-section="journey"]')?.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "start" }); };
+  return <>
+    {phase !== "hidden" && allowVideo && <div className={`hp-intro-loading ${phase === "leaving" ? "is-leaving" : ""}`}>
+      <Loader fullscreen brand label="Preparing your HAMPORIUM experience" />
+    </div>}
+    {!finished && <button type="button" className="hp-intro-skip" onClick={finish}>Skip intro <span aria-hidden="true">&#8594;</span></button>}
+    <section ref={stageRef} className="hp-hero-stage relative h-[100svh] min-h-[620px] w-full overflow-hidden bg-black" aria-label="HAMPORIUM gifting showcase">
+      <h1 className="sr-only">HAMPORIUM - curated hampers and personalised gifting</h1>
+      <div className="hp-hero-motion-layer">
+        <img src={HOME_IMAGES.hero} alt="" aria-hidden="true" fetchPriority="high" className="hp-hero-poster" />
+        {allowVideo && !failed && <video ref={videoRef} muted playsInline preload={seen ? "metadata" : "auto"}
+          poster={HOME_IMAGES.hero} onLoadedData={() => setReady(true)} onCanPlay={() => setReady(true)}
+          onPlay={() => setPaused(false)} onPause={() => setPaused(true)}
+          onEnded={finish}
+          onError={() => { setFailed(true); finish(); }}
+          className={`hp-hero-film ${ready ? "is-ready" : ""}`} aria-label="HAMPORIUM luxury gifting film">
+          <source src={heroVideo} type="video/mp4" />
+        </video>}
+        <div className="hp-hero-dim-layer" />
+      </div>
+      {(failed || !allowVideo || (!ready && phase === "hidden")) && <div className="hp-hero-fallback-copy">
+        <p>HAMPORIUM</p><h2>A little thought.<br /><em>An unforgettable gift.</em></h2>
+        <Link to="/gifts" onClick={finish}>Explore hampers <span aria-hidden="true">&#8594;</span></Link>
+      </div>}
+      <div className="hp-hero-controls">
+        <button type="button" className="hp-film-explore" onClick={explore}>Explore the collection <span aria-hidden="true">&#8595;</span></button>
+        {!failed && <button type="button" onClick={toggle} className="hp-film-toggle" aria-label={paused ? "Play brand film" : "Pause brand film"}>
+          <HomeControlIcon type={paused ? "play" : "pause"} /><span>{paused ? "Play film" : "Pause film"}</span>
+        </button>}
+      </div>
+      <div className="hp-hero-handoff-line" aria-hidden="true" />
+    </section>
+  </>;
+};
+
+const InteractiveRail = ({ id, label, className = "", controlsClass = "", children, showStatus = true }) => {
+  const ref = useRef(null);
+  const frame = useRef(0);
+  const reducedMotion = useMediaPreference("(prefers-reduced-motion: reduce)");
+  const [range, setRange] = useState({ start: 1, end: 1, total: 0, prev: false, next: false });
+  const measure = useCallback(() => {
+    frame.current = 0;
+    const node = ref.current;
+    if (!node) return;
+    const items = Array.from(node.children);
+    const rect = node.getBoundingClientRect();
+    const visible = items.map((item, index) => {
+      const r = item.getBoundingClientRect();
+      return Math.max(0, Math.min(r.right, rect.right) - Math.max(r.left, rect.left)) / Math.max(1, r.width) > 0.6 ? index : -1;
+    }).filter((index) => index >= 0);
+    const next = { start: visible.length ? visible[0] + 1 : 1, end: visible.length ? visible.at(-1) + 1 : 1,
+      total: items.length, prev: node.scrollLeft > 3, next: node.scrollWidth - node.clientWidth - node.scrollLeft > 3 };
+    setRange((old) => Object.keys(next).every((key) => old[key] === next[key]) ? old : next);
+    const center = rect.left + rect.width / 2;
+    let nearest = null;
+    let distance = Infinity;
+    items.forEach((item) => { const r = item.getBoundingClientRect(); const d = Math.abs(r.left + r.width / 2 - center); if (d < distance) { nearest = item; distance = d; } });
+    items.forEach((item) => item.classList.toggle("is-mobile-active", item === nearest));
+  }, []);
+  const schedule = useCallback(() => { if (!frame.current) frame.current = requestAnimationFrame(measure); }, [measure]);
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return undefined;
+    const resize = window.ResizeObserver ? new ResizeObserver(schedule) : null;
+    resize?.observe(node); Array.from(node.children).forEach((child) => resize?.observe(child));
+    node.addEventListener("scroll", schedule, { passive: true });
+    window.addEventListener("resize", schedule, { passive: true });
+    schedule();
+    return () => { resize?.disconnect(); cancelAnimationFrame(frame.current); frame.current = 0; node.removeEventListener("scroll", schedule); window.removeEventListener("resize", schedule); };
+  }, [children, schedule]);
+  const move = (direction) => {
+    const node = ref.current;
+    if (!node) return;
+    const gap = parseFloat(getComputedStyle(node).columnGap) || 0;
+    const child = node.firstElementChild;
+    const stride = (child?.getBoundingClientRect().width || node.clientWidth) + gap;
+    const target = direction === "start" ? 0 : direction === "end" ? node.scrollWidth : node.scrollLeft + direction * stride;
+    node.scrollTo({ left: target, behavior: reducedMotion ? "auto" : "smooth" });
+  };
+  return <>
+    <div id={id} ref={ref} className={className} role="region" aria-label={label} tabIndex={0}
+      onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
+        const command = { ArrowLeft: -1, ArrowRight: 1, Home: "start", End: "end" }[event.key];
+        if (command === undefined) return;
+        event.preventDefault(); move(command);
+      }}>
+      {children}
+    </div>
+    <div className={`hp-rail-controls ${controlsClass}`}>
+      {showStatus && <p aria-live="polite" aria-atomic="true"><span>{String(range.start).padStart(2,"0")}{range.end > range.start ? ` - ${String(range.end).padStart(2,"0")}` : ""}</span> / {String(range.total).padStart(2,"0")}</p>}
+      <span className="hp-rail-track" aria-hidden="true"><span style={{ width: `${range.total ? range.end / range.total * 100 : 0}%` }} /></span>
+      <div className="hp-rail-arrows">
+        <button type="button" aria-label={`Previous ${label.toLowerCase()}`} aria-controls={id} disabled={!range.prev} onClick={() => move(-1)}><HomeControlIcon type="previous" /></button>
+        <button type="button" aria-label={`Next ${label.toLowerCase()}`} aria-controls={id} disabled={!range.next} onClick={() => move(1)}><HomeControlIcon type="next" /></button>
+      </div>
+    </div>
+  </>;
+};
+
+const BestsellerCollection = ({ products, promotions, loading, error, onRetry }) => {
+  const [preview, setPreview] = useState(null);
+  return <div className="hp-collection-interactive">
+    {error && <div className="hp-collection-notice" role="status"><span>{error}</span><button type="button" onClick={onRetry} disabled={loading}>Try again</button></div>}
+    <InteractiveRail id="home-bestseller-rail" label="Hampers" className="hp-snap-rail hp-bestseller-runway" controlsClass="hp-bestseller-controls">
+      {loading ? Array.from({ length: 4 }, (_, i) => <ProductSkeleton key={i} />) : products.map((product, index) => (
+        <div className="hp-bestseller-cell" key={product._id}>
+          <LovedProductCard
+            product={product}
+            index={index}
+            promotion={findPromotionForProduct(product, promotions)}
+            onPreview={() => setPreview(product)}
+          />
+        </div>
+      ))}
+    </InteractiveRail>
+    {preview && <HomeQuickLook product={preview} onClose={() => setPreview(null)} />}
+  </div>;
+};
+
+const HomeQuickLook = ({ product, onClose }) => {
+  const ref = useRef(null);
+  useEffect(() => {
+    const node = ref.current;
+    const focusBefore = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    node?.showModal();
+    return () => {
+      node?.close(); document.body.style.overflow = previousOverflow;
+      if (focusBefore instanceof HTMLElement && focusBefore.isConnected) focusBefore.focus({ preventScroll: true });
+    };
+  }, []);
+  return <dialog ref={ref} className="hp-home-quick-dialog" aria-labelledby="hp-quick-title" onCancel={(event) => { event.preventDefault(); onClose(); }}
+    onClick={(event) => {
+      const r = event.currentTarget.getBoundingClientRect();
+      if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) onClose();
+    }}>
+    <button type="button" autoFocus className="hp-quick-close" aria-label="Close product preview" onClick={onClose}><HomeControlIcon type="close" /></button>
+    <div className="hp-quick-layout">
+      <div className="hp-quick-photo"><SmartImage src={product.detailImage || product.image} alt={product.name} loading="eager" className="h-full w-full object-contain" /></div>
+      <div className="hp-quick-copy">
+        <p className="hp-quick-eyebrow">HAMPORIUM / QUICK LOOK</p>
+        <h2 id="hp-quick-title">{product.name}</h2>
+        {product.shortDescription && <p className="hp-quick-description">{product.shortDescription}</p>}
+        <p className="hp-quick-price">{product.price !== null ? formatHomePrice(product.price) : "View available options"}</p>
+        <p className="hp-quick-note">Explore the contents, available options and delivery details on the product page.</p>
+        <Link to={product.slug ? `/products/${product.slug}` : "/gifts"} className="hp-quick-link" onClick={onClose}>View full details <span aria-hidden="true">&#8594;</span></Link>
+        <button type="button" className="hp-quick-continue" onClick={onClose}>Continue exploring</button>
+      </div>
+    </div>
+  </dialog>;
+};
+
+const HomeReviewCarousel = ({ reviews, loading }) => {
+  const rootRef = useRef(null);
+  const touchRef = useRef(null);
+  const [index, setIndex] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const [interacting, setInteracting] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const [visible, setVisible] = useState(false);
+  const [pageVisible, setPageVisible] = useState(() => !document.hidden);
+  const reducedMotion = useMediaPreference("(prefers-reduced-motion: reduce)");
+  useEffect(() => {
+    const node = rootRef.current;
+    const observer = window.IntersectionObserver ? new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting), { threshold: 0.1 }) : null;
+    if (node) observer?.observe(node);
+    if (!observer) setVisible(true);
+    const changed = () => setPageVisible(!document.hidden);
+    document.addEventListener("visibilitychange", changed);
+    return () => { observer?.disconnect(); document.removeEventListener("visibilitychange", changed); };
+  }, []);
+  useEffect(() => { setIndex((value) => reviews.length ? value % reviews.length : 0); }, [reviews.length]);
+  const auto = reviews.length > 1 && !loading && !paused && !interacting && !focused && !reducedMotion && visible && pageVisible;
+  useEffect(() => {
+    if (!auto) return undefined;
+    const timer = setTimeout(() => setIndex((value) => (value + 1) % reviews.length), 6500);
+    return () => clearTimeout(timer);
+  }, [auto, index, reviews.length]);
+  const review = reviews[index] || reviews[0];
+  const select = (direction) => setIndex((current) => (current + direction + reviews.length) % reviews.length);
+  return <div ref={rootRef} className="hp-reviews-interactive" role="region" aria-label="Customer reviews"
+    onMouseEnter={() => setInteracting(true)} onMouseLeave={() => setInteracting(false)}
+    onFocusCapture={() => setFocused(true)} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false); }}
+    onTouchStart={(event) => { touchRef.current = { x: event.touches[0].clientX, y: event.touches[0].clientY }; }}
+    onTouchEnd={(event) => {
+      if (!touchRef.current || reviews.length < 2) return;
+      const x = event.changedTouches[0].clientX - touchRef.current.x;
+      const y = event.changedTouches[0].clientY - touchRef.current.y;
+      if (Math.abs(x) > 60 && Math.abs(x) > Math.abs(y) * 1.4) select(x < 0 ? 1 : -1);
+      touchRef.current = null;
+    }}>
+    {loading ? <div className="hp-review-loading" aria-busy="true" aria-label="Loading customer reviews" /> : review ? <>
+      <div className="hp-review-surface" aria-live={auto ? "off" : "polite"} aria-atomic="true">
+        <div key={review.id} className="hp-review-content">
+          <span className="hp-review-quote-mark" aria-hidden="true">&#8220;</span>
+          {review.rating !== null && <div className="hp-review-stars" aria-label={`${review.rating} out of 5 stars`}>
+            {Array.from({ length: 5 }, (_, i) => <span aria-hidden="true" key={i} className={i < Math.round(review.rating) ? "" : "is-empty"}>&#9733;</span>)}
+          </div>}
+          <blockquote tabIndex={review.displayMessage.length > 420 ? 0 : undefined}>{review.displayMessage}</blockquote>
+          <div className="hp-review-person"><span aria-hidden="true">{review.name.trim().charAt(0).toUpperCase() || "H"}</span>
+            <div><p>{review.name}</p><small>{review.context}</small></div>
+          </div>
+        </div>
+      </div>
+      <div className="hp-review-navigation">
+        <button type="button" aria-label="Previous review" disabled={reviews.length < 2} onClick={() => select(-1)}><HomeControlIcon type="previous" /></button>
+        <span className="hp-review-index">{String(index + 1).padStart(2, "0")} <span>/ {String(reviews.length).padStart(2, "0")}</span></span>
+        <div className="hp-review-dots">{reviews.map((item, i) => <button key={item.id} type="button" aria-label={`Show review ${i+1}`}
+          aria-pressed={i === index} onClick={() => setIndex(i)}><span /></button>)}</div>
+        {reviews.length > 1 && !reducedMotion && <button type="button" aria-label={paused ? "Resume review slideshow" : "Pause review slideshow"} onClick={() => setPaused((value) => !value)}>
+          <HomeControlIcon type={paused ? "play" : "pause"} /></button>}
+        <button type="button" aria-label="Next review" disabled={reviews.length < 2} onClick={() => select(1)}><HomeControlIcon type="next" /></button>
+      </div>
+    </> : <div className="hp-review-empty"><span aria-hidden="true"><GiftIcon /></span><h3>Every gift has a story.</h3>
+      <p>Customer reviews are not available here right now. Explore the collection to find your next thoughtful gift.</p>
+      <Link to="/gifts">Explore the collection <span aria-hidden="true">&#8594;</span></Link></div>}
+  </div>;
+};
+
+const HomeControlIcon = ({ type }) => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+    {type === "next" && <path d="M4 12h15m-6-6 6 6-6 6" />}
+    {type === "previous" && <path d="M20 12H5m6-6-6 6 6 6" />}
+    {type === "pause" && <><path d="M9 6v12M15 6v12" strokeWidth="2.2" /></>}
+    {type === "play" && <path d="m9 5 10 7-10 7Z" />}
+    {type === "close" && <path d="m6 6 12 12M18 6 6 18" />}
+    {type === "eye" && <><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z" /><circle cx="12" cy="12" r="3" /></>}
+  </svg>
 );
 
 export default Home;

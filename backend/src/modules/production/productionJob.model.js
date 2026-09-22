@@ -149,10 +149,21 @@ const productionJobSchema = new mongoose.Schema(
       ref: "User",
       default: null,
     },
+
+    // Internal production target: the order should be ready for courier by this date.
     dueDate: {
       type: Date,
       default: null,
+      index: true,
     },
+
+    // Customer-facing delivery promise. This is not used to auto-mark delivery.
+    expectedDeliveryDate: {
+      type: Date,
+      default: null,
+      index: true,
+    },
+
     notes: {
       type: String,
       default: "",
@@ -196,9 +207,10 @@ const productionJobSchema = new mongoose.Schema(
 );
 
 const doneOrNotRequired = (value) =>
-  [PRODUCTION_ITEM_STATUS.DONE, PRODUCTION_ITEM_STATUS.NOT_REQUIRED].includes(
-    value
-  );
+  [
+    PRODUCTION_ITEM_STATUS.DONE,
+    PRODUCTION_ITEM_STATUS.NOT_REQUIRED,
+  ].includes(value);
 
 const allItemsDone = (items, field) =>
   Array.isArray(items) &&
@@ -211,17 +223,18 @@ const personalizationDone = (items) => {
   );
 
   if (!requiredItems.length) return true;
+
   return requiredItems.every((item) =>
     doneOrNotRequired(item.personalizationStatus)
   );
 };
 
-const hasPersonalization = (items) =>
-  (items || []).some((item) => item.personalizationRequired);
-
 const pushAutomaticHistory = (job, stage, note) => {
   const last = job.history?.[job.history.length - 1];
-  if (last?.stage === stage && last?.note === note) return;
+
+  if (last?.stage === stage && last?.note === note) {
+    return;
+  }
 
   job.history.push({
     stage,
@@ -234,13 +247,15 @@ const pushAutomaticHistory = (job, stage, note) => {
 productionJobSchema.pre("validate", function assignJobIdentity() {
   if (!this.jobCode) {
     const date = new Date();
+
     const stamp =
       `${date.getFullYear()}` +
       `${String(date.getMonth() + 1).padStart(2, "0")}` +
       `${String(date.getDate()).padStart(2, "0")}`;
 
     this.jobCode =
-      `PRD-${stamp}-` + crypto.randomBytes(3).toString("hex").toUpperCase();
+      `PRD-${stamp}-` +
+      crypto.randomBytes(3).toString("hex").toUpperCase();
   }
 
   if (!this.sourceKey && this.sourceType && this.sourceId) {
@@ -249,22 +264,34 @@ productionJobSchema.pre("validate", function assignJobIdentity() {
 });
 
 /*
- * Safe automatic progression:
- * - Confirmed -> Personalization or Assembly
- * - Personalization -> Assembly only when all required personalization is done
- * - Assembly -> QC only when every item assembly is done
- * - QC is NEVER auto-passed
- * - Packing -> Ready to Ship only when every item packing is done
+ * Retail order progression:
  *
- * Shipping and delivery remain real fulfilment events, never timer guesses.
+ * CONFIRMED
+ *   -> admin explicitly starts production
+ *
+ * PERSONALIZATION
+ *   -> ASSEMBLY automatically when all required personalization is done
+ *
+ * ASSEMBLY
+ *   -> QC automatically when every item assembly is done
+ *
+ * QC
+ *   -> PACKING only through the QC endpoint after QC passes
+ *
+ * PACKING
+ *   -> READY_TO_SHIP automatically when every item packing is done
+ *
+ * SHIPPED and DELIVERED are controlled only by fulfilment.
  */
 productionJobSchema.pre("save", function reconcileAutomaticStage() {
   if (this.sourceType !== "order") return;
 
   if (
     [
+      PRODUCTION_STAGE.CONFIRMED,
       PRODUCTION_STAGE.ON_HOLD,
       PRODUCTION_STAGE.CANCELLED,
+      PRODUCTION_STAGE.READY_TO_SHIP,
       PRODUCTION_STAGE.SHIPPED,
       PRODUCTION_STAGE.DELIVERED,
     ].includes(this.stage)
@@ -275,37 +302,22 @@ productionJobSchema.pre("save", function reconcileAutomaticStage() {
   let changed = true;
   let guard = 0;
 
-  while (changed && guard < 5) {
+  while (changed && guard < 4) {
     changed = false;
     guard += 1;
-
-    if (this.stage === PRODUCTION_STAGE.CONFIRMED) {
-      const nextStage = hasPersonalization(this.items)
-        ? PRODUCTION_STAGE.PERSONALIZATION
-        : PRODUCTION_STAGE.ASSEMBLY;
-
-      this.stage = nextStage;
-      pushAutomaticHistory(
-        this,
-        nextStage,
-        hasPersonalization(this.items)
-          ? "Automatically moved to personalization because artwork/personalization is required."
-          : "Automatically moved to assembly because no personalization step is required."
-      );
-      changed = true;
-      continue;
-    }
 
     if (
       this.stage === PRODUCTION_STAGE.PERSONALIZATION &&
       personalizationDone(this.items)
     ) {
       this.stage = PRODUCTION_STAGE.ASSEMBLY;
+
       pushAutomaticHistory(
         this,
         PRODUCTION_STAGE.ASSEMBLY,
-        "All required personalization is complete. Automatically moved to assembly."
+        "Personalization is complete. Production moved to assembly."
       );
+
       changed = true;
       continue;
     }
@@ -315,11 +327,13 @@ productionJobSchema.pre("save", function reconcileAutomaticStage() {
       allItemsDone(this.items, "assemblyStatus")
     ) {
       this.stage = PRODUCTION_STAGE.QC;
+
       pushAutomaticHistory(
         this,
         PRODUCTION_STAGE.QC,
-        "Assembly is complete for every production item. Automatically moved to QC."
+        "Assembly is complete for every item. Production moved to QC."
       );
+
       changed = true;
       continue;
     }
@@ -329,38 +343,65 @@ productionJobSchema.pre("save", function reconcileAutomaticStage() {
       allItemsDone(this.items, "packingStatus")
     ) {
       this.stage = PRODUCTION_STAGE.READY_TO_SHIP;
+
       pushAutomaticHistory(
         this,
         PRODUCTION_STAGE.READY_TO_SHIP,
-        "Packing is complete for every production item. Automatically marked ready to ship."
+        "Packing is complete. The order is ready to ship."
       );
+
       changed = true;
     }
   }
 });
 
-productionJobSchema.post("save", async function triggerProductionSideEffects(doc) {
-  if (doc.sourceType !== "order" || !doc.sourceId) return;
+productionJobSchema.post(
+  "save",
+  async function triggerProductionSideEffects(doc) {
+    if (doc.sourceType !== "order" || !doc.sourceId) return;
 
-  try {
-    const { syncProductionJobSideEffects } = await import(
-      "./productionAutomation.service.js"
-    );
-    await syncProductionJobSideEffects(doc);
-  } catch (error) {
-    console.error(
-      `Production automatic side-effect failed for ${doc.jobCode || doc._id}:`,
-      error.message
-    );
+    try {
+      const { syncProductionJobSideEffects } = await import(
+        "./productionAutomation.service.js"
+      );
+
+      await syncProductionJobSideEffects(doc);
+    } catch (error) {
+      console.error(
+        `Production automatic side-effect failed for ${
+          doc.jobCode || doc._id
+        }:`,
+        error.message
+      );
+    }
   }
+);
+
+productionJobSchema.index({
+  stage: 1,
+  createdAt: -1,
 });
 
-productionJobSchema.index({ stage: 1, createdAt: -1 });
-productionJobSchema.index({ sourceType: 1, sourceId: 1 });
-productionJobSchema.index({ customerUser: 1, createdAt: -1 });
+productionJobSchema.index({
+  sourceType: 1,
+  sourceId: 1,
+});
+
+productionJobSchema.index({
+  customerUser: 1,
+  createdAt: -1,
+});
+
+productionJobSchema.index({
+  dueDate: 1,
+  stage: 1,
+});
 
 const ProductionJob =
   mongoose.models.ProductionJob ||
-  mongoose.model("ProductionJob", productionJobSchema);
+  mongoose.model(
+    "ProductionJob",
+    productionJobSchema
+  );
 
 export default ProductionJob;

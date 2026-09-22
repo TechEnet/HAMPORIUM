@@ -124,10 +124,12 @@ const containerSchema = new mongoose.Schema(
     productPriority: { type: Number, default: null, min: 0 },
 
     mrp: { type: Number, default: null, min: 0 },
-    /* Pre-GST price from Product Master/manual admin. */
+    // Pre-GST price from Product Master/manual admin.
     sellingPrice: { type: Number, default: null, min: 0 },
     latestUnitCost: { type: Number, default: null, min: 0 },
     actualLandedCost: { type: Number, default: null, min: 0 },
+    // Container-level floor used by the central Promotion Margin Guard.
+    minGrossMarginPercent: { type: Number, default: null, min: 0, max: 100 },
     taxEnabled: { type: Boolean, default: true },
     taxPercent: { type: Number, default: null, min: 0, max: 100 },
     hsnSac: { type: String, trim: true, default: "", maxlength: 40 },
@@ -186,6 +188,7 @@ containerSchema.index({ category: 1, subcategory: 1, segment: 1, isActive: 1 });
 containerSchema.index({ "source.externalSku": 1 });
 containerSchema.index({ hsnSac: 1, taxPercent: 1 });
 
-const Container = mongoose.model("Container", containerSchema);
+const Container =
+  mongoose.models.Container || mongoose.model("Container", containerSchema);
 
 export default Container;
