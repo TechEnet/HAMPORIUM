@@ -2992,6 +2992,183 @@ const Home = () => {
             }
           }
 
+          /* ==============================================
+             BULK STEP VISUAL PREVIEW
+             A visible image slice makes the interaction obvious.
+             Hover expands the image across the full card; touch keeps
+             the visual slice visible without relying on hover.
+          =============================================== */
+
+          [data-home-section="bulk"] .hp-bulk-step-card {
+            isolation: isolate;
+            background: #F3EEE6;
+            border-color: rgba(23,23,23,.10);
+            transition:
+              border-color .38s ease,
+              box-shadow .38s ease,
+              transform .38s ease;
+          }
+
+          [data-home-section="bulk"] .hp-bulk-step-image {
+            z-index: 0;
+            opacity: 1 !important;
+            clip-path: inset(0 0 0 62%);
+            -webkit-clip-path: inset(0 0 0 62%);
+            transform: scale(1.035);
+            transform-origin: center;
+            transition:
+              clip-path .58s cubic-bezier(.22,.72,.2,1),
+              -webkit-clip-path .58s cubic-bezier(.22,.72,.2,1),
+              transform .72s cubic-bezier(.22,.72,.2,1);
+            will-change: clip-path, transform;
+          }
+
+          [data-home-section="bulk"] .hp-bulk-step-image-overlay {
+            background:
+              linear-gradient(
+                90deg,
+                rgba(243,238,230,.98) 0%,
+                rgba(243,238,230,.90) 30%,
+                rgba(243,238,230,.38) 63%,
+                rgba(10,9,8,.10) 100%
+              );
+            transition: background .42s ease;
+          }
+
+          [data-home-section="bulk"] .hp-bulk-step-content {
+            width: min(58%, 310px);
+            transition: width .42s ease;
+          }
+
+          [data-home-section="bulk"] .hp-bulk-step-title {
+            position: relative;
+            z-index: 2;
+            margin-top: 0 !important;
+            text-shadow: none;
+            transition:
+              color .34s ease,
+              text-shadow .34s ease,
+              transform .38s ease;
+          }
+
+          [data-home-section="bulk"] .hp-bulk-step-visual-cue {
+            position: absolute;
+            left: calc(100% + 18px);
+            top: 50%;
+            display: flex;
+            width: 56px;
+            height: 56px;
+            align-items: center;
+            justify-content: center;
+            transform: translateY(-50%);
+            border: 1px solid rgba(255,255,255,.50);
+            border-radius: 999px;
+            background: rgba(12,10,8,.34);
+            box-shadow: 0 12px 28px rgba(0,0,0,.18);
+            backdrop-filter: blur(7px);
+            -webkit-backdrop-filter: blur(7px);
+            transition:
+              transform .38s ease,
+              background .38s ease,
+              border-color .38s ease;
+          }
+
+          [data-home-section="bulk"] .hp-bulk-step-visual-cue::before,
+          [data-home-section="bulk"] .hp-bulk-step-visual-cue::after {
+            content: "";
+            position: absolute;
+            background: #F3D06A;
+          }
+
+          [data-home-section="bulk"] .hp-bulk-step-visual-cue::before {
+            width: 18px;
+            height: 2px;
+          }
+
+          [data-home-section="bulk"] .hp-bulk-step-visual-cue::after {
+            width: 7px;
+            height: 7px;
+            border-top: 2px solid #F3D06A;
+            border-right: 2px solid #F3D06A;
+            background: transparent;
+            transform: translateX(5px) rotate(45deg);
+          }
+
+          @media (hover:hover) and (pointer:fine) {
+            [data-home-section="bulk"] .hp-bulk-step-card:hover {
+              border-color: rgba(212,175,55,.42);
+              box-shadow: 0 26px 60px rgba(42,28,11,.18);
+              transform: translateY(-3px);
+            }
+
+            [data-home-section="bulk"] .hp-bulk-step-card:hover .hp-bulk-step-image {
+              clip-path: inset(0 0 0 0);
+              -webkit-clip-path: inset(0 0 0 0);
+              transform: scale(1.0);
+            }
+
+            [data-home-section="bulk"] .hp-bulk-step-card:hover .hp-bulk-step-image-overlay {
+              background:
+                linear-gradient(
+                  90deg,
+                  rgba(10,9,8,.74) 0%,
+                  rgba(10,9,8,.60) 48%,
+                  rgba(10,9,8,.42) 100%
+                );
+            }
+
+            [data-home-section="bulk"] .hp-bulk-step-card:hover .hp-bulk-step-content {
+              width: min(78%, 390px);
+            }
+
+            [data-home-section="bulk"] .hp-bulk-step-card:hover .hp-bulk-step-title {
+              color: #FFF8EC !important;
+              text-shadow: 0 10px 30px rgba(0,0,0,.42);
+              transform: translateX(4px);
+            }
+
+            [data-home-section="bulk"] .hp-bulk-step-card:hover .hp-bulk-step-visual-cue {
+              transform: translateY(-50%) translateX(5px);
+              background: rgba(244,120,34,.86);
+              border-color: rgba(255,255,255,.68);
+            }
+          }
+
+          @media (max-width: 1023px), (hover:none), (pointer:coarse) {
+            [data-home-section="bulk"] .hp-bulk-step-image {
+              opacity: 1 !important;
+              clip-path: inset(0 0 0 56%);
+              -webkit-clip-path: inset(0 0 0 56%);
+              transform: scale(1.02);
+              will-change: auto;
+            }
+
+            [data-home-section="bulk"] .hp-bulk-step-image-overlay {
+              background:
+                linear-gradient(
+                  90deg,
+                  rgba(243,238,230,.98) 0%,
+                  rgba(243,238,230,.88) 35%,
+                  rgba(243,238,230,.24) 72%,
+                  rgba(8,8,8,.08) 100%
+                );
+            }
+
+            [data-home-section="bulk"] .hp-bulk-step-content {
+              width: 56%;
+            }
+
+            [data-home-section="bulk"] .hp-bulk-step-title {
+              color: #171717 !important;
+            }
+
+            [data-home-section="bulk"] .hp-bulk-step-visual-cue {
+              left: calc(100% + 10px);
+              width: 46px;
+              height: 46px;
+            }
+          }
+
           @media (prefers-reduced-motion: reduce) {
             .hp-hero-motion-layer,
             .hp-journey-handoff,
@@ -3725,6 +3902,133 @@ const Home = () => {
 
           .hp-home-v65 .hp-bestseller-title { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; overflow-wrap:anywhere; }
           .hp-quick-copy h2 { overflow-wrap:anywhere; }
+
+          /* ==================================================
+             V67 · BULK STEPS MOBILE SWIPE FIX
+             Keep desktop 2x2 grid. On phone/tablet the four
+             steps become a real horizontal native scroll rail.
+          ================================================== */
+          @media (max-width: 1023px) {
+            [data-home-section="bulk"] .hp-bulk-layout {
+              display: block !important;
+              min-height: 0 !important;
+            }
+
+            [data-home-section="bulk"] .hp-bulk-visual {
+              min-height: clamp(390px, 62svh, 560px) !important;
+            }
+
+            [data-home-section="bulk"] .hp-bulk-flow {
+              min-width: 0 !important;
+              overflow: hidden;
+            }
+
+            [data-home-section="bulk"] .hp-bulk-rail {
+              --hp-bulk-card-width: min(82vw, 390px);
+
+              display: flex !important;
+              flex-flow: row nowrap !important;
+              align-items: stretch !important;
+              justify-content: flex-start !important;
+
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 0 !important;
+
+              overflow-x: auto !important;
+              overflow-y: hidden !important;
+              -webkit-overflow-scrolling: touch;
+              overscroll-behavior-x: contain;
+              overscroll-behavior-y: auto;
+              touch-action: pan-x pan-y !important;
+
+              gap: 12px !important;
+              margin-top: 30px !important;
+              padding: 14px 0 18px !important;
+
+              scroll-snap-type: x mandatory !important;
+              scroll-padding-inline: 0 !important;
+              scroll-behavior: smooth;
+
+              mask-image: none !important;
+              -webkit-mask-image: none !important;
+              scrollbar-width: none;
+            }
+
+            [data-home-section="bulk"] .hp-bulk-rail::-webkit-scrollbar {
+              display: none;
+            }
+
+            [data-home-section="bulk"] .hp-bulk-rail > .hp-bulk-step-card {
+              flex: 0 0 var(--hp-bulk-card-width) !important;
+              width: var(--hp-bulk-card-width) !important;
+              min-width: var(--hp-bulk-card-width) !important;
+              max-width: var(--hp-bulk-card-width) !important;
+              min-height: 255px !important;
+
+              scroll-snap-align: start !important;
+              scroll-snap-stop: always;
+
+              padding: 22px !important;
+              border: 1px solid rgba(23,23,23,.09);
+              background: rgba(255,255,255,.26);
+              scale: 1 !important;
+              opacity: 1 !important;
+              transform: none !important;
+              will-change: auto !important;
+            }
+
+            [data-home-section="bulk"] .hp-bulk-step-title {
+              margin-top: 34px !important;
+              font-size: clamp(28px, 6.8vw, 34px) !important;
+              line-height: .98 !important;
+            }
+
+            [data-home-section="bulk"] .hp-bulk-step-copy {
+              max-width: 290px !important;
+              font-size: 13px !important;
+              line-height: 1.7 !important;
+            }
+
+            [data-home-section="bulk"] .hp-rail-mobile-only {
+              display: flex !important;
+              width: 100%;
+              margin: 8px 0 0 !important;
+              padding: 0 !important;
+            }
+
+            [data-home-section="bulk"] .hp-rail-mobile-only .hp-rail-track {
+              max-width: none;
+            }
+
+            [data-home-section="bulk"] .hp-rail-mobile-only .hp-rail-arrows {
+              flex-shrink: 0;
+            }
+          }
+
+          @media (max-width: 639px) {
+            [data-home-section="bulk"] .hp-bulk-visual {
+              min-height: 410px !important;
+            }
+
+            [data-home-section="bulk"] .hp-bulk-flow {
+              padding-left: 20px !important;
+              padding-right: 20px !important;
+              padding-top: 42px !important;
+              padding-bottom: 48px !important;
+            }
+
+            [data-home-section="bulk"] .hp-bulk-rail {
+              --hp-bulk-card-width: min(84vw, 350px);
+              gap: 10px !important;
+              margin-top: 26px !important;
+            }
+
+            [data-home-section="bulk"] .hp-bulk-rail > .hp-bulk-step-card {
+              min-height: 240px !important;
+              padding: 20px !important;
+            }
+          }
 
         `}
       </style>
@@ -4735,69 +5039,13 @@ const Home = () => {
         </section>
 
         {/* ==================================================
-            WHY CHOOSE HAMPORIUM
-        =================================================== */}
-
-        <section className="relative w-full bg-[#F8F4EE]">
-          <div className="relative w-full overflow-hidden bg-[#0B0B0B] px-0 py-10 text-white sm:py-12 lg:grid lg:grid-cols-[0.92fr_1.12fr] lg:items-stretch lg:gap-12 lg:py-14 xl:gap-16">
-            <div className="pointer-events-none absolute inset-0 opacity-70" style={{ background: "radial-gradient(circle at 13% 8%, rgba(244,120,34,.16), transparent 22%), radial-gradient(circle at 88% 84%, rgba(212,175,55,.14), transparent 25%)" }} />
-            <div className="hp-noise pointer-events-none absolute inset-0 opacity-[0.07]" />
-
-            <Reveal className="relative z-10 flex flex-col justify-center px-5 py-4 sm:px-8 lg:px-10 lg:py-8">
-              <div className="inline-flex w-fit items-center gap-2 rounded-full border border-[#D4AF37]/25 bg-[#D4AF37]/[0.08] px-4 py-2 text-[11px] font-black uppercase tracking-[0.17em] text-[#E5C45E]">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#F47822]" />
-                WHY HAMPORIUM
-              </div>
-
-              <h2 className="hp-section-heading mt-5 text-[#FFF8EC]">
-                We Don&apos;t Just Pack Gifts.
-                <span className="hp-section-heading-accent text-[#D4AF37]">
-                  We Frame Moments.
-                </span>
-              </h2>
-
-              <div className="mt-8 grid grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4">
-                <PromiseCard
-                  icon={<GiftIcon />}
-                  title="Premium Curation"
-                />
-                <PromiseCard
-                  icon={<HeartIcon />}
-                  title="Personal Touch"
-                />
-                <PromiseCard
-                  icon={<ShieldIcon />}
-                  title="Gift-Ready"
-                />
-                <PromiseCard
-                  icon={<BulkIcon />}
-                  title="Bulk Ready"
-                />
-              </div>
-            </Reveal>
-
-            <Reveal delay={140} className="relative z-10 mt-8 min-h-[460px] lg:mt-0 lg:min-h-[610px]">
-              <div className="hp-image-zoom absolute inset-0 overflow-hidden bg-[#181818]">
-                <SmartImage
-                  src={HOME_IMAGES.why}
-                  alt="Luxury gift hamper"
-                  className="h-full w-full object-cover object-center"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/5 to-black/10" />
-              </div>
-
-            </Reveal>
-          </div>
-        </section>
-
-        {/* ==================================================
             BULK / EVENT GIFTING · EDITORIAL FLOW
         =================================================== */}
 
         <section data-home-section="bulk" className="relative overflow-hidden bg-[#F3EEE6] text-[#171717]">
-          <div className="grid min-h-[850px] lg:grid-cols-[0.92fr_1.08fr]">
+          <div className="hp-bulk-layout grid min-h-[850px] lg:grid-cols-[0.92fr_1.08fr]">
             {/* LEFT VISUAL */}
-            <Reveal className="relative min-h-[560px] overflow-hidden bg-[#15100C] lg:min-h-[850px]">
+            <Reveal className="hp-bulk-visual relative min-h-[560px] overflow-hidden bg-[#15100C] lg:min-h-[850px]">
               <SmartImage
                 src={HOME_IMAGES.corporate}
                 alt="Corporate and event gifting"
@@ -4821,7 +5069,7 @@ const Home = () => {
             </Reveal>
 
             {/* RIGHT FLOW */}
-            <div className="relative flex flex-col justify-center px-5 py-14 sm:px-8 md:px-10 lg:px-12 xl:px-16 2xl:px-20">
+            <div className="hp-bulk-flow relative flex flex-col justify-center px-5 py-14 sm:px-8 md:px-10 lg:px-12 xl:px-16 2xl:px-20">
               <div className="pointer-events-none absolute right-[-90px] top-[8%] h-[320px] w-[320px] rounded-full bg-[#D4AF37]/10 blur-[100px]" />
 
               <Reveal>
@@ -4839,53 +5087,42 @@ const Home = () => {
                   </span>
                 </h2>
 
-                <p className="mt-5 max-w-[650px] text-[15px] font-medium leading-7 text-black/56">
-                  Create one design, choose the quantity, review your quote and pay only after approval.
-                </p>
               </Reveal>
 
-              <InteractiveRail id="home-bulk-rail" label="Bulk gifting steps" className="hp-mobile-rail hp-snap-rail mt-10 border-y border-black/10 lg:grid lg:grid-cols-2 lg:gap-0" controlsClass="hp-rail-mobile-only">
+              <InteractiveRail id="home-bulk-rail" label="Bulk gifting steps" className="hp-bulk-rail hp-mobile-rail hp-snap-rail mt-10 border-y border-black/10 lg:grid lg:grid-cols-2 lg:gap-0" controlsClass="hp-rail-mobile-only">
                 {[
-                  ["01", "Build One Design", "Choose the box, products, décor and personalisation.", HOME_IMAGES.festival],
-                  ["02", "Choose Bulk Qty", "Set quantities for teams, weddings and large events.", HOME_IMAGES.wedding],
-                  ["03", "Receive Quotation", "Review the final price or request changes before approval.", HOME_IMAGES.curated],
-                  ["04", "Pay After Approval", "Production starts only after the accepted quote is paid.", HOME_IMAGES.custom],
-                ].map(([step, title, copy, image], index) => (
+                  ["Build One Design", HOME_IMAGES.festival],
+                  ["Choose Bulk Qty", HOME_IMAGES.wedding],
+                  ["Receive Quotation", HOME_IMAGES.curated],
+                  ["Pay After Approval", HOME_IMAGES.custom],
+                ].map(([title, image], index) => (
                   <div
-                    key={step}
-                    className={`hp-bulk-step-card group relative min-h-[280px] overflow-hidden p-6 lg:min-h-[245px] ${
+                    key={title}
+                    className={`hp-bulk-step-card group relative flex min-h-[210px] items-center overflow-hidden p-6 lg:min-h-[210px] ${
                       index % 2 === 0 ? "lg:border-r lg:border-black/10" : ""
                     } ${
                       index < 2 ? "lg:border-b lg:border-black/10" : ""
                     }`}
                   >
-                    <div className="hp-bulk-step-image absolute inset-0 opacity-0 transition duration-500 group-hover:opacity-100">
+                    <div className="hp-bulk-step-image absolute inset-0">
                       <SmartImage
                         src={image}
                         alt=""
                         className="h-full w-full object-cover object-center"
                       />
-                      <div className="absolute inset-0 bg-[#171717]/86" />
+                      <div className="hp-bulk-step-image-overlay absolute inset-0" />
                     </div>
 
-                    <div className="relative z-10">
-                      <div className="flex items-center justify-between">
-                        <span className="hp-bulk-step-kicker text-[9px] font-black uppercase tracking-[0.18em] text-[#F47822] group-hover:text-[#F2D26B]">
-                          STEP {step}
-                        </span>
-                        <span className="hp-bulk-step-arrow text-[22px] text-black/16 transition group-hover:text-white/55">→</span>
-                      </div>
-
+                    <div className="hp-bulk-step-content relative z-10">
                       <h3
                         style={{ fontFamily: DISPLAY_FONT }}
-                        className="hp-bulk-step-title mt-10 text-[30px] font-semibold leading-[0.95] text-[#171717] transition group-hover:text-white"
+                        className="hp-bulk-step-title text-[31px] font-semibold leading-[0.98] text-[#171717] transition sm:text-[34px]"
                       >
                         {title}
                       </h3>
-
-                      <p className="hp-bulk-step-copy mt-3 max-w-[270px] text-[13px] font-medium leading-6 text-black/50 transition group-hover:text-white/65">
-                        {copy}
-                      </p>
+                      <span className="hp-bulk-step-visual-cue" aria-hidden="true">
+                        <span />
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -4902,6 +5139,58 @@ const Home = () => {
 
               </Reveal>
             </div>
+          </div>
+        </section>
+
+        {/* ==================================================
+            WHY CHOOSE HAMPORIUM
+        =================================================== */}
+
+        <section className="relative w-full overflow-hidden bg-[#050505] text-white">
+          <div className="absolute inset-0">
+            <SmartImage
+              src={HOME_IMAGES.hamperOne}
+              alt="Luxury curated gift hamper with premium presentation"
+              className="h-full w-full object-cover object-center"
+            />
+            <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(5,5,5,0.96)_0%,rgba(5,5,5,0.88)_34%,rgba(5,5,5,0.58)_62%,rgba(5,5,5,0.76)_100%)]" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_14%_18%,rgba(244,120,34,0.18),transparent_22%),radial-gradient(circle_at_85%_12%,rgba(212,175,55,0.16),transparent_20%),radial-gradient(circle_at_76%_78%,rgba(255,255,255,0.08),transparent_24%)]" />
+          </div>
+
+          <div className="hp-noise pointer-events-none absolute inset-0 opacity-[0.08]" />
+
+          <div className="relative z-10 mx-auto w-full max-w-[1900px] px-5 py-14 sm:px-8 sm:py-16 lg:px-10 lg:py-20 xl:px-14 2xl:px-16">
+            <Reveal className="max-w-[760px]">
+              <div className="inline-flex w-fit items-center gap-2 rounded-full border border-[#D4AF37]/25 bg-[#D4AF37]/[0.08] px-4 py-2 text-[11px] font-black uppercase tracking-[0.17em] text-[#E5C45E] backdrop-blur-md">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#F47822]" />
+                WHY HAMPORIUM
+              </div>
+
+              <h2 className="hp-section-heading mt-5 max-w-[780px] text-[#FFF8EC]">
+                We Don&apos;t Just Pack Gifts.
+                <span className="hp-section-heading-accent text-[#D4AF37]">
+                  We Frame Moments.
+                </span>
+              </h2>
+
+            </Reveal>
+
+            <Reveal delay={120} className="mt-10">
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:max-w-[1040px] lg:grid-cols-4 lg:gap-5">
+                <div className="rounded-[24px] border border-white/12 bg-black/24 p-5 backdrop-blur-md shadow-[0_18px_40px_rgba(0,0,0,.18)]">
+                  <PromiseCard icon={<GiftIcon />} title="Premium Curation" />
+                </div>
+                <div className="rounded-[24px] border border-white/12 bg-black/24 p-5 backdrop-blur-md shadow-[0_18px_40px_rgba(0,0,0,.18)]">
+                  <PromiseCard icon={<HeartIcon />} title="Personal Touch" />
+                </div>
+                <div className="rounded-[24px] border border-white/12 bg-black/24 p-5 backdrop-blur-md shadow-[0_18px_40px_rgba(0,0,0,.18)]">
+                  <PromiseCard icon={<ShieldIcon />} title="Gift-Ready" />
+                </div>
+                <div className="rounded-[24px] border border-white/12 bg-black/24 p-5 backdrop-blur-md shadow-[0_18px_40px_rgba(0,0,0,.18)]">
+                  <PromiseCard icon={<BulkIcon />} title="Bulk Ready" />
+                </div>
+              </div>
+            </Reveal>
           </div>
         </section>
 
