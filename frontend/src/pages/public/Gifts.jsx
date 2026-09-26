@@ -286,6 +286,44 @@ const Gifts = () => {
   ] = useState(false);
 
   const [
+    mobileCatalogue,
+    setMobileCatalogue,
+  ] = useState(() =>
+    typeof window !== "undefined"
+      ? window.matchMedia("(max-width: 639px)").matches
+      : false
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return undefined;
+    }
+
+    const mediaQuery =
+      window.matchMedia("(max-width: 639px)");
+
+    const updateMobileCatalogue = () => {
+      setMobileCatalogue(
+        mediaQuery.matches
+      );
+    };
+
+    updateMobileCatalogue();
+
+    mediaQuery.addEventListener?.(
+      "change",
+      updateMobileCatalogue
+    );
+
+    return () => {
+      mediaQuery.removeEventListener?.(
+        "change",
+        updateMobileCatalogue
+      );
+    };
+  }, []);
+
+  const [
     filters,
     setFilters,
   ] = useState({
@@ -1819,10 +1857,124 @@ const Gifts = () => {
               padding: 9px 9px 13px;
             }
           }
+
+
+          /* V5 · TWO-CARD MOBILE GRID */
+          @media (max-width: 639px) {
+            .hp-catalogue-gift {
+              border-radius:16px;
+              padding:6px 6px 9px;
+              box-shadow:
+                0 12px 26px rgba(38,28,16,.09),
+                0 4px 10px rgba(38,28,16,.05),
+                inset 0 1px 0 rgba(255,255,255,.60);
+            }
+
+            .hp-catalogue-gift::before {
+              inset:4px;
+              border-radius:12px;
+            }
+
+            .hp-catalogue-gift-inner {
+              border-radius:11px;
+              padding:4px;
+              backdrop-filter:none;
+              -webkit-backdrop-filter:none;
+            }
+
+            .hp-catalogue-wrap-ribbon-v {
+              left:12px;
+              width:4px;
+            }
+
+            .hp-catalogue-wrap-ribbon-h {
+              top:12px;
+              height:4px;
+            }
+
+            .hp-catalogue-bow {
+              top:4px;
+              left:4px;
+              transform:scale(.58);
+              transform-origin:top left;
+            }
+
+            .hp-catalogue-gift:hover .hp-catalogue-bow {
+              transform:scale(.58);
+            }
+
+            .hp-catalogue-corner {
+              width:16px;
+              height:16px;
+              opacity:.58;
+            }
+
+            .hp-catalogue-corner::before {
+              width:14px;
+            }
+
+            .hp-catalogue-corner::after {
+              height:14px;
+            }
+
+            .hp-catalogue-corner-tr {
+              top:5px;
+              right:5px;
+            }
+
+            .hp-catalogue-corner-bl {
+              bottom:5px;
+              left:5px;
+            }
+
+            .hp-catalogue-corner-br {
+              right:5px;
+              bottom:5px;
+            }
+
+            .hp-catalogue-gift-inner > * {
+              min-width:0;
+              max-width:none;
+              width:113.64%;
+              zoom:.88;
+            }
+
+            .hp-catalogue-gift-inner img {
+              max-height:118px;
+              object-fit:cover;
+            }
+          }
+
+          @media (max-width:380px) {
+            .hp-catalogue-gift {
+              padding:5px 5px 8px;
+              border-radius:14px;
+            }
+
+            .hp-catalogue-gift-inner {
+              padding:3px;
+              border-radius:10px;
+            }
+
+            .hp-catalogue-gift-inner > * {
+              width:117.65%;
+              zoom:.85;
+            }
+
+            .hp-catalogue-gift-inner img {
+              max-height:108px;
+            }
+
+            .hp-catalogue-bow,
+            .hp-catalogue-gift:hover .hp-catalogue-bow {
+              transform:scale(.52);
+            }
+          }
+
         `}
       </style>
 
-      <section className="w-full px-3 pb-6 pt-[96px] sm:px-4 sm:pb-8 sm:pt-[104px] md:px-5 lg:px-6 lg:pb-10 lg:pt-[112px] xl:px-7 2xl:px-8">
+      <section className="w-full px-3 pb-6 pt-[92px] sm:px-4 sm:pb-8 sm:pt-[104px] md:px-5 lg:px-6 lg:pb-10 lg:pt-[112px] xl:px-7 2xl:px-8">
         {/* MOBILE FILTER */}
 
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3 lg:hidden">
@@ -1939,7 +2091,7 @@ const Gifts = () => {
             />
 
             {loading ? (
-              <div className="mt-5 grid items-start gap-x-3 gap-y-6 sm:grid-cols-2 md:gap-x-4 md:gap-y-8 xl:grid-cols-3 2xl:grid-cols-4 2xl:gap-x-5">
+              <div className="mt-5 grid grid-cols-2 items-start gap-x-2.5 gap-y-5 sm:gap-x-3 sm:gap-y-6 md:gap-x-4 md:gap-y-8 xl:grid-cols-3 2xl:grid-cols-4 2xl:gap-x-5">
                 {[
                   1,
                   2,
@@ -1986,7 +2138,7 @@ const Gifts = () => {
               </div>
             ) : (
               <>
-                <div className="mt-5 grid items-start gap-x-3 gap-y-6 sm:grid-cols-2 md:gap-x-4 md:gap-y-8 xl:grid-cols-3 2xl:grid-cols-4 2xl:gap-x-5">
+                <div className="mt-5 grid grid-cols-2 items-start gap-x-2.5 gap-y-5 sm:gap-x-3 sm:gap-y-6 md:gap-x-4 md:gap-y-8 xl:grid-cols-3 2xl:grid-cols-4 2xl:gap-x-5">
                   {products.map(
                     (product, index) => {
                       const reviewSummary =
@@ -2061,6 +2213,17 @@ const Gifts = () => {
                             <ProductCard
                               product={{
                                 ...product,
+                                // Mobile catalogue stays visually compact:
+                                // show the hamper name/card essentials here,
+                                // while full descriptive copy remains on PDP.
+                                shortDescription:
+                                  mobileCatalogue
+                                    ? ""
+                                    : product.shortDescription,
+                                description:
+                                  mobileCatalogue
+                                    ? ""
+                                    : product.description,
                                 averageRating,
                                 totalReviews,
                                 reviewSummary:
