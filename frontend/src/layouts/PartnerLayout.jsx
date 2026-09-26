@@ -1,26 +1,52 @@
 import {
 
+
+
   useEffect,
 
+
+
   useState,
+
+
 
 } from "react";
 
 
 
+
+
+
+
 import {
+
+
 
   NavLink,
 
+
+
   Navigate,
+
+
 
   Outlet,
 
+
+
   useLocation,
+
+
 
   useNavigate,
 
+
+
 } from "react-router-dom";
+
+
+
+
 
 
 
@@ -28,11 +54,23 @@ import { useAuth } from "../context/AuthContext.jsx";
 
 
 
+
+
+
+
 import {
+
+
 
   StatusPill,
 
+
+
 } from "../components/partner/PartnerUI.jsx";
+
+
+
+
 
 
 
@@ -42,21 +80,43 @@ import logo from "../assets/images/logo_dark.jpeg";
 
 
 
+
+
+
+
+
+
 /* =========================================================
 
+
+
    TRANSPARENT LOGO
+
+
 
 ========================================================= */
 
 
 
+
+
+
+
 const useTransparentLogo = (source) => {
+
+
 
   const [
 
+
+
     processedLogo,
 
+
+
     setProcessedLogo,
+
+
 
   ] = useState(source);
 
@@ -64,13 +124,31 @@ const useTransparentLogo = (source) => {
 
 
 
+
+
+
+
+
+
   useEffect(() => {
+
+
 
     if (!source) {
 
+
+
       return;
 
+
+
     }
+
+
+
+
+
+
 
 
 
@@ -80,7 +158,13 @@ const useTransparentLogo = (source) => {
 
 
 
+
+
+
+
     const image =
+
+
 
       new Image();
 
@@ -88,41 +172,87 @@ const useTransparentLogo = (source) => {
 
 
 
+
+
+
+
+
+
     const isWhitePixel = (
+
+
 
       r,
 
+
+
       g,
+
+
 
       b
 
+
+
     ) => {
+
+
 
       const max =
 
+
+
         Math.max(
+
+
 
           r,
 
+
+
           g,
+
+
 
           b
 
+
+
         );
+
+
+
+
 
 
 
       const min =
 
+
+
         Math.min(
+
+
 
           r,
 
+
+
           g,
+
+
 
           b
 
+
+
         );
+
+
+
+
+
+
 
 
 
@@ -130,15 +260,27 @@ const useTransparentLogo = (source) => {
 
       return (
 
+
+
         r > 218 &&
+
+
 
         g > 218 &&
 
+
+
         b > 218 &&
+
+
 
         max - min < 28
 
+
+
       );
+
+
 
     };
 
@@ -146,17 +288,39 @@ const useTransparentLogo = (source) => {
 
 
 
+
+
+
+
+
+
     image.onload = () => {
+
+
 
       try {
 
+
+
         const canvas =
+
+
 
           document.createElement(
 
+
+
             "canvas"
 
+
+
           );
+
+
+
+
+
+
 
 
 
@@ -164,11 +328,19 @@ const useTransparentLogo = (source) => {
 
         canvas.width =
 
+
+
           image.naturalWidth;
 
 
 
+
+
+
+
         canvas.height =
+
+
 
           image.naturalHeight;
 
@@ -176,21 +348,47 @@ const useTransparentLogo = (source) => {
 
 
 
+
+
+
+
+
+
         const context =
+
+
 
           canvas.getContext(
 
+
+
             "2d",
+
+
 
             {
 
+
+
               willReadFrequently:
+
+
 
                 true,
 
+
+
             }
 
+
+
           );
+
+
+
+
+
+
 
 
 
@@ -198,7 +396,11 @@ const useTransparentLogo = (source) => {
 
         if (!context) {
 
+
+
           return;
+
+
 
         }
 
@@ -206,13 +408,27 @@ const useTransparentLogo = (source) => {
 
 
 
+
+
+
+
+
+
         context.drawImage(
+
+
 
           image,
 
+
+
           0,
 
+
+
           0
+
+
 
         );
 
@@ -220,19 +436,43 @@ const useTransparentLogo = (source) => {
 
 
 
+
+
+
+
+
+
         const imageData =
+
+
 
           context.getImageData(
 
-            0,
+
 
             0,
+
+
+
+            0,
+
+
 
             canvas.width,
 
+
+
             canvas.height
 
+
+
           );
+
+
+
+
+
+
 
 
 
@@ -240,17 +480,31 @@ const useTransparentLogo = (source) => {
 
         const data =
 
+
+
           imageData.data;
+
+
+
+
 
 
 
         const width =
 
+
+
           canvas.width;
 
 
 
+
+
+
+
         const height =
+
+
 
           canvas.height;
 
@@ -258,13 +512,29 @@ const useTransparentLogo = (source) => {
 
 
 
+
+
+
+
+
+
         const visited =
+
+
 
           new Uint8Array(
 
+
+
             width * height
 
+
+
           );
+
+
+
+
 
 
 
@@ -274,29 +544,63 @@ const useTransparentLogo = (source) => {
 
 
 
+
+
+
+
+
+
         const pushPixel = (
+
+
 
           x,
 
+
+
           y
+
+
 
         ) => {
 
+
+
           if (
+
+
 
             x < 0 ||
 
+
+
             y < 0 ||
+
+
 
             x >= width ||
 
+
+
             y >= height
+
+
 
           ) {
 
+
+
             return;
 
+
+
           }
+
+
+
+
+
+
 
 
 
@@ -304,7 +608,15 @@ const useTransparentLogo = (source) => {
 
           const pixelIndex =
 
+
+
             y * width + x;
+
+
+
+
+
+
 
 
 
@@ -312,17 +624,35 @@ const useTransparentLogo = (source) => {
 
           if (
 
+
+
             visited[
+
+
 
               pixelIndex
 
+
+
             ]
+
+
 
           ) {
 
+
+
             return;
 
+
+
           }
+
+
+
+
+
+
 
 
 
@@ -330,33 +660,67 @@ const useTransparentLogo = (source) => {
 
           const dataIndex =
 
+
+
             pixelIndex * 4;
+
+
+
+
 
 
 
           const r =
 
+
+
             data[dataIndex];
+
+
+
+
 
 
 
           const g =
 
+
+
             data[
+
+
 
               dataIndex + 1
 
+
+
             ];
+
+
+
+
 
 
 
           const b =
 
+
+
             data[
+
+
 
               dataIndex + 2
 
+
+
             ];
+
+
+
+
+
+
 
 
 
@@ -364,19 +728,35 @@ const useTransparentLogo = (source) => {
 
           if (
 
+
+
             !isWhitePixel(
+
+
 
               r,
 
+
+
               g,
+
+
 
               b
 
+
+
             )
+
+
 
           ) {
 
+
+
             return;
+
+
 
           }
 
@@ -384,9 +764,19 @@ const useTransparentLogo = (source) => {
 
 
 
+
+
+
+
+
+
           visited[
 
+
+
             pixelIndex
+
+
 
           ] = 1;
 
@@ -394,11 +784,23 @@ const useTransparentLogo = (source) => {
 
 
 
+
+
+
+
+
+
           queue.push(
+
+
 
             pixelIndex
 
+
+
           );
+
+
 
         };
 
@@ -406,35 +808,75 @@ const useTransparentLogo = (source) => {
 
 
 
+
+
+
+
+
+
         for (
+
+
 
           let x = 0;
 
+
+
           x < width;
+
+
 
           x += 1
 
+
+
         ) {
+
+
 
           pushPixel(
 
+
+
             x,
+
+
 
             0
 
+
+
           );
+
+
+
+
 
 
 
           pushPixel(
 
+
+
             x,
+
+
 
             height - 1
 
+
+
           );
 
+
+
         }
+
+
+
+
+
+
 
 
 
@@ -442,33 +884,67 @@ const useTransparentLogo = (source) => {
 
         for (
 
+
+
           let y = 0;
+
+
 
           y < height;
 
+
+
           y += 1
+
+
 
         ) {
 
+
+
           pushPixel(
+
+
 
             0,
 
+
+
             y
 
+
+
           );
+
+
+
+
 
 
 
           pushPixel(
 
+
+
             width - 1,
+
+
 
             y
 
+
+
           );
 
+
+
         }
+
+
+
+
+
+
 
 
 
@@ -480,17 +956,37 @@ const useTransparentLogo = (source) => {
 
 
 
+
+
+
+
+
+
         while (
+
+
 
           index <
 
+
+
           queue.length
+
+
 
         ) {
 
+
+
           const pixelIndex =
 
+
+
             queue[index];
+
+
+
+
 
 
 
@@ -500,21 +996,43 @@ const useTransparentLogo = (source) => {
 
 
 
+
+
+
+
+
+
           const x =
 
+
+
             pixelIndex %
+
+
 
             width;
 
 
 
+
+
+
+
           const y =
+
+
 
             Math.floor(
 
+
+
               pixelIndex /
 
+
+
                 width
+
+
 
             );
 
@@ -522,13 +1040,27 @@ const useTransparentLogo = (source) => {
 
 
 
+
+
+
+
+
+
           data[
+
+
 
             pixelIndex *
 
+
+
               4 +
 
+
+
               3
+
+
 
           ] = 0;
 
@@ -536,45 +1068,95 @@ const useTransparentLogo = (source) => {
 
 
 
+
+
+
+
+
+
           pushPixel(
+
+
 
             x + 1,
 
+
+
             y
+
+
 
           );
 
 
 
+
+
+
+
           pushPixel(
+
+
 
             x - 1,
 
+
+
             y
+
+
 
           );
 
 
 
+
+
+
+
           pushPixel(
 
+
+
             x,
+
+
 
             y + 1
 
+
+
           );
+
+
+
+
 
 
 
           pushPixel(
 
+
+
             x,
+
+
 
             y - 1
 
+
+
           );
 
+
+
         }
+
+
+
+
+
+
 
 
 
@@ -582,13 +1164,27 @@ const useTransparentLogo = (source) => {
 
         context.putImageData(
 
+
+
           imageData,
+
+
 
           0,
 
+
+
           0
 
+
+
         );
+
+
+
+
+
+
 
 
 
@@ -596,11 +1192,23 @@ const useTransparentLogo = (source) => {
 
         const transparent =
 
+
+
           canvas.toDataURL(
+
+
 
             "image/png"
 
+
+
           );
+
+
+
+
+
+
 
 
 
@@ -608,23 +1216,43 @@ const useTransparentLogo = (source) => {
 
         if (!cancelled) {
 
+
+
           setProcessedLogo(
+
+
 
             transparent
 
+
+
           );
+
+
 
         }
 
 
 
+
+
+
+
       } catch (error) {
+
+
 
         console.warn(
 
+
+
           "Partner logo transparency error:",
 
+
+
           error
+
+
 
         );
 
@@ -632,19 +1260,43 @@ const useTransparentLogo = (source) => {
 
 
 
+
+
+
+
+
+
         if (!cancelled) {
+
+
 
           setProcessedLogo(
 
+
+
             source
+
+
 
           );
 
+
+
         }
+
+
 
       }
 
+
+
     };
+
+
+
+
+
+
 
 
 
@@ -652,17 +1304,35 @@ const useTransparentLogo = (source) => {
 
     image.onerror = () => {
 
+
+
       if (!cancelled) {
+
+
 
         setProcessedLogo(
 
+
+
           source
+
+
 
         );
 
+
+
       }
 
+
+
     };
+
+
+
+
+
+
 
 
 
@@ -670,7 +1340,15 @@ const useTransparentLogo = (source) => {
 
     image.src =
 
+
+
       source;
+
+
+
+
+
+
 
 
 
@@ -678,11 +1356,19 @@ const useTransparentLogo = (source) => {
 
     return () => {
 
+
+
       cancelled =
+
+
 
         true;
 
+
+
     };
+
+
 
   }, [source]);
 
@@ -690,7 +1376,15 @@ const useTransparentLogo = (source) => {
 
 
 
+
+
+
+
+
+
   return processedLogo;
+
+
 
 };
 
@@ -698,29 +1392,59 @@ const useTransparentLogo = (source) => {
 
 
 
+
+
+
+
+
+
 /* =========================================================
 
+
+
    RESTRICTED PARTNER ROUTES
+
+
 
 ========================================================= */
 
 
 
+
+
+
+
 const restrictedPrefixes = [
+
+
 
   "/partner/projects",
 
+
+
   "/partner/showcases",
+
+
 
   "/partner/client-actions",
 
+
+
   "/partner/orders",
+
+
 
   "/partner/commissions",
 
+
+
   "/partner/payouts",
 
+
+
   "/partner/analytics",
+
+
 
 ];
 
@@ -728,23 +1452,47 @@ const restrictedPrefixes = [
 
 
 
+
+
+
+
+
+
 /* =========================================================
 
+
+
    PARTNER LAYOUT
+
+
 
 ========================================================= */
 
 
 
+
+
+
+
 const PartnerLayout = () => {
+
+
 
   const {
 
+
+
     user,
+
+
 
     partner,
 
+
+
     logout,
+
+
 
   } = useAuth();
 
@@ -752,13 +1500,27 @@ const PartnerLayout = () => {
 
 
 
+
+
+
+
+
+
   const navigate =
+
+
 
     useNavigate();
 
 
 
+
+
+
+
   const location =
+
+
 
     useLocation();
 
@@ -766,22 +1528,50 @@ const PartnerLayout = () => {
 
 
 
+
+
+
+
+
+
   const transparentLogo =
+
+
 
     useTransparentLogo(
 
+
+
       logo
+
+
 
     );
 
+
+
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+
+
   useEffect(() => {
+
     if (!mobileMenuOpen) return undefined;
+
     const previousOverflow = document.body.style.overflow;
+
     document.body.style.overflow = "hidden";
+
     return () => { document.body.style.overflow = previousOverflow; };
+
   }, [mobileMenuOpen]);
+
+
+
+
+
+
+
 
 
 
@@ -790,9 +1580,15 @@ const PartnerLayout = () => {
 
   useEffect(() => { setMobileMenuOpen(false); }, [location.pathname]);
 
+
+
   const approved =
 
+
+
     partner?.status ===
+
+
 
     "approved";
 
@@ -800,19 +1596,43 @@ const PartnerLayout = () => {
 
 
 
+
+
+
+
+
+
   const restricted =
+
+
 
     restrictedPrefixes.some(
 
+
+
       (prefix) =>
+
+
 
         location.pathname.startsWith(
 
+
+
           prefix
+
+
 
         )
 
+
+
     );
+
+
+
+
+
+
 
 
 
@@ -820,39 +1640,75 @@ const PartnerLayout = () => {
 
   /* ======================================================
 
+
+
      PENDING / NON-APPROVED ACCESS
+
+
 
   ====================================================== */
 
 
 
+
+
+
+
   if (
+
+
 
     !approved &&
 
+
+
     (
+
+
 
       location.pathname ===
 
+
+
         "/partner" ||
+
+
 
       restricted
 
+
+
     )
+
+
 
   ) {
 
+
+
     return (
+
+
 
       <Navigate
 
+
+
         to="/partner/status"
+
+
 
         replace
 
+
+
       />
 
+
+
     );
+
+
 
   }
 
@@ -860,17 +1716,35 @@ const PartnerLayout = () => {
 
 
 
+
+
+
+
+
+
   /* ======================================================
 
+
+
      LOGOUT
+
+
 
   ====================================================== */
 
 
 
+
+
+
+
   const handleLogout =
 
+
+
     async () => {
+
+
 
       await logout();
 
@@ -878,17 +1752,35 @@ const PartnerLayout = () => {
 
 
 
+
+
+
+
+
+
       navigate(
+
+
 
         "/partner/login",
 
+
+
         {
+
+
 
           replace: true,
 
+
+
         }
 
+
+
       );
+
+
 
     };
 
@@ -896,332 +1788,355 @@ const PartnerLayout = () => {
 
 
 
+
+
+
+
+
+
   return (
+
+
 
     <div
 
+
+
       className="
+
+
 
         min-h-screen
 
+
+
         bg-[#F7F6F3]
+
+
 
         text-[#171717]
 
 
 
+
+
+
+
         lg:grid
+
+
 
         lg:h-screen
 
+
+
         lg:min-h-0
+
+
 
         lg:grid-cols-[292px_minmax(0,1fr)]
 
+
+
         lg:overflow-hidden
 
+
+
       "
+
+
 
     >
 
 
 
+
+
+
+
       <div className="sticky top-0 z-40 flex h-[68px] items-center justify-between border-b border-black/[0.07] bg-[#FFFDF9]/95 px-3.5 shadow-[0_8px_30px_rgba(30,22,12,.06)] backdrop-blur-xl sm:px-5 lg:hidden">
-        <button type="button" onClick={() => navigate("/partner")} className="flex min-w-0 items-center gap-2.5 text-left">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-[14px] border border-[#D4AF37]/20 bg-[#171717] shadow-[0_7px_18px_rgba(0,0,0,.12)]">
-            <img src={transparentLogo} alt="HAMPORIUM" className="h-10 w-10 object-contain" />
+
+        <button type="button" onClick={() => navigate("/partner")} className="group flex min-w-0 items-center gap-2.5 text-left" aria-label="HAMPORIUM home">
+          <span className="flex h-[50px] w-[38px] shrink-0 items-center justify-center sm:h-[56px] sm:w-[46px]">
+            <img
+              src={transparentLogo}
+              alt=""
+              className="block h-full w-full object-contain transition duration-300 group-hover:scale-[1.025]"
+            />
           </span>
-          <span className="min-w-0"><strong className="block truncate font-serif text-[17px] font-semibold tracking-[0.08em] text-[#171717]">HAMPORIUM</strong><small className="mt-0.5 block truncate text-[8px] font-extrabold uppercase tracking-[0.18em] text-[#A77C26]">Partner Portal</small></span>
+          <span className="min-w-0">
+            <strong
+              style={{ fontFamily: "'Cormorant Garamond', Georgia, serif" }}
+              className="block truncate text-[19px] font-semibold leading-none tracking-[0.04em] text-[#252119] sm:text-[24px] sm:tracking-[0.065em]"
+            >
+              HAMPORIUM
+            </strong>
+            <small className="mt-[6px] block truncate text-[7.3px] font-medium leading-none tracking-[0.01em] text-[#71695D] sm:text-[8px] sm:tracking-[0.035em]">
+              The art of thoughtful gifting
+            </small>
+          </span>
         </button>
+
         <button type="button" onClick={() => setMobileMenuOpen(true)} aria-label="Open partner navigation" aria-expanded={mobileMenuOpen} className="flex h-11 w-11 shrink-0 flex-col items-center justify-center gap-[5px] rounded-[14px] border border-[#D4AF37]/25 bg-[#171717] text-white shadow-[0_8px_20px_rgba(0,0,0,.14)] transition active:scale-95">
+
           <span className="h-[1.5px] w-[18px] rounded-full bg-[#F4D574]"/><span className="h-[1.5px] w-[14px] translate-x-[2px] rounded-full bg-white"/><span className="h-[1.5px] w-[18px] rounded-full bg-[#F4D574]"/>
+
         </button>
+
       </div>
+
       {mobileMenuOpen && <button type="button" aria-label="Close navigation" onClick={() => setMobileMenuOpen(false)} className="fixed inset-0 z-40 bg-black/55 backdrop-blur-[2px] lg:hidden"/>}
+
+
 
       {/* ==================================================
 
+
+
           SIDEBAR
+
+
 
       =================================================== */}
 
 
 
+
+
+
+
       <aside
+
         onClickCapture={(event) => { if (event.target.closest("a[href]")) setMobileMenuOpen(false); }}
+
         className={`fixed inset-y-0 left-0 z-50 w-[min(88vw,326px)] min-w-0 overflow-y-auto bg-[#111111] text-white shadow-[28px_0_70px_rgba(0,0,0,.30)] transition-transform duration-300 ease-out [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:static lg:z-auto lg:h-screen lg:w-auto lg:translate-x-0 lg:shadow-none ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`}
+
       >
+
         <button type="button" onClick={() => setMobileMenuOpen(false)} aria-label="Close partner navigation" className="absolute right-3 top-3 z-20 flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-[22px] font-light leading-none text-white/70 lg:hidden">×</button>
+
+
+
+
 
 
 
         <div
 
+
+
           className="
+
+
 
             flex
 
+
+
             min-h-full
+
+
 
             flex-col
 
+
+
           "
+
+
 
         >
 
 
 
+
+
+
+
           {/* ==================================================
 
+
+
               BRAND
+
+
 
           =================================================== */}
 
 
 
+
+
+
+
           <button
+
+
 
             type="button"
 
+
+
             onClick={() =>
+
+
 
               navigate(
 
+
+
                 approved
+
+
 
                   ? "/partner"
 
+
+
                   : "/partner/status"
+
+
 
               )
 
+
+
             }
+
+
 
             className="
 
+
+
               group
+
+
 
               w-full
 
+
+
               shrink-0
+
+
 
               border-b
 
+
+
               border-white/[0.07]
+
+
 
               px-6
 
+
+
               py-5
+
+
 
               text-left
 
+
+
             "
+
+
 
           >
 
-
-
-            <div
-
-              className="
-
-                flex
-
-                items-center
-
-                gap-3
-
-              "
-
-            >
-
-
-
-              <img
-
-                src={
-
-                  transparentLogo
-
-                }
-
-                alt="HAMPORIUM"
-
-                className="
-
-                  h-[56px]
-
-                  w-[72px]
-
-                  shrink-0
-
-                  object-contain
-
-                  object-left
-
-                  drop-shadow-[0_2px_7px_rgba(0,0,0,0.22)]
-
-                  transition
-
-                  duration-300
-
-
-
-                  group-hover:scale-[1.025]
-
-                "
-
-              />
-
-
-
-
-
-              <div
-
-                className="
-
-                  min-w-0
-
-                  flex-1
-
-                "
-
-              >
-
-
-
-                <p
-
-                  className="
-
-                    font-serif
-
-                    text-[18px]
-
-                    font-semibold
-
-                    tracking-[0.12em]
-
-                    text-white
-
-                  "
-
+            <div className="flex items-center gap-[10px]">
+              <span className="flex h-[64px] w-[54px] shrink-0 items-center justify-center">
+                <img
+                  src={transparentLogo}
+                  alt=""
+                  className="block h-full w-full object-contain transition duration-300 group-hover:scale-[1.025]"
+                />
+              </span>
+              <span className="min-w-0">
+                <span
+                  style={{ fontFamily: "'Cormorant Garamond', Georgia, serif" }}
+                  className="block truncate text-[25px] font-semibold leading-none tracking-[0.065em] text-white"
                 >
-
                   HAMPORIUM
-
-                </p>
-
-
-
-
-
-                <div
-
-                  className="
-
-                    mt-1.5
-
-                    flex
-
-                    items-center
-
-                    gap-2
-
-                  "
-
-                >
-
-
-
-                  <span
-
-                    className="
-
-                      h-px
-
-                      w-5
-
-                      bg-[#D4AF37]
-
-                    "
-
-                  />
-
-
-
-
-
-                  <p
-
-                    className="
-
-                      text-[7px]
-
-                      font-bold
-
-                      uppercase
-
-                      tracking-[0.24em]
-
-                      text-[#D4AF37]
-
-                    "
-
-                  >
-
-                    Partner Portal
-
-                  </p>
-
-
-
-                </div>
-
-
-
-              </div>
-
-
-
+                </span>
+                <span className="mt-[7px] block truncate text-[9px] font-medium leading-none tracking-[0.035em] text-white/55">
+                  The art of thoughtful gifting
+                </span>
+              </span>
             </div>
 
-
-
-
+          
 
             {/* PARTNER INFO */}
 
 
 
+
+
+
+
             <div
+
+
 
               className="
 
+
+
                 mt-5
+
+
 
                 border-t
 
+
+
                 border-white/[0.06]
+
+
 
                 pt-4
 
+
+
               "
+
+
 
             >
 
 
 
+
+
+
+
               <StatusPill
+
+
 
                 value={
 
+
+
                   partner?.status
+
+
 
                 }
 
+
+
               />
+
+
+
+
+
+
 
 
 
@@ -1229,27 +2144,51 @@ const PartnerLayout = () => {
 
               <p
 
+
+
                 className="
+
+
 
                   mt-3
 
+
+
                   truncate
+
+
 
                   text-[12px]
 
+
+
                   font-bold
+
+
 
                   text-white/75
 
+
+
                 "
+
+
 
               >
 
+
+
                 {partner?.businessName ||
+
+
 
                   user?.name ||
 
+
+
                   "HAMPORIUM Partner"}
+
+
 
               </p>
 
@@ -1257,37 +2196,77 @@ const PartnerLayout = () => {
 
 
 
+
+
+
+
+
+
               {partner?.partnerId && (
+
+
 
                 <p
 
+
+
                   className="
+
+
 
                     mt-1
 
+
+
                     truncate
+
+
 
                     text-[9px]
 
+
+
                     font-medium
+
+
 
                     tracking-[0.04em]
 
+
+
                     text-white/30
+
+
 
                   "
 
+
+
                 >
+
+
 
                   {partner.partnerId}
 
+
+
                 </p>
+
+
 
               )}
 
 
 
+
+
+
+
             </div>
+
+
+
+
 
 
 
@@ -1297,45 +2276,91 @@ const PartnerLayout = () => {
 
 
 
+
+
+
+
+
+
           {/* ==================================================
 
+
+
               NAVIGATION
+
+
 
           =================================================== */}
 
 
 
+
+
+
+
           <nav
+
+
 
             className="
 
+
+
               flex-1
+
+
 
               pb-3
 
+
+
               pt-2
 
+
+
             "
+
+
 
           >
 
 
 
+
+
+
+
             {!approved ? (
+
+
 
               <>
 
 
 
+
+
+
+
                 <Section
+
+
 
                   number="01"
 
+
+
                   first
+
+
 
                 >
 
+
+
                   Application
+
+
 
                 </Section>
 
@@ -1343,15 +2368,31 @@ const PartnerLayout = () => {
 
 
 
+
+
+
+
+
+
                 <NavItem
+
+
 
                   end
 
+
+
                   to="/partner/status"
+
+
 
                   label="Application Status"
 
+
+
                   icon="◎"
+
+
 
                 />
 
@@ -1359,15 +2400,35 @@ const PartnerLayout = () => {
 
 
 
+
+
+
+
+
+
                 <NavItem
+
+
 
                   to="/partner/profile"
 
+
+
                   label="Partner Profile"
+
+
 
                   icon="◇"
 
+
+
                 />
+
+
+
+
+
+
 
 
 
@@ -1375,21 +2436,41 @@ const PartnerLayout = () => {
 
                 <NavItem
 
+
+
                   to="/partner/documents"
+
+
 
                   label="Verification Documents"
 
+
+
                   icon="▥"
 
+
+
                 />
+
+
+
+
 
 
 
               </>
 
+
+
             ) : (
 
+
+
               <>
+
+
+
+
 
 
 
@@ -1397,17 +2478,37 @@ const PartnerLayout = () => {
 
 
 
+
+
+
+
                 <NavItem
+
+
 
                   end
 
+
+
                   to="/partner"
+
+
 
                   label="Dashboard"
 
+
+
                   icon="◈"
 
+
+
                 />
+
+
+
+
+
+
 
 
 
@@ -1417,15 +2518,29 @@ const PartnerLayout = () => {
 
 
 
+
+
+
+
                 <Section
+
+
 
                   number="01"
 
+
+
                   first
+
+
 
                 >
 
+
+
                   Client Work
+
+
 
                 </Section>
 
@@ -1433,29 +2548,63 @@ const PartnerLayout = () => {
 
 
 
+
+
+
+
+
+
                 <NavItem
+
+
 
                   to="/partner/projects"
 
+
+
                   label="Projects"
+
+
 
                   icon="▤"
 
+
+
                 />
 
 
 
 
 
+
+
+
+
+
+
                 <NavItem
+
+
 
                   to="/partner/showcases"
 
+
+
                   label="Showcases"
+
+
 
                   icon="▣"
 
+
+
                 />
+
+
+
+
+
+
 
 
 
@@ -1463,13 +2612,27 @@ const PartnerLayout = () => {
 
                 <NavItem
 
+
+
                   to="/partner/client-actions"
+
+
 
                   label="Client Actions"
 
+
+
                   icon="✦"
 
+
+
                 />
+
+
+
+
+
+
 
 
 
@@ -1479,9 +2642,17 @@ const PartnerLayout = () => {
 
 
 
+
+
+
+
                 <Section number="02">
 
+
+
                   Commerce
+
+
 
                 </Section>
 
@@ -1489,29 +2660,63 @@ const PartnerLayout = () => {
 
 
 
+
+
+
+
+
+
                 <NavItem
+
+
 
                   to="/partner/orders"
 
+
+
                   label="Attributed Orders"
+
+
 
                   icon="□"
 
+
+
                 />
 
 
 
 
 
+
+
+
+
+
+
                 <NavItem
+
+
 
                   to="/partner/commissions"
 
+
+
                   label="Commissions"
+
+
 
                   icon="₹"
 
+
+
                 />
+
+
+
+
+
+
 
 
 
@@ -1519,13 +2724,27 @@ const PartnerLayout = () => {
 
                 <NavItem
 
+
+
                   to="/partner/payouts"
+
+
 
                   label="Payouts"
 
+
+
                   icon="↗"
 
+
+
                 />
+
+
+
+
+
+
 
 
 
@@ -1535,9 +2754,17 @@ const PartnerLayout = () => {
 
 
 
+
+
+
+
                 <Section number="03">
 
+
+
                   Business
+
+
 
                 </Section>
 
@@ -1545,29 +2772,63 @@ const PartnerLayout = () => {
 
 
 
+
+
+
+
+
+
                 <NavItem
+
+
 
                   to="/partner/analytics"
 
+
+
                   label="Analytics"
+
+
 
                   icon="⌁"
 
+
+
                 />
 
 
 
 
 
+
+
+
+
+
+
                 <NavItem
+
+
 
                   to="/partner/documents"
 
+
+
                   label="Documents"
+
+
 
                   icon="▥"
 
+
+
                 />
+
+
+
+
+
+
 
 
 
@@ -1575,19 +2836,37 @@ const PartnerLayout = () => {
 
                 <NavItem
 
+
+
                   to="/partner/profile"
+
+
 
                   label="Profile & Team"
 
+
+
                   icon="○"
 
+
+
                 />
+
+
+
+
 
 
 
               </>
 
+
+
             )}
+
+
+
+
 
 
 
@@ -1597,69 +2876,143 @@ const PartnerLayout = () => {
 
 
 
+
+
+
+
+
+
           {/* ==================================================
 
+
+
               PARTNER USER + ACTIONS
+
+
 
           =================================================== */}
 
 
 
+
+
+
+
           <div
+
+
 
             className="
 
+
+
               shrink-0
+
+
 
               border-t
 
+
+
               border-white/[0.07]
+
+
 
               px-6
 
+
+
               py-4
 
+
+
             "
+
+
 
           >
 
 
 
+
+
+
+
             <div
+
+
 
               className="
 
+
+
                 min-w-0
 
+
+
               "
+
+
 
             >
 
 
 
+
+
+
+
               <p
+
+
 
                 className="
 
+
+
                   truncate
+
+
 
                   font-serif
 
+
+
                   text-[14px]
+
+
 
                   font-semibold
 
+
+
                   text-white
+
+
 
                 "
 
+
+
               >
+
+
 
                 {user?.name ||
 
+
+
                   "Partner"}
 
+
+
               </p>
+
+
+
+
+
+
 
 
 
@@ -1667,25 +3020,49 @@ const PartnerLayout = () => {
 
               <p
 
+
+
                 className="
+
+
 
                   mt-1
 
+
+
                   truncate
+
+
 
                   text-[9px]
 
+
+
                   font-medium
+
+
 
                   text-white/35
 
+
+
                 "
+
+
 
               >
 
+
+
                 {user?.email}
 
+
+
               </p>
+
+
+
+
 
 
 
@@ -1695,69 +3072,143 @@ const PartnerLayout = () => {
 
 
 
+
+
+
+
+
+
             <div
+
+
 
               className="
 
+
+
                 mt-4
+
+
 
                 flex
 
+
+
                 gap-2
 
+
+
               "
+
+
 
             >
 
 
 
+
+
+
+
               <button
+
+
 
                 type="button"
 
+
+
                 onClick={() =>
+
+
 
                   navigate("/")
 
+
+
                 }
+
+
 
                 className="
 
+
+
                   flex-1
+
+
 
                   rounded-lg
 
+
+
                   border
+
+
 
                   border-white/10
 
+
+
                   px-3
+
+
 
                   py-2
 
+
+
                   text-[9px]
+
+
 
                   font-bold
 
+
+
                   text-white/55
 
+
+
                   transition
+
+
+
+
 
 
 
                   hover:border-[#D4AF37]/40
 
+
+
                   hover:bg-white/[0.04]
+
+
 
                   hover:text-white
 
+
+
                 "
+
+
 
               >
 
+
+
                 Store
 
+
+
               </button>
+
+
+
+
+
+
 
 
 
@@ -1765,55 +3216,109 @@ const PartnerLayout = () => {
 
               <button
 
+
+
                 type="button"
+
+
 
                 onClick={
 
+
+
                   handleLogout
+
+
 
                 }
 
+
+
                 className="
+
+
 
                   flex-1
 
+
+
                   rounded-lg
+
+
 
                   border
 
+
+
                   border-red-400/20
+
+
 
                   px-3
 
+
+
                   py-2
+
+
 
                   text-[9px]
 
+
+
                   font-bold
 
+
+
                   text-red-300
+
+
 
                   transition
 
 
 
+
+
+
+
                   hover:border-red-400/40
+
+
 
                   hover:bg-red-500/[0.08]
 
+
+
                   hover:text-red-200
+
+
 
                 "
 
+
+
               >
 
+
+
                 Logout
+
+
 
               </button>
 
 
 
+
+
+
+
             </div>
+
+
+
+
 
 
 
@@ -1821,7 +3326,15 @@ const PartnerLayout = () => {
 
 
 
+
+
+
+
         </div>
+
+
+
+
 
 
 
@@ -1831,43 +3344,89 @@ const PartnerLayout = () => {
 
 
 
+
+
+
+
+
+
       {/* ==================================================
 
+
+
           CONTENT
+
+
 
       =================================================== */}
 
 
 
+
+
+
+
       <main
+
+
 
         className="
 
+
+
           min-w-0
+
+
 
           bg-[#F7F6F3]
 
 
 
+
+
+
+
           lg:h-screen
+
+
 
           lg:overflow-y-auto
 
+
+
         "
+
+
 
       >
 
 
 
+
+
+
+
         <div
+
+
 
           className="
 
+
+
             w-full
+
+
 
             px-5
 
+
+
             py-6
+
+
+
+
 
 
 
@@ -1875,9 +3434,19 @@ const PartnerLayout = () => {
 
 
 
+
+
+
+
             lg:px-10
 
+
+
             lg:py-8
+
+
+
+
 
 
 
@@ -1885,15 +3454,31 @@ const PartnerLayout = () => {
 
 
 
+
+
+
+
             2xl:px-14
+
+
 
           "
 
+
+
         >
+
+
 
           <Outlet />
 
+
+
         </div>
+
+
+
+
 
 
 
@@ -1901,9 +3486,17 @@ const PartnerLayout = () => {
 
 
 
+
+
+
+
     </div>
 
+
+
   );
+
+
 
 };
 
@@ -1911,125 +3504,251 @@ const PartnerLayout = () => {
 
 
 
+
+
+
+
+
+
 /* =========================================================
 
+
+
    NAV ITEM
+
+
 
 ========================================================= */
 
 
 
+
+
+
+
 const NavItem = ({
+
+
 
   to,
 
+
+
   label,
+
+
 
   icon,
 
+
+
   end = false,
+
+
 
 }) => (
 
+
+
   <NavLink
+
+
 
     end={end}
 
+
+
     to={to}
+
+
 
     className={({
 
+
+
       isActive,
+
+
 
     }) =>
 
+
+
       `
+
+
 
         group
 
+
+
         relative
+
+
 
         flex
 
+
+
         min-h-[44px]
+
+
 
         items-center
 
+
+
         gap-3
+
+
 
         px-6
 
+
+
         text-[12px]
+
+
 
         font-semibold
 
+
+
         tracking-[0.01em]
 
+
+
         transition-all
+
+
 
         duration-200
 
 
 
+
+
+
+
         ${
+
+
 
           isActive
 
+
+
             ? "bg-white/[0.07] text-white"
+
+
 
             : "text-white/45 hover:bg-white/[0.04] hover:text-white"
 
+
+
         }
+
+
 
       `
 
+
+
     }
+
+
 
   >
 
 
 
+
+
+
+
     {({
+
+
 
       isActive,
 
+
+
     }) => (
+
+
 
       <>
 
 
 
+
+
+
+
         <span
+
+
 
           className={`
 
+
+
             absolute
+
+
 
             bottom-2
 
+
+
             left-0
+
+
 
             top-2
 
+
+
             w-[3px]
 
+
+
             rounded-r-full
+
+
 
             transition
 
 
 
+
+
+
+
             ${
+
+
 
               isActive
 
+
+
                 ? "bg-[#F97316]"
+
+
 
                 : "bg-transparent"
 
+
+
             }
 
+
+
           `}
+
+
 
         />
 
@@ -2037,49 +3756,103 @@ const NavItem = ({
 
 
 
+
+
+
+
+
+
         <span
+
+
 
           className={`
 
+
+
             flex
+
+
 
             h-7
 
+
+
             w-7
+
+
 
             shrink-0
 
+
+
             items-center
+
+
 
             justify-center
 
+
+
             rounded-lg
+
+
 
             border
 
+
+
             text-[12px]
+
+
 
             transition
 
 
 
+
+
+
+
             ${
+
+
 
               isActive
 
+
+
                 ? "border-[#F97316]/30 bg-[#F97316]/10 text-[#F97316]"
+
+
 
                 : "border-white/[0.06] text-white/25 group-hover:border-[#D4AF37]/20 group-hover:text-[#D4AF37]"
 
+
+
             }
+
+
 
           `}
 
+
+
         >
+
+
 
           {icon}
 
+
+
         </span>
+
+
+
+
+
+
 
 
 
@@ -2087,17 +3860,35 @@ const NavItem = ({
 
         <span
 
+
+
           className="
+
+
 
             truncate
 
+
+
           "
+
+
 
         >
 
+
+
           {label}
 
+
+
         </span>
+
+
+
+
+
+
 
 
 
@@ -2105,37 +3896,75 @@ const NavItem = ({
 
         {isActive && (
 
+
+
           <span
+
+
 
             className="
 
+
+
               ml-auto
+
+
 
               h-1.5
 
+
+
               w-1.5
+
+
 
               rounded-full
 
+
+
               bg-[#D4AF37]
+
+
 
             "
 
+
+
           />
+
+
 
         )}
 
 
 
+
+
+
+
       </>
+
+
 
     )}
 
 
 
+
+
+
+
   </NavLink>
 
+
+
 );
+
+
+
+
+
+
 
 
 
@@ -2143,73 +3972,147 @@ const NavItem = ({
 
 /* =========================================================
 
+
+
    SECTION
+
+
 
 ========================================================= */
 
 
 
+
+
+
+
 const Section = ({
+
+
 
   number,
 
+
+
   children,
+
+
 
   first = false,
 
+
+
 }) => (
+
+
 
   <div
 
+
+
     className={`
+
+
 
       mb-1.5
 
+
+
       flex
+
+
 
       items-center
 
+
+
       gap-3
+
+
 
       px-6
 
 
 
+
+
+
+
       ${
+
+
 
         first
 
+
+
           ? "mt-3"
+
+
 
           : "mt-5"
 
+
+
       }
 
+
+
     `}
+
+
 
   >
 
 
 
+
+
+
+
     <span
 
+
+
       className="
+
+
 
         font-serif
 
+
+
         text-[10px]
+
+
 
         italic
 
+
+
         text-[#D4AF37]/80
+
+
 
       "
 
+
+
     >
+
+
 
       {number}
 
+
+
     </span>
+
+
+
+
+
+
 
 
 
@@ -2217,25 +4120,47 @@ const Section = ({
 
     <span
 
+
+
       className="
+
+
 
         whitespace-nowrap
 
+
+
         text-[8px]
+
+
 
         font-bold
 
+
+
         uppercase
+
+
 
         tracking-[0.22em]
 
+
+
         text-white/25
+
+
 
       "
 
+
+
     >
 
+
+
       {children}
+
+
 
     </span>
 
@@ -2243,25 +4168,55 @@ const Section = ({
 
 
 
+
+
+
+
+
+
     <span
+
+
 
       className="
 
+
+
         h-px
+
+
 
         flex-1
 
+
+
         bg-white/[0.07]
 
+
+
       "
+
+
 
     />
 
 
 
+
+
+
+
   </div>
 
+
+
 );
+
+
+
+
+
+
 
 
 
