@@ -87,6 +87,7 @@ const MasterControl = () => {
   const [items, setItems] = useState([]);
   const [itemsLoading, setItemsLoading] = useState(true);
   const [selectedId, setSelectedId] = useState("");
+  const [selectedEntityType, setSelectedEntityType] = useState("product");
   const [selectedItem, setSelectedItem] = useState(null);
   const [masterState, setMasterState] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -145,11 +146,16 @@ const MasterControl = () => {
 
       if (!keepSelection || !rows.some((row) => String(row._id) === String(selectedId))) {
         const nextId = rows[0]?._id || "";
+        setSelectedEntityType(entityType);
         setSelectedId(nextId);
         if (!nextId) {
           setSelectedItem(null);
           setMasterState(null);
+          setSkuSafety(null);
+          setSafetyControl(emptySafetyControl);
         }
+      } else {
+        setSelectedEntityType(entityType);
       }
     } catch (requestError) {
       setError(requestError.response?.data?.message || "Unable to load catalogue items.");
@@ -174,7 +180,17 @@ const MasterControl = () => {
         setSafetyControl(emptySafetyControl);
       }
     } catch (requestError) {
-      setError(requestError.response?.data?.message || "Unable to load this item.");
+      if (requestError.response?.status === 404) {
+        setSelectedId("");
+        setSelectedItem(null);
+        setMasterState(null);
+        setSkuSafety(null);
+        setSafetyControl(emptySafetyControl);
+        setMessage("That catalogue item is no longer available. The list was refreshed.");
+        await loadItems({ keepSelection: false });
+      } else {
+        setError(requestError.response?.data?.message || "Unable to load this item.");
+      }
     } finally {
       setDetailLoading(false);
     }
@@ -241,15 +257,23 @@ const MasterControl = () => {
   }, []);
 
   useEffect(() => {
+    // Keep the selected entity type tied to the selected ID. Without this,
+    // switching Product -> SKU can briefly request the old product ID as a SKU
+    // before React applies setSelectedId("") and produce a false 404.
+    setSelectedEntityType(entityType);
     setSelectedId("");
     setSelectedItem(null);
     setMasterState(null);
+    setSkuSafety(null);
+    setSafetyControl(emptySafetyControl);
     void loadItems({ keepSelection: false });
   }, [entityType, entityState]);
 
   useEffect(() => {
-    if (selectedId) void loadItemDetail(entityType, selectedId);
-  }, [selectedId]);
+    if (selectedId && selectedEntityType === entityType) {
+      void loadItemDetail(selectedEntityType, selectedId);
+    }
+  }, [selectedId, selectedEntityType, entityType]);
 
   useEffect(() => {
     if (tab !== "promotion" || promotionForm.scopeMode === "all") {
@@ -363,6 +387,7 @@ const MasterControl = () => {
         `/promotions/admin/master/items/${entityType}/${selectedItem._id}`
       );
       setMessage(response.data?.message || "Item deleted.");
+      setSelectedEntityType(entityType);
       setSelectedId("");
       setSelectedItem(null);
       await loadItems({ keepSelection: false });
@@ -605,7 +630,10 @@ const MasterControl = () => {
                     item={item}
                     type={entityType}
                     active={String(item._id) === String(selectedId)}
-                    onClick={() => setSelectedId(item._id)}
+                    onClick={() => {
+                      setSelectedEntityType(entityType);
+                      setSelectedId(item._id);
+                    }}
                   />
                 ))}
                 {!items.length && !itemsLoading ? (

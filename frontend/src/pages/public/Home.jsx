@@ -4118,7 +4118,7 @@ const Home = () => {
 
         <PromotionHomeBanner
           promotions={websitePromotions}
-          visible={introFinished}
+          visible
         />
 
         {/* ==================================================
