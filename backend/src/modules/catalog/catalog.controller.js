@@ -4801,7 +4801,17 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
 
 export const getComponents = asyncHandler(async (req, res) => {
   disableCatalogCaching(res);
-  const { search, type, category, subcategory, segment, channel, hamperRole } = req.query;
+
+  const {
+    search,
+    type,
+    category,
+    subcategory,
+    segment,
+    channel,
+    hamperRole,
+  } = req.query;
+
   const filter = {
     isActive: true,
     customerSelectable: true,
@@ -4815,9 +4825,16 @@ export const getComponents = asyncHandler(async (req, res) => {
         message: "Invalid public component type",
       });
     }
+
     filter.type = type;
   }
 
+  /*
+   * CustomHamper loads /catalog/components without a hamperRole query and
+   * separates content vs decoration on the frontend. The default response
+   * therefore needs to include both selectable gift content and selectable
+   * decorations.
+   */
   if (hamperRole) {
     if (!HAMPER_ROLES.includes(hamperRole)) {
       return res.status(400).json({
@@ -4841,13 +4858,18 @@ export const getComponents = asyncHandler(async (req, res) => {
       ];
     }
   } else {
-    filter.hamperUse = { $ne: false };
     filter.$and = [
       {
         $or: [
-          { hamperRole: "content" },
-          { hamperRole: { $exists: false } },
-          { hamperRole: null },
+          { hamperRole: "decoration" },
+          {
+            hamperUse: { $ne: false },
+            $or: [
+              { hamperRole: "content" },
+              { hamperRole: { $exists: false } },
+              { hamperRole: null },
+            ],
+          },
         ],
       },
     ];
@@ -4855,8 +4877,12 @@ export const getComponents = asyncHandler(async (req, res) => {
 
   if (channel) {
     if (!CHANNEL_KEYS.includes(channel)) {
-      return res.status(400).json({ success: false, message: "Invalid channel" });
+      return res.status(400).json({
+        success: false,
+        message: "Invalid channel",
+      });
     }
+
     filter[`channels.${channel}`] = true;
   }
 
@@ -4866,6 +4892,7 @@ export const getComponents = asyncHandler(async (req, res) => {
 
   if (search?.trim()) {
     const safeSearch = escapeRegex(search.trim());
+
     filter.$or = [
       { name: { $regex: safeSearch, $options: "i" } },
       { code: { $regex: safeSearch, $options: "i" } },
@@ -4873,6 +4900,7 @@ export const getComponents = asyncHandler(async (req, res) => {
       { category: { $regex: safeSearch, $options: "i" } },
       { subcategory: { $regex: safeSearch, $options: "i" } },
       { segment: { $regex: safeSearch, $options: "i" } },
+      { decorationType: { $regex: safeSearch, $options: "i" } },
     ];
   }
 
@@ -4902,7 +4930,11 @@ export const getComponents = asyncHandler(async (req, res) => {
     };
   });
 
-  res.status(200).json({ success: true, components: publicComponents });
+  return res.status(200).json({
+    success: true,
+    count: publicComponents.length,
+    components: publicComponents,
+  });
 });
 
 export const getContainers = asyncHandler(async (req, res) => {
@@ -7500,6 +7532,7 @@ export const deleteSKU = asyncHandler(async (req, res) => {
   const sku = await SKU.findById(skuId);
   if (!sku) {
     return res.status(404).json({ success: false, message: "SKU not found" });
+    
   }
 
   const productId = sku.product;

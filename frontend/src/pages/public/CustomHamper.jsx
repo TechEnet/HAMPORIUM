@@ -102,9 +102,6 @@ const taxLabel = (item) => {
   return rate > 0 ? `Includes ${rate}% GST` : "GST included";
 };
 
-const roleOf = (component) =>
-  component?.hamperRole === "decoration" ? "decoration" : "content";
-
 const PERSONALIZATION_ASSET_OPTIONS = [
   { value: "logo", label: "Logo" },
   { value: "icon", label: "Icon / mark" },
@@ -155,7 +152,8 @@ const CustomHamper = () => {
     : "other";
 
   const [containers, setContainers] = useState([]);
-  const [components, setComponents] = useState([]);
+  const [contentComponents, setContentComponents] = useState([]);
+  const [decorativeComponents, setDecorativeComponents] = useState([]);
   const [containerId, setContainerId] = useState("");
   const [selectedItems, setSelectedItems] = useState([]);
   const [selectedDecorations, setSelectedDecorations] = useState([]);
@@ -192,17 +190,6 @@ const CustomHamper = () => {
   const [bulkDeliveryLocations, setBulkDeliveryLocations] = useState("");
   const [bulkNotes, setBulkNotes] = useState("");
   const [requestingQuote, setRequestingQuote] = useState(false);
-
-  const contentComponents = useMemo(
-    () => components.filter((component) => roleOf(component) === "content"),
-    [components]
-  );
-
-  const decorativeComponents = useMemo(
-    () =>
-      components.filter((component) => roleOf(component) === "decoration"),
-    [components]
-  );
 
   const contentMap = useMemo(
     () =>
@@ -524,20 +511,38 @@ const CustomHamper = () => {
       setError("");
 
       try {
-        const suffix = channel
+        const containerSuffix = channel
           ? `?channel=${encodeURIComponent(channel)}`
           : "";
 
-        const [containerResponse, componentResponse] = await Promise.all([
-          api.get(`/catalog/containers${suffix}`),
-          api.get(`/catalog/components${suffix}`),
+        const buildComponentUrl = (hamperRole) => {
+          const params = new URLSearchParams({ hamperRole });
+
+          if (channel) {
+            params.set("channel", channel);
+          }
+
+          return `/catalog/components?${params.toString()}`;
+        };
+
+        const [
+          containerResponse,
+          contentResponse,
+          decorationResponse,
+        ] = await Promise.all([
+          api.get(`/catalog/containers${containerSuffix}`),
+          api.get(buildComponentUrl("content")),
+          api.get(buildComponentUrl("decoration")),
         ]);
 
         const loadedContainers = containerResponse.data.containers || [];
-        const loadedComponents = componentResponse.data.components || [];
+        const loadedContentComponents = contentResponse.data.components || [];
+        const loadedDecorativeComponents =
+          decorationResponse.data.components || [];
 
         setContainers(loadedContainers);
-        setComponents(loadedComponents);
+        setContentComponents(loadedContentComponents);
+        setDecorativeComponents(loadedDecorativeComponents);
         setContainerId(loadedContainers[0]?._id || "");
         setSelectedItems([]);
         setSelectedDecorations([]);

@@ -20,7 +20,6 @@ import {
 
 import heroVideo from "../../assets/hmp.mp4";
 import hamperOneLuxury from "../../assets/images/hamper_one_luxury.webp";
-import reviewsLuxuryBg from "../../assets/images/reviews_luxury_bg.webp";
 import storyImg1 from "../../assets/images/img1.png";
 import storyImg2 from "../../assets/images/img2.png";
 import storyImg3 from "../../assets/images/img3.png";
@@ -195,11 +194,6 @@ const FALLBACK_PRODUCTS = [
 ];
 
 // ======================================================
-// REVIEW DATA
-// Customer testimonials are rendered only from the public reviews endpoint.
-// ======================================================
-
-// ======================================================
 // HOMEPAGE INTERACTION OPTIONS
 // ======================================================
 
@@ -278,7 +272,6 @@ const HOME_SECTION_NAV = [
   { id: "hamper-one", label: "HAMPER ONE" },
   { id: "brand", label: "Brand Story" },
   { id: "bulk", label: "Bulk Gifting" },
-  { id: "reviews", label: "Reviews" },
   { id: "finale", label: "Finale" },
 ];
 
@@ -319,8 +312,6 @@ const Home = () => {
   const [loading, setLoading] = useState(true);
   const [catalogueError, setCatalogueError] = useState("");
   const [catalogueAttempt, setCatalogueAttempt] = useState(0);
-  const [customerReviews, setCustomerReviews] = useState([]);
-  const [reviewsLoading, setReviewsLoading] = useState(true);
   const [introFinished, setIntroFinished] = useState(false);
   const [activeHomeSection, setActiveHomeSection] = useState("journey");
   const [giftRevealActive, setGiftRevealActive] = useState(false);
@@ -353,83 +344,6 @@ const Home = () => {
     return () => { active = false; controller.abort(); };
   }, [catalogueAttempt]);
 
-  useEffect(() => {
-    let active = true;
-    const controller = new AbortController();
-
-    setReviewsLoading(true);
-
-    api.get("/reviews/homepage", {
-      signal: controller.signal,
-      timeout: 12000,
-    })
-      .then((response) => {
-        if (!active) return;
-
-        const payload = response.data || {};
-        const rows =
-          payload.reviews ||
-          payload.items ||
-          payload.data?.reviews ||
-          payload.data?.items ||
-          (Array.isArray(payload.data) ? payload.data : []);
-
-        const reviews = (Array.isArray(rows) ? rows : [])
-          .slice(0, 6)
-          .map((review, index) => {
-            const message = String(
-              review.comment ||
-              review.review ||
-              review.content ||
-              review.message ||
-              review.text ||
-              ""
-            ).trim();
-
-            const rating = Number(review.rating);
-            const context =
-              review.targetName ||
-              review.product?.name ||
-              (review.targetType === "custom_hamper"
-                ? "Custom Hamper"
-                : "HAMPORIUM Hamper");
-
-            return {
-              ...review,
-              id: String(review._id || review.id || `homepage-review-${index}`),
-              displayMessage: message,
-              name:
-                review.user?.name ||
-                review.customer?.name ||
-                review.userName ||
-                review.name ||
-                "HAMPORIUM customer",
-              context,
-              productSlug: review.product?.slug || "",
-              rating:
-                Number.isFinite(rating) && rating >= 1 && rating <= 5
-                  ? rating
-                  : null,
-            };
-          })
-          .filter((review) => review.displayMessage);
-
-        setCustomerReviews(reviews);
-      })
-      .catch((error) => {
-        if (active && error?.code !== "ERR_CANCELED") {
-          setCustomerReviews([]);
-        }
-      })
-      .finally(() => {
-        if (active) setReviewsLoading(false);
-      });
-
-    return () => {
-      active = false;
-      controller.abort();
-    };
-  }, []);
 
   useEffect(() => () => window.clearTimeout(giftRevealTimerRef.current), []);
 
@@ -1837,16 +1751,19 @@ const Home = () => {
             position: relative;
             isolation: isolate;
             overflow: visible !important;
+            background: #090807;
           }
 
-          .hp-story-page {
-            --hp-story-cut:
-              clamp(
-                52px,
-                5.2vw,
-                96px
-              );
+          /*
+            Smooth sticky hand-off + original diagonal editorial cut.
 
+            IMPORTANT: the sticky page itself stays rectangular and transparent.
+            The diagonal clip lives on an inner painted sheet instead. This keeps
+            the original diagonal reveal while avoiding the common sticky +
+            clip-path compositor flicker that caused the image to glitch.
+          */
+          .hp-story-page {
+            --hp-story-cut: clamp(52px, 5.2vw, 96px);
             position: sticky !important;
             position: -webkit-sticky !important;
             top: 0;
@@ -1855,130 +1772,108 @@ const Home = () => {
             height: 100svh;
             min-height: 100vh;
             min-height: 100svh;
-            overflow: hidden;
-
-            /*
-              The incoming page now has a diagonal top edge
-              instead of a flat horizontal line.
-            */
-            clip-path:
-              polygon(
-                0 var(--hp-story-cut),
-                100% 0,
-                100% 100%,
-                0 100%
-              );
-            -webkit-clip-path:
-              polygon(
-                0 var(--hp-story-cut),
-                100% 0,
-                100% 100%,
-                0 100%
-              );
-
-            transform: none !important;
+            overflow: visible;
+            isolation: isolate;
+            background: transparent !important;
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+            transform: translate3d(0,0,0);
+            -webkit-transform: translate3d(0,0,0);
             opacity: 1 !important;
             transition: none !important;
           }
 
+          .hp-story-page:nth-child(1) { z-index: 10; }
+          .hp-story-page:nth-child(2) { z-index: 20; }
+          .hp-story-page:nth-child(3) { z-index: 30; }
+
           /*
-            PAGE 1 = clean full-screen canvas.
-            No diagonal cut here, otherwise the clipped corner
-            exposes the story-stack background before another page
-            has arrived and looks like an empty black wedge.
+            The visual sheet is the only clipped layer. Keeping clip-path off the
+            sticky element makes Chrome/Edge/Safari much more stable during fast
+            scroll and trackpad momentum.
           */
-          .hp-story-page:nth-child(1) {
-            z-index: 10;
+          .hp-story-sheet {
+            position: absolute;
+            inset: 0;
+            overflow: hidden;
+            isolation: isolate;
+            contain: paint;
+            background: #000;
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+            transform: translate3d(0,0,0);
+            -webkit-transform: translate3d(0,0,0);
             clip-path: none;
             -webkit-clip-path: none;
           }
 
-          /*
-            PAGE 2 + PAGE 3 are the incoming editorial sheets.
-            These keep the diagonal top edge while sliding over
-            the page underneath.
-          */
-          .hp-story-page:nth-child(2) {
-            z-index: 20;
+          .hp-story-page:nth-child(n+2) .hp-story-sheet {
+            clip-path: polygon(
+              0 var(--hp-story-cut),
+              100% 0,
+              100% 100%,
+              0 100%
+            );
+            -webkit-clip-path: polygon(
+              0 var(--hp-story-cut),
+              100% 0,
+              100% 100%,
+              0 100%
+            );
           }
 
-          .hp-story-page:nth-child(3) {
-            z-index: 30;
-          }
-
-          /*
-            A small top shadow on the incoming page makes the
-            bottom-to-top cover feel more cinematic without
-            adding expensive scroll-linked JS animation.
-          */
-          .hamporium-home {
-            overflow: visible;
-          }
-
-          /*
-            Thin gold diagonal edge.
-            This makes each incoming page feel like a premium
-            editorial "sheet" sliding over the previous page.
-          */
-          .hp-story-page::before {
+          /* Keep the original gold diagonal edge on incoming pages. */
+          .hp-story-sheet::before {
             content: "";
             position: absolute;
             inset: 0;
             z-index: 12;
             pointer-events: none;
-            background:
-              linear-gradient(
-                90deg,
-                rgba(244,120,34,.95),
-                rgba(212,175,55,.92),
-                rgba(255,231,157,.62)
-              );
-            clip-path:
-              polygon(
-                0 var(--hp-story-cut),
-                100% 0,
-                100% 3px,
-                0 calc(var(--hp-story-cut) + 3px)
-              );
-            -webkit-clip-path:
-              polygon(
-                0 var(--hp-story-cut),
-                100% 0,
-                100% 3px,
-                0 calc(var(--hp-story-cut) + 3px)
-              );
+            background: linear-gradient(
+              90deg,
+              rgba(244,120,34,.95),
+              rgba(212,175,55,.92),
+              rgba(255,231,157,.62)
+            );
+            clip-path: polygon(
+              0 var(--hp-story-cut),
+              100% 0,
+              100% 3px,
+              0 calc(var(--hp-story-cut) + 3px)
+            );
+            -webkit-clip-path: polygon(
+              0 var(--hp-story-cut),
+              100% 0,
+              100% 3px,
+              0 calc(var(--hp-story-cut) + 3px)
+            );
             opacity: .92;
           }
 
-          /*
-            Soft shadow just below the diagonal edge.
-            No scroll-linked JS, so the sticky stack stays smooth.
-          */
-          .hp-story-page::after {
+          /* Soft depth under the diagonal edge, matching the original look. */
+          .hp-story-sheet::after {
             content: "";
             position: absolute;
             inset: 0;
             z-index: 8;
             pointer-events: none;
-            background:
-              linear-gradient(
-                177deg,
-                rgba(0,0,0,.28) 0%,
-                rgba(0,0,0,.12) 5%,
-                transparent 12%
-              );
+            background: linear-gradient(
+              177deg,
+              rgba(0,0,0,.28) 0%,
+              rgba(0,0,0,.12) 5%,
+              transparent 12%
+            );
             opacity: .72;
           }
 
-          /*
-            First story page has no incoming edge treatment.
-            The diagonal title-sheet effect begins with page 2.
-          */
-          .hp-story-page:nth-child(1)::before,
-          .hp-story-page:nth-child(1)::after {
+          .hp-story-page:nth-child(1) .hp-story-sheet::before,
+          .hp-story-page:nth-child(1) .hp-story-sheet::after {
             display: none;
           }
 
+          .hamporium-home {
+            overflow: visible;
+          }
 
           .hp-story-image {
             backface-visibility: hidden;
@@ -1986,20 +1881,17 @@ const Home = () => {
             width: 100%;
             height: 100%;
             object-fit: cover;
-            transform:
-              translateZ(0)
-              scale(1);
-            transform-origin:
-              center center;
-            will-change: auto;
-            transition: none;
+            transform: translate3d(0,0,0) scale(1.001);
+            -webkit-transform: translate3d(0,0,0) scale(1.001);
+            transform-origin: center center;
+            will-change: transform;
+            transition: none !important;
+            image-rendering: auto;
           }
 
           .hp-story-page:hover
           .hp-story-image {
-            transform:
-              translateZ(0)
-              scale(1);
+            transform: translate3d(0,0,0) scale(1.001);
           }
 
           .hp-journey-base,
@@ -2047,30 +1939,14 @@ const Home = () => {
 
           @media (max-width: 1023px) {
             .hp-story-page {
-              --hp-story-cut:
-                clamp(
-                  34px,
-                  8vw,
-                  58px
-                );
-
-              height: 100vh;
               height: 100svh;
-              min-height: 100vh;
               min-height: 100svh;
             }
 
-            .hp-story-image {
-              transform:
-                translateZ(0)
-                scale(1);
-            }
-
-            .hp-story-page:hover
-            .hp-story-image {
-              transform:
-                translateZ(0)
-                scale(1);
+            .hp-story-image,
+            .hp-story-page:hover .hp-story-image {
+              transform: translate3d(0,0,0) scale(1.001);
+              -webkit-transform: translate3d(0,0,0) scale(1.001);
             }
 
             .hp-journey-grid > a:hover
@@ -3203,7 +3079,17 @@ const Home = () => {
           .hp-home-v65 .hp-hamper-one-image {
             clip-path: none; -webkit-clip-path: none; will-change: auto;
           }
-          .hp-home-v65 .hp-story-image { will-change: auto; }
+          .hp-home-v65 .hp-story-image {
+            will-change: transform;
+            transform: translate3d(0,0,0) scale(1.001);
+            -webkit-transform: translate3d(0,0,0) scale(1.001);
+          }
+          .hp-home-v65 .hp-story-page {
+            transform: translateZ(0);
+            -webkit-transform: translateZ(0);
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+          }
           .hp-home-v65 .hp-concierge-card.is-active { animation: none; }
           .hp-home-v65 .hp-concierge-card {
             transition: transform .7s var(--hp-motion-ease), border-color .4s ease, box-shadow .4s ease;
@@ -3359,37 +3245,6 @@ const Home = () => {
           .hp-quick-continue { display:block; min-height:44px; margin:8px auto 0; color:#776a59; background:transparent; border:0; font-size:12px; }
           .hp-quick-close { position:absolute; top:12px; right:12px; z-index:3; display:grid; place-items:center; width:42px; height:42px; border-radius:50%; background:#fffdf8; border:1px solid #ddd0bc; color:#3a2b20; }
 
-          /* Customer reviews: real content, stable controls and pausable rotation. */
-          .hp-home-v65 .hp-reviews-interactive { min-width:0; width:100%; max-width:800px; margin-inline:auto; }
-          .hp-home-v65 .hp-review-surface, .hp-home-v65 .hp-review-loading, .hp-home-v65 .hp-review-empty {
-            border:1px solid #d4af3759; border-radius:24px; background:linear-gradient(135deg,#17120bd9,#0c0b09db);
-            padding:clamp(28px,3.5vw,52px); min-height:360px; box-shadow:0 18px 60px #0003;
-          }
-          .hp-home-v65 .hp-review-loading { background:#1f1b14; }
-          .hp-home-v65 .hp-review-content { position:relative; animation:hpQuickOpen .55s var(--hp-motion-ease); }
-          .hp-home-v65 .hp-review-quote-mark { position:absolute; top:-35px; right:0; color:#e7c66622; font:170px/1 Georgia,serif; pointer-events:none; }
-          .hp-home-v65 .hp-review-stars { display:flex; justify-content:center; gap:6px; color:#e8c766; font-size:20px; }
-          .hp-home-v65 .hp-review-stars .is-empty { opacity:.22; }
-          .hp-home-v65 .hp-review-content blockquote { position:relative; max-height:320px; overflow:auto; margin:24px 0; color:#fff3dc; text-align:center; font:600 clamp(26px,2.4vw,42px)/1.16 'Cormorant Garamond',Georgia,serif; }
-          .hp-home-v65 .hp-review-person { display:flex; justify-content:center; gap:14px; align-items:center; }
-          .hp-home-v65 .hp-review-person > span { width:46px; height:46px; border:1px solid #d4af375e; border-radius:50%; display:grid; place-items:center; color:#eccd76; background:#d4af3712; font-weight:750; flex-shrink:0; }
-          .hp-home-v65 .hp-review-person p { font-size:14px; font-weight:700; color:#fff6e9; }
-          .hp-home-v65 .hp-review-person small { display:block; margin-top:4px; color:#c5bba9; font-size:11px; }
-          .hp-home-v65 .hp-review-navigation { margin-top:20px; display:flex; align-items:center; justify-content:center; gap:10px; }
-          .hp-home-v65 .hp-review-navigation > button { width:44px; height:44px; display:grid; place-items:center; border:1px solid #dfba6052; border-radius:50%; background:#141008a3; color:#f3d581; }
-          .hp-home-v65 .hp-review-navigation > button:hover { background:#d4af3729; }
-          .hp-home-v65 .hp-review-navigation > button:disabled { opacity:.28; }
-          .hp-home-v65 .hp-review-index { margin-right:5px; font-size:12px; color:#f7dda0; }
-          .hp-home-v65 .hp-review-index > span { color:#c2b7a3; }
-          .hp-home-v65 .hp-review-dots { display:flex; align-items:center; }
-          .hp-home-v65 .hp-review-dots button { width:28px; height:44px; display:grid; place-items:center; background:none; border:0; }
-          .hp-home-v65 .hp-review-dots button > span { width:6px; height:6px; background:#e3d6bc66; border-radius:99px; transition:width .35s ease, background .35s ease; }
-          .hp-home-v65 .hp-review-dots button[aria-pressed="true"] > span { width:20px; background:#e7c365; }
-          .hp-home-v65 .hp-review-empty > span { color:#e5c462; }
-          .hp-home-v65 .hp-review-empty h3 { color:#fff0d2; margin:18px 0; font:600 38px/1.1 'Cormorant Garamond',Georgia,serif; }
-          .hp-home-v65 .hp-review-empty p { color:#d0c4ae; font-size:14px; line-height:1.8; }
-          .hp-home-v65 .hp-review-empty a { min-height:44px; display:inline-flex; gap:22px; align-items:center; color:#f4d887; margin-top:20px; font-size:13px; font-weight:700; }
-
           @media (min-width:1024px) {
             .hp-home-v65 .hp-rail-mobile-only { display:none; }
             .hp-home-v65 .hp-journey-grid > a { min-width:0; }
@@ -3428,9 +3283,6 @@ const Home = () => {
             .hp-home-v65 .hp-budget-steps button { font-size:12px; }
             .hp-home-v65 .hp-concierge-selection > span:first-child { display:block; margin-bottom:4px; }
             .hp-home-v65 .hp-concierge-cta { width:100%; }
-            .hp-home-v65 .hp-review-surface { min-height:350px; padding:28px 22px; }
-            .hp-home-v65 .hp-review-dots { display:none; }
-            .hp-home-v65 .hp-review-content blockquote { font-size:30px; }
             .hp-home-quick-dialog { width:calc(100vw - 24px); max-height:calc(100dvh - 24px); border-radius:14px; }
             .hp-quick-layout { grid-template-columns:1fr; }
             .hp-quick-photo { height:250px; padding:14px; }
@@ -3873,7 +3725,6 @@ const Home = () => {
 
           .hp-home-v65 .hp-bestseller-title { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; overflow-wrap:anywhere; }
           .hp-quick-copy h2 { overflow-wrap:anywhere; }
-          .hp-home-v65 .hp-review-content blockquote:focus-visible { outline:2px solid #D4AF37; outline-offset:6px; }
 
         `}
       </style>
@@ -4785,96 +4636,99 @@ const Home = () => {
           ].map((item, index) => (
             <div
               key={item.kicker}
-              className="hp-story-page group relative overflow-hidden bg-black"
+              className="hp-story-page group relative"
             >
-              <SmartImage
-                src={item.image}
-                alt={`${item.titleLines.join(" ")} ${item.accentLines.join(" ")}`}
-                loading="lazy"
-                fetchPriority="low"
-                style={{
-                  objectPosition:
-                    item.objectPosition,
-                }}
-                className="hp-story-image absolute inset-0 h-full w-full object-cover"
-              />
+              <div className="hp-story-sheet">
+                <SmartImage
+                  src={item.image}
+                  alt={`${item.titleLines.join(" ")} ${item.accentLines.join(" ")}`}
+                  loading="eager"
+                  fetchPriority={index === 0 ? "high" : "auto"}
+                  decoding="async"
+                  style={{
+                    objectPosition:
+                      item.objectPosition,
+                  }}
+                  className="hp-story-image absolute inset-0 h-full w-full object-cover"
+                />
 
-              <div className="absolute inset-0 bg-gradient-to-t from-black/48 via-transparent to-black/3" />
-              <div className="absolute inset-0 bg-gradient-to-r from-black/42 via-black/5 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/48 via-transparent to-black/3" />
+                <div className="absolute inset-0 bg-gradient-to-r from-black/42 via-black/5 to-transparent" />
 
-              <div
-                className={`absolute inset-x-0 bottom-0 z-10 p-6 pb-12 sm:p-10 sm:pb-16 lg:p-14 lg:pb-20 xl:p-20 xl:pb-24 2xl:p-24 2xl:pb-28 ${
-                  item.align === "right"
-                    ? "lg:flex lg:justify-end"
-                    : ""
-                }`}
-              >
                 <div
-                  className={`w-full max-w-[1200px] ${
+                  className={`absolute inset-x-0 bottom-0 z-10 p-6 pb-12 sm:p-10 sm:pb-16 lg:p-14 lg:pb-20 xl:p-20 xl:pb-24 2xl:p-24 2xl:pb-28 ${
                     item.align === "right"
-                      ? "lg:ml-auto lg:text-right"
+                      ? "lg:flex lg:justify-end"
                       : ""
                   }`}
                 >
                   <div
-                    className={`mb-5 flex items-center gap-3 ${
+                    className={`w-full max-w-[1200px] ${
                       item.align === "right"
-                        ? "lg:justify-end"
+                        ? "lg:ml-auto lg:text-right"
                         : ""
                     }`}
                   >
-                    <span className="h-[2px] w-14 bg-[#F47822] sm:w-16" />
-                    <p className="hp-story-kicker text-[11px] font-black uppercase tracking-[0.28em] text-[#FFD25A] sm:text-[12px] lg:text-[13px]"
-                      style={{ "--hp-story-delay": "40ms" }}>
-                      {item.kicker}
-                    </p>
+                    <div
+                      className={`mb-5 flex items-center gap-3 ${
+                        item.align === "right"
+                          ? "lg:justify-end"
+                          : ""
+                      }`}
+                    >
+                      <span className="h-[2px] w-14 bg-[#F47822] sm:w-16" />
+                      <p className="hp-story-kicker text-[11px] font-black uppercase tracking-[0.28em] text-[#FFD25A] sm:text-[12px] lg:text-[13px]"
+                        style={{ "--hp-story-delay": "40ms" }}>
+                        {item.kicker}
+                      </p>
+                    </div>
+
+                    <h2 className="hp-section-heading max-w-[1200px] text-white drop-shadow-[0_12px_42px_rgba(0,0,0,.68)]">
+                      <span className="block">
+                        {item.titleLines.map(
+                          (line, lineIndex) => (
+                            <span
+                              key={line}
+                              className="hp-story-line block"
+                              style={{
+                                "--hp-story-delay": `${
+                                  120 + lineIndex * 95
+                                }ms`,
+                              }}
+                            >
+                              {line}
+                            </span>
+                          )
+                        )}
+                      </span>
+
+                      <span className="hp-section-heading-accent mt-5 text-[#F4D36A] drop-shadow-[0_10px_34px_rgba(0,0,0,.58)] sm:mt-6 lg:mt-7">
+                        {item.accentLines.map(
+                          (line, lineIndex) => (
+                            <span
+                              key={line}
+                              className="hp-story-line block"
+                              style={{
+                                "--hp-story-delay": `${
+                                  330 + lineIndex * 105
+                                }ms`,
+                              }}
+                            >
+                              {line}
+                            </span>
+                          )
+                        )}
+                      </span>
+                    </h2>
                   </div>
-
-                  <h2 className="hp-section-heading max-w-[1200px] text-white drop-shadow-[0_12px_42px_rgba(0,0,0,.68)]">
-                    <span className="block">
-                      {item.titleLines.map(
-                        (line, lineIndex) => (
-                          <span
-                            key={line}
-                            className="hp-story-line block"
-                            style={{
-                              "--hp-story-delay": `${
-                                120 + lineIndex * 95
-                              }ms`,
-                            }}
-                          >
-                            {line}
-                          </span>
-                        )
-                      )}
-                    </span>
-
-                    <span className="hp-section-heading-accent mt-5 text-[#F4D36A] drop-shadow-[0_10px_34px_rgba(0,0,0,.58)] sm:mt-6 lg:mt-7">
-                      {item.accentLines.map(
-                        (line, lineIndex) => (
-                          <span
-                            key={line}
-                            className="hp-story-line block"
-                            style={{
-                              "--hp-story-delay": `${
-                                330 + lineIndex * 105
-                              }ms`,
-                            }}
-                          >
-                            {line}
-                          </span>
-                        )
-                      )}
-                    </span>
-                  </h2>
                 </div>
-              </div>
 
-              <div className="pointer-events-none absolute bottom-7 right-6 z-10 hidden items-center gap-3 text-[8px] font-black uppercase tracking-[0.18em] text-white/35 lg:flex">
-                <span>
-                  {String(index + 1).padStart(2, "0")} / 03
-                </span>
-                <span className="h-px w-10 bg-[#D4AF37]/50" />
+                <div className="pointer-events-none absolute bottom-7 right-6 z-10 hidden items-center gap-3 text-[8px] font-black uppercase tracking-[0.18em] text-white/35 lg:flex">
+                  <span>
+                    {String(index + 1).padStart(2, "0")} / 03
+                  </span>
+                  <span className="h-px w-10 bg-[#D4AF37]/50" />
+                </div>
               </div>
             </div>
           ))}
@@ -5048,45 +4902,6 @@ const Home = () => {
 
               </Reveal>
             </div>
-          </div>
-        </section>
-
-        {/* ==================================================
-            WHAT OUR CUSTOMERS SAY · SIMPLE LUXURY SLIDER
-        =================================================== */}
-
-        <section data-home-section="reviews" className="hp-pointer-glow relative isolate overflow-hidden bg-[#090807] text-white">
-          <img
-            src={reviewsLuxuryBg}
-            alt=""
-            loading="lazy"
-            decoding="async"
-            className="absolute inset-0 h-full w-full object-cover object-center"
-            draggable="false"
-          />
-
-          <div className="absolute inset-0 bg-black/18" />
-          <div className="absolute inset-0 bg-gradient-to-r from-black/38 via-black/14 to-black/10" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/18 via-transparent to-black/8" />
-
-          <div className="relative z-10 mx-auto grid min-h-[760px] w-full max-w-[1900px] items-center gap-12 px-5 py-20 sm:px-8 md:px-10 lg:grid-cols-[0.78fr_1.22fr] lg:px-12 xl:px-16 2xl:px-20">
-            {/* LEFT */}
-            <Reveal>
-              <div className="max-w-[700px]">
-                <h2 className="hp-section-heading text-[#FFF8EA]">
-                  What Our
-                  <span className="hp-section-heading-accent text-[#D4AF37]">
-                    Customers Say
-                  </span>
-                </h2>
-
-                <span className="mt-6 block h-px w-16 bg-[#D4AF37]" />
-              </div>
-            </Reveal>
-
-            <Reveal delay={100}>
-              <HomeReviewCarousel reviews={customerReviews} loading={reviewsLoading} />
-            </Reveal>
           </div>
         </section>
 
@@ -5457,119 +5272,6 @@ const CorporateFeature = ({
 );
 
 // ======================================================
-// CUSTOMER REVIEW ROW
-// ======================================================
-
-const CustomerReviewRow = ({
-  review,
-  featured = false,
-}) => {
-  const rating = Math.max(
-    1,
-    Math.min(
-      5,
-      Number(review?.rating || 5)
-    )
-  );
-
-  const customerName =
-    review?.user?.name ||
-    review?.customer?.name ||
-    review?.userName ||
-    review?.name ||
-    "Verified Customer";
-
-  const firstLetter =
-    String(customerName)
-      .trim()
-      .charAt(0)
-      .toUpperCase() || "H";
-
-  const dateValue =
-    review?.createdAt ||
-    review?.updatedAt;
-
-  const reviewDate = dateValue
-    ? new Date(dateValue).toLocaleDateString(
-        "en-IN",
-        {
-          month: "short",
-          year: "numeric",
-        }
-      )
-    : "";
-
-  return (
-    <div className="group relative py-8 sm:py-10 lg:py-11">
-      <div className="grid gap-6 sm:grid-cols-[145px_1fr] sm:items-start lg:grid-cols-[160px_1fr]">
-        <div>
-          <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-full border border-[#D4AF37]/35 bg-[#D4AF37]/10 text-[12px] font-black text-[#E8CC73]">
-              {firstLetter}
-            </span>
-
-            <div className="min-w-0">
-              <p className="truncate text-[10px] font-black uppercase tracking-[0.08em] text-white/75">
-                {customerName}
-              </p>
-
-              <p className="mt-1 text-[8px] font-black uppercase tracking-[0.12em] text-[#D4AF37]/75">
-                Verified Purchase
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-5 flex gap-1 text-[12px] text-[#D4AF37]">
-            {Array.from(
-              { length: 5 },
-              (_, index) => (
-                <span
-                  key={index}
-                  className={
-                    index < rating
-                      ? "opacity-100"
-                      : "opacity-20"
-                  }
-                >
-                  ★
-                </span>
-              )
-            )}
-          </div>
-        </div>
-
-        <div>
-          <p
-            style={{ fontFamily: DISPLAY_FONT }}
-            className={`font-semibold leading-[1.08] text-[#FFF5DF] transition duration-300 group-hover:text-white ${
-              featured
-                ? "text-[31px] sm:text-[38px] lg:text-[42px]"
-                : "text-[25px] sm:text-[30px]"
-            }`}
-          >
-            “{review.displayMessage}”
-          </p>
-
-          <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2">
-            <span className="h-px w-8 bg-[#F47822]" />
-
-            <p className="text-[8px] font-black uppercase tracking-[0.14em] text-white/35">
-              {review.productName || "HAMPORIUM"}
-            </p>
-
-            {reviewDate && (
-              <p className="text-[8px] font-bold uppercase tracking-[0.12em] text-white/22">
-                {reviewDate}
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ======================================================
 // ICON BASE
 // ======================================================
 
@@ -5708,10 +5410,19 @@ const useHomeEnhancements = (homeRef, reducedMotion, setActiveSection) => {
     sections.forEach((section) => navigationObserver?.observe(section));
     const ambientObserver = window.IntersectionObserver ? new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
-        entry.target.classList.toggle("hp-offscreen", !entry.isIntersecting);
-        if (entry.isIntersecting && entry.target.classList.contains("hp-story-page")) entry.target.classList.add("is-story-visible");
+        const isStory = entry.target.classList.contains("hp-story-page");
+
+        // Sticky story pages stay compositor-stable. Do not repeatedly toggle
+        // hp-offscreen on them while they overlap during the diagonal hand-off.
+        if (!isStory) {
+          entry.target.classList.toggle("hp-offscreen", !entry.isIntersecting);
+        }
+
+        if (entry.isIntersecting && isStory) {
+          entry.target.classList.add("is-story-visible");
+        }
       });
-    }, { rootMargin: "150px 0px", threshold: 0 }) : null;
+    }, { rootMargin: "220px 0px", threshold: 0 }) : null;
     [...sections, ...stories].forEach((node) => ambientObserver?.observe(node));
     if (!ambientObserver || reducedMotion) stories.forEach((node) => node.classList.add("is-story-visible"));
 
@@ -6026,73 +5737,6 @@ const HomeQuickLook = ({ product, onClose }) => {
       </div>
     </div>
   </dialog>;
-};
-
-const HomeReviewCarousel = ({ reviews, loading }) => {
-  const rootRef = useRef(null);
-  const touchRef = useRef(null);
-  const [index, setIndex] = useState(0);
-  const [paused, setPaused] = useState(false);
-  const [interacting, setInteracting] = useState(false);
-  const [focused, setFocused] = useState(false);
-  const [visible, setVisible] = useState(false);
-  const [pageVisible, setPageVisible] = useState(() => !document.hidden);
-  const reducedMotion = useMediaPreference("(prefers-reduced-motion: reduce)");
-  useEffect(() => {
-    const node = rootRef.current;
-    const observer = window.IntersectionObserver ? new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting), { threshold: 0.1 }) : null;
-    if (node) observer?.observe(node);
-    if (!observer) setVisible(true);
-    const changed = () => setPageVisible(!document.hidden);
-    document.addEventListener("visibilitychange", changed);
-    return () => { observer?.disconnect(); document.removeEventListener("visibilitychange", changed); };
-  }, []);
-  useEffect(() => { setIndex((value) => reviews.length ? value % reviews.length : 0); }, [reviews.length]);
-  const auto = reviews.length > 1 && !loading && !paused && !interacting && !focused && !reducedMotion && visible && pageVisible;
-  useEffect(() => {
-    if (!auto) return undefined;
-    const timer = setTimeout(() => setIndex((value) => (value + 1) % reviews.length), 6500);
-    return () => clearTimeout(timer);
-  }, [auto, index, reviews.length]);
-  const review = reviews[index] || reviews[0];
-  const select = (direction) => setIndex((current) => (current + direction + reviews.length) % reviews.length);
-  return <div ref={rootRef} className="hp-reviews-interactive" role="region" aria-label="Customer reviews"
-    onMouseEnter={() => setInteracting(true)} onMouseLeave={() => setInteracting(false)}
-    onFocusCapture={() => setFocused(true)} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false); }}
-    onTouchStart={(event) => { touchRef.current = { x: event.touches[0].clientX, y: event.touches[0].clientY }; }}
-    onTouchEnd={(event) => {
-      if (!touchRef.current || reviews.length < 2) return;
-      const x = event.changedTouches[0].clientX - touchRef.current.x;
-      const y = event.changedTouches[0].clientY - touchRef.current.y;
-      if (Math.abs(x) > 60 && Math.abs(x) > Math.abs(y) * 1.4) select(x < 0 ? 1 : -1);
-      touchRef.current = null;
-    }}>
-    {loading ? <div className="hp-review-loading" aria-busy="true" aria-label="Loading customer reviews" /> : review ? <>
-      <div className="hp-review-surface" aria-live={auto ? "off" : "polite"} aria-atomic="true">
-        <div key={review.id} className="hp-review-content">
-          <span className="hp-review-quote-mark" aria-hidden="true">&#8220;</span>
-          {review.rating !== null && <div className="hp-review-stars" aria-label={`${review.rating} out of 5 stars`}>
-            {Array.from({ length: 5 }, (_, i) => <span aria-hidden="true" key={i} className={i < Math.round(review.rating) ? "" : "is-empty"}>&#9733;</span>)}
-          </div>}
-          <blockquote tabIndex={review.displayMessage.length > 420 ? 0 : undefined}>{review.displayMessage}</blockquote>
-          <div className="hp-review-person"><span aria-hidden="true">{review.name.trim().charAt(0).toUpperCase() || "H"}</span>
-            <div><p>{review.name}</p><small>{review.context}</small></div>
-          </div>
-        </div>
-      </div>
-      <div className="hp-review-navigation">
-        <button type="button" aria-label="Previous review" disabled={reviews.length < 2} onClick={() => select(-1)}><HomeControlIcon type="previous" /></button>
-        <span className="hp-review-index">{String(index + 1).padStart(2, "0")} <span>/ {String(reviews.length).padStart(2, "0")}</span></span>
-        <div className="hp-review-dots">{reviews.map((item, i) => <button key={item.id} type="button" aria-label={`Show review ${i+1}`}
-          aria-pressed={i === index} onClick={() => setIndex(i)}><span /></button>)}</div>
-        {reviews.length > 1 && !reducedMotion && <button type="button" aria-label={paused ? "Resume review slideshow" : "Pause review slideshow"} onClick={() => setPaused((value) => !value)}>
-          <HomeControlIcon type={paused ? "play" : "pause"} /></button>}
-        <button type="button" aria-label="Next review" disabled={reviews.length < 2} onClick={() => select(1)}><HomeControlIcon type="next" /></button>
-      </div>
-    </> : <div className="hp-review-empty"><span aria-hidden="true"><GiftIcon /></span><h3>Every gift has a story.</h3>
-      <p>Customer reviews are not available here right now. Explore the collection to find your next thoughtful gift.</p>
-      <Link to="/gifts">Explore the collection <span aria-hidden="true">&#8594;</span></Link></div>}
-  </div>;
 };
 
 const HomeControlIcon = ({ type }) => (
