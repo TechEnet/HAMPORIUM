@@ -4006,6 +4006,65 @@ const Home = () => {
             }
           }
 
+          /* ==============================================
+             MOBILE BULK STEP TAP PREVIEW
+             Touching a step focuses the card and expands the
+             image exactly like desktop hover. Focus moves to the
+             next card on the next tap, so only one stays expanded.
+          =============================================== */
+
+          @media (max-width: 1023px), (hover: none), (pointer: coarse) {
+            [data-home-section="bulk"] .hp-bulk-step-card {
+              -webkit-tap-highlight-color: transparent;
+              cursor: pointer;
+              outline: none;
+            }
+
+            [data-home-section="bulk"] .hp-bulk-step-card:focus,
+            [data-home-section="bulk"] .hp-bulk-step-card:focus-visible {
+              border-color: rgba(212,175,55,.46) !important;
+              box-shadow: 0 22px 54px rgba(42,28,11,.18) !important;
+            }
+
+            [data-home-section="bulk"] .hp-bulk-step-card:focus .hp-bulk-step-image,
+            [data-home-section="bulk"] .hp-bulk-step-card:focus-visible .hp-bulk-step-image {
+              opacity: 1 !important;
+              clip-path: inset(0 0 0 0) !important;
+              -webkit-clip-path: inset(0 0 0 0) !important;
+              transform: scale(1) !important;
+            }
+
+            [data-home-section="bulk"] .hp-bulk-step-card:focus .hp-bulk-step-image-overlay,
+            [data-home-section="bulk"] .hp-bulk-step-card:focus-visible .hp-bulk-step-image-overlay {
+              background:
+                linear-gradient(
+                  90deg,
+                  rgba(10,9,8,.76) 0%,
+                  rgba(10,9,8,.60) 48%,
+                  rgba(10,9,8,.42) 100%
+                ) !important;
+            }
+
+            [data-home-section="bulk"] .hp-bulk-step-card:focus .hp-bulk-step-content,
+            [data-home-section="bulk"] .hp-bulk-step-card:focus-visible .hp-bulk-step-content {
+              width: min(78%, 390px) !important;
+            }
+
+            [data-home-section="bulk"] .hp-bulk-step-card:focus .hp-bulk-step-title,
+            [data-home-section="bulk"] .hp-bulk-step-card:focus-visible .hp-bulk-step-title {
+              color: #FFF8EC !important;
+              text-shadow: 0 10px 30px rgba(0,0,0,.44) !important;
+              transform: translateX(4px);
+            }
+
+            [data-home-section="bulk"] .hp-bulk-step-card:focus .hp-bulk-step-visual-cue,
+            [data-home-section="bulk"] .hp-bulk-step-card:focus-visible .hp-bulk-step-visual-cue {
+              transform: translateY(-50%) translateX(5px) !important;
+              background: rgba(244,120,34,.90) !important;
+              border-color: rgba(255,255,255,.72) !important;
+            }
+          }
+
           @media (max-width: 639px) {
             [data-home-section="bulk"] .hp-bulk-visual {
               min-height: 410px !important;
@@ -4135,7 +4194,7 @@ const Home = () => {
                     to={
                       item.to
                     }
-                    className="group relative min-h-[590px] overflow-hidden lg:min-h-[690px]"
+                    className="group relative min-h-[540px] overflow-hidden lg:min-h-[690px]"
                   >
                     <SmartImage
                       src={
@@ -5096,9 +5155,12 @@ const Home = () => {
                   ["Receive Quotation", HOME_IMAGES.curated],
                   ["Pay After Approval", HOME_IMAGES.custom],
                 ].map(([title, image], index) => (
-                  <div
+                  <button
                     key={title}
-                    className={`hp-bulk-step-card group relative flex min-h-[210px] items-center overflow-hidden p-6 lg:min-h-[210px] ${
+                    type="button"
+                    aria-label={`${title}. Tap to preview image`}
+                    onClick={(event) => event.currentTarget.focus({ preventScroll: true })}
+                    className={`hp-bulk-step-card group relative flex min-h-[210px] items-center overflow-hidden border-0 bg-transparent p-6 text-left appearance-none lg:min-h-[210px] ${
                       index % 2 === 0 ? "lg:border-r lg:border-black/10" : ""
                     } ${
                       index < 2 ? "lg:border-b lg:border-black/10" : ""
@@ -5124,7 +5186,7 @@ const Home = () => {
                         <span />
                       </span>
                     </div>
-                  </div>
+                  </button>
                 ))}
               </InteractiveRail>
 
