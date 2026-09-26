@@ -12,7 +12,8 @@ const DISPLAY_FONT =
   "'Cormorant Garamond', 'Playfair Display', Georgia, serif";
 
 const CHANNELS = ["corporate", "wedding", "diwali", "hamperOne"];
-const ITEMS_PER_PAGE = 8;
+const DESKTOP_ITEMS_PER_PAGE = 8;
+const MOBILE_ITEMS_PER_PAGE = 6;
 
 const getToday = () => {
   const now = new Date();
@@ -172,6 +173,7 @@ const CustomHamper = () => {
   const [subcategoryFilter, setSubcategoryFilter] = useState("");
   const [decorationSearch, setDecorationSearch] = useState("");
   const [itemPage, setItemPage] = useState(1);
+  const [decorationPage, setDecorationPage] = useState(1);
 
   const [loading, setLoading] = useState(true);
   const [validating, setValidating] = useState(false);
@@ -190,6 +192,33 @@ const CustomHamper = () => {
   const [bulkDeliveryLocations, setBulkDeliveryLocations] = useState("");
   const [bulkNotes, setBulkNotes] = useState("");
   const [requestingQuote, setRequestingQuote] = useState(false);
+
+  // Mobile uses a progressive builder so only one decision is visible at a time.
+  // Desktop/tablet keep the existing full builder experience.
+  const [mobileStep, setMobileStep] = useState(1);
+  const [isMobileWizard, setIsMobileWizard] = useState(() =>
+    typeof window !== "undefined"
+      ? window.matchMedia("(max-width: 767px)").matches
+      : false
+  );
+  const mobileFlowRef = useRef(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const media = window.matchMedia("(max-width: 767px)");
+    const update = () => setIsMobileWizard(media.matches);
+
+    update();
+
+    if (media.addEventListener) {
+      media.addEventListener("change", update);
+      return () => media.removeEventListener("change", update);
+    }
+
+    media.addListener(update);
+    return () => media.removeListener(update);
+  }, []);
 
   const contentMap = useMemo(
     () =>
@@ -348,23 +377,27 @@ const CustomHamper = () => {
     candidateMap,
   ]);
 
+  const itemsPerPage = isMobileWizard
+    ? MOBILE_ITEMS_PER_PAGE
+    : DESKTOP_ITEMS_PER_PAGE;
+
   const totalItemPages = Math.max(
     1,
-    Math.ceil(visibleComponents.length / ITEMS_PER_PAGE)
+    Math.ceil(visibleComponents.length / itemsPerPage)
   );
 
   const paginatedComponents = useMemo(() => {
-    const start = (itemPage - 1) * ITEMS_PER_PAGE;
-    return visibleComponents.slice(start, start + ITEMS_PER_PAGE);
-  }, [visibleComponents, itemPage]);
+    const start = (itemPage - 1) * itemsPerPage;
+    return visibleComponents.slice(start, start + itemsPerPage);
+  }, [visibleComponents, itemPage, itemsPerPage]);
 
   const itemRangeStart =
     visibleComponents.length === 0
       ? 0
-      : (itemPage - 1) * ITEMS_PER_PAGE + 1;
+      : (itemPage - 1) * itemsPerPage + 1;
 
   const itemRangeEnd = Math.min(
-    itemPage * ITEMS_PER_PAGE,
+    itemPage * itemsPerPage,
     visibleComponents.length
   );
 
@@ -386,6 +419,26 @@ const CustomHamper = () => {
         .some((value) => String(value).toLowerCase().includes(query))
     );
   }, [decorativeComponents, decorationSearch]);
+
+  const totalDecorationPages = isMobileWizard
+    ? Math.max(1, Math.ceil(visibleDecorations.length / MOBILE_ITEMS_PER_PAGE))
+    : 1;
+
+  const paginatedDecorations = useMemo(() => {
+    if (!isMobileWizard) return visibleDecorations;
+
+    const start = (decorationPage - 1) * MOBILE_ITEMS_PER_PAGE;
+    return visibleDecorations.slice(start, start + MOBILE_ITEMS_PER_PAGE);
+  }, [visibleDecorations, decorationPage, isMobileWizard]);
+
+  const decorationRangeStart =
+    visibleDecorations.length === 0
+      ? 0
+      : (decorationPage - 1) * MOBILE_ITEMS_PER_PAGE + 1;
+
+  const decorationRangeEnd = isMobileWizard
+    ? Math.min(decorationPage * MOBILE_ITEMS_PER_PAGE, visibleDecorations.length)
+    : visibleDecorations.length;
 
   const selectedItemCount = useMemo(
     () =>
@@ -543,7 +596,13 @@ const CustomHamper = () => {
         setContainers(loadedContainers);
         setContentComponents(loadedContentComponents);
         setDecorativeComponents(loadedDecorativeComponents);
-        setContainerId(loadedContainers[0]?._id || "");
+
+        const mobileFirstChoice =
+          typeof window !== "undefined" &&
+          window.matchMedia("(max-width: 767px)").matches;
+
+        setContainerId(mobileFirstChoice ? "" : loadedContainers[0]?._id || "");
+        setMobileStep(1);
         setSelectedItems([]);
         setSelectedDecorations([]);
         setConfiguration(null);
@@ -566,6 +625,19 @@ const CustomHamper = () => {
   useEffect(() => {
     setOrderMode(requestedMode);
   }, [requestedMode]);
+
+  useEffect(() => {
+    if (!isMobileWizard) return;
+
+    if (!containerId && mobileStep > 1) {
+      setMobileStep(1);
+      return;
+    }
+
+    if (containerId && selectedItems.length === 0 && mobileStep > 2) {
+      setMobileStep(2);
+    }
+  }, [isMobileWizard, containerId, selectedItems.length, mobileStep]);
 
   useEffect(() => {
     if (["corporate", "wedding", "diwali"].includes(channel)) {
@@ -654,6 +726,16 @@ const CustomHamper = () => {
       setItemPage(totalItemPages);
     }
   }, [itemPage, totalItemPages]);
+
+  useEffect(() => {
+    setDecorationPage(1);
+  }, [decorationSearch, isMobileWizard]);
+
+  useEffect(() => {
+    if (decorationPage > totalDecorationPages) {
+      setDecorationPage(totalDecorationPages);
+    }
+  }, [decorationPage, totalDecorationPages]);
 
   const setSelectionQuantity = (setter, componentId, quantity) => {
     const nextQuantity = Number(quantity);
@@ -1017,17 +1099,40 @@ const CustomHamper = () => {
     orderMode === "bulk" ? requestingQuote : addingToCart;
 
   const currentBuilderStep =
-    selectedItems.length === 0
-      ? 2
-      : selectedDecorationCount === 0 && !personalizationPayload
-        ? 3
-        : !personalizationPayload
-          ? 4
-          : 5;
+    !containerId
+      ? 1
+      : selectedItems.length === 0
+        ? 2
+        : selectedDecorationCount === 0 && !personalizationPayload
+          ? 3
+          : !personalizationPayload
+            ? 4
+            : 5;
+
+  const moveMobileStep = (nextStep) => {
+    const safeStep = Math.min(5, Math.max(1, Number(nextStep) || 1));
+    setMobileStep(safeStep);
+    setCartError("");
+
+    if (typeof window !== "undefined") {
+      window.requestAnimationFrame(() => {
+        mobileFlowRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      });
+    }
+  };
+
+  const canContinueFromBox =
+    Boolean(containerId) && !validating && Boolean(configuration);
+
+  const canContinueFromProducts =
+    selectedItemCount > 0 && !validating && !selectionPending;
 
   return (
     <main
-      className="min-h-screen bg-[#FBF8F3] pb-20 pt-[92px] text-[#171717]"
+      className="min-h-screen bg-[#FBF8F3] pb-20 pt-[84px] text-[#171717] sm:pt-[92px]"
       style={{ fontFamily: "'Manrope', Arial, sans-serif" }}
     >
       <style>{`
@@ -1860,13 +1965,20 @@ const CustomHamper = () => {
                     fontFamily:
                       DISPLAY_FONT,
                   }}
-                  className="max-w-[680px] text-[clamp(44px,4vw,72px)] font-semibold leading-[0.9] tracking-[-0.045em] text-[#171717]"
+                  className="max-w-[680px] text-[38px] font-semibold leading-[0.92] tracking-[-0.04em] text-[#171717] sm:text-[clamp(44px,4vw,72px)]"
                 >
                   Create Your Own Hamper
                 </h1>
 
                 <div className="min-w-0">
-                  <div className="v10-soft-scroll overflow-x-auto pb-1">
+                  <div ref={mobileFlowRef} className="scroll-mt-[86px] md:hidden">
+                    <MobileBuilderProgress
+                      step={mobileStep}
+                      orderMode={orderMode}
+                    />
+                  </div>
+
+                  <div className="v10-soft-scroll hidden overflow-x-auto pb-1 md:block">
                     <div className="flex min-w-[560px] items-start">
                       {[
                         [1, "Choose Box"],
@@ -1953,7 +2065,9 @@ const CustomHamper = () => {
               </div>
             )}
 
-            <div className="mt-6 min-w-0 w-full space-y-8 sm:space-y-10">
+            <div className="mt-6 min-w-0 w-full space-y-5 sm:space-y-10">
+            {(!isMobileWizard || mobileStep === 1) && (
+              <>
             <V7Section
               number="01"
               title="Choose Your Hamper Box"
@@ -1989,6 +2103,23 @@ const CustomHamper = () => {
               )}
             </V7Section>
 
+            {isMobileWizard && (
+              <MobileStepActions
+                nextLabel="Continue to gifts"
+                nextDisabled={!canContinueFromBox}
+                onNext={() => moveMobileStep(2)}
+                hint={
+                  selectedContainer
+                    ? `${selectedContainer.name} selected`
+                    : "Select one hamper box to continue."
+                }
+              />
+            )}
+              </>
+            )}
+
+            {(!isMobileWizard || mobileStep === 2) && (
+              <>
             <V7Section
               number="02"
               title="Add Products"
@@ -1998,6 +2129,16 @@ const CustomHamper = () => {
                   : "Pick your favourites"
               }
             >
+              {isMobileWizard && (
+                <MobileLiveHamperStatus
+                  selectedContainer={selectedContainer}
+                  selectedItemCount={selectedItemCount}
+                  fillPercent={fillPercent}
+                  configuration={configuration}
+                  validating={validating || selectionPending}
+                />
+              )}
+
               <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
                 <div className="relative">
                   <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-base text-black/24">
@@ -2081,7 +2222,7 @@ const CustomHamper = () => {
               ) : (
                 <div
                   data-hamper-products-grid="true"
-                  className="mt-5 grid gap-x-4 gap-y-7 sm:grid-cols-2 lg:grid-cols-4"
+                  className="mt-5 grid grid-cols-2 gap-x-3 gap-y-5 sm:gap-x-4 sm:gap-y-7 lg:grid-cols-4"
                 >
                   {paginatedComponents.map((component) => {
                     const quantity = selectedMap.get(component._id) || 0;
@@ -2120,10 +2261,30 @@ const CustomHamper = () => {
                   rangeStart={itemRangeStart}
                   rangeEnd={itemRangeEnd}
                   onPageChange={setItemPage}
+                  compact={isMobileWizard}
                 />
               )}
             </V7Section>
 
+            {isMobileWizard && (
+              <MobileStepActions
+                backLabel="Box"
+                nextLabel="Continue to finishing"
+                nextDisabled={!canContinueFromProducts}
+                onBack={() => moveMobileStep(1)}
+                onNext={() => moveMobileStep(3)}
+                hint={
+                  selectedItemCount > 0
+                    ? `${selectedItemCount} gift${selectedItemCount === 1 ? "" : "s"} selected`
+                    : "Add at least one gift to continue."
+                }
+              />
+            )}
+              </>
+            )}
+
+            {(!isMobileWizard || mobileStep === 3) && (
+              <>
             <V7Section
               number="03"
               title="Finishing Touches"
@@ -2166,8 +2327,11 @@ const CustomHamper = () => {
               {visibleDecorations.length === 0 ? (
                 <V7Empty>No decorative finishes are available yet.</V7Empty>
               ) : (
-                <div className="mt-5 grid gap-x-4 gap-y-7 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-5">
-                  {visibleDecorations.map((component) => (
+                <div
+                  data-hamper-decorations-grid="true"
+                  className="mt-5 grid grid-cols-2 gap-x-3 gap-y-5 sm:gap-x-4 sm:gap-y-7 lg:grid-cols-4 2xl:grid-cols-5"
+                >
+                  {paginatedDecorations.map((component) => (
                     <V7DecorationCard
                       key={component._id}
                       component={component}
@@ -2178,8 +2342,40 @@ const CustomHamper = () => {
                   ))}
                 </div>
               )}
+
+              {isMobileWizard && visibleDecorations.length > 0 && (
+                <ProductPager
+                  page={decorationPage}
+                  totalPages={totalDecorationPages}
+                  totalItems={visibleDecorations.length}
+                  rangeStart={decorationRangeStart}
+                  rangeEnd={decorationRangeEnd}
+                  onPageChange={setDecorationPage}
+                  compact
+                  label="Finishing touches"
+                  scrollSelector='[data-hamper-decorations-grid="true"]'
+                />
+              )}
             </V7Section>
 
+            {isMobileWizard && (
+              <MobileStepActions
+                backLabel="Gifts"
+                nextLabel={selectedDecorationCount > 0 ? "Continue" : "Skip & continue"}
+                onBack={() => moveMobileStep(2)}
+                onNext={() => moveMobileStep(4)}
+                hint={
+                  selectedDecorationCount > 0
+                    ? `${selectedDecorationCount} finishing touch${selectedDecorationCount === 1 ? "" : "es"} selected`
+                    : "Finishing touches are optional."
+                }
+              />
+            )}
+              </>
+            )}
+
+            {(!isMobileWizard || mobileStep === 4) && (
+              <>
             <V7Section
               number="04"
               title="Personalise Your Hamper"
@@ -2437,7 +2633,23 @@ const CustomHamper = () => {
               </div>
             </V7Section>
 
-            {orderMode === "bulk" && (
+            {isMobileWizard && (
+              <MobileStepActions
+                backLabel="Finishing"
+                nextLabel={orderMode === "bulk" ? "Continue to quote" : "Review hamper"}
+                onBack={() => moveMobileStep(3)}
+                onNext={() => moveMobileStep(5)}
+                hint={
+                  personalizationPayload
+                    ? "Personalisation saved to this hamper."
+                    : "Personalisation is optional."
+                }
+              />
+            )}
+              </>
+            )}
+
+            {orderMode === "bulk" && (!isMobileWizard || mobileStep === 5) && (
               <V7Section
                 number="05"
                 title="Tell us about the bulk order"
@@ -2549,12 +2761,42 @@ const CustomHamper = () => {
                     />
                   </BulkField>
                 </div>
+
+                {isMobileWizard && (
+                  <div className="mt-5 md:hidden">
+                    <button
+                      type="button"
+                      onClick={() => moveMobileStep(4)}
+                      className="inline-flex h-11 items-center gap-2 rounded-xl border border-black/[0.09] bg-white px-4 text-[10px] font-black text-black/55"
+                    >
+                      ← Back to personalise
+                    </button>
+                  </div>
+                )}
               </V7Section>
             )}
             </div>
           </div>
 
+          {(!isMobileWizard || mobileStep === 5) && (
           <aside className="v24-fixed-studio xl:fixed xl:right-10 xl:top-[96px] xl:z-20 xl:h-[calc(100dvh-112px)] xl:w-[clamp(420px,25vw,520px)] xl:overflow-y-auto xl:overscroll-contain xl:border-l xl:border-black/[0.08] xl:pl-7 2xl:right-12 2xl:w-[clamp(460px,23vw,560px)] 2xl:pl-8 min-[2200px]:right-16">
+            {isMobileWizard && orderMode !== "bulk" && (
+              <div className="mb-5 rounded-[20px] border border-black/[0.07] bg-white p-4 shadow-[0_10px_30px_rgba(40,27,13,.05)] md:hidden">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-[0.12em] text-[#F47822]">Step 05 · Review</p>
+                    <p className="mt-1 text-[12px] font-semibold text-black/45">Check your hamper, price and capacity before adding it to cart.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => moveMobileStep(4)}
+                    className="shrink-0 rounded-full border border-black/[0.08] bg-[#FAF8F5] px-3 py-2 text-[9px] font-black text-black/48"
+                  >
+                    ← Back
+                  </button>
+                </div>
+              </div>
+            )}
             <V7Studio
               selectedContainer={selectedContainer}
               previewItems={previewItems}
@@ -2583,6 +2825,7 @@ const CustomHamper = () => {
               }
             />
           </aside>
+          )}
         </div>
       </section>
     </main>
@@ -2590,17 +2833,17 @@ const CustomHamper = () => {
 };
 
 const OrderModeChooser = ({ mode, onChange }) => (
-  <div className="mt-5 flex justify-end">
-    <div className="inline-grid w-full grid-cols-2 border-y border-black/[0.09] sm:w-[430px]">
+  <div className="mt-3 flex justify-end sm:mt-5">
+    <div className="inline-grid w-full grid-cols-2 overflow-hidden rounded-[14px] border border-black/[0.08] bg-white p-1 shadow-[0_6px_18px_rgba(38,28,16,.035)] sm:w-[430px] sm:rounded-none sm:border-x-0 sm:bg-transparent sm:p-0 sm:shadow-none">
       <button
         type="button"
         onClick={() =>
           onChange("personal")
         }
-        className={`min-h-[48px] px-5 text-center text-[12px] font-black transition ${
+        className={`min-h-[44px] rounded-[10px] px-4 text-center text-[11px] font-black transition sm:min-h-[48px] sm:rounded-none sm:px-5 sm:text-[12px] ${
           mode === "personal"
             ? "bg-[#171717] text-white"
-            : "bg-transparent text-black/45 hover:bg-white hover:text-[#171717]"
+            : "bg-transparent text-black/45 hover:bg-[#FAF8F5] hover:text-[#171717] sm:hover:bg-white"
         }`}
       >
         Personal
@@ -2611,10 +2854,10 @@ const OrderModeChooser = ({ mode, onChange }) => (
         onClick={() =>
           onChange("bulk")
         }
-        className={`min-h-[48px] border-l border-black/[0.09] px-5 text-center text-[12px] font-black transition ${
+        className={`min-h-[44px] rounded-[10px] px-4 text-center text-[11px] font-black transition sm:min-h-[48px] sm:rounded-none sm:border-l sm:border-black/[0.09] sm:px-5 sm:text-[12px] ${
           mode === "bulk"
             ? "bg-[#F47822] text-white"
-            : "bg-transparent text-black/45 hover:bg-white hover:text-[#171717]"
+            : "bg-transparent text-black/45 hover:bg-[#FFF7F1] hover:text-[#171717] sm:hover:bg-white"
         }`}
       >
         Bulk / Event
@@ -2622,6 +2865,178 @@ const OrderModeChooser = ({ mode, onChange }) => (
     </div>
   </div>
 );
+
+const MobileBuilderProgress = ({ step, orderMode }) => {
+  const labels = [
+    "Choose your box",
+    "Add your gifts",
+    "Finishing touches",
+    "Personalise",
+    orderMode === "bulk" ? "Quote details" : "Review hamper",
+  ];
+
+  return (
+    <div className="rounded-[16px] border border-black/[0.07] bg-white px-3.5 py-3 shadow-[0_8px_24px_rgba(41,29,15,.04)]">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <span className="text-[8px] font-black uppercase tracking-[0.13em] text-[#F47822]">
+            Step {String(step).padStart(2, "0")} / 05
+          </span>
+          <p className="mt-0.5 truncate text-[11px] font-black text-[#171717]">
+            {labels[step - 1]}
+          </p>
+        </div>
+        <span className="shrink-0 rounded-full bg-[#F7F1E7] px-2.5 py-1 text-[7.5px] font-black uppercase tracking-[0.07em] text-[#8A6815]">
+          {orderMode === "bulk" ? "Bulk / Event" : "Personal"}
+        </span>
+      </div>
+
+      <div className="mt-2.5 grid grid-cols-5 gap-1.5" aria-hidden="true">
+        {[1, 2, 3, 4, 5].map((item) => (
+          <span
+            key={item}
+            className={`h-1.5 rounded-full transition-all duration-300 ${
+              item <= step ? "bg-[#F47822]" : "bg-black/[0.07]"
+            }`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const MobileStepActions = ({
+  backLabel = "Back",
+  nextLabel,
+  nextDisabled = false,
+  onBack,
+  onNext,
+  hint = "",
+}) => (
+  <div className="md:hidden">
+    <div className="rounded-[18px] border border-black/[0.07] bg-white p-3.5 shadow-[0_10px_28px_rgba(40,27,13,.045)]">
+      {hint && (
+        <p className="mb-3 text-[10px] font-semibold leading-4 text-black/40">
+          {hint}
+        </p>
+      )}
+
+      <div className={`grid gap-2.5 ${onBack ? "grid-cols-[92px_minmax(0,1fr)]" : "grid-cols-1"}`}>
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex h-12 items-center justify-center gap-1.5 rounded-xl border border-black/[0.09] bg-[#FAF8F5] px-3 text-[10px] font-black text-black/52 transition active:scale-[.98]"
+          >
+            ← {backLabel}
+          </button>
+        )}
+
+        <button
+          type="button"
+          disabled={nextDisabled}
+          onClick={onNext}
+          className="flex h-12 min-w-0 items-center justify-center gap-2 rounded-xl bg-[#171717] px-4 text-center text-[10px] font-black uppercase tracking-[0.055em] text-white shadow-[0_10px_24px_rgba(23,23,23,.14)] transition active:scale-[.99] disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/25 disabled:shadow-none"
+        >
+          <span className="truncate">{nextLabel}</span>
+          <span aria-hidden="true">→</span>
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
+const MobileLiveHamperStatus = ({
+  selectedContainer,
+  selectedItemCount,
+  fillPercent,
+  configuration,
+  validating,
+}) => {
+  const roundedFill = Math.round(Number(fillPercent || 0));
+  const remaining = Math.max(0, 100 - roundedFill);
+  const liveTotal =
+    configuration?.pricing?.total ??
+    selectedContainer?.sellingPrice ??
+    null;
+
+  return (
+    <div className="sticky top-[76px] z-30 -mx-1 mb-4 md:hidden">
+      <div className="overflow-hidden rounded-[18px] border border-[#F47822]/16 bg-[#FFFDF9]/95 shadow-[0_12px_32px_rgba(47,31,13,.10)] backdrop-blur-xl">
+        <div className="flex items-center justify-between gap-3 border-b border-black/[0.055] px-3.5 py-2.5">
+          <div className="min-w-0">
+            <p className="text-[8px] font-black uppercase tracking-[0.13em] text-[#F47822]">
+              Live hamper status
+            </p>
+            <p className="mt-0.5 truncate text-[10px] font-black text-[#171717]">
+              {selectedContainer?.name || "Selected hamper box"}
+            </p>
+          </div>
+
+          <span
+            className={`shrink-0 rounded-full px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.08em] ${
+              validating
+                ? "bg-black/[0.06] text-black/42"
+                : "bg-emerald-50 text-emerald-700"
+            }`}
+          >
+            {validating ? "Updating…" : "Live"}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-[.8fr_.72fr_1.28fr] divide-x divide-black/[0.055]">
+          <div className="px-3 py-2.5">
+            <p className="text-[7px] font-black uppercase tracking-[0.08em] text-black/28">
+              Box filled
+            </p>
+            <p className="mt-1 text-[15px] font-black leading-none text-[#171717]">
+              {roundedFill}%
+            </p>
+            <p className="mt-1 text-[7px] font-bold text-black/30">
+              {remaining}% space left
+            </p>
+          </div>
+
+          <div className="px-3 py-2.5">
+            <p className="text-[7px] font-black uppercase tracking-[0.08em] text-black/28">
+              Gifts
+            </p>
+            <p className="mt-1 text-[15px] font-black leading-none text-[#171717]">
+              {selectedItemCount}
+            </p>
+            <p className="mt-1 text-[7px] font-bold text-black/30">
+              selected
+            </p>
+          </div>
+
+          <div className="min-w-0 px-3 py-2.5 text-right">
+            <p className="text-[7px] font-black uppercase tracking-[0.08em] text-black/28">
+              Hamper total
+            </p>
+            <p
+              style={{ fontFamily: DISPLAY_FONT }}
+              className="mt-0.5 truncate text-[20px] font-semibold leading-none text-[#F47822]"
+            >
+              {liveTotal === null || liveTotal === undefined
+                ? "—"
+                : formatCurrency(liveTotal)}
+            </p>
+            <p className="mt-1 text-[7px] font-bold text-black/30">
+              updates as you add
+            </p>
+          </div>
+        </div>
+
+        <div className="h-1.5 bg-black/[0.05]">
+          <div
+            className="h-full rounded-r-full bg-gradient-to-r from-[#F47822] to-[#D4AF37] transition-[width] duration-500"
+            style={{ width: `${Math.min(100, Math.max(0, roundedFill))}%` }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const BulkField = ({ label, children }) => (
   <label className="block">
@@ -2650,7 +3065,7 @@ const V7Section = ({ number, title, meta, gold = false, children }) => (
         <div className="min-w-0">
           <h2
             style={{ fontFamily: DISPLAY_FONT }}
-            className="truncate text-[27px] font-semibold leading-none tracking-[-.025em] text-[#171717] sm:text-[30px]"
+            className="truncate text-[24px] font-semibold leading-none tracking-[-.025em] text-[#171717] sm:text-[30px]"
           >
             {title}
           </h2>
@@ -3043,14 +3458,14 @@ const V7ContainerCard = ({ container, active, onClick }) => {
             </span>
           </div>
 
-          <div className="mt-3 flex items-center justify-between gap-3">
+          <div className="mt-3 grid grid-cols-[minmax(0,.9fr)_minmax(0,1.1fr)] gap-2 sm:flex sm:items-center sm:justify-between sm:gap-3">
             <button
               type="button"
               onClick={(event) => {
                 event.stopPropagation();
                 setDetailsOpen(true);
               }}
-              className="h-10 text-left text-[10px] font-black text-black/42 transition hover:text-[#9A7316]"
+              className="flex h-10 min-w-0 items-center justify-center rounded-[9px] border border-black/[0.08] bg-white px-2 text-[8.5px] font-black text-black/55 transition active:scale-[.98] hover:border-[#D4AF37]/35 hover:text-[#9A7316] sm:justify-start sm:rounded-none sm:border-0 sm:bg-transparent sm:px-0 sm:text-[10px]"
             >
               View details →
             </button>
@@ -3064,9 +3479,9 @@ const V7ContainerCard = ({ container, active, onClick }) => {
                   onClick();
                 }
               }}
-              className={`h-10 min-w-[106px] px-4 text-[10px] font-black transition ${
+              className={`flex h-10 min-w-0 items-center justify-center rounded-[9px] px-2 text-[8.5px] font-black transition active:scale-[.98] sm:min-w-[106px] sm:rounded-none sm:px-4 sm:text-[10px] ${
                 active
-                  ? "text-emerald-700"
+                  ? "border border-emerald-200 bg-emerald-50 text-emerald-700 sm:border-0 sm:bg-transparent"
                   : "bg-[#F47822] text-white hover:bg-[#171717]"
               }`}
             >
@@ -3209,6 +3624,8 @@ const V10ProductDetailsModal = ({
   onMinus,
   onPlus,
   onClose,
+  eyebrow = "Product details",
+  addLabel = "+ Add to hamper",
 }) => {
   const missingPrice =
     component.sellingPrice === null ||
@@ -3282,7 +3699,7 @@ const V10ProductDetailsModal = ({
               <div className="flex items-center gap-2.5">
                 <span className="h-2 w-2 rounded-full bg-[#F47822]" />
                 <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#F47822]">
-                  Product details
+                  {eyebrow}
                 </p>
               </div>
 
@@ -3450,7 +3867,7 @@ const V10ProductDetailsModal = ({
                     onClick={onPlus}
                     className="h-11 flex-1 rounded-[11px] bg-[#F47822] px-6 text-[10px] font-black text-white transition hover:bg-[#171717] disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/25 sm:flex-none"
                   >
-                    + Add to hamper
+                    {addLabel}
                   </button>
                 )}
               </div>
@@ -3510,14 +3927,14 @@ const V7ProductCard = ({
               <img
                 src={component.images[0].url}
                 alt={component.name}
-                className="h-full w-full object-contain p-3 transition duration-500 group-hover:scale-[1.025]"
+                className="h-full w-full object-contain p-2 sm:p-3 transition duration-500 group-hover:scale-[1.025]"
               />
             ) : (
               <NoImage />
             )}
           </div>
 
-          <span className="absolute bottom-2.5 left-2.5 max-w-[80%] truncate bg-white/92 px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.08em] text-black/42 backdrop-blur-sm">
+          <span className="absolute bottom-2 left-2 max-w-[82%] truncate bg-white/92 px-2 py-1 text-[6px] font-black uppercase tracking-[0.07em] text-black/42 backdrop-blur-sm sm:bottom-2.5 sm:left-2.5 sm:px-2.5 sm:text-[7px] sm:tracking-[0.08em]">
             {component.subcategory || component.category || "Gift"}
           </span>
 
@@ -3529,39 +3946,39 @@ const V7ProductCard = ({
         </div>
 
         <div className="pt-3">
-          <p className="line-clamp-2 min-h-[40px] text-[13px] font-extrabold leading-[1.45] text-[#171717]">
+          <p className="line-clamp-2 min-h-[34px] text-[11px] font-extrabold leading-[1.35] text-[#171717] sm:min-h-[40px] sm:text-[13px] sm:leading-[1.45]">
             {component.name}
           </p>
 
-          <div className="mt-1.5 flex min-h-[24px] items-baseline gap-1.5">
-            <span className="text-[16px] font-black text-[#171717]">
+          <div className="mt-1 flex min-h-[22px] flex-wrap items-baseline gap-x-1.5 gap-y-0.5 sm:mt-1.5 sm:min-h-[24px]">
+            <span className="text-[14px] font-black text-[#171717] sm:text-[16px]">
               {missingPrice
                 ? "Price pending"
                 : formatCurrency(component.sellingPrice)}
             </span>
 
             {hasMrp && (
-              <span className="text-[9px] font-semibold text-black/28 line-through">
+              <span className="text-[8px] font-semibold text-black/28 line-through sm:text-[9px]">
                 {formatCurrency(component.mrp)}
               </span>
             )}
           </div>
 
-          <div className="mt-3 grid grid-cols-[.95fr_1.05fr] gap-2 border-t border-black/[0.07] pt-3">
+          <div className="mt-2.5 grid grid-cols-[minmax(0,.9fr)_minmax(0,1.1fr)] gap-1.5 border-t border-black/[0.07] pt-2.5 sm:mt-3 sm:grid-cols-[.95fr_1.05fr] sm:gap-2 sm:pt-3">
             <button
               type="button"
               onClick={(event) => {
                 event.stopPropagation();
                 setDetailsOpen(true);
               }}
-              className="h-10 text-[10px] font-black text-black/48 transition hover:text-[#9A7316]"
+              className="flex h-9 min-w-0 items-center justify-center rounded-[9px] border border-black/[0.08] bg-white px-1.5 text-[7.5px] font-black leading-tight text-black/55 transition active:scale-[.98] hover:border-[#D4AF37]/35 hover:text-[#9A7316] sm:h-10 sm:rounded-none sm:border-0 sm:bg-transparent sm:px-0 sm:text-[10px]"
             >
               View details →
             </button>
 
             {quantity > 0 ? (
               <div
-                className="grid h-10 grid-cols-[36px_1fr_36px] overflow-hidden border border-[#F47822]/25 bg-[#FFF8F2]"
+                className="grid h-9 min-w-0 grid-cols-[28px_1fr_28px] overflow-hidden rounded-[9px] border border-[#F47822]/25 bg-[#FFF8F2] sm:h-10 sm:grid-cols-[36px_1fr_36px] sm:rounded-none"
                 onClick={(event) => event.stopPropagation()}
               >
                 <button
@@ -3601,7 +4018,7 @@ const V7ProductCard = ({
                   event.stopPropagation();
                   onPlus();
                 }}
-                className="flex h-10 items-center justify-center bg-[#F47822] text-[10px] font-black text-white transition hover:bg-[#171717] disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/25"
+                className="flex h-9 min-w-0 items-center justify-center rounded-[9px] bg-[#F47822] px-1 text-[8px] font-black text-white transition active:scale-[.98] hover:bg-[#171717] disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/25 sm:h-10 sm:rounded-none sm:px-0 sm:text-[10px]"
               >
                 + Add
               </button>
@@ -3636,80 +4053,134 @@ const V7DecorationCard = ({
   onMinus,
   onPlus,
 }) => {
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const selected = quantity > 0;
 
   const missingPrice =
     component.sellingPrice === null ||
     component.sellingPrice === undefined;
 
+  const cannotIncrease = missingPrice || quantity >= 99;
+
+  const handleCardClick = (event) => {
+    if (event.target.closest("button")) return;
+    setDetailsOpen(true);
+  };
+
   return (
-    <article className="group min-w-0">
-      <div
-        className={`relative overflow-hidden bg-[#F3EEE7] transition duration-300 ${
-          selected
-            ? "ring-2 ring-[#D4AF37]/70 ring-offset-2 ring-offset-white"
-            : ""
-        }`}
+    <>
+      <article
+        onClick={handleCardClick}
+        className="group min-w-0 cursor-pointer"
       >
-        <div className="aspect-square">
-          {component.images?.[0]?.url ? (
-            <img
-              src={component.images[0].url}
-              alt={component.name}
-              className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.035]"
-            />
-          ) : (
-            <V7DecorPlaceholder component={component} />
+        <div
+          className={`relative overflow-hidden bg-[#F3EEE7] transition duration-300 ${
+            selected
+              ? "ring-2 ring-[#D4AF37]/70 ring-offset-2 ring-offset-white"
+              : ""
+          }`}
+        >
+          <div className="aspect-square">
+            {component.images?.[0]?.url ? (
+              <img
+                src={component.images[0].url}
+                alt={component.name}
+                className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.035]"
+              />
+            ) : (
+              <V7DecorPlaceholder component={component} />
+            )}
+          </div>
+
+          <span className="absolute left-2 top-2 bg-white/92 px-2 py-1 text-[6px] font-black uppercase tracking-[0.06em] text-[#8B6817] backdrop-blur-sm sm:left-2.5 sm:top-2.5 sm:px-2.5 sm:text-[7px] sm:tracking-[0.07em]">
+            Finishing only
+          </span>
+
+          {selected && (
+            <span className="absolute right-2 top-2 rounded-full bg-[#171717] px-2 py-1 text-[8px] font-black text-white shadow-lg">
+              ×{quantity}
+            </span>
           )}
         </div>
 
-        <span className="absolute left-2.5 top-2.5 bg-white/92 px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.07em] text-[#8B6817] backdrop-blur-sm">
-          Finishing only
-        </span>
-      </div>
-
-      <div className="pt-3">
-        <p className="truncate text-[11px] font-extrabold text-[#171717]">
-          {component.name}
-        </p>
-
-        <div className="mt-1 flex items-center justify-between gap-2">
-          <p className="text-[11px] font-black text-[#9B7616]">
-            {missingPrice
-              ? "Price pending"
-              : formatCurrency(component.sellingPrice)}
+        <div className="pt-3">
+          <p className="line-clamp-2 min-h-[30px] text-[10px] font-extrabold leading-[1.35] text-[#171717] sm:min-h-0 sm:truncate sm:text-[11px]">
+            {component.name}
           </p>
 
-          <span className="text-[7px] font-black uppercase tracking-[0.06em] text-emerald-600">
-            0% capacity
-          </span>
-        </div>
+          <div className="mt-1 flex items-center justify-between gap-2">
+            <p className="text-[10px] font-black text-[#9B7616] sm:text-[11px]">
+              {missingPrice
+                ? "Price pending"
+                : formatCurrency(component.sellingPrice)}
+            </p>
 
-        <div className="mt-3 grid h-9 grid-cols-[36px_1fr_36px] overflow-hidden border-y border-[#D4AF37]/18 bg-[#FFFCF7]">
-          <button
-            type="button"
-            disabled={quantity <= 0}
-            onClick={onMinus}
-            className="text-sm disabled:opacity-20"
-          >
-            −
-          </button>
-
-          <span className="flex items-center justify-center border-x border-[#D4AF37]/15 text-[9px] font-black">
-            {quantity}
-          </span>
+            <span className="text-[6px] font-black uppercase tracking-[0.05em] text-emerald-600 sm:text-[7px] sm:tracking-[0.06em]">
+              0% capacity
+            </span>
+          </div>
 
           <button
             type="button"
-            disabled={missingPrice || quantity >= 99}
-            onClick={onPlus}
-            className="text-sm font-black text-[#9B7616] transition hover:bg-[#D4AF37] hover:text-[#171717] disabled:opacity-20"
+            onClick={(event) => {
+              event.stopPropagation();
+              setDetailsOpen(true);
+            }}
+            className="mt-2 flex h-8 w-full items-center justify-center rounded-[8px] border border-black/[0.08] bg-white px-2 text-[7.5px] font-black text-black/52 transition active:scale-[.98] hover:border-[#D4AF37]/35 hover:text-[#9A7316] sm:h-9 sm:text-[9px]"
           >
-            +
+            View details →
           </button>
+
+          <div
+            className="mt-2 grid h-9 grid-cols-[32px_1fr_32px] overflow-hidden rounded-[8px] border border-[#D4AF37]/18 bg-[#FFFCF7] sm:mt-3 sm:grid-cols-[36px_1fr_36px] sm:rounded-none sm:border-x-0"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              disabled={quantity <= 0}
+              onClick={(event) => {
+                event.stopPropagation();
+                onMinus();
+              }}
+              className="text-sm disabled:opacity-20"
+              aria-label={`Remove ${component.name}`}
+            >
+              −
+            </button>
+
+            <span className="flex items-center justify-center border-x border-[#D4AF37]/15 text-[9px] font-black">
+              {quantity}
+            </span>
+
+            <button
+              type="button"
+              disabled={cannotIncrease}
+              onClick={(event) => {
+                event.stopPropagation();
+                onPlus();
+              }}
+              className="text-sm font-black text-[#9B7616] transition hover:bg-[#D4AF37] hover:text-[#171717] disabled:opacity-20"
+              aria-label={`Add ${component.name}`}
+            >
+              +
+            </button>
+          </div>
         </div>
-      </div>
-    </article>
+      </article>
+
+      {detailsOpen && (
+        <V10ProductDetailsModal
+          component={component}
+          quantity={quantity}
+          cannotIncrease={cannotIncrease}
+          onMinus={onMinus}
+          onPlus={onPlus}
+          onClose={() => setDetailsOpen(false)}
+          eyebrow="Finishing details"
+          addLabel="+ Add finishing"
+        />
+      )}
+    </>
   );
 };
 
@@ -3835,7 +4306,7 @@ const V7Studio = ({
           </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 border-y border-black/[0.08] bg-transparent">
+        <div className="mt-4 hidden grid-cols-2 border-y border-black/[0.08] bg-transparent md:grid">
           <button
             type="button"
             onClick={() => onModeChange?.("personal")}
@@ -5335,6 +5806,9 @@ const ProductPager = ({
   rangeStart,
   rangeEnd,
   onPageChange,
+  compact = false,
+  label = "Products",
+  scrollSelector = '[data-hamper-products-grid="true"]',
 }) => {
   const pages = [];
   const start = Math.max(1, Math.min(page - 1, totalPages - 2));
@@ -5354,10 +5828,47 @@ const ProductPager = ({
 
     window.requestAnimationFrame(() => {
       document
-        .querySelector('[data-hamper-products-grid="true"]')
+        .querySelector(scrollSelector)
         ?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   };
+
+  if (compact) {
+    return (
+      <div className="mt-5 rounded-[14px] border border-black/[0.06] bg-[#FAF8F5] p-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[9px] font-black uppercase tracking-[0.08em] text-black/28">
+              {label}
+            </p>
+            <p className="mt-0.5 text-[10px] font-semibold text-black/42">
+              {rangeStart}–{rangeEnd} of {totalItems} · Page {page} of {totalPages}
+            </p>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              disabled={page <= 1}
+              onClick={() => go(page - 1)}
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-black/10 bg-white text-[16px] font-black text-[#171717] transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-25"
+              aria-label={`Previous ${label.toLowerCase()}`}
+            >
+              ←
+            </button>
+            <button
+              type="button"
+              disabled={page >= totalPages}
+              onClick={() => go(page + 1)}
+              className="flex h-10 min-w-[82px] items-center justify-center rounded-full bg-[#171717] px-4 text-[9px] font-black uppercase tracking-[0.07em] text-white transition active:scale-95 disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/25"
+            >
+              Next →
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mt-6 flex flex-col gap-3 rounded-[12px] border border-black/[0.06] bg-[#FAF8F5] px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between">
@@ -5367,7 +5878,7 @@ const ProductPager = ({
           {rangeStart}–{rangeEnd}
         </span>{" "}
         of <span className="font-black text-[#171717]">{totalItems}</span>{" "}
-        products
+        {label.toLowerCase()}
       </p>
 
       <div className="flex items-center gap-2">
