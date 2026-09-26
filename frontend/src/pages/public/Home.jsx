@@ -434,6 +434,117 @@ const Home = () => {
             letter-spacing: -.044em;
           }
 
+          /* ==============================================
+             ONE-TIME KINETIC TYPOGRAPHY
+             Every visible homepage h1 / h2 / h3 reveals once
+             when it first enters the viewport.
+          =============================================== */
+
+          @keyframes hpKineticHeadingIn {
+            0% {
+              opacity: 0;
+              filter: blur(var(--hp-kinetic-blur, 8px));
+              translate: 0 var(--hp-kinetic-y, 34px);
+              scale: var(--hp-kinetic-scale, .955);
+              clip-path: inset(0 0 26% 0);
+            }
+
+            58% {
+              opacity: 1;
+              filter: blur(0);
+              translate: 0 -3px;
+              scale: 1.006;
+              clip-path: inset(0 0 0 0);
+            }
+
+            100% {
+              opacity: 1;
+              filter: blur(0);
+              translate: 0 0;
+              scale: 1;
+              clip-path: inset(0 0 0 0);
+            }
+          }
+
+          @keyframes hpKineticAccentIn {
+            0% {
+              opacity: 0;
+              filter: blur(7px);
+              translate: -28px 0;
+              scale: .97;
+            }
+
+            62% {
+              opacity: 1;
+              filter: blur(0);
+              translate: 4px 0;
+              scale: 1.008;
+            }
+
+            100% {
+              opacity: 1;
+              filter: blur(0);
+              translate: 0 0;
+              scale: 1;
+            }
+          }
+
+          .hp-kinetic-heading {
+            --hp-kinetic-y: 34px;
+            --hp-kinetic-blur: 8px;
+            --hp-kinetic-scale: .955;
+            opacity: 0;
+            filter: blur(var(--hp-kinetic-blur));
+            translate: 0 var(--hp-kinetic-y);
+            scale: var(--hp-kinetic-scale);
+            clip-path: inset(0 0 26% 0);
+            transform-origin: left center;
+            will-change: opacity, filter, translate, scale, clip-path;
+          }
+
+          .hp-kinetic-heading:not(.hp-section-heading) {
+            --hp-kinetic-y: 18px;
+            --hp-kinetic-blur: 4px;
+            --hp-kinetic-scale: .985;
+          }
+
+          .hp-kinetic-heading.is-kinetic-visible {
+            animation: hpKineticHeadingIn
+              var(--hp-kinetic-duration, 920ms)
+              cubic-bezier(.16,1,.3,1) both;
+          }
+
+          .hp-kinetic-heading:not(.hp-section-heading).is-kinetic-visible {
+            --hp-kinetic-duration: 680ms;
+          }
+
+          .hp-kinetic-heading .hp-section-heading-accent {
+            opacity: 0;
+            filter: blur(7px);
+            translate: -28px 0;
+            scale: .97;
+            will-change: opacity, filter, translate, scale;
+          }
+
+          .hp-kinetic-heading.is-kinetic-visible .hp-section-heading-accent {
+            animation: hpKineticAccentIn 980ms
+              120ms cubic-bezier(.16,1,.3,1) both;
+          }
+
+          @media (max-width: 639px) {
+            .hp-kinetic-heading {
+              --hp-kinetic-y: 24px;
+              --hp-kinetic-blur: 6px;
+              --hp-kinetic-scale: .97;
+            }
+
+            .hp-kinetic-heading:not(.hp-section-heading) {
+              --hp-kinetic-y: 14px;
+              --hp-kinetic-blur: 3px;
+              --hp-kinetic-scale: .99;
+            }
+          }
+
           @media (max-width: 1023px) {
             .hp-section-heading {
               font-size:
@@ -3479,6 +3590,15 @@ const Home = () => {
             .hp-home-v65 .hp-reveal, .hp-home-v65 .hp-story-line, .hp-home-v65 .hp-story-kicker {
               opacity:1 !important; filter:none !important; transform:none !important;
             }
+            .hp-home-v65 .hp-kinetic-heading,
+            .hp-home-v65 .hp-kinetic-heading .hp-section-heading-accent {
+              opacity: 1 !important;
+              filter: none !important;
+              translate: none !important;
+              scale: 1 !important;
+              clip-path: none !important;
+              animation: none !important;
+            }
           }
 
 
@@ -5777,6 +5897,69 @@ const useHomeEnhancements = (homeRef, reducedMotion, setActiveSection) => {
     [...sections, ...stories].forEach((node) => ambientObserver?.observe(node));
     if (!ambientObserver || reducedMotion) stories.forEach((node) => node.classList.add("is-story-visible"));
 
+    // One-time kinetic typography for every homepage heading.
+    // Newly-rendered catalogue headings are registered too, so async product
+    // updates keep the same motion language without replaying older headings.
+    const kineticHeadingSelector = "h1:not(.sr-only), h2, h3";
+    const kineticHeadingNodes = new Set();
+
+    const revealKineticHeading = (heading) => {
+      if (!heading || heading.dataset.hpKineticSeen === "true") return;
+      heading.dataset.hpKineticSeen = "true";
+      heading.classList.add("is-kinetic-visible");
+    };
+
+    const kineticHeadingObserver =
+      !reducedMotion && window.IntersectionObserver
+        ? new IntersectionObserver(
+            (entries, observer) => {
+              entries.forEach((entry) => {
+                if (!entry.isIntersecting) return;
+                revealKineticHeading(entry.target);
+                observer.unobserve(entry.target);
+              });
+            },
+            {
+              rootMargin: "0px 0px -10% 0px",
+              threshold: [0.08, 0.18],
+            }
+          )
+        : null;
+
+    const registerKineticHeading = (heading) => {
+      if (!(heading instanceof HTMLElement)) return;
+      if (!heading.matches(kineticHeadingSelector)) return;
+      if (kineticHeadingNodes.has(heading)) return;
+
+      kineticHeadingNodes.add(heading);
+      heading.classList.add("hp-kinetic-heading");
+
+      if (reducedMotion || !kineticHeadingObserver) {
+        revealKineticHeading(heading);
+        return;
+      }
+
+      kineticHeadingObserver.observe(heading);
+    };
+
+    root.querySelectorAll(kineticHeadingSelector).forEach(registerKineticHeading);
+
+    const kineticMutationObserver = window.MutationObserver
+      ? new MutationObserver((records) => {
+          records.forEach((record) => {
+            record.addedNodes.forEach((node) => {
+              if (!(node instanceof HTMLElement)) return;
+              registerKineticHeading(node);
+              node
+                .querySelectorAll?.(kineticHeadingSelector)
+                .forEach(registerKineticHeading);
+            });
+          });
+        })
+      : null;
+
+    kineticMutationObserver?.observe(root, { childList: true, subtree: true });
+
     const paintPointer = () => {
       pointerFrame = 0;
       if (!pointer || !lastPointerNode) return;
@@ -5811,6 +5994,12 @@ const useHomeEnhancements = (homeRef, reducedMotion, setActiveSection) => {
     }
     return () => {
       resize?.disconnect(); navigationObserver?.disconnect(); ambientObserver?.disconnect();
+      kineticHeadingObserver?.disconnect();
+      kineticMutationObserver?.disconnect();
+      kineticHeadingNodes.forEach((heading) => {
+        heading.classList.remove("hp-kinetic-heading", "is-kinetic-visible");
+        delete heading.dataset.hpKineticSeen;
+      });
       window.cancelAnimationFrame(frame); clearPointer();
       window.removeEventListener("scroll", schedule); window.removeEventListener("resize", measure);
       document.removeEventListener("visibilitychange", visibility);
