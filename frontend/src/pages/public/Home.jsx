@@ -444,25 +444,25 @@ const Home = () => {
             0% {
               opacity: 0;
               filter: blur(var(--hp-kinetic-blur, 8px));
-              translate: 0 var(--hp-kinetic-y, 34px);
-              scale: var(--hp-kinetic-scale, .955);
+              transform: translate3d(0, var(--hp-kinetic-y, 34px), 0) scale(var(--hp-kinetic-scale, .955));
               clip-path: inset(0 0 26% 0);
+              -webkit-clip-path: inset(0 0 26% 0);
             }
 
             58% {
               opacity: 1;
               filter: blur(0);
-              translate: 0 -3px;
-              scale: 1.006;
+              transform: translate3d(0, -3px, 0) scale(1.006);
               clip-path: inset(0 0 0 0);
+              -webkit-clip-path: inset(0 0 0 0);
             }
 
             100% {
               opacity: 1;
               filter: blur(0);
-              translate: 0 0;
-              scale: 1;
+              transform: translate3d(0, 0, 0) scale(1);
               clip-path: inset(0 0 0 0);
+              -webkit-clip-path: inset(0 0 0 0);
             }
           }
 
@@ -470,22 +470,19 @@ const Home = () => {
             0% {
               opacity: 0;
               filter: blur(7px);
-              translate: -28px 0;
-              scale: .97;
+              transform: translate3d(-28px, 0, 0) scale(.97);
             }
 
             62% {
               opacity: 1;
               filter: blur(0);
-              translate: 4px 0;
-              scale: 1.008;
+              transform: translate3d(4px, 0, 0) scale(1.008);
             }
 
             100% {
               opacity: 1;
               filter: blur(0);
-              translate: 0 0;
-              scale: 1;
+              transform: translate3d(0, 0, 0) scale(1);
             }
           }
 
@@ -495,11 +492,13 @@ const Home = () => {
             --hp-kinetic-scale: .955;
             opacity: 0;
             filter: blur(var(--hp-kinetic-blur));
-            translate: 0 var(--hp-kinetic-y);
-            scale: var(--hp-kinetic-scale);
+            transform: translate3d(0, var(--hp-kinetic-y), 0) scale(var(--hp-kinetic-scale));
             clip-path: inset(0 0 26% 0);
+            -webkit-clip-path: inset(0 0 26% 0);
             transform-origin: left center;
-            will-change: opacity, filter, translate, scale, clip-path;
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+            will-change: opacity, filter, transform, clip-path;
           }
 
           .hp-kinetic-heading:not(.hp-section-heading) {
@@ -521,9 +520,10 @@ const Home = () => {
           .hp-kinetic-heading .hp-section-heading-accent {
             opacity: 0;
             filter: blur(7px);
-            translate: -28px 0;
-            scale: .97;
-            will-change: opacity, filter, translate, scale;
+            transform: translate3d(-28px, 0, 0) scale(.97);
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+            will-change: opacity, filter, transform;
           }
 
           .hp-kinetic-heading.is-kinetic-visible .hp-section-heading-accent {
@@ -3594,9 +3594,9 @@ const Home = () => {
             .hp-home-v65 .hp-kinetic-heading .hp-section-heading-accent {
               opacity: 1 !important;
               filter: none !important;
-              translate: none !important;
-              scale: 1 !important;
+              transform: none !important;
               clip-path: none !important;
+              -webkit-clip-path: none !important;
               animation: none !important;
             }
           }
@@ -5909,19 +5909,45 @@ const useHomeEnhancements = (homeRef, reducedMotion, setActiveSection) => {
       heading.classList.add("is-kinetic-visible");
     };
 
+    const isMobileKinetic = window.matchMedia(
+      "(max-width: 767px), (pointer: coarse)"
+    ).matches;
+
+    const kineticRevealTimers = new Map();
+
+    const queueKineticReveal = (heading) => {
+      if (!heading || heading.dataset.hpKineticSeen === "true") return;
+
+      // Mobile Safari/Chrome can deliver IntersectionObserver immediately in the
+      // same paint in which the hidden class is attached. Waiting two frames
+      // guarantees the initial kinetic state is painted before the reveal class
+      // is added, so the one-time animation is visible on phones too.
+      const firstFrame = window.requestAnimationFrame(() => {
+        const secondFrame = window.requestAnimationFrame(() => {
+          kineticRevealTimers.delete(heading);
+          revealKineticHeading(heading);
+        });
+        kineticRevealTimers.set(heading, secondFrame);
+      });
+
+      kineticRevealTimers.set(heading, firstFrame);
+    };
+
     const kineticHeadingObserver =
       !reducedMotion && window.IntersectionObserver
         ? new IntersectionObserver(
             (entries, observer) => {
               entries.forEach((entry) => {
                 if (!entry.isIntersecting) return;
-                revealKineticHeading(entry.target);
+                queueKineticReveal(entry.target);
                 observer.unobserve(entry.target);
               });
             },
             {
-              rootMargin: "0px 0px -10% 0px",
-              threshold: [0.08, 0.18],
+              rootMargin: isMobileKinetic
+                ? "0px 0px -2% 0px"
+                : "0px 0px -10% 0px",
+              threshold: isMobileKinetic ? 0.01 : [0.08, 0.18],
             }
           )
         : null;
@@ -5996,6 +6022,8 @@ const useHomeEnhancements = (homeRef, reducedMotion, setActiveSection) => {
       resize?.disconnect(); navigationObserver?.disconnect(); ambientObserver?.disconnect();
       kineticHeadingObserver?.disconnect();
       kineticMutationObserver?.disconnect();
+      kineticRevealTimers.forEach((frameId) => window.cancelAnimationFrame(frameId));
+      kineticRevealTimers.clear();
       kineticHeadingNodes.forEach((heading) => {
         heading.classList.remove("hp-kinetic-heading", "is-kinetic-visible");
         delete heading.dataset.hpKineticSeen;
