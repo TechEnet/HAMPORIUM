@@ -265,15 +265,6 @@ const GIFT_BUDGETS = [
   },
 ];
 
-const HOME_SECTION_NAV = [
-  { id: "journey", label: "Journey" },
-  // { id: "concierge", label: "Concierge" }, // Temporarily hidden
-  { id: "bestsellers", label: "Bestsellers" },
-  { id: "hamper-one", label: "HAMPER ONE" },
-  { id: "brand", label: "Brand Story" },
-  { id: "bulk", label: "Bulk Gifting" },
-  { id: "finale", label: "Finale" },
-];
 
 const resolveProductImage = (
   product,
@@ -313,7 +304,6 @@ const Home = () => {
   const [catalogueError, setCatalogueError] = useState("");
   const [catalogueAttempt, setCatalogueAttempt] = useState(0);
   const [introFinished, setIntroFinished] = useState(false);
-  const [activeHomeSection, setActiveHomeSection] = useState("journey");
   const [giftRevealActive, setGiftRevealActive] = useState(false);
   const homeRef = useRef(null);
   const giftRevealTimerRef = useRef(null);
@@ -322,7 +312,7 @@ const Home = () => {
   const { promotions: websitePromotions } = useWebsitePromotions();
 
   const finishCinematicIntro = useCallback(() => setIntroFinished(true), []);
-  useHomeEnhancements(homeRef, reducedMotion, setActiveHomeSection);
+  useHomeEnhancements(homeRef, reducedMotion);
 
   // The existing catalogue endpoint and filter contract are retained.
   // A stale response never overwrites a newer request or an unmounted page.
@@ -435,139 +425,168 @@ const Home = () => {
           }
 
           /* ==============================================
-             ONE-TIME KINETIC TYPOGRAPHY
-             Every visible homepage h1 / h2 / h3 reveals once
-             when it first enters the viewport.
+             V71 · GPU-FRIENDLY ONE-TIME KINETIC TYPOGRAPHY
+             Transform + opacity only: keeps the cinematic feel without
+             blur/filter repaints during scroll on high-refresh displays.
           =============================================== */
 
-          @keyframes hpKineticHeadingIn {
+          @keyframes hpKineticSectionIn {
             0% {
               opacity: 0;
-              filter: blur(var(--hp-kinetic-blur, 8px));
-              transform: translate3d(0, var(--hp-kinetic-y, 34px), 0) scale(var(--hp-kinetic-scale, .955));
-              clip-path: inset(0 0 26% 0);
-              -webkit-clip-path: inset(0 0 26% 0);
+              transform: translate3d(0, 34px, 0) scale(.975) skewY(.65deg);
+              letter-spacing: -.052em;
             }
 
-            58% {
+            64% {
               opacity: 1;
-              filter: blur(0);
-              transform: translate3d(0, -3px, 0) scale(1.006);
-              clip-path: inset(0 0 0 0);
-              -webkit-clip-path: inset(0 0 0 0);
+              transform: translate3d(0, -2px, 0) scale(1.002) skewY(0deg);
             }
 
             100% {
               opacity: 1;
-              filter: blur(0);
-              transform: translate3d(0, 0, 0) scale(1);
-              clip-path: inset(0 0 0 0);
-              -webkit-clip-path: inset(0 0 0 0);
+              transform: translate3d(0, 0, 0) scale(1) skewY(0deg);
             }
           }
 
           @keyframes hpKineticAccentIn {
             0% {
               opacity: 0;
-              filter: blur(7px);
-              transform: translate3d(-28px, 0, 0) scale(.97);
+              transform: translate3d(-28px, 8px, 0) scale(.982) skewX(-2deg);
             }
 
-            62% {
+            66% {
               opacity: 1;
-              filter: blur(0);
-              transform: translate3d(4px, 0, 0) scale(1.008);
+              transform: translate3d(3px, 0, 0) scale(1.003) skewX(0deg);
             }
 
             100% {
               opacity: 1;
-              filter: blur(0);
+              transform: translate3d(0, 0, 0) scale(1) skewX(0deg);
+            }
+          }
+
+          @keyframes hpKineticSubIn {
+            0% {
+              opacity: 0;
+              transform: translate3d(var(--hp-kinetic-x, -14px), 14px, 0) scale(.99);
+            }
+
+            100% {
+              opacity: 1;
               transform: translate3d(0, 0, 0) scale(1);
             }
           }
 
+          @keyframes hpKineticCardIn {
+            0% {
+              opacity: 0;
+              transform: translate3d(0, 10px, 0);
+            }
+
+            100% {
+              opacity: 1;
+              transform: translate3d(0, 0, 0);
+            }
+          }
+
+          @keyframes hpKineticLineIn {
+            0% { opacity: 0; transform: scaleX(0); }
+            100% { opacity: .82; transform: scaleX(1); }
+          }
+
           .hp-kinetic-heading {
-            --hp-kinetic-y: 34px;
-            --hp-kinetic-blur: 8px;
-            --hp-kinetic-scale: .955;
+            --hp-kinetic-x: -14px;
+            position: relative;
             opacity: 0;
-            filter: blur(var(--hp-kinetic-blur));
-            transform: translate3d(0, var(--hp-kinetic-y), 0) scale(var(--hp-kinetic-scale));
-            clip-path: inset(0 0 26% 0);
-            -webkit-clip-path: inset(0 0 26% 0);
+            filter: none !important;
+            transform: translate3d(0, 18px, 0) scale(.99);
             transform-origin: left center;
             backface-visibility: hidden;
             -webkit-backface-visibility: hidden;
-            will-change: opacity, filter, transform, clip-path;
+            will-change: transform, opacity;
+            overflow: visible !important;
+            clip-path: none !important;
+            -webkit-clip-path: none !important;
           }
 
-          .hp-kinetic-heading:not(.hp-section-heading) {
-            --hp-kinetic-y: 18px;
-            --hp-kinetic-blur: 4px;
-            --hp-kinetic-scale: .985;
+          .hp-kinetic-heading[data-hp-kinetic-variant="section"] {
+            transform: translate3d(0, 34px, 0) scale(.975) skewY(.65deg);
           }
 
-          .hp-kinetic-heading.is-kinetic-visible {
-            animation: hpKineticHeadingIn
-              var(--hp-kinetic-duration, 920ms)
-              cubic-bezier(.16,1,.3,1) both;
+          .hp-kinetic-heading[data-hp-kinetic-variant="sub"] {
+            transform: translate3d(var(--hp-kinetic-x), 14px, 0) scale(.99);
           }
 
-          .hp-kinetic-heading:not(.hp-section-heading).is-kinetic-visible {
-            --hp-kinetic-duration: 680ms;
+          .hp-kinetic-heading[data-hp-kinetic-variant="card"] {
+            transform: translate3d(0, 10px, 0);
+          }
+
+          .hp-kinetic-heading.is-kinetic-visible[data-hp-kinetic-variant="section"] {
+            animation: hpKineticSectionIn 760ms cubic-bezier(.16,1,.3,1) both;
+          }
+
+          .hp-kinetic-heading.is-kinetic-visible[data-hp-kinetic-variant="sub"],
+          .hp-kinetic-heading.is-kinetic-visible[data-hp-kinetic-variant="standard"],
+          .hp-kinetic-heading.is-kinetic-visible[data-hp-kinetic-variant="dialog"] {
+            animation: hpKineticSubIn 560ms cubic-bezier(.16,1,.3,1) both;
+          }
+
+          .hp-kinetic-heading.is-kinetic-visible[data-hp-kinetic-variant="card"] {
+            animation: hpKineticCardIn 440ms cubic-bezier(.16,1,.3,1) both;
           }
 
           .hp-kinetic-heading .hp-section-heading-accent {
             opacity: 0;
-            filter: blur(7px);
-            transform: translate3d(-28px, 0, 0) scale(.97);
+            filter: none !important;
+            transform: translate3d(-28px, 8px, 0) scale(.982) skewX(-2deg);
             backface-visibility: hidden;
             -webkit-backface-visibility: hidden;
-            will-change: opacity, filter, transform;
+            will-change: transform, opacity;
           }
 
           .hp-kinetic-heading.is-kinetic-visible .hp-section-heading-accent {
-            animation: hpKineticAccentIn 980ms
-              120ms cubic-bezier(.16,1,.3,1) both;
+            animation: hpKineticAccentIn 760ms 70ms cubic-bezier(.16,1,.3,1) both;
           }
 
-          @media (max-width: 639px) {
-            .hp-kinetic-heading {
-              --hp-kinetic-y: 24px;
-              --hp-kinetic-blur: 6px;
-              --hp-kinetic-scale: .97;
-            }
-
-            .hp-kinetic-heading:not(.hp-section-heading) {
-              --hp-kinetic-y: 14px;
-              --hp-kinetic-blur: 3px;
-              --hp-kinetic-scale: .99;
-            }
+          .hp-kinetic-heading.hp-section-heading::after {
+            content: "";
+            display: block;
+            width: clamp(54px, 6vw, 94px);
+            height: 1px;
+            margin-top: .24em;
+            opacity: 0;
+            transform: scaleX(0);
+            transform-origin: left center;
+            background: linear-gradient(90deg, #F47822 0%, #D4AF37 58%, transparent 100%);
           }
 
-          @media (max-width: 1023px) {
-            .hp-section-heading {
-              font-size:
-                clamp(
-                  58px,
-                  10.5vw,
-                  88px
-                );
-              line-height: .88;
-              letter-spacing: -.043em;
-            }
+          .hp-kinetic-heading.hp-section-heading.is-kinetic-visible::after {
+            animation: hpKineticLineIn 520ms 260ms cubic-bezier(.16,1,.3,1) both;
           }
 
-          @media (max-width: 639px) {
-            .hp-section-heading {
-              font-size:
-                clamp(
-                  50px,
-                  14.5vw,
-                  68px
-                );
-              line-height: .9;
-              letter-spacing: -.04em;
+          @media (max-width: 767px) {
+            .hp-kinetic-heading[data-hp-kinetic-variant="section"] {
+              transform: translate3d(0, 20px, 0) scale(.988);
+            }
+
+            .hp-kinetic-heading[data-hp-kinetic-variant="sub"],
+            .hp-kinetic-heading[data-hp-kinetic-variant="standard"],
+            .hp-kinetic-heading[data-hp-kinetic-variant="dialog"] {
+              --hp-kinetic-x: -8px;
+              transform: translate3d(var(--hp-kinetic-x), 10px, 0) scale(.995);
+            }
+
+            .hp-kinetic-heading[data-hp-kinetic-variant="card"] {
+              transform: translate3d(0, 7px, 0);
+            }
+
+            .hp-kinetic-heading .hp-section-heading-accent {
+              transform: translate3d(-16px, 5px, 0) scale(.99);
+            }
+
+            .hp-kinetic-heading.hp-section-heading::after {
+              width: 56px;
+              margin-top: .22em;
             }
           }
 
@@ -1762,7 +1781,7 @@ const Home = () => {
               max-width: none !important;
               overflow-x: auto;
               overflow-y: hidden;
-              gap: 10px;
+              gap: 8px;
               padding:
                 18px 0
                 24px;
@@ -2269,7 +2288,15 @@ const Home = () => {
 
           @media (max-width: 1023px) {
             .hp-journey-grid {
-              --hp-journey-card-width: 76vw;
+              /*
+                MOBILE JOURNEY GEOMETRY
+                JS keeps these values synced to the rail's real client width,
+                so the left peek, right peek and card-to-card spacing stay
+                perfectly symmetrical even when the browser scrollbar changes
+                the CSS viewport width.
+              */
+              --hp-journey-card-width: 74vw;
+              --hp-journey-gap: 14px;
               --hp-journey-side-space:
                 calc(
                   (100vw - var(--hp-journey-card-width)) / 2
@@ -2282,7 +2309,8 @@ const Home = () => {
               transform: translateX(-50%);
               overflow-x: auto;
               overflow-y: hidden;
-              gap: 14px;
+              column-gap: var(--hp-journey-gap);
+              row-gap: 0;
               padding:
                 10px var(--hp-journey-side-space)
                 20px;
@@ -2315,30 +2343,31 @@ const Home = () => {
               min-width: 0;
               scroll-snap-align: center;
               scroll-snap-stop: always;
-              scale: .90;
-              opacity: .70;
+              scale: var(--hp-journey-scroll-scale, .62);
+              opacity: var(--hp-journey-scroll-opacity, .50);
               transform-origin:
-                center center;
+                var(--hp-journey-scale-origin, center center);
+              z-index: var(--hp-journey-z, 1);
               border-radius: 28px;
               transition:
-                scale .62s
-                  cubic-bezier(.22,1,.36,1),
-                opacity .48s ease;
+                opacity .12s linear;
               will-change:
                 scale, opacity;
+              backface-visibility: hidden;
+              -webkit-backface-visibility: hidden;
             }
 
             .hp-journey-grid >
             .is-mobile-active {
-              scale: 1;
-              opacity: 1;
+              opacity: var(--hp-journey-scroll-opacity, 1);
             }
           }
 
           @media (max-width: 639px) {
             .hp-journey-grid {
-              --hp-journey-card-width: 78vw;
-              gap: 12px;
+              --hp-journey-card-width: 74vw;
+              --hp-journey-gap: 14px;
+              column-gap: var(--hp-journey-gap);
             }
 
             .hp-journey-grid > * {
@@ -2701,106 +2730,6 @@ const Home = () => {
             will-change: transform;
           }
 
-          .hp-section-navigator {
-            position: fixed;
-            z-index: 120;
-            right: 22px;
-            top: 50%;
-            transform: translateY(-50%);
-            flex-direction: column;
-            align-items: flex-end;
-            gap: 8px;
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity .4s ease;
-          }
-
-          .hp-section-navigator.is-visible {
-            opacity: 1;
-          }
-
-          .hp-section-nav-button {
-            pointer-events: auto;
-            display: flex;
-            min-height: 28px;
-            align-items: center;
-            justify-content: flex-end;
-            gap: 9px;
-            border: 0;
-            padding: 0;
-            color: rgba(255,255,255,.42);
-            background: transparent;
-            cursor: pointer;
-          }
-
-          .hp-section-nav-label {
-            max-width: 0;
-            overflow: hidden;
-            white-space: nowrap;
-            opacity: 0;
-            transform: translateX(8px);
-            transition:
-              max-width .35s cubic-bezier(.16,1,.3,1),
-              opacity .24s ease,
-              transform .35s cubic-bezier(.16,1,.3,1);
-            border: 1px solid rgba(255,255,255,.10);
-            background: rgba(8,7,6,.78);
-            backdrop-filter: blur(14px);
-            -webkit-backdrop-filter: blur(14px);
-            box-shadow: 0 10px 30px rgba(0,0,0,.14);
-          }
-
-          .hp-section-nav-button:hover
-          .hp-section-nav-label,
-          .hp-section-nav-button.is-active
-          .hp-section-nav-label {
-            max-width: 150px;
-            opacity: 1;
-            transform: translateX(0);
-            padding: 6px 9px;
-          }
-
-          .hp-section-nav-index {
-            font-size: 8px;
-            font-weight: 900;
-            letter-spacing: .12em;
-            color: rgba(255,255,255,.34);
-            transition: color .25s ease;
-          }
-
-          .hp-section-nav-dot {
-            position: relative;
-            width: 7px;
-            height: 7px;
-            border-radius: 999px;
-            border: 1px solid rgba(255,255,255,.44);
-            background: rgba(8,7,6,.55);
-            transition:
-              transform .32s cubic-bezier(.16,1,.3,1),
-              border-color .25s ease,
-              background-color .25s ease,
-              box-shadow .25s ease;
-          }
-
-          .hp-section-nav-button.is-active {
-            color: #F4D36A;
-          }
-
-          .hp-section-nav-button.is-active
-          .hp-section-nav-index {
-            color: #F4D36A;
-          }
-
-          .hp-section-nav-button.is-active
-          .hp-section-nav-dot {
-            transform: scale(1.45);
-            border-color: #F47822;
-            background: #F47822;
-            box-shadow:
-              0 0 0 5px rgba(244,120,34,.10),
-              0 0 16px rgba(244,120,34,.42);
-          }
-
           .hp-pointer-glow::before {
             content: "";
             position: absolute;
@@ -3081,12 +3010,6 @@ const Home = () => {
           .hp-final-parallax-zone {
             --hp-final-x: 0px;
             --hp-final-y: 0px;
-          }
-
-          @media (max-width: 1279px) {
-            .hp-section-navigator {
-              display: none !important;
-            }
           }
 
           @media (max-width: 1023px) {
@@ -3625,8 +3548,17 @@ const Home = () => {
             .hp-home-v65 .hp-journey-grid > a:focus-visible .hp-journey-hover[data-loaded="true"] { opacity:1; transform:scale(1.015); }
           }
           @media (max-width:1023px) {
-            .hp-home-v65 .hp-snap-rail > *, .hp-home-v65 .hp-snap-rail > .is-mobile-active {
+            .hp-home-v65 .hp-snap-rail:not(.hp-journey-grid) > *,
+            .hp-home-v65 .hp-snap-rail:not(.hp-journey-grid) > .is-mobile-active {
               scale:1 !important; opacity:1 !important; will-change:auto !important;
+            }
+
+            .hp-home-v65 .hp-journey-grid > * {
+              scale: var(--hp-journey-scroll-scale, .70) !important;
+              opacity: var(--hp-journey-scroll-opacity, .58) !important;
+              transform-origin: var(--hp-journey-scale-origin, center center) !important;
+              z-index: var(--hp-journey-z, 1);
+              will-change: scale, opacity !important;
             }
             .hp-home-v65 .hp-quick-look { opacity:1; transform:none; }
             .hp-home-v65 .hp-bestseller-runway { padding:8px 16px 16px !important; gap:14px !important; scroll-padding-inline:16px; }
@@ -3661,6 +3593,13 @@ const Home = () => {
             .hp-home-v65 .hp-quick-look { opacity:1; transform:none; }
             .hp-home-v65 .hp-bestseller-card:hover { transform:none; }
             .hp-home-v65 .hp-concierge-card:hover { transform:none; }
+          }
+
+          @media (prefers-reduced-motion: reduce) and (max-width: 1023px) {
+            .hp-home-v65 .hp-journey-grid > * {
+              scale: 1 !important;
+              opacity: 1 !important;
+            }
           }
           @media (prefers-reduced-motion:reduce) {
             .hp-home-v65 *, .hp-home-v65 *::before, .hp-home-v65 *::after,
@@ -4104,6 +4043,133 @@ const Home = () => {
           .hp-quick-copy h2 { overflow-wrap:anywhere; }
 
           /* ==================================================
+             V76 · WAVE WATER FLUID SHADER
+             GPU rendered wave refraction. No radial/circular mask.
+             The shader itself fades into the untouched base image, so
+             the interaction reads as flowing water bands instead of a lens.
+          ================================================== */
+          .hp-fluid-backdrop {
+            position: absolute;
+            inset: 0;
+            overflow: hidden;
+            pointer-events: none;
+            isolation: isolate;
+            contain: paint;
+          }
+
+          .hp-fluid-image,
+          .hp-fluid-canvas-wrap,
+          .hp-fluid-canvas {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+          }
+
+          .hp-fluid-image-base {
+            z-index: 0;
+            transform: translateZ(0);
+            transition: transform .46s cubic-bezier(.22,1,.36,1);
+          }
+
+          .hp-fluid-canvas-wrap {
+            z-index: 2;
+            overflow: hidden;
+            opacity: 0;
+            pointer-events: none;
+            transform: translateZ(0);
+            transition: opacity .14s ease-out;
+            will-change: opacity;
+          }
+
+          .hp-fluid-backdrop.is-fluid-active .hp-fluid-canvas-wrap {
+            opacity: 1;
+          }
+
+          .hp-fluid-canvas {
+            display: block;
+            max-width: none;
+            transform-origin: center center;
+            pointer-events: none;
+          }
+
+          /* Small overscan prevents edge gaps while the wave bends the image. */
+          @media (hover: hover) and (pointer: fine) {
+            .hp-fluid-host:hover .hp-fluid-image-base {
+              transform: translateZ(0) scale(1.008);
+            }
+          }
+
+          @media (hover: none), (pointer: coarse), (max-width: 767px) {
+            .hp-fluid-canvas-wrap {
+              display: none !important;
+            }
+          }
+
+          @media (prefers-reduced-motion: reduce) {
+            .hp-fluid-canvas-wrap {
+              display: none !important;
+              transition: none !important;
+            }
+          }
+
+          /* ==================================================
+             V73 · HOME PERFORMANCE PASS
+             Offscreen sections skip paint/layout work. Heavy decorative
+             motion is reduced on touch/tablet where it gives little value.
+          ================================================== */
+          .hp-home-v65 [data-home-section="journey"],
+          .hp-home-v65 [data-home-section="bestsellers"],
+          .hp-home-v65 [data-home-section="hamper-one"],
+          .hp-home-v65 [data-home-section="bulk"],
+          .hp-home-v65 [data-home-section="finale"] {
+            content-visibility: auto;
+            contain-intrinsic-size: auto 900px;
+          }
+
+          .hp-home-v65 .hp-pointer-glow::before {
+            display: none !important;
+          }
+
+          .hp-home-v65 .hp-offscreen .hp-fluid-canvas-wrap {
+            opacity: 0 !important;
+          }
+
+          /* Fluid hosts are composited only while needed; no permanent cursor graphic. */
+          @media (hover: hover) and (pointer: fine) {
+            .hp-home-v65 .hp-fluid-host {
+              transform: translateZ(0);
+              backface-visibility: hidden;
+              -webkit-backface-visibility: hidden;
+            }
+          }
+
+          @media (max-width: 1023px), (hover: none), (pointer: coarse) {
+            .hp-home-v65 .hp-ambient-float,
+            .hp-home-v65 .hp-soft-spin,
+            .hp-home-v65 .hp-badge-pulse,
+            .hp-home-v65 .hp-luxury-drift,
+            .hp-home-v65 .hp-final-drift,
+            .hp-home-v65 .hp-luxury-line,
+            .hp-home-v65 .hp-bulk-float {
+              animation: none !important;
+            }
+
+            .hp-home-v65 .hp-journey-glow,
+            .hp-home-v65 .hp-concierge-ambient,
+            .hp-home-v65 .hp-luxury-glow,
+            .hp-home-v65 .hp-review-glow {
+              display: none !important;
+            }
+
+            .hp-home-v65 .hp-bestseller-card::before {
+              mix-blend-mode: normal !important;
+            }
+          }
+
+          /* ==================================================
              V67 · BULK STEPS MOBILE SWIPE FIX
              Keep desktop 2x2 grid. On phone/tablet the four
              steps become a real horizontal native scroll rail.
@@ -4516,6 +4582,120 @@ const Home = () => {
             }
           }
 
+
+          /* ==================================================
+             V81 · SIGNATURE HAMPER ONE UNWRAP
+             Premium interaction without extra libraries.
+          ================================================== */
+
+          @keyframes hpUnwrapHotspotPulse {
+            0%, 100% {
+              box-shadow:
+                0 0 0 0 rgba(212,175,55,.24),
+                0 12px 34px rgba(0,0,0,.28);
+            }
+            50% {
+              box-shadow:
+                0 0 0 10px rgba(212,175,55,0),
+                0 16px 42px rgba(0,0,0,.34);
+            }
+          }
+
+          @keyframes hpUnwrapPosterBreath {
+            0%, 100% {
+              transform: translate3d(0,0,0) scale(1);
+            }
+            50% {
+              transform: translate3d(0,-4px,0) scale(1.006);
+            }
+          }
+
+          .hp-unbox-poster-card {
+            animation:
+              hpUnwrapPosterBreath 7.5s
+              ease-in-out infinite;
+          }
+
+          .hp-unbox-curtain {
+            background:
+              linear-gradient(
+                90deg,
+                rgba(255,255,255,.025),
+                transparent 16%,
+                rgba(212,175,55,.055) 48%,
+                transparent 72%,
+                rgba(0,0,0,.20)
+              ),
+              repeating-linear-gradient(
+                90deg,
+                #120d08 0 34px,
+                #090705 34px 68px
+              );
+            box-shadow:
+              inset 0 0 46px rgba(212,175,55,.06),
+              0 0 42px rgba(0,0,0,.34);
+          }
+
+          .hp-unbox-curtain-left {
+            transform-origin: left center;
+          }
+
+          .hp-unbox-curtain-right {
+            transform-origin: right center;
+          }
+
+          .hp-unbox-ribbon {
+            background:
+              linear-gradient(
+                90deg,
+                #8f641f 0%,
+                #d8b85e 22%,
+                #f4dd91 50%,
+                #c89535 78%,
+                #7b5013 100%
+              );
+            box-shadow:
+              inset 0 1px 0 rgba(255,255,255,.30),
+              inset 0 -1px 0 rgba(73,42,6,.22),
+              0 8px 24px rgba(0,0,0,.24);
+          }
+
+          .hp-unbox-hotspot.is-active {
+            animation:
+              hpUnwrapHotspotPulse 2.2s
+              ease-out infinite;
+          }
+
+          @media (max-width: 767px) {
+            .hp-unbox-poster-card {
+              animation: none;
+            }
+
+            .hp-unbox-hotspot {
+              width: 40px;
+              height: 40px;
+            }
+
+          }
+
+          @media (hover: none), (pointer: coarse) {
+            .hp-unbox-hotspot.is-active {
+              animation: none;
+            }
+          }
+
+          @media (prefers-reduced-motion: reduce) {
+            .hp-unbox-poster-card,
+            .hp-unbox-hotspot.is-active {
+              animation: none !important;
+            }
+
+            .hp-unbox-curtain,
+            .hp-unbox-ribbon {
+              transition: none !important;
+            }
+          }
+
         `}
       </style>
 
@@ -4530,11 +4710,6 @@ const Home = () => {
         >
           <span />
         </div>
-
-        <HomeSectionNavigator
-          activeSection={activeHomeSection}
-          visible={introFinished}
-        />
 
         <CinematicHero onIntroComplete={finishCinematicIntro} />
 
@@ -4702,6 +4877,7 @@ const Home = () => {
             </InteractiveRail>
           </div>
         </section>
+
 
 
         {/* ==================================================
@@ -5312,106 +5488,10 @@ const Home = () => {
         </section>
 
         {/* ==================================================
-            HAMPER ONE · FULL-BLEED PRIVATE COLLECTION
+            HAMPER ONE · SIGNATURE UNWRAP EXPERIENCE
         =================================================== */}
 
-        <section
-          data-home-section="hamper-one"
-          className="group hp-pointer-glow relative isolate min-h-[760px] overflow-hidden bg-[#050403] text-white sm:min-h-[820px] lg:min-h-[900px]"
-        >
-          {/* FULL-BLEED HAMPER ONE IMAGE */}
-          <SmartImage
-            src={hamperOneLuxury}
-            alt="HAMPER ONE luxury premium gift hamper"
-            loading="lazy"
-            decoding="async"
-            draggable={false}
-            className="absolute inset-0 h-full w-full object-cover object-[64%_center] transition-transform duration-[1800ms] ease-out group-hover:scale-[1.018] sm:object-center"
-          />
-
-          {/* CINEMATIC LUXURY OVERLAYS */}
-          <div className="pointer-events-none absolute inset-0 bg-black/46" />
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#050403]/95 via-[#050403]/68 to-[#050403]/18 sm:from-[#050403]/92 sm:via-[#050403]/56 sm:to-transparent" />
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/58 via-transparent to-black/24" />
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_35%,rgba(212,175,55,0.13),transparent_31%)]" />
-
-          {/* FINE GOLD FRAME */}
-          <div className="pointer-events-none absolute inset-3 border border-[#D4AF37]/16 sm:inset-5 lg:inset-7" />
-          <div className="pointer-events-none absolute left-3 right-3 top-3 h-px bg-gradient-to-r from-transparent via-[#E8CD6E]/55 to-transparent sm:left-5 sm:right-5 sm:top-5 lg:left-7 lg:right-7 lg:top-7" />
-
-          <div className="relative z-10 mx-auto flex min-h-[760px] w-full max-w-[1920px] items-center px-5 py-20 sm:min-h-[820px] sm:px-8 md:px-10 lg:min-h-[900px] lg:px-14 xl:px-20 2xl:px-24">
-            <Reveal className="w-full">
-              <div className="max-w-[760px]">
-                {/* EYEBROW */}
-                <div className="flex items-center gap-4">
-                  <span className="h-px w-10 bg-[#D4AF37] sm:w-14" />
-
-                  <p className="text-[9px] font-black uppercase tracking-[0.30em] text-[#E3C45D] sm:text-[10px]">
-                    HAMPORIUM · PRIVATE COLLECTION
-                  </p>
-                </div>
-
-                {/* HERO TITLE */}
-                <h2 className="hp-section-heading mt-7 max-w-[760px] text-[#FFF8E8] sm:mt-8">
-                  HAMPER
-                  <span className="hp-section-heading-accent text-[#D4AF37]">
-                    ONE
-                  </span>
-                </h2>
-
-                {/* EDITORIAL STATEMENT · H3 JOINS THE GLOBAL ONE-TIME KINETIC SYSTEM */}
-                <h3
-                  style={{ fontFamily: DISPLAY_FONT }}
-                  className="mt-7 max-w-[650px] text-[27px] font-semibold leading-[1.06] text-white sm:mt-8 sm:text-[33px] md:text-[38px] lg:text-[42px]"
-                >
-                  A gift should feel like
-                  <span className="block italic text-[#F0D06B]">
-                    a moment in itself.
-                  </span>
-                </h3>
-
-                {/* QUIET LUXURY DETAILS */}
-                <div className="mt-7 flex flex-wrap items-center gap-x-5 gap-y-2 text-[9px] font-black uppercase tracking-[0.17em] text-white/58 sm:mt-8 sm:text-[10px]">
-                  <span>Signature Curation</span>
-                  <span className="h-1 w-1 rounded-full bg-[#D4AF37]" />
-                  <span>Gift Ready</span>
-                  <span className="h-1 w-1 rounded-full bg-[#D4AF37]" />
-                  <span>Private Series</span>
-                </div>
-
-                {/* CTA */}
-                <div className="mt-9 flex flex-col gap-3 sm:mt-10 sm:flex-row sm:items-center">
-                  <Link
-                    to="/hamper-one"
-                    className="group/cta inline-flex min-h-[56px] w-full items-center justify-between gap-7 bg-[#D4AF37] px-6 text-[11px] font-black uppercase tracking-[0.13em] text-[#111] transition duration-300 hover:bg-[#E8CD6E] sm:w-auto sm:min-w-[232px] sm:px-7"
-                  >
-                    Enter Hamper One
-                    <span className="text-[18px] transition duration-300 group-hover/cta:translate-x-1">
-                      →
-                    </span>
-                  </Link>
-
-                  <Link
-                    to="/gifts"
-                    className="group/secondary inline-flex min-h-[56px] w-full items-center justify-between gap-7 border border-white/18 bg-black/16 px-6 text-[11px] font-black uppercase tracking-[0.13em] text-white backdrop-blur-[3px] transition duration-300 hover:border-[#D4AF37]/55 hover:bg-black/28 sm:w-auto sm:min-w-[232px] sm:px-7"
-                  >
-                    Explore Hampers
-                    <span className="text-[18px] text-[#E4C865] transition duration-300 group-hover/secondary:translate-x-1">
-                      →
-                    </span>
-                  </Link>
-                </div>
-              </div>
-            </Reveal>
-          </div>
-
-          {/* SMALL PRIVATE-SERIES SIGNATURE */}
-          <div className="pointer-events-none absolute bottom-7 right-7 z-10 hidden border border-white/14 bg-black/24 px-4 py-3 backdrop-blur-md lg:block xl:bottom-10 xl:right-10">
-            <p className="text-[8px] font-black uppercase tracking-[0.22em] text-white/68">
-              HAMPORIUM · PRIVATE SERIES
-            </p>
-          </div>
-        </section>
+        <HamperOneUnwrapExperience />
 
         {/* ==================================================
             HAMPORIUM BRAND STORY · FULL-SCREEN SCROLL PAGES
@@ -5446,20 +5526,19 @@ const Home = () => {
           ].map((item, index) => (
             <div
               key={item.kicker}
-              className="hp-story-page group relative"
+              className="hp-story-page hp-fluid-host group relative"
             >
               <div className="hp-story-sheet">
-                <SmartImage
+                <FluidBackdrop
                   src={item.image}
                   alt={`${item.titleLines.join(" ")} ${item.accentLines.join(" ")}`}
-                  loading="eager"
-                  fetchPriority={index === 0 ? "high" : "auto"}
-                  decoding="async"
+                  loading={index === 0 ? "eager" : "lazy"}
+                  fetchPriority={index === 0 ? "high" : "low"}
                   style={{
-                    objectPosition:
-                      item.objectPosition,
+                    objectPosition: item.objectPosition,
                   }}
-                  className="hp-story-image absolute inset-0 h-full w-full object-cover"
+                  imageClassName="object-cover"
+                  strength={index === 1 ? 15 : 17}
                 />
 
                 <div className="absolute inset-0 bg-gradient-to-t from-black/48 via-transparent to-black/3" />
@@ -5551,11 +5630,12 @@ const Home = () => {
         <section data-home-section="bulk" className="relative overflow-hidden bg-[#F3EEE6] text-[#171717]">
           <div className="hp-bulk-layout grid min-h-[850px] lg:grid-cols-[0.92fr_1.08fr]">
             {/* LEFT VISUAL */}
-            <Reveal className="hp-bulk-visual relative min-h-[560px] overflow-hidden bg-[#15100C] lg:min-h-[850px]">
-              <SmartImage
+            <Reveal className="hp-bulk-visual hp-fluid-host relative min-h-[560px] overflow-hidden bg-[#15100C] lg:min-h-[850px]">
+              <FluidBackdrop
                 src={HOME_IMAGES.corporate}
                 alt="Corporate and event gifting"
-                className="absolute inset-0 h-full w-full object-cover object-center"
+                imageClassName="object-cover object-center"
+                strength={15}
               />
 
               <div className="absolute inset-0 bg-gradient-to-t from-black/82 via-black/12 to-black/22" />
@@ -5655,13 +5735,12 @@ const Home = () => {
             FINAL FULL-SCREEN CTA
         =================================================== */}
 
-        <section data-home-section="finale" className="hp-final-parallax-zone hp-pointer-glow relative flex min-h-[82svh] items-center overflow-hidden bg-black text-white">
-          <SmartImage
-            src={
-              HOME_IMAGES.finalCta
-            }
+        <section data-home-section="finale" className="hp-final-parallax-zone hp-fluid-host hp-pointer-glow relative flex min-h-[82svh] items-center overflow-hidden bg-black text-white">
+          <FluidBackdrop
+            src={HOME_IMAGES.finalCta}
             alt="HAMPORIUM final gifting moment"
-            className="hp-final-drift absolute inset-0 h-full w-full object-cover object-center opacity-[0.62]"
+            imageClassName="hp-final-drift object-cover object-center opacity-[0.62]"
+            strength={17}
           />
 
           <div className="absolute inset-0 bg-gradient-to-r from-black/92 via-black/58 to-black/24" />
@@ -5707,98 +5786,6 @@ const Home = () => {
 
       </div>
     </main>
-  );
-};
-
-// ======================================================
-// HOME SECTION NAVIGATOR
-// ======================================================
-
-const HomeSectionNavigator = ({
-  activeSection,
-  visible,
-}) => {
-  const handleNavigate = (id) => {
-    const node =
-      document.querySelector(
-        `[data-home-section="${id}"]`
-      );
-
-    if (!node) {
-      return;
-    }
-
-    const reducedMotion =
-      window.matchMedia?.(
-        "(prefers-reduced-motion: reduce)"
-      ).matches;
-
-    node.scrollIntoView({
-      behavior: reducedMotion
-        ? "auto"
-        : "smooth",
-      block: "start",
-    });
-  };
-
-  return (
-    <nav
-      className={`hp-section-navigator hidden xl:flex ${
-        visible
-          ? "is-visible"
-          : ""
-      }`}
-      aria-label="Homepage sections"
-    >
-      {HOME_SECTION_NAV.map(
-        (item, index) => {
-          const active =
-            item.id ===
-            activeSection;
-
-          return (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() =>
-                handleNavigate(
-                  item.id
-                )
-              }
-              aria-label={`Go to ${item.label}`}
-              aria-current={
-                active
-                  ? "true"
-                  : undefined
-              }
-              className={`hp-section-nav-button ${
-                active
-                  ? "is-active"
-                  : ""
-              }`}
-            >
-              <span className="hp-section-nav-label text-[9px] font-black uppercase tracking-[0.13em]">
-                {item.label}
-              </span>
-
-              <span className="hp-section-nav-index">
-                {String(
-                  index + 1
-                ).padStart(
-                  2,
-                  "0"
-                )}
-              </span>
-
-              <span
-                className="hp-section-nav-dot"
-                aria-hidden="true"
-              />
-            </button>
-          );
-        }
-      )}
-    </nav>
   );
 };
 
@@ -5852,6 +5839,840 @@ const SmartImage = ({ src, alt = "", className = "", loading = "lazy", fetchPrio
     onLoad={(event) => { event.currentTarget.dataset.loaded = "true"; }}
     onError={() => { if (imageSrc !== fallback) setFailedSource(src); else setUnavailable(true); }} />;
 };
+
+
+// ======================================================
+// POINTER FLUID BACKDROP
+// A lightweight local refraction lens for selected desktop backgrounds.
+// It listens on its parent, so text/buttons above the image stay clickable.
+// ======================================================
+
+const FluidBackdrop = ({
+  src,
+  alt = "",
+  imageClassName = "object-cover object-center",
+  loading = "lazy",
+  fetchPriority,
+  decoding = "async",
+  style,
+  strength = 16,
+}) => {
+  const layerRef = useRef(null);
+  const canvasRef = useRef(null);
+  const frameRef = useRef(0);
+  const rectRef = useRef(null);
+  const activeRef = useRef(false);
+  const readyRef = useRef(false);
+  const startTimeRef = useRef(0);
+  const previousPointerRef = useRef(null);
+  const targetRef = useRef({
+    x: 0.5,
+    y: 0.5,
+    velocityX: 0,
+    velocityY: 0,
+    amount: 0,
+  });
+  const currentRef = useRef({
+    x: 0.5,
+    y: 0.5,
+    velocityX: 0,
+    velocityY: 0,
+    amount: 0,
+  });
+
+  useEffect(() => {
+    const layer = layerRef.current;
+    const canvas = canvasRef.current;
+    const host = layer?.parentElement;
+
+    if (!layer || !canvas || !host || typeof window === "undefined") {
+      return undefined;
+    }
+
+    const reducedMotion = window.matchMedia?.(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+    const coarsePointer = window.matchMedia?.(
+      "(hover: none), (pointer: coarse)"
+    ).matches;
+
+    if (reducedMotion || coarsePointer) return undefined;
+
+    const gl = canvas.getContext("webgl", {
+      alpha: true,
+      antialias: false,
+      depth: false,
+      stencil: false,
+      premultipliedAlpha: false,
+      preserveDrawingBuffer: false,
+      powerPreference: "high-performance",
+    });
+
+    if (!gl) return undefined;
+
+    const vertexSource = `
+      attribute vec2 a_position;
+
+      void main() {
+        gl_Position = vec4(a_position, 0.0, 1.0);
+      }
+    `;
+
+    const fragmentSource = `
+      precision highp float;
+
+      uniform sampler2D u_texture;
+      uniform vec2 u_resolution;
+      uniform vec2 u_imageResolution;
+      uniform vec2 u_mouse;
+      uniform vec2 u_velocity;
+      uniform vec2 u_objectPosition;
+      uniform float u_time;
+      uniform float u_amount;
+      uniform float u_strength;
+
+      vec2 coverUv(vec2 uv) {
+        float screenAspect = u_resolution.x / max(u_resolution.y, 1.0);
+        float imageAspect = u_imageResolution.x / max(u_imageResolution.y, 1.0);
+        vec2 scale = vec2(1.0);
+        vec2 offset = vec2(0.0);
+
+        if (screenAspect > imageAspect) {
+          scale.y = imageAspect / screenAspect;
+          offset.y = (1.0 - u_objectPosition.y) * (1.0 - scale.y);
+        } else {
+          scale.x = screenAspect / imageAspect;
+          offset.x = u_objectPosition.x * (1.0 - scale.x);
+        }
+
+        return uv * scale + offset;
+      }
+
+      void main() {
+        vec2 uv = gl_FragCoord.xy / u_resolution;
+        float aspect = u_resolution.x / max(u_resolution.y, 1.0);
+
+        vec2 delta = uv - u_mouse;
+        float x = delta.x * aspect;
+        float y = delta.y;
+
+        /*
+          A flowing wave band instead of radial distance. The cursor becomes
+          the origin of a soft horizontal water sheet that bends and trails.
+        */
+        float velocityTilt = clamp(
+          u_velocity.y * 0.075 - u_velocity.x * 0.035,
+          -0.10,
+          0.10
+        );
+
+        float wavePath =
+          y - velocityTilt * x
+          + sin(x * 9.0 - u_time * 1.55) * 0.018
+          + sin(x * 17.0 + u_time * 1.10) * 0.008;
+
+        float bandDistance = abs(wavePath);
+        float verticalEnvelope = 1.0 - smoothstep(0.035, 0.255, bandDistance);
+        float horizontalEnvelope = 1.0 - smoothstep(0.14, 0.92, abs(x));
+        float envelope = verticalEnvelope * horizontalEnvelope;
+        envelope = envelope * envelope * (3.0 - 2.0 * envelope);
+
+        /* Parallel travelling crests create a water-sheet / wake feel. */
+        float phaseA = x * 33.0 - u_time * 7.4 + y * 7.0;
+        float phaseB = x * 57.0 + u_time * 4.2 - y * 11.0 + 1.35;
+        float phaseC = x * 18.0 - u_time * 2.45
+          + sin(y * 24.0 + u_time * 1.2) * 1.4;
+
+        float waveA = sin(phaseA);
+        float waveB = sin(phaseB);
+        float waveC = sin(phaseC);
+
+        float strength = u_strength * u_amount;
+        vec2 distortion = vec2(0.0);
+
+        /* Most displacement is perpendicular to the crest, like surface water. */
+        distortion.y += (
+          waveA * 0.0110
+          + waveB * 0.0042
+          + waveC * 0.0028
+        ) * envelope * strength;
+
+        /* A smaller sideways shear stops the movement looking like a flat sine strip. */
+        distortion.x += (
+          cos(phaseA) * 0.0038
+          + cos(phaseB) * 0.0018
+        ) * envelope * strength / max(aspect, 0.7);
+
+        /* Hand momentum pushes the whole wave sheet in the drag direction. */
+        distortion += u_velocity * vec2(0.0075, 0.0115) * envelope * strength;
+
+        /* Soft trailing wake below/above the main crest, still non-circular. */
+        float wakeEnvelope =
+          (1.0 - smoothstep(0.08, 0.34, abs(y)))
+          * (1.0 - smoothstep(0.20, 0.86, abs(x)));
+        float wake = sin(y * 74.0 - u_time * 5.4 + x * 12.0);
+        distortion.y += wake * 0.0026 * wakeEnvelope * strength;
+
+        vec2 displacedUv = clamp(uv + distortion, 0.001, 0.999);
+        vec2 textureUv = coverUv(displacedUv);
+
+        vec4 mainSample = texture2D(u_texture, textureUv);
+
+        /* Subtle refraction along the wave crests. */
+        vec2 chromaOffset = distortion * 0.13;
+        vec4 redSample = texture2D(
+          u_texture,
+          coverUv(clamp(displacedUv + chromaOffset, 0.001, 0.999))
+        );
+        vec4 blueSample = texture2D(
+          u_texture,
+          coverUv(clamp(displacedUv - chromaOffset, 0.001, 0.999))
+        );
+
+        vec3 refracted = vec3(
+          redSample.r,
+          mainSample.g,
+          blueSample.b
+        );
+
+        float chromaMix = envelope * u_amount * 0.105;
+        vec3 color = mix(mainSample.rgb, refracted, chromaMix);
+
+        /* Long highlights run with the crest instead of drawing a circular ring. */
+        float caustic = (
+          waveA * 0.58
+          + waveB * 0.27
+          + wake * 0.15
+        ) * envelope * u_amount * 0.016;
+        color += caustic;
+
+        gl_FragColor = vec4(color, mainSample.a);
+      }
+    `;
+
+    const compileShader = (type, source) => {
+      const shader = gl.createShader(type);
+      gl.shaderSource(shader, source);
+      gl.compileShader(shader);
+
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        gl.deleteShader(shader);
+        return null;
+      }
+
+      return shader;
+    };
+
+    const vertexShader = compileShader(gl.VERTEX_SHADER, vertexSource);
+    const fragmentShader = compileShader(gl.FRAGMENT_SHADER, fragmentSource);
+
+    if (!vertexShader || !fragmentShader) return undefined;
+
+    const program = gl.createProgram();
+    gl.attachShader(program, vertexShader);
+    gl.attachShader(program, fragmentShader);
+    gl.linkProgram(program);
+
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+      gl.deleteProgram(program);
+      gl.deleteShader(vertexShader);
+      gl.deleteShader(fragmentShader);
+      return undefined;
+    }
+
+    gl.useProgram(program);
+
+    const positionBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      new Float32Array([
+        -1, -1,
+         1, -1,
+        -1,  1,
+        -1,  1,
+         1, -1,
+         1,  1,
+      ]),
+      gl.STATIC_DRAW
+    );
+
+    const positionLocation = gl.getAttribLocation(program, "a_position");
+    gl.enableVertexAttribArray(positionLocation);
+    gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+    const uniforms = {
+      texture: gl.getUniformLocation(program, "u_texture"),
+      resolution: gl.getUniformLocation(program, "u_resolution"),
+      imageResolution: gl.getUniformLocation(program, "u_imageResolution"),
+      mouse: gl.getUniformLocation(program, "u_mouse"),
+      velocity: gl.getUniformLocation(program, "u_velocity"),
+      objectPosition: gl.getUniformLocation(program, "u_objectPosition"),
+      time: gl.getUniformLocation(program, "u_time"),
+      amount: gl.getUniformLocation(program, "u_amount"),
+      strength: gl.getUniformLocation(program, "u_strength"),
+    };
+
+    const texture = gl.createTexture();
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.uniform1i(uniforms.texture, 0);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+
+    let imageWidth = 1;
+    let imageHeight = 1;
+    let objectPosition = [0.5, 0.5];
+    let resizeObserver;
+    let destroyed = false;
+
+    const parsePositionPart = (value, axis) => {
+      const normalized = String(value || "").trim().toLowerCase();
+      if (!normalized) return 0.5;
+      if (normalized === "center") return 0.5;
+      if (axis === "x" && normalized === "left") return 0;
+      if (axis === "x" && normalized === "right") return 1;
+      if (axis === "y" && normalized === "top") return 0;
+      if (axis === "y" && normalized === "bottom") return 1;
+      if (normalized.endsWith("%")) {
+        const parsed = Number.parseFloat(normalized);
+        return Number.isFinite(parsed)
+          ? Math.max(0, Math.min(1, parsed / 100))
+          : 0.5;
+      }
+      return 0.5;
+    };
+
+    const readObjectPosition = () => {
+      const baseImage = layer.querySelector(".hp-fluid-image-base");
+      if (!baseImage) return;
+
+      const computed = window.getComputedStyle(baseImage);
+      const raw = computed.objectPosition || "50% 50%";
+      const parts = raw.split(/\s+/).filter(Boolean);
+      const xPart = parts[0] || "50%";
+      const yPart = parts[1] || "50%";
+
+      objectPosition = [
+        parsePositionPart(xPart, "x"),
+        parsePositionPart(yPart, "y"),
+      ];
+    };
+
+    const resizeCanvas = () => {
+      const rect = host.getBoundingClientRect();
+      rectRef.current = rect;
+
+      const width = Math.max(1, rect.width);
+      const height = Math.max(1, rect.height);
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.25);
+      const quality = width >= 1600 ? 0.72 : width >= 1100 ? 0.82 : 0.95;
+      const nextWidth = Math.max(1, Math.round(width * dpr * quality));
+      const nextHeight = Math.max(1, Math.round(height * dpr * quality));
+
+      if (canvas.width !== nextWidth || canvas.height !== nextHeight) {
+        canvas.width = nextWidth;
+        canvas.height = nextHeight;
+        gl.viewport(0, 0, nextWidth, nextHeight);
+      }
+
+      readObjectPosition();
+    };
+
+    const image = new Image();
+    if (/^https?:/i.test(String(src || ""))) image.crossOrigin = "anonymous";
+    image.decoding = "async";
+
+    image.onload = () => {
+      if (destroyed) return;
+
+      imageWidth = Math.max(1, image.naturalWidth || image.width || 1);
+      imageHeight = Math.max(1, image.naturalHeight || image.height || 1);
+
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.texImage2D(
+        gl.TEXTURE_2D,
+        0,
+        gl.RGBA,
+        gl.RGBA,
+        gl.UNSIGNED_BYTE,
+        image
+      );
+
+      readyRef.current = true;
+      resizeCanvas();
+    };
+
+    image.onerror = () => {
+      readyRef.current = false;
+    };
+
+    image.src = src;
+
+    const draw = (timestamp) => {
+      frameRef.current = 0;
+
+      if (document.hidden || destroyed) return;
+
+      const target = targetRef.current;
+      const current = currentRef.current;
+
+      const pointerEase = activeRef.current ? 0.20 : 0.12;
+      const velocityEase = activeRef.current ? 0.16 : 0.10;
+      const amountEase = activeRef.current ? 0.16 : 0.09;
+
+      current.x += (target.x - current.x) * pointerEase;
+      current.y += (target.y - current.y) * pointerEase;
+      current.velocityX +=
+        (target.velocityX - current.velocityX) * velocityEase;
+      current.velocityY +=
+        (target.velocityY - current.velocityY) * velocityEase;
+      current.amount += (target.amount - current.amount) * amountEase;
+
+      target.velocityX *= 0.82;
+      target.velocityY *= 0.82;
+
+
+      if (readyRef.current) {
+        gl.useProgram(program);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+
+        gl.uniform2f(uniforms.resolution, canvas.width, canvas.height);
+        gl.uniform2f(uniforms.imageResolution, imageWidth, imageHeight);
+        gl.uniform2f(uniforms.mouse, current.x, current.y);
+        gl.uniform2f(
+          uniforms.velocity,
+          current.velocityX,
+          current.velocityY
+        );
+        gl.uniform2f(
+          uniforms.objectPosition,
+          objectPosition[0],
+          objectPosition[1]
+        );
+        gl.uniform1f(
+          uniforms.time,
+          (timestamp - startTimeRef.current) / 1000
+        );
+        gl.uniform1f(uniforms.amount, current.amount);
+        gl.uniform1f(
+          uniforms.strength,
+          Math.max(0.7, Math.min(1.7, Number(strength || 16) / 16))
+        );
+
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
+      }
+
+      const stillMoving =
+        activeRef.current ||
+        current.amount > 0.012 ||
+        Math.abs(current.velocityX) > 0.002 ||
+        Math.abs(current.velocityY) > 0.002 ||
+        Math.abs(target.x - current.x) > 0.001 ||
+        Math.abs(target.y - current.y) > 0.001;
+
+      if (!activeRef.current && current.amount <= 0.02) {
+        layer.classList.remove("is-fluid-active");
+      }
+
+      if (stillMoving) {
+        frameRef.current = window.requestAnimationFrame(draw);
+      }
+    };
+
+    const requestFrame = () => {
+      if (!frameRef.current && !document.hidden) {
+        frameRef.current = window.requestAnimationFrame(draw);
+      }
+    };
+
+    const updatePointer = (event, first = false) => {
+      const rect = rectRef.current;
+      if (!rect || rect.width <= 0 || rect.height <= 0) return;
+
+      const x = Math.max(
+        0,
+        Math.min(1, (event.clientX - rect.left) / rect.width)
+      );
+      const y = Math.max(
+        0,
+        Math.min(1, 1 - (event.clientY - rect.top) / rect.height)
+      );
+
+      const previous = previousPointerRef.current;
+      const dx = previous ? event.clientX - previous.x : 0;
+      const dy = previous ? event.clientY - previous.y : 0;
+
+      previousPointerRef.current = {
+        x: event.clientX,
+        y: event.clientY,
+      };
+
+      targetRef.current.x = x;
+      targetRef.current.y = y;
+      targetRef.current.velocityX = Math.max(
+        -1,
+        Math.min(1, dx / 34)
+      );
+      targetRef.current.velocityY = Math.max(
+        -1,
+        Math.min(1, -dy / 34)
+      );
+      targetRef.current.amount = 1;
+
+      if (first) {
+        currentRef.current.x = x;
+        currentRef.current.y = y;
+        currentRef.current.velocityX = 0;
+        currentRef.current.velocityY = 0;
+        currentRef.current.amount = 0.22;
+      }
+
+      requestFrame();
+    };
+
+    const handleEnter = (event) => {
+      resizeCanvas();
+      activeRef.current = true;
+      targetRef.current.amount = 1;
+      startTimeRef.current = performance.now();
+      layer.classList.add("is-fluid-active");
+      updatePointer(event, true);
+    };
+
+    const handleMove = (event) => {
+      if (!activeRef.current) {
+        resizeCanvas();
+        activeRef.current = true;
+        targetRef.current.amount = 1;
+        startTimeRef.current = performance.now();
+        layer.classList.add("is-fluid-active");
+      }
+      updatePointer(event);
+    };
+
+    const handleLeave = () => {
+      activeRef.current = false;
+      targetRef.current.amount = 0;
+      targetRef.current.velocityX *= 0.45;
+      targetRef.current.velocityY *= 0.45;
+      previousPointerRef.current = null;
+      requestFrame();
+    };
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        if (frameRef.current) {
+          window.cancelAnimationFrame(frameRef.current);
+          frameRef.current = 0;
+        }
+        return;
+      }
+
+      if (activeRef.current || currentRef.current.amount > 0.01) {
+        requestFrame();
+      }
+    };
+
+    resizeCanvas();
+
+    if (window.ResizeObserver) {
+      resizeObserver = new ResizeObserver(resizeCanvas);
+      resizeObserver.observe(host);
+    } else {
+      window.addEventListener("resize", resizeCanvas, { passive: true });
+    }
+
+    host.addEventListener("pointerenter", handleEnter, { passive: true });
+    host.addEventListener("pointermove", handleMove, { passive: true });
+    host.addEventListener("pointerleave", handleLeave, { passive: true });
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      destroyed = true;
+      readyRef.current = false;
+      host.removeEventListener("pointerenter", handleEnter);
+      host.removeEventListener("pointermove", handleMove);
+      host.removeEventListener("pointerleave", handleLeave);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      resizeObserver?.disconnect();
+      if (!window.ResizeObserver) {
+        window.removeEventListener("resize", resizeCanvas);
+      }
+      if (frameRef.current) {
+        window.cancelAnimationFrame(frameRef.current);
+      }
+      gl.deleteTexture(texture);
+      gl.deleteBuffer(positionBuffer);
+      gl.deleteProgram(program);
+      gl.deleteShader(vertexShader);
+      gl.deleteShader(fragmentShader);
+    };
+  }, [src, strength]);
+
+  return (
+    <div
+      ref={layerRef}
+      className="hp-fluid-backdrop"
+      aria-hidden={alt ? undefined : true}
+    >
+      <SmartImage
+        src={src}
+        alt={alt}
+        loading={loading}
+        fetchPriority={fetchPriority}
+        decoding={decoding}
+        style={style}
+        className={`hp-fluid-image hp-fluid-image-base ${imageClassName}`}
+      />
+
+      <div className="hp-fluid-canvas-wrap" aria-hidden="true">
+        <canvas
+          ref={canvasRef}
+          className={`hp-fluid-canvas ${imageClassName}`}
+          style={style}
+        />
+      </div>
+    </div>
+  );
+};
+
+
+
+// ======================================================
+// HAMPER ONE · SIGNATURE UNWRAP EXPERIENCE
+// Minimal, bold and fully responsive. The section stays simple before
+// interaction; supporting copy only appears inside the revealed image.
+// ======================================================
+
+const HamperOneUnwrapExperience = () => {
+  const [opened, setOpened] = useState(false);
+
+  const reveal = () => setOpened(true);
+
+  return (
+    <section
+      data-home-section="hamper-one"
+      className={`hp-fluid-host relative isolate overflow-hidden bg-[#060504] text-white ${
+        opened ? "is-unwrapped" : ""
+      }`}
+    >
+      <div className="relative min-h-[760px] sm:min-h-[820px] lg:min-h-[900px]">
+        <FluidBackdrop
+          src={hamperOneLuxury}
+          alt="HAMPER ONE luxury hamper"
+          loading="lazy"
+          imageClassName="object-cover object-[62%_center] brightness-[.72] saturate-[1.08] contrast-[1.04] sm:object-center"
+          strength={20}
+        />
+
+        <div className="pointer-events-none absolute inset-0 bg-black/34" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/82 via-black/42 to-black/12" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/54 via-transparent to-black/16" />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_26%,rgba(244,120,34,.16),transparent_28%),radial-gradient(circle_at_76%_18%,rgba(212,175,55,.14),transparent_24%)]" />
+
+        <div className="relative z-10 mx-auto flex min-h-[760px] w-full max-w-[1920px] items-center px-5 py-14 sm:min-h-[820px] sm:px-8 sm:py-16 lg:min-h-[900px] lg:px-14 xl:px-20 2xl:px-24">
+          <div className="grid w-full items-center gap-8 lg:grid-cols-[.72fr_1.28fr] lg:gap-12 xl:gap-16">
+            <Reveal className="relative z-20">
+              <div className="max-w-[650px]">
+                <div className="flex items-center gap-4">
+                  <span className="h-px w-10 bg-[#D4AF37] sm:w-14" />
+                  <p className="text-[9px] font-black uppercase tracking-[0.28em] text-[#F4D36A] sm:text-[10px]">
+                    HAMPORIUM · PRIVATE COLLECTION
+                  </p>
+                </div>
+
+                <h2 className="hp-section-heading mt-6 text-[#FFF8E8]">
+                  HAMPER
+                  <span className="hp-section-heading-accent text-[#D4AF37]">
+                    ONE
+                  </span>
+                </h2>
+
+                <div className="mt-8 flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap">
+                  <button
+                    type="button"
+                    aria-expanded={opened}
+                    onClick={() => setOpened((value) => !value)}
+                    className="group inline-flex min-h-[64px] w-full items-center justify-between bg-[#D4AF37] px-6 text-[11px] font-black uppercase tracking-[0.16em] text-[#111] shadow-[0_18px_48px_rgba(212,175,55,.24)] transition duration-300 hover:-translate-y-0.5 hover:bg-[#E8CD6E] sm:w-auto sm:min-w-[310px]"
+                  >
+                    <span>{opened ? "Wrap Again" : "Tap To Unwrap"}</span>
+                    <span className="text-[20px] transition duration-300 group-hover:translate-x-1">
+                      {opened ? "↺" : "→"}
+                    </span>
+                  </button>
+
+                  <Link
+                    to="/hamper-one"
+                    className="group inline-flex min-h-[64px] w-full items-center justify-between border border-white/18 bg-black/30 px-6 text-[11px] font-black uppercase tracking-[0.16em] text-white backdrop-blur-sm transition duration-300 hover:-translate-y-0.5 hover:border-[#D4AF37]/60 hover:bg-black/48 hover:text-[#F0D06B] sm:w-auto sm:min-w-[250px]"
+                  >
+                    <span>Enter Hamper One</span>
+                    <span className="text-[20px] transition duration-300 group-hover:translate-x-1">
+                      →
+                    </span>
+                  </Link>
+                </div>
+              </div>
+            </Reveal>
+
+            <div className="relative z-20 mx-auto w-full max-w-[980px]">
+              <div
+                role={!opened ? "button" : undefined}
+                tabIndex={!opened ? 0 : -1}
+                aria-label={!opened ? "Tap to unwrap Hamper One" : undefined}
+                onClick={!opened ? reveal : undefined}
+                onKeyDown={(event) => {
+                  if (!opened && (event.key === "Enter" || event.key === " ")) {
+                    event.preventDefault();
+                    reveal();
+                  }
+                }}
+                className={`relative min-h-[520px] overflow-hidden rounded-[28px] border border-white/12 bg-black/24 shadow-[0_34px_100px_rgba(0,0,0,.38)] outline-none sm:min-h-[650px] lg:min-h-[710px] ${
+                  !opened ? "cursor-pointer" : ""
+                }`}
+              >
+                <SmartImage
+                  src={hamperOneLuxury}
+                  alt="HAMPER ONE revealed"
+                  loading="lazy"
+                  className={`absolute inset-0 h-full w-full object-cover object-[60%_center] transition duration-[1200ms] ease-[cubic-bezier(.16,1,.3,1)] ${
+                    opened ? "scale-100 brightness-[1.03] saturate-[1.08]" : "scale-[1.035] brightness-[.78]"
+                  }`}
+                />
+
+                <div className="absolute inset-0 bg-gradient-to-t from-black/64 via-transparent to-black/20" />
+                <div className="absolute inset-0 ring-1 ring-inset ring-white/8" />
+
+                {/* Revealed content stays inside the photo only. */}
+                <div
+                  className={`absolute inset-x-4 bottom-4 z-30 rounded-[24px] border border-white/12 bg-black/46 p-5 backdrop-blur-xl transition duration-700 sm:inset-x-6 sm:bottom-6 sm:max-w-[560px] sm:p-6 ${
+                    opened
+                      ? "translate-y-0 opacity-100"
+                      : "pointer-events-none translate-y-8 opacity-0"
+                  }`}
+                >
+                  <p className="text-[8px] font-black uppercase tracking-[0.22em] text-[#F0D06B]">
+                    HAMPER ONE · REVEALED
+                  </p>
+
+                  <h3
+                    style={{ fontFamily: DISPLAY_FONT }}
+                    className="mt-2 text-[30px] font-semibold leading-[.95] text-[#FFF8EA] sm:text-[38px]"
+                  >
+                    Made to feel
+                    <span className="block italic text-[#E6C55A]">worth opening.</span>
+                  </h3>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {["Premium treats", "Personal note", "Signature finish"].map((item) => (
+                      <span
+                        key={item}
+                        className="rounded-full border border-white/12 bg-white/[.06] px-3 py-2 text-[8px] font-black uppercase tracking-[0.13em] text-white/72"
+                      >
+                        {item}
+                      </span>
+                    ))}
+                  </div>
+
+                  <Link
+                    to="/hamper-one"
+                    onClick={(event) => event.stopPropagation()}
+                    className="mt-5 inline-flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.16em] text-[#F0D06B] transition hover:text-white"
+                  >
+                    Discover Hamper One
+                    <span className="text-base">→</span>
+                  </Link>
+                </div>
+
+                {/* Poster cover */}
+                <div
+                  className={`absolute inset-0 z-40 transition duration-[900ms] ${
+                    opened ? "pointer-events-none opacity-0" : "opacity-100"
+                  }`}
+                >
+                  <SmartImage
+                    src={bestsellerExecutiveLuxury}
+                    alt="Wrapped HAMPER ONE poster"
+                    loading="lazy"
+                    className="absolute inset-0 h-full w-full object-cover object-[60%_center] brightness-[.72] saturate-[1.05]"
+                  />
+
+                  <div className="absolute inset-0 bg-black/36" />
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_38%,rgba(255,224,150,.13),transparent_28%),linear-gradient(180deg,rgba(0,0,0,.08),rgba(0,0,0,.34))]" />
+
+                  <div className="pointer-events-none absolute left-5 top-5 z-[66] rounded-full border border-[#E8CA72]/30 bg-black/36 px-4 py-2 text-[8px] font-black uppercase tracking-[0.22em] text-[#F4D36A] backdrop-blur-md sm:left-7 sm:top-7">
+                    Private Series · 01
+                  </div>
+
+                  <div className="pointer-events-none absolute inset-x-5 bottom-5 z-[66] flex items-center justify-between gap-4 sm:inset-x-7 sm:bottom-7">
+                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/70">
+                      Tap anywhere to unwrap
+                    </p>
+                    <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-[#F7DF95]/34 bg-[#D4AF37] text-[18px] font-black text-[#171717] shadow-[0_10px_30px_rgba(0,0,0,.3)]">
+                      →
+                    </span>
+                  </div>
+                </div>
+
+                {/* Curtain pair */}
+                <div
+                  className={`hp-unbox-curtain hp-unbox-curtain-left absolute inset-y-0 left-0 z-50 w-1/2 border-r border-[#D4AF37]/16 transition-transform duration-[1250ms] ease-[cubic-bezier(.16,1,.3,1)] ${
+                    opened ? "-translate-x-[104%]" : "translate-x-0"
+                  }`}
+                />
+
+                <div
+                  className={`hp-unbox-curtain hp-unbox-curtain-right absolute inset-y-0 right-0 z-50 w-1/2 border-l border-[#D4AF37]/16 transition-transform duration-[1250ms] ease-[cubic-bezier(.16,1,.3,1)] ${
+                    opened ? "translate-x-[104%]" : "translate-x-0"
+                  }`}
+                />
+
+                {/* Ribbon */}
+                <div
+                  className={`hp-unbox-ribbon absolute left-1/2 top-0 z-[60] h-full w-8 -translate-x-1/2 transition-all duration-[850ms] ease-[cubic-bezier(.16,1,.3,1)] ${
+                    opened ? "scale-y-0 opacity-0" : "scale-y-100 opacity-100"
+                  }`}
+                />
+
+                <div
+                  className={`hp-unbox-ribbon absolute left-0 top-1/2 z-[60] h-8 w-full -translate-y-1/2 transition-all duration-[850ms] ease-[cubic-bezier(.16,1,.3,1)] ${
+                    opened ? "scale-x-0 opacity-0" : "scale-x-100 opacity-100"
+                  }`}
+                />
+
+                <button
+                  type="button"
+                  aria-label="Unwrap Hamper One"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    reveal();
+                  }}
+                  className={`absolute left-1/2 top-1/2 z-[80] grid h-[94px] w-[94px] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-[#FFE8A5]/52 bg-[radial-gradient(circle_at_34%_28%,#F6E4A3_0%,#D4AF37_46%,#99641C_100%)] text-[#2B1B05] shadow-[0_22px_50px_rgba(0,0,0,.38)] transition-all duration-[780ms] ease-[cubic-bezier(.16,1,.3,1)] sm:h-[102px] sm:w-[102px] ${
+                    opened
+                      ? "pointer-events-none scale-50 rotate-[28deg] opacity-0"
+                      : "scale-100 rotate-0 opacity-100"
+                  }`}
+                >
+                  <span
+                    style={{ fontFamily: DISPLAY_FONT }}
+                    className="text-[30px] font-bold"
+                  >
+                    H
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
 
 // ======================================================
 // HAMPORIUM PROMISE
@@ -6112,71 +6933,121 @@ const useMediaPreference = (query) => {
   return matches;
 };
 
-const useHomeEnhancements = (homeRef, reducedMotion, setActiveSection) => {
+const useHomeEnhancements = (homeRef, reducedMotion) => {
   useEffect(() => {
     const root = homeRef.current;
     if (!root) return undefined;
+
     const sections = Array.from(root.querySelectorAll("[data-home-section]"));
     const stories = Array.from(root.querySelectorAll(".hp-story-page"));
+    const progressFill = root.querySelector(".hp-scroll-progress > span");
+    const heroStage = root.querySelector(".hp-hero-stage");
+    const heroMotion = heroStage?.querySelector(".hp-hero-motion-layer");
+    const heroDim = heroStage?.querySelector(".hp-hero-dim-layer");
+    const heroLine = heroStage?.querySelector(".hp-hero-handoff-line");
+
     let frame = 0;
-    let pointerFrame = 0;
-    let lastPointerNode = null;
-    let pointer = null;
     let pageTravel = 1;
     let heroTravel = 1;
+    let lastScrollY = -1;
+    let heroSettled = false;
+
     const paint = () => {
       frame = 0;
+      if (document.hidden) return;
+
       const y = Math.max(0, window.scrollY);
-      const p = Math.max(0, Math.min(1, y / heroTravel));
-      root.style.setProperty("--hp-scroll-progress", Math.min(1, y / pageTravel).toFixed(4));
-      root.style.setProperty("--hp-hero-scale", reducedMotion ? "1" : (1 + p * 0.025).toFixed(4));
-      root.style.setProperty("--hp-hero-dim", (p * 0.18).toFixed(4));
-      root.style.setProperty("--hp-hero-line-scale", p.toFixed(4));
+      if (Math.abs(y - lastScrollY) < 0.5) return;
+      lastScrollY = y;
+
+      if (progressFill) {
+        const progress = Math.max(0, Math.min(1, y / pageTravel));
+        progressFill.style.transform = `scaleX(${progress.toFixed(3)})`;
+      }
+
+      if (heroMotion && heroDim && heroLine) {
+        if (y <= heroTravel * 1.12) {
+          heroSettled = false;
+          const p = Math.max(0, Math.min(1, y / heroTravel));
+          const scale = reducedMotion ? 1 : 1 + p * 0.018;
+          heroMotion.style.transform = `translateZ(0) scale(${scale.toFixed(3)})`;
+          heroDim.style.opacity = (0.03 + p * 0.14).toFixed(3);
+          heroLine.style.transform = `scaleX(${p.toFixed(3)})`;
+        } else if (!heroSettled) {
+          heroSettled = true;
+          heroMotion.style.transform = reducedMotion
+            ? "translateZ(0) scale(1)"
+            : "translateZ(0) scale(1.018)";
+          heroDim.style.opacity = "0.17";
+          heroLine.style.transform = "scaleX(1)";
+        }
+      }
     };
-    const schedule = () => { if (!frame && !document.hidden) frame = window.requestAnimationFrame(paint); };
+
+    const schedule = () => {
+      if (!frame && !document.hidden) {
+        frame = window.requestAnimationFrame(paint);
+      }
+    };
+
     const measure = () => {
       pageTravel = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
-      heroTravel = Math.max(1, (root.querySelector(".hp-hero-stage")?.offsetHeight || window.innerHeight) * 0.85);
+      heroTravel = Math.max(
+        1,
+        (heroStage?.offsetHeight || window.innerHeight) * 0.88
+      );
+      lastScrollY = -1;
       schedule();
     };
-    const visibility = () => { root.dataset.pageHidden = String(document.hidden); if (!document.hidden) measure(); };
+
+    const visibility = () => {
+      root.dataset.pageHidden = String(document.hidden);
+      if (!document.hidden) measure();
+    };
+
     const resize = window.ResizeObserver ? new ResizeObserver(measure) : null;
+    if (heroStage) resize?.observe(heroStage);
     resize?.observe(root);
+
     window.addEventListener("scroll", schedule, { passive: true });
     window.addEventListener("resize", measure, { passive: true });
     document.addEventListener("visibilitychange", visibility);
-    measure(); visibility();
+    measure();
+    visibility();
 
-    const inBand = new Map();
-    const navigationObserver = window.IntersectionObserver ? new IntersectionObserver((entries) => {
-      entries.forEach((entry) => inBand.set(entry.target, entry.isIntersecting));
-      const active = sections.filter((section) => inBand.get(section)).at(-1);
-      if (active) setActiveSection(active.dataset.homeSection);
-    }, { rootMargin: "-22% 0px -54% 0px", threshold: [0, 0.01, 0.2] }) : null;
-    sections.forEach((section) => navigationObserver?.observe(section));
-    const ambientObserver = window.IntersectionObserver ? new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        const isStory = entry.target.classList.contains("hp-story-page");
+    const ambientObserver = window.IntersectionObserver
+      ? new IntersectionObserver(
+          (entries) => {
+            entries.forEach((entry) => {
+              const isStory = entry.target.classList.contains("hp-story-page");
 
-        // Sticky story pages stay compositor-stable. Do not repeatedly toggle
-        // hp-offscreen on them while they overlap during the diagonal hand-off.
-        if (!isStory) {
-          entry.target.classList.toggle("hp-offscreen", !entry.isIntersecting);
-        }
+              if (!isStory) {
+                entry.target.classList.toggle("hp-offscreen", !entry.isIntersecting);
+              }
 
-        if (entry.isIntersecting && isStory) {
-          entry.target.classList.add("is-story-visible");
-        }
-      });
-    }, { rootMargin: "220px 0px", threshold: 0 }) : null;
+              if (entry.isIntersecting && isStory) {
+                entry.target.classList.add("is-story-visible");
+              }
+            });
+          },
+          { rootMargin: "160px 0px", threshold: 0 }
+        )
+      : null;
+
     [...sections, ...stories].forEach((node) => ambientObserver?.observe(node));
-    if (!ambientObserver || reducedMotion) stories.forEach((node) => node.classList.add("is-story-visible"));
+    if (!ambientObserver || reducedMotion) {
+      stories.forEach((node) => node.classList.add("is-story-visible"));
+    }
 
-    // One-time kinetic typography for every homepage heading.
-    // Newly-rendered catalogue headings are registered too, so async product
-    // updates keep the same motion language without replaying older headings.
-    const kineticHeadingSelector = "h1:not(.sr-only), h2, h3";
+    // One observer powers every heading reveal. Filters/blurs are intentionally
+    // avoided so animations stay compositor-friendly.
+    const kineticHeadingSelector =
+      'h1:not(.sr-only), h2, h3, h4, [role="heading"]:not(.sr-only)';
     const kineticHeadingNodes = new Set();
+    const kineticRevealTimers = new Map();
+    const isMobileKinetic = window.matchMedia(
+      "(max-width: 767px), (pointer: coarse)"
+    ).matches;
 
     const revealKineticHeading = (heading) => {
       if (!heading || heading.dataset.hpKineticSeen === "true") return;
@@ -6184,28 +7055,14 @@ const useHomeEnhancements = (homeRef, reducedMotion, setActiveSection) => {
       heading.classList.add("is-kinetic-visible");
     };
 
-    const isMobileKinetic = window.matchMedia(
-      "(max-width: 767px), (pointer: coarse)"
-    ).matches;
-
-    const kineticRevealTimers = new Map();
-
     const queueKineticReveal = (heading) => {
       if (!heading || heading.dataset.hpKineticSeen === "true") return;
 
-      // Mobile Safari/Chrome can deliver IntersectionObserver immediately in the
-      // same paint in which the hidden class is attached. Waiting two frames
-      // guarantees the initial kinetic state is painted before the reveal class
-      // is added, so the one-time animation is visible on phones too.
-      const firstFrame = window.requestAnimationFrame(() => {
-        const secondFrame = window.requestAnimationFrame(() => {
-          kineticRevealTimers.delete(heading);
-          revealKineticHeading(heading);
-        });
-        kineticRevealTimers.set(heading, secondFrame);
+      const frameId = window.requestAnimationFrame(() => {
+        kineticRevealTimers.delete(heading);
+        revealKineticHeading(heading);
       });
-
-      kineticRevealTimers.set(heading, firstFrame);
+      kineticRevealTimers.set(heading, frameId);
     };
 
     const kineticHeadingObserver =
@@ -6220,9 +7077,9 @@ const useHomeEnhancements = (homeRef, reducedMotion, setActiveSection) => {
             },
             {
               rootMargin: isMobileKinetic
-                ? "0px 0px -2% 0px"
-                : "0px 0px -10% 0px",
-              threshold: isMobileKinetic ? 0.01 : [0.08, 0.18],
+                ? "0px 0px -1% 0px"
+                : "0px 0px -8% 0px",
+              threshold: isMobileKinetic ? 0.01 : 0.08,
             }
           )
         : null;
@@ -6230,86 +7087,95 @@ const useHomeEnhancements = (homeRef, reducedMotion, setActiveSection) => {
     const registerKineticHeading = (heading) => {
       if (!(heading instanceof HTMLElement)) return;
       if (!heading.matches(kineticHeadingSelector)) return;
+      if (heading.classList.contains("sr-only")) return;
       if (kineticHeadingNodes.has(heading)) return;
 
       kineticHeadingNodes.add(heading);
       heading.classList.add("hp-kinetic-heading");
 
-      if (reducedMotion || !kineticHeadingObserver) {
-        revealKineticHeading(heading);
-        return;
+      let variant = "standard";
+      if (heading.classList.contains("hp-section-heading")) variant = "section";
+      else if (heading.classList.contains("hp-bestseller-title")) variant = "card";
+      else if (heading.closest(".hp-home-quick-dialog")) variant = "dialog";
+      else if (heading.matches("h3, h4")) variant = "sub";
+
+      heading.dataset.hpKineticVariant = variant;
+
+      if (variant === "sub") {
+        const section = heading.closest("[data-home-section]");
+        const peers = section
+          ? Array.from(section.querySelectorAll("h3, h4")).filter(
+              (node) => !node.classList.contains("sr-only")
+            )
+          : [];
+        if (peers.indexOf(heading) % 2 === 1) {
+          heading.style.setProperty("--hp-kinetic-x", "14px");
+        }
       }
 
-      kineticHeadingObserver.observe(heading);
+      if (reducedMotion || !kineticHeadingObserver) {
+        revealKineticHeading(heading);
+      } else {
+        kineticHeadingObserver.observe(heading);
+      }
     };
 
     root.querySelectorAll(kineticHeadingSelector).forEach(registerKineticHeading);
+
+    // Batch async catalogue/modal headings into one animation frame instead of
+    // scanning the subtree synchronously for every individual DOM mutation.
+    const pendingMutationNodes = new Set();
+    let mutationFrame = 0;
+    const flushMutations = () => {
+      mutationFrame = 0;
+      pendingMutationNodes.forEach((node) => {
+        registerKineticHeading(node);
+        node.querySelectorAll?.(kineticHeadingSelector).forEach(registerKineticHeading);
+      });
+      pendingMutationNodes.clear();
+    };
 
     const kineticMutationObserver = window.MutationObserver
       ? new MutationObserver((records) => {
           records.forEach((record) => {
             record.addedNodes.forEach((node) => {
-              if (!(node instanceof HTMLElement)) return;
-              registerKineticHeading(node);
-              node
-                .querySelectorAll?.(kineticHeadingSelector)
-                .forEach(registerKineticHeading);
+              if (node instanceof HTMLElement) pendingMutationNodes.add(node);
             });
           });
+          if (pendingMutationNodes.size && !mutationFrame) {
+            mutationFrame = window.requestAnimationFrame(flushMutations);
+          }
         })
       : null;
 
     kineticMutationObserver?.observe(root, { childList: true, subtree: true });
 
-    const paintPointer = () => {
-      pointerFrame = 0;
-      if (!pointer || !lastPointerNode) return;
-      const rect = lastPointerNode.getBoundingClientRect();
-      lastPointerNode.style.setProperty("--hp-pointer-x", `${pointer.x - rect.left}px`);
-      lastPointerNode.style.setProperty("--hp-pointer-y", `${pointer.y - rect.top}px`);
-      lastPointerNode.style.setProperty("--hp-pointer-opacity", "0.65");
-      if (lastPointerNode.classList.contains("hp-final-parallax-zone")) {
-        lastPointerNode.style.setProperty("--hp-final-x", `${((pointer.x - rect.left) / rect.width - 0.5) * 6}px`);
-        lastPointerNode.style.setProperty("--hp-final-y", `${((pointer.y - rect.top) / rect.height - 0.5) * 4}px`);
-      }
-    };
-    const clearPointer = () => {
-      if (pointerFrame) window.cancelAnimationFrame(pointerFrame);
-      pointerFrame = 0;
-      lastPointerNode?.style.setProperty("--hp-pointer-opacity", "0");
-      lastPointerNode?.style.setProperty("--hp-final-x", "0px");
-      lastPointerNode?.style.setProperty("--hp-final-y", "0px");
-      lastPointerNode = null;
-    };
-    const onPointer = (event) => {
-      if (event.pointerType !== "mouse") return;
-      const node = event.target.closest(".hp-pointer-glow");
-      if (lastPointerNode !== node) { clearPointer(); lastPointerNode = node; }
-      if (!node) return;
-      pointer = { x: event.clientX, y: event.clientY };
-      if (!pointerFrame) pointerFrame = requestAnimationFrame(paintPointer);
-    };
-    if (!reducedMotion && window.matchMedia("(hover:hover) and (pointer:fine)").matches) {
-      root.addEventListener("pointermove", onPointer, { passive: true });
-      root.addEventListener("pointerleave", clearPointer);
-    }
     return () => {
-      resize?.disconnect(); navigationObserver?.disconnect(); ambientObserver?.disconnect();
+      resize?.disconnect();
+      ambientObserver?.disconnect();
       kineticHeadingObserver?.disconnect();
       kineticMutationObserver?.disconnect();
+
+      if (mutationFrame) window.cancelAnimationFrame(mutationFrame);
+      pendingMutationNodes.clear();
+
       kineticRevealTimers.forEach((frameId) => window.cancelAnimationFrame(frameId));
       kineticRevealTimers.clear();
+
       kineticHeadingNodes.forEach((heading) => {
         heading.classList.remove("hp-kinetic-heading", "is-kinetic-visible");
+        heading.style.removeProperty("--hp-kinetic-x");
         delete heading.dataset.hpKineticSeen;
+        delete heading.dataset.hpKineticVariant;
       });
-      window.cancelAnimationFrame(frame); clearPointer();
-      window.removeEventListener("scroll", schedule); window.removeEventListener("resize", measure);
+
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", schedule);
+      window.removeEventListener("resize", measure);
       document.removeEventListener("visibilitychange", visibility);
-      root.removeEventListener("pointermove", onPointer); root.removeEventListener("pointerleave", clearPointer);
       [...sections, ...stories].forEach((node) => node.classList.remove("hp-offscreen"));
     };
-  }, [homeRef, reducedMotion, setActiveSection]);
+  }, [homeRef, reducedMotion]);
 };
 
 const CinematicHero = ({ onIntroComplete }) => {
@@ -6482,9 +7348,75 @@ const InteractiveRail = ({ id, label, className = "", controlsClass = "", childr
       total: items.length, prev: node.scrollLeft > 3, next: node.scrollWidth - node.clientWidth - node.scrollLeft > 3 };
     setRange((old) => Object.keys(next).every((key) => old[key] === next[key]) ? old : next);
     const center = rect.left + rect.width / 2;
+    const isJourneyRail =
+      node.classList.contains("hp-journey-grid") && window.innerWidth <= 1023;
+
+    // Use the rail's REAL client width instead of 100vw for mobile geometry.
+    // This prevents scrollbar / browser-chrome width differences from making the
+    // left and right previews look uneven.
+    if (isJourneyRail) {
+      const railWidth = Math.max(1, node.clientWidth);
+      const cardWidth = railWidth * 0.74;
+      const sideSpace = Math.max(0, (railWidth - cardWidth) / 2);
+
+      node.style.setProperty("--hp-journey-card-width", `${cardWidth.toFixed(2)}px`);
+      node.style.setProperty("--hp-journey-side-space", `${sideSpace.toFixed(2)}px`);
+      node.style.setProperty("--hp-journey-gap", "14px");
+    } else {
+      node.style.removeProperty("--hp-journey-card-width");
+      node.style.removeProperty("--hp-journey-side-space");
+      node.style.removeProperty("--hp-journey-gap");
+    }
+
     let nearest = null;
     let distance = Infinity;
-    items.forEach((item) => { const r = item.getBoundingClientRect(); const d = Math.abs(r.left + r.width / 2 - center); if (d < distance) { nearest = item; distance = d; } });
+
+    items.forEach((item) => {
+      /*
+        IMPORTANT: calculate focus from the unscaled flex-box geometry.
+        getBoundingClientRect() already includes the visual scale, which caused a
+        feedback loop where the left/right gaps could look slightly different.
+      */
+      const baseWidth = Math.max(1, item.offsetWidth);
+      const layoutLeft = rect.left + item.offsetLeft - node.scrollLeft;
+      const itemCenter = layoutLeft + baseWidth / 2;
+      const d = Math.abs(itemCenter - center);
+
+      if (d < distance) {
+        nearest = item;
+        distance = d;
+      }
+
+      // Mobile journey cards continuously grow as they approach the viewport center.
+      // Center card = 1.00, neighboring/off-center cards = down to 0.62.
+      if (isJourneyRail) {
+        const travel = Math.max(baseWidth * 0.96, rect.width * 0.58);
+        const progress = Math.max(0, Math.min(1, 1 - d / travel));
+        const eased = 1 - Math.pow(1 - progress, 2);
+        const scale = 0.62 + 0.38 * eased;
+        const opacity = 0.50 + 0.50 * eased;
+
+        // Anchor the inner edge of each side card. With one shared gap variable,
+        // previous -> active and active -> next now keep the same visual spacing.
+        const origin =
+          itemCenter > center + 2
+            ? "left center"
+            : itemCenter < center - 2
+              ? "right center"
+              : "center center";
+
+        item.style.setProperty("--hp-journey-scroll-scale", scale.toFixed(4));
+        item.style.setProperty("--hp-journey-scroll-opacity", opacity.toFixed(4));
+        item.style.setProperty("--hp-journey-scale-origin", origin);
+        item.style.setProperty("--hp-journey-z", String(Math.max(1, Math.round(eased * 10))));
+      } else {
+        item.style.removeProperty("--hp-journey-scroll-scale");
+        item.style.removeProperty("--hp-journey-scroll-opacity");
+        item.style.removeProperty("--hp-journey-scale-origin");
+        item.style.removeProperty("--hp-journey-z");
+      }
+    });
+
     items.forEach((item) => item.classList.toggle("is-mobile-active", item === nearest));
   }, []);
   const schedule = useCallback(() => { if (!frame.current) frame.current = requestAnimationFrame(measure); }, [measure]);
