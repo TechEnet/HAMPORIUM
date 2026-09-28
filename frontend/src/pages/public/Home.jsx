@@ -6462,6 +6462,162 @@ const HamperOneUnwrapExperience = () => {
       }`}
     >
       <style>{`
+        .hp-home-v65 .hp-hamper-one-wrap-design {
+          position: absolute;
+          inset: 18px;
+          z-index: 54;
+          overflow: hidden;
+          border: 1px solid rgba(240,201,99,.26);
+          border-radius: 24px;
+          box-shadow:
+            inset 0 0 0 1px rgba(255,255,255,.025),
+            inset 0 0 34px rgba(212,175,55,.055);
+          transition: opacity .58s ease, transform .78s cubic-bezier(.16,1,.3,1);
+        }
+
+        .hp-home-v65 .hp-hamper-one-wrap-design::before {
+          content: "";
+          position: absolute;
+          inset: 9px;
+          border: 1px solid rgba(212,175,55,.12);
+          border-radius: 18px;
+          background:
+            linear-gradient(115deg, transparent 0 40%, rgba(255,236,173,.05) 46%, transparent 53%),
+            repeating-linear-gradient(135deg, rgba(255,255,255,.015) 0 1px, transparent 1px 13px);
+        }
+
+        .hp-home-v65 .hp-hamper-one-wrap-design::after {
+          content: "HAMPORIUM  ·  PRIVATE SERIES";
+          position: absolute;
+          left: 50%;
+          bottom: 15px;
+          transform: translateX(-50%);
+          white-space: nowrap;
+          color: rgba(244,211,106,.48);
+          font-size: 7px;
+          font-weight: 900;
+          letter-spacing: .28em;
+        }
+
+        .hp-home-v65 .hp-hamper-one-wrap-corner {
+          position: absolute;
+          width: 34px;
+          height: 34px;
+          opacity: .72;
+        }
+
+        .hp-home-v65 .hp-hamper-one-wrap-corner::before,
+        .hp-home-v65 .hp-hamper-one-wrap-corner::after {
+          content: "";
+          position: absolute;
+          background: linear-gradient(90deg, #8f641f, #f4dd91, #a87522);
+        }
+
+        .hp-home-v65 .hp-hamper-one-wrap-corner::before {
+          width: 100%;
+          height: 1px;
+        }
+
+        .hp-home-v65 .hp-hamper-one-wrap-corner::after {
+          width: 1px;
+          height: 100%;
+        }
+
+        .hp-home-v65 .hp-hamper-one-wrap-corner-tl { left: 18px; top: 18px; }
+        .hp-home-v65 .hp-hamper-one-wrap-corner-tr { right: 18px; top: 18px; transform: scaleX(-1); }
+        .hp-home-v65 .hp-hamper-one-wrap-corner-bl { left: 18px; bottom: 18px; transform: scaleY(-1); }
+        .hp-home-v65 .hp-hamper-one-wrap-corner-br { right: 18px; bottom: 18px; transform: scale(-1); }
+
+        .hp-home-v65 .hp-hamper-one-wrap-motif {
+          position: absolute;
+          inset: 13px;
+          border-radius: 20px;
+          opacity: .7;
+          background:
+            radial-gradient(circle at 50% 50%, transparent 0 31%, rgba(244,221,145,.08) 31.3% 31.7%, transparent 32% 42%, rgba(212,175,55,.055) 42.3% 42.7%, transparent 43%),
+            repeating-linear-gradient(45deg, transparent 0 22px, rgba(255,255,255,.018) 22px 23px, transparent 23px 45px),
+            repeating-linear-gradient(-45deg, transparent 0 25px, rgba(212,175,55,.02) 25px 26px, transparent 26px 50px);
+          box-shadow: inset 0 0 0 1px rgba(244,221,145,.04);
+        }
+
+        .hp-home-v65 .hp-hamper-one-wrap-jewel {
+          position: absolute;
+          z-index: 2;
+          width: 8px;
+          height: 8px;
+          border: 1px solid rgba(247,223,149,.72);
+          background: linear-gradient(135deg, #7c5015, #f2d77d 48%, #98651d);
+          transform: rotate(45deg);
+          box-shadow: 0 0 16px rgba(212,175,55,.22);
+        }
+
+        .hp-home-v65 .hp-hamper-one-wrap-jewel-a { left: 50%; top: 28px; margin-left: -4px; }
+        .hp-home-v65 .hp-hamper-one-wrap-jewel-b { left: 50%; bottom: 30px; margin-left: -4px; }
+        .hp-home-v65 .hp-hamper-one-wrap-jewel-c { left: 28px; top: 50%; margin-top: -4px; }
+        .hp-home-v65 .hp-hamper-one-wrap-jewel-d { right: 28px; top: 50%; margin-top: -4px; }
+
+        .hp-home-v65 .hp-hamper-one-tap-sign {
+          position: absolute;
+          z-index: 86;
+          left: 50%;
+          top: 22px;
+          transform: translateX(-50%);
+          display: inline-flex;
+          align-items: center;
+          gap: 9px;
+          border: 1px solid rgba(244,221,145,.38);
+          border-radius: 999px;
+          background: rgba(9,7,5,.74);
+          padding: 10px 16px;
+          color: #f5d972;
+          box-shadow: 0 12px 32px rgba(0,0,0,.28);
+          backdrop-filter: blur(10px);
+          -webkit-backdrop-filter: blur(10px);
+          font-size: 9px;
+          font-weight: 900;
+          letter-spacing: .2em;
+          text-transform: uppercase;
+          pointer-events: none;
+          transition: opacity .5s ease, transform .7s cubic-bezier(.16,1,.3,1);
+        }
+
+        .hp-home-v65 .hp-hamper-one-tap-sign::before {
+          content: "✦";
+          font-size: 10px;
+          color: #f7df95;
+        }
+
+        .hp-home-v65 .hp-hamper-one-section.is-unwrapped .hp-hamper-one-tap-sign,
+        .hp-home-v65 .hp-hamper-one-section.is-unwrapped .hp-hamper-one-wrap-design {
+          opacity: 0;
+          transform: translateX(-50%) scale(.97);
+        }
+
+        .hp-home-v65 .hp-hamper-one-section.is-unwrapped .hp-hamper-one-wrap-design {
+          transform: scale(.985);
+        }
+
+        .hp-home-v65 .hp-hamper-one-section .hp-unbox-curtain {
+          background:
+            linear-gradient(90deg, rgba(255,255,255,.03), transparent 15%, rgba(212,175,55,.07) 48%, transparent 75%, rgba(0,0,0,.22)),
+            repeating-linear-gradient(90deg, #120d08 0 28px, #090705 28px 56px),
+            repeating-linear-gradient(135deg, rgba(244,221,145,.028) 0 1px, transparent 1px 12px);
+          box-shadow:
+            inset 0 0 50px rgba(212,175,55,.07),
+            inset 0 0 0 1px rgba(244,221,145,.025),
+            0 0 42px rgba(0,0,0,.34);
+        }
+
+        .hp-home-v65 .hp-hamper-one-section .hp-unbox-ribbon {
+          background:
+            linear-gradient(90deg, #7d5314 0%, #b98527 12%, #efd377 36%, #fff0b1 50%, #d5aa45 68%, #9a691d 88%, #70460d 100%);
+          box-shadow:
+            inset 0 1px 0 rgba(255,255,255,.42),
+            inset 0 -1px 0 rgba(73,42,6,.28),
+            0 8px 24px rgba(0,0,0,.26),
+            0 0 22px rgba(212,175,55,.08);
+        }
+
         @media (max-width: 639px) {
           .hp-home-v65 .hp-hamper-one-section {
             height: 100dvh;
@@ -6506,9 +6662,7 @@ const HamperOneUnwrapExperience = () => {
           }
 
           .hp-home-v65 .hp-hamper-one-actions {
-            display: grid !important;
-            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-            gap: 10px !important;
+            display: flex !important;
             margin-top: 20px !important;
           }
 
@@ -6526,8 +6680,8 @@ const HamperOneUnwrapExperience = () => {
           }
 
           .hp-home-v65 .hp-hamper-one-visual-wrap {
-            width: min(76vw, 360px) !important;
-            height: clamp(300px, 38svh, 390px) !important;
+            width: min(82vw, 390px) !important;
+            height: clamp(320px, 41svh, 420px) !important;
             margin-inline: auto;
             align-self: center;
           }
@@ -6545,29 +6699,40 @@ const HamperOneUnwrapExperience = () => {
 
           .hp-home-v65 .hp-hamper-one-reveal-panel {
             left: 12px !important;
-            right: 12px !important;
+            right: auto !important;
             bottom: 12px !important;
-            max-width: none !important;
-            padding: 14px !important;
-            border-radius: 18px !important;
+            width: min(68%, 238px) !important;
+            max-width: 238px !important;
+            padding: 12px !important;
+            border-radius: 17px !important;
+            backdrop-filter: blur(10px) !important;
+            -webkit-backdrop-filter: blur(10px) !important;
           }
 
           .hp-home-v65 .hp-hamper-one-reveal-panel h3 {
+            margin-top: 7px !important;
             font-size: 24px !important;
-          }
-
-          .hp-home-v65 .hp-hamper-one-reveal-tags {
-            margin-top: 10px !important;
-            gap: 6px !important;
-          }
-
-          .hp-home-v65 .hp-hamper-one-reveal-tags span {
-            padding: 6px 8px !important;
-            font-size: 7px !important;
+            line-height: .86 !important;
           }
 
           .hp-home-v65 .hp-hamper-one-reveal-panel a {
-            margin-top: 12px !important;
+            min-height: 42px !important;
+            margin-top: 11px !important;
+            padding-inline: 12px !important;
+            font-size: 8px !important;
+            letter-spacing: .13em !important;
+          }
+
+          .hp-home-v65 .hp-hamper-one-wrap-design {
+            inset: 10px !important;
+            border-radius: 18px !important;
+          }
+
+          .hp-home-v65 .hp-hamper-one-tap-sign {
+            top: 14px !important;
+            padding: 8px 13px !important;
+            font-size: 8px !important;
+            letter-spacing: .17em !important;
           }
         }
 
@@ -6596,8 +6761,8 @@ const HamperOneUnwrapExperience = () => {
           }
 
           .hp-home-v65 .hp-hamper-one-visual-wrap {
-            width: min(72vw, 300px) !important;
-            height: clamp(240px, 32svh, 285px) !important;
+            width: min(78vw, 320px) !important;
+            height: clamp(255px, 34svh, 305px) !important;
           }
 
           .hp-home-v65 .hp-hamper-one-reveal-tags {
@@ -6608,8 +6773,8 @@ const HamperOneUnwrapExperience = () => {
 
       <div className="hp-hamper-one-stage relative min-h-[760px] sm:min-h-[820px] lg:min-h-[900px]">
         <FluidBackdrop
-          src={hamperOneLuxury}
-          alt="HAMPER ONE luxury hamper"
+          src={bestsellerCelebrationLuxury}
+          alt="HAMPER ONE private collection atmosphere"
           loading="lazy"
           imageClassName="object-cover object-[62%_center] brightness-[.72] saturate-[1.08] contrast-[1.04] sm:object-center"
           strength={20}
@@ -6638,24 +6803,12 @@ const HamperOneUnwrapExperience = () => {
                   </span>
                 </h2>
 
-                <div className="hp-hamper-one-actions mt-8 flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap">
-                  <button
-                    type="button"
-                    aria-expanded={opened}
-                    onClick={() => setOpened((value) => !value)}
-                    className="group inline-flex min-h-[64px] w-full items-center justify-between bg-[#D4AF37] px-6 text-[11px] font-black uppercase tracking-[0.16em] text-[#111] shadow-[0_18px_48px_rgba(212,175,55,.24)] transition duration-300 hover:-translate-y-0.5 hover:bg-[#E8CD6E] sm:w-auto sm:min-w-[310px]"
-                  >
-                    <span><span className="sm:hidden">{opened ? "Wrap Again" : "Unwrap"}</span><span className="hidden sm:inline">{opened ? "Wrap Again" : "Tap To Unwrap"}</span></span>
-                    <span className="text-[20px] transition duration-300 group-hover:translate-x-1">
-                      {opened ? "↺" : "→"}
-                    </span>
-                  </button>
-
+                <div className="hp-hamper-one-actions mt-8 flex w-full sm:w-auto">
                   <Link
                     to="/hamper-one"
-                    className="group inline-flex min-h-[64px] w-full items-center justify-between border border-white/18 bg-black/30 px-6 text-[11px] font-black uppercase tracking-[0.16em] text-white backdrop-blur-sm transition duration-300 hover:-translate-y-0.5 hover:border-[#D4AF37]/60 hover:bg-black/48 hover:text-[#F0D06B] sm:w-auto sm:min-w-[250px]"
+                    className="group inline-flex min-h-[64px] w-full items-center justify-between border border-white/18 bg-black/30 px-6 text-[11px] font-black uppercase tracking-[0.16em] text-white backdrop-blur-sm transition duration-300 hover:-translate-y-0.5 hover:border-[#D4AF37]/60 hover:bg-black/48 hover:text-[#F0D06B] sm:w-auto sm:min-w-[285px]"
                   >
-                    <span><span className="sm:hidden">Enter Hamper One</span><span className="hidden sm:inline">Enter Hamper One</span></span>
+                    <span>Enter Hamper One</span>
                     <span className="text-[20px] transition duration-300 group-hover:translate-x-1">
                       →
                     </span>
@@ -6692,45 +6845,39 @@ const HamperOneUnwrapExperience = () => {
                 <div className="absolute inset-0 bg-gradient-to-t from-black/64 via-transparent to-black/20" />
                 <div className="absolute inset-0 ring-1 ring-inset ring-white/8" />
 
-                {/* Revealed content stays inside the photo only. */}
+                {/* Revealed copy stays intentionally tiny so the hamper image remains the hero. */}
                 <div
-                  className={`hp-hamper-one-reveal-panel absolute inset-x-4 bottom-4 z-30 rounded-[24px] border border-white/12 bg-black/46 p-5 backdrop-blur-xl transition duration-700 sm:inset-x-6 sm:bottom-6 sm:max-w-[560px] sm:p-6 ${
+                  className={`hp-hamper-one-reveal-panel absolute bottom-3 left-3 z-30 w-[min(72%,340px)] overflow-hidden rounded-[21px] border border-[#F4D36A]/22 bg-[linear-gradient(135deg,rgba(9,6,4,.78),rgba(18,11,6,.58))] p-4 shadow-[0_20px_54px_rgba(0,0,0,.34)] backdrop-blur-lg transition duration-700 sm:bottom-6 sm:left-6 sm:w-[360px] sm:p-5 ${
                     opened
                       ? "translate-y-0 opacity-100"
                       : "pointer-events-none translate-y-8 opacity-0"
                   }`}
                 >
-                  <p className="text-[8px] font-black uppercase tracking-[0.22em] text-[#F0D06B]">
-                    HAMPER ONE · REVEALED
-                  </p>
+                  <div className="pointer-events-none absolute -right-10 -top-12 h-28 w-28 rounded-full bg-[#D4AF37]/12 blur-3xl" />
+                  <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#F4D36A]/70 to-transparent" />
 
-                  <h3
-                    style={{ fontFamily: DISPLAY_FONT }}
-                    className="mt-2 text-[30px] font-semibold leading-[.95] text-[#FFF8EA] sm:text-[38px]"
-                  >
-                    Made to feel
-                    <span className="block italic text-[#E6C55A]">worth opening.</span>
-                  </h3>
+                  <div className="relative z-10">
+                    <p className="text-[7px] font-black uppercase tracking-[0.24em] text-[#F4D36A] sm:text-[8px]">
+                      HAMPER ONE · REVEALED
+                    </p>
 
-                  <div className="hp-hamper-one-reveal-tags mt-4 flex flex-wrap gap-2">
-                    {["Premium treats", "Personal note", "Signature finish"].map((item) => (
-                      <span
-                        key={item}
-                        className="rounded-full border border-white/12 bg-white/[.06] px-3 py-2 text-[8px] font-black uppercase tracking-[0.13em] text-white/72"
-                      >
-                        {item}
-                      </span>
-                    ))}
+                    <h3
+                      style={{ fontFamily: DISPLAY_FONT }}
+                      className="mt-2 text-[28px] font-semibold leading-[.88] tracking-[-.03em] text-[#FFF8EA] sm:text-[36px]"
+                    >
+                      Unwrapped.
+                      <span className="block italic text-[#E9C754]">Unforgettable.</span>
+                    </h3>
+
+                    <Link
+                      to="/hamper-one"
+                      onClick={(event) => event.stopPropagation()}
+                      className="group mt-4 inline-flex min-h-[46px] w-full items-center justify-between bg-[#D4AF37] px-4 text-[9px] font-black uppercase tracking-[0.14em] text-[#16110A] shadow-[0_12px_28px_rgba(212,175,55,.18)] transition duration-300 hover:-translate-y-0.5 hover:bg-[#E8CD6E] sm:w-auto sm:min-w-[230px] sm:px-5 sm:text-[10px]"
+                    >
+                      <span>Discover Hamper One</span>
+                      <span className="text-[18px] transition-transform duration-300 group-hover:translate-x-1">→</span>
+                    </Link>
                   </div>
-
-                  <Link
-                    to="/hamper-one"
-                    onClick={(event) => event.stopPropagation()}
-                    className="mt-5 inline-flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.16em] text-[#F0D06B] transition hover:text-white"
-                  >
-                    Discover Hamper One
-                    <span className="text-base">→</span>
-                  </Link>
                 </div>
 
                 {/* Poster cover */}
@@ -6753,13 +6900,21 @@ const HamperOneUnwrapExperience = () => {
                     Private Series · 01
                   </div>
 
-                  <div className="pointer-events-none absolute inset-x-5 bottom-5 z-[66] flex items-center justify-between gap-4 sm:inset-x-7 sm:bottom-7">
-                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/70">
-                      Tap anywhere to unwrap
-                    </p>
-                    <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-[#F7DF95]/34 bg-[#D4AF37] text-[18px] font-black text-[#171717] shadow-[0_10px_30px_rgba(0,0,0,.3)]">
-                      →
-                    </span>
+                  <div
+                    className={`hp-hamper-one-wrap-design pointer-events-none absolute transition duration-700 ${
+                      opened ? "opacity-0" : "opacity-100"
+                    }`}
+                    aria-hidden="true"
+                  >
+                    <span className="hp-hamper-one-wrap-motif" />
+                    <span className="hp-hamper-one-wrap-corner hp-hamper-one-wrap-corner-tl" />
+                    <span className="hp-hamper-one-wrap-corner hp-hamper-one-wrap-corner-tr" />
+                    <span className="hp-hamper-one-wrap-corner hp-hamper-one-wrap-corner-bl" />
+                    <span className="hp-hamper-one-wrap-corner hp-hamper-one-wrap-corner-br" />
+                    <span className="hp-hamper-one-wrap-jewel hp-hamper-one-wrap-jewel-a" />
+                    <span className="hp-hamper-one-wrap-jewel hp-hamper-one-wrap-jewel-b" />
+                    <span className="hp-hamper-one-wrap-jewel hp-hamper-one-wrap-jewel-c" />
+                    <span className="hp-hamper-one-wrap-jewel hp-hamper-one-wrap-jewel-d" />
                   </div>
                 </div>
 
@@ -6788,6 +6943,15 @@ const HamperOneUnwrapExperience = () => {
                     opened ? "scale-x-0 opacity-0" : "scale-x-100 opacity-100"
                   }`}
                 />
+
+                <div
+                  className={`hp-hamper-one-tap-sign ${
+                    opened ? "pointer-events-none opacity-0" : "opacity-100"
+                  }`}
+                  aria-hidden="true"
+                >
+                  Tap to unwrap
+                </div>
 
                 <button
                   type="button"
