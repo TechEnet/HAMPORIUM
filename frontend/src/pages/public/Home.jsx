@@ -6457,11 +6457,156 @@ const HamperOneUnwrapExperience = () => {
   return (
     <section
       data-home-section="hamper-one"
-      className={`hp-fluid-host relative isolate overflow-hidden bg-[#060504] text-white ${
+      className={`hp-hamper-one-section hp-fluid-host relative isolate overflow-hidden bg-[#060504] text-white ${
         opened ? "is-unwrapped" : ""
       }`}
     >
-      <div className="relative min-h-[760px] sm:min-h-[820px] lg:min-h-[900px]">
+      <style>{`
+        @media (max-width: 639px) {
+          .hp-home-v65 .hp-hamper-one-section {
+            height: 100dvh;
+            min-height: 100svh;
+            max-height: 100dvh;
+          }
+
+          .hp-home-v65 .hp-hamper-one-stage {
+            height: 100%;
+            min-height: 0 !important;
+            max-height: 100%;
+          }
+
+          .hp-home-v65 .hp-hamper-one-inner {
+            height: 100%;
+            min-height: 0 !important;
+            align-items: stretch;
+            padding: max(16px, env(safe-area-inset-top)) 16px max(14px, env(safe-area-inset-bottom));
+          }
+
+          .hp-home-v65 .hp-hamper-one-grid {
+            height: 100%;
+            min-height: 0;
+            grid-template-rows: auto auto;
+            align-content: center;
+            gap: clamp(16px, 2.2svh, 22px);
+          }
+
+          .hp-home-v65 .hp-hamper-one-copy-block,
+          .hp-home-v65 .hp-hamper-one-visual-wrap {
+            min-height: 0;
+          }
+
+          .hp-home-v65 .hp-hamper-one-heading {
+            font-size: clamp(56px, 15.5vw, 74px) !important;
+            line-height: .82 !important;
+            letter-spacing: -.045em !important;
+          }
+
+          .hp-home-v65 .hp-hamper-one-heading .hp-section-heading-accent {
+            margin-top: .08em;
+          }
+
+          .hp-home-v65 .hp-hamper-one-actions {
+            display: grid !important;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            gap: 10px !important;
+            margin-top: 20px !important;
+          }
+
+          .hp-home-v65 .hp-hamper-one-actions > * {
+            width: 100% !important;
+            min-width: 0 !important;
+            min-height: 60px !important;
+            padding-inline: 18px !important;
+            font-size: 10.5px !important;
+            letter-spacing: .14em !important;
+          }
+
+          .hp-home-v65 .hp-hamper-one-actions > * > span:last-child {
+            font-size: 21px !important;
+          }
+
+          .hp-home-v65 .hp-hamper-one-visual-wrap {
+            width: min(76vw, 360px) !important;
+            height: clamp(300px, 38svh, 390px) !important;
+            margin-inline: auto;
+            align-self: center;
+          }
+
+          .hp-home-v65 .hp-hamper-one-visual {
+            height: 100%;
+            min-height: 0 !important;
+            border-radius: 22px !important;
+          }
+
+          .hp-home-v65 .hp-hamper-one-seal {
+            width: 78px !important;
+            height: 78px !important;
+          }
+
+          .hp-home-v65 .hp-hamper-one-reveal-panel {
+            left: 12px !important;
+            right: 12px !important;
+            bottom: 12px !important;
+            max-width: none !important;
+            padding: 14px !important;
+            border-radius: 18px !important;
+          }
+
+          .hp-home-v65 .hp-hamper-one-reveal-panel h3 {
+            font-size: 24px !important;
+          }
+
+          .hp-home-v65 .hp-hamper-one-reveal-tags {
+            margin-top: 10px !important;
+            gap: 6px !important;
+          }
+
+          .hp-home-v65 .hp-hamper-one-reveal-tags span {
+            padding: 6px 8px !important;
+            font-size: 7px !important;
+          }
+
+          .hp-home-v65 .hp-hamper-one-reveal-panel a {
+            margin-top: 12px !important;
+          }
+        }
+
+        @media (max-width: 390px) and (max-height: 720px) {
+          .hp-home-v65 .hp-hamper-one-inner {
+            padding-top: 10px;
+            padding-bottom: 10px;
+          }
+
+          .hp-home-v65 .hp-hamper-one-grid {
+            gap: 10px;
+          }
+
+          .hp-home-v65 .hp-hamper-one-heading {
+            font-size: 50px !important;
+          }
+
+          .hp-home-v65 .hp-hamper-one-actions {
+            margin-top: 12px !important;
+          }
+
+          .hp-home-v65 .hp-hamper-one-actions > * {
+            min-height: 54px !important;
+            padding-inline: 14px !important;
+            font-size: 9.5px !important;
+          }
+
+          .hp-home-v65 .hp-hamper-one-visual-wrap {
+            width: min(72vw, 300px) !important;
+            height: clamp(240px, 32svh, 285px) !important;
+          }
+
+          .hp-home-v65 .hp-hamper-one-reveal-tags {
+            display: none;
+          }
+        }
+      `}</style>
+
+      <div className="hp-hamper-one-stage relative min-h-[760px] sm:min-h-[820px] lg:min-h-[900px]">
         <FluidBackdrop
           src={hamperOneLuxury}
           alt="HAMPER ONE luxury hamper"
@@ -6475,32 +6620,32 @@ const HamperOneUnwrapExperience = () => {
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/54 via-transparent to-black/16" />
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_26%,rgba(244,120,34,.16),transparent_28%),radial-gradient(circle_at_76%_18%,rgba(212,175,55,.14),transparent_24%)]" />
 
-        <div className="relative z-10 mx-auto flex min-h-[760px] w-full max-w-[1920px] items-center px-5 py-14 sm:min-h-[820px] sm:px-8 sm:py-16 lg:min-h-[900px] lg:px-14 xl:px-20 2xl:px-24">
-          <div className="grid w-full items-center gap-8 lg:grid-cols-[.72fr_1.28fr] lg:gap-12 xl:gap-16">
-            <Reveal className="relative z-20">
+        <div className="hp-hamper-one-inner relative z-10 mx-auto flex min-h-[760px] w-full max-w-[1920px] items-center px-5 py-14 sm:min-h-[820px] sm:px-8 sm:py-16 lg:min-h-[900px] lg:px-14 xl:px-20 2xl:px-24">
+          <div className="hp-hamper-one-grid grid w-full items-center gap-8 lg:grid-cols-[.72fr_1.28fr] lg:gap-12 xl:gap-16">
+            <Reveal className="hp-hamper-one-copy-block relative z-20">
               <div className="max-w-[650px]">
-                <div className="flex items-center gap-4">
+                <div className="hp-hamper-one-kicker flex items-center gap-4">
                   <span className="h-px w-10 bg-[#D4AF37] sm:w-14" />
                   <p className="text-[9px] font-black uppercase tracking-[0.28em] text-[#F4D36A] sm:text-[10px]">
                     HAMPORIUM · PRIVATE COLLECTION
                   </p>
                 </div>
 
-                <h2 className="hp-section-heading mt-6 text-[#FFF8E8]">
+                <h2 className="hp-hamper-one-heading hp-section-heading mt-6 text-[#FFF8E8]">
                   HAMPER
                   <span className="hp-section-heading-accent text-[#D4AF37]">
                     ONE
                   </span>
                 </h2>
 
-                <div className="mt-8 flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap">
+                <div className="hp-hamper-one-actions mt-8 flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap">
                   <button
                     type="button"
                     aria-expanded={opened}
                     onClick={() => setOpened((value) => !value)}
                     className="group inline-flex min-h-[64px] w-full items-center justify-between bg-[#D4AF37] px-6 text-[11px] font-black uppercase tracking-[0.16em] text-[#111] shadow-[0_18px_48px_rgba(212,175,55,.24)] transition duration-300 hover:-translate-y-0.5 hover:bg-[#E8CD6E] sm:w-auto sm:min-w-[310px]"
                   >
-                    <span>{opened ? "Wrap Again" : "Tap To Unwrap"}</span>
+                    <span><span className="sm:hidden">{opened ? "Wrap Again" : "Unwrap"}</span><span className="hidden sm:inline">{opened ? "Wrap Again" : "Tap To Unwrap"}</span></span>
                     <span className="text-[20px] transition duration-300 group-hover:translate-x-1">
                       {opened ? "↺" : "→"}
                     </span>
@@ -6510,7 +6655,7 @@ const HamperOneUnwrapExperience = () => {
                     to="/hamper-one"
                     className="group inline-flex min-h-[64px] w-full items-center justify-between border border-white/18 bg-black/30 px-6 text-[11px] font-black uppercase tracking-[0.16em] text-white backdrop-blur-sm transition duration-300 hover:-translate-y-0.5 hover:border-[#D4AF37]/60 hover:bg-black/48 hover:text-[#F0D06B] sm:w-auto sm:min-w-[250px]"
                   >
-                    <span>Enter Hamper One</span>
+                    <span><span className="sm:hidden">Enter Hamper One</span><span className="hidden sm:inline">Enter Hamper One</span></span>
                     <span className="text-[20px] transition duration-300 group-hover:translate-x-1">
                       →
                     </span>
@@ -6519,7 +6664,7 @@ const HamperOneUnwrapExperience = () => {
               </div>
             </Reveal>
 
-            <div className="relative z-20 mx-auto w-full max-w-[980px]">
+            <div className="hp-hamper-one-visual-wrap relative z-20 mx-auto w-full max-w-[980px]">
               <div
                 role={!opened ? "button" : undefined}
                 tabIndex={!opened ? 0 : -1}
@@ -6531,7 +6676,7 @@ const HamperOneUnwrapExperience = () => {
                     reveal();
                   }
                 }}
-                className={`relative min-h-[520px] overflow-hidden rounded-[28px] border border-white/12 bg-black/24 shadow-[0_34px_100px_rgba(0,0,0,.38)] outline-none sm:min-h-[650px] lg:min-h-[710px] ${
+                className={`hp-hamper-one-visual relative min-h-[520px] overflow-hidden rounded-[28px] border border-white/12 bg-black/24 shadow-[0_34px_100px_rgba(0,0,0,.38)] outline-none sm:min-h-[650px] lg:min-h-[710px] ${
                   !opened ? "cursor-pointer" : ""
                 }`}
               >
@@ -6549,7 +6694,7 @@ const HamperOneUnwrapExperience = () => {
 
                 {/* Revealed content stays inside the photo only. */}
                 <div
-                  className={`absolute inset-x-4 bottom-4 z-30 rounded-[24px] border border-white/12 bg-black/46 p-5 backdrop-blur-xl transition duration-700 sm:inset-x-6 sm:bottom-6 sm:max-w-[560px] sm:p-6 ${
+                  className={`hp-hamper-one-reveal-panel absolute inset-x-4 bottom-4 z-30 rounded-[24px] border border-white/12 bg-black/46 p-5 backdrop-blur-xl transition duration-700 sm:inset-x-6 sm:bottom-6 sm:max-w-[560px] sm:p-6 ${
                     opened
                       ? "translate-y-0 opacity-100"
                       : "pointer-events-none translate-y-8 opacity-0"
@@ -6567,7 +6712,7 @@ const HamperOneUnwrapExperience = () => {
                     <span className="block italic text-[#E6C55A]">worth opening.</span>
                   </h3>
 
-                  <div className="mt-4 flex flex-wrap gap-2">
+                  <div className="hp-hamper-one-reveal-tags mt-4 flex flex-wrap gap-2">
                     {["Premium treats", "Personal note", "Signature finish"].map((item) => (
                       <span
                         key={item}
@@ -6651,7 +6796,7 @@ const HamperOneUnwrapExperience = () => {
                     event.stopPropagation();
                     reveal();
                   }}
-                  className={`absolute left-1/2 top-1/2 z-[80] grid h-[94px] w-[94px] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-[#FFE8A5]/52 bg-[radial-gradient(circle_at_34%_28%,#F6E4A3_0%,#D4AF37_46%,#99641C_100%)] text-[#2B1B05] shadow-[0_22px_50px_rgba(0,0,0,.38)] transition-all duration-[780ms] ease-[cubic-bezier(.16,1,.3,1)] sm:h-[102px] sm:w-[102px] ${
+                  className={`hp-hamper-one-seal absolute left-1/2 top-1/2 z-[80] grid h-[94px] w-[94px] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-[#FFE8A5]/52 bg-[radial-gradient(circle_at_34%_28%,#F6E4A3_0%,#D4AF37_46%,#99641C_100%)] text-[#2B1B05] shadow-[0_22px_50px_rgba(0,0,0,.38)] transition-all duration-[780ms] ease-[cubic-bezier(.16,1,.3,1)] sm:h-[102px] sm:w-[102px] ${
                     opened
                       ? "pointer-events-none scale-50 rotate-[28deg] opacity-0"
                       : "scale-100 rotate-0 opacity-100"
