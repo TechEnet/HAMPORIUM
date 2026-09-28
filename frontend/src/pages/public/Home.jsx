@@ -572,6 +572,86 @@ const Home = () => {
           }
 
           /* ==============================================
+             BESTSELLER HEADING · TEXT SAFE / NO DESCENDER CLIP
+             The kinetic parent previously retained clip-path after reveal,
+             which could crop letters such as g / y in the italic line.
+          =============================================== */
+
+          [data-home-section="bestsellers"] .hp-bestseller-section-title {
+            max-width: 1320px;
+            overflow: visible !important;
+            padding-bottom: .16em;
+            font-size: clamp(58px, 6.2vw, 106px);
+            line-height: .92;
+            letter-spacing: -.043em;
+            text-wrap: balance;
+          }
+
+          [data-home-section="bestsellers"] .hp-bestseller-section-title.hp-kinetic-heading,
+          [data-home-section="bestsellers"] .hp-bestseller-section-title.hp-kinetic-heading.is-kinetic-visible {
+            clip-path: none !important;
+            -webkit-clip-path: none !important;
+          }
+
+          [data-home-section="bestsellers"] .hp-bestseller-section-accent {
+            display: block;
+            margin-top: .07em;
+            padding-bottom: .18em;
+            overflow: visible;
+            line-height: 1.02;
+            letter-spacing: -.04em;
+          }
+
+          [data-home-section="bestsellers"] .hp-bestseller-heading-wrap {
+            min-width: 0;
+            max-width: 1380px;
+          }
+
+          @media (max-width: 1023px) {
+            [data-home-section="bestsellers"] .hp-bestseller-section-title {
+              max-width: 980px;
+              padding-bottom: .18em;
+              font-size: clamp(52px, 9.4vw, 82px);
+              line-height: .94;
+              letter-spacing: -.04em;
+            }
+
+            [data-home-section="bestsellers"] .hp-bestseller-section-accent {
+              margin-top: .08em;
+              padding-bottom: .20em;
+              line-height: 1.04;
+            }
+          }
+
+          @media (max-width: 639px) {
+            [data-home-section="bestsellers"] {
+              padding-top: 60px;
+              padding-bottom: 66px;
+            }
+
+            [data-home-section="bestsellers"] .hp-bestseller-section-title {
+              padding-bottom: .22em;
+              font-size: clamp(46px, 13.2vw, 64px);
+              line-height: .96;
+              letter-spacing: -.035em;
+            }
+
+            [data-home-section="bestsellers"] .hp-bestseller-section-accent {
+              margin-top: .1em;
+              padding-bottom: .22em;
+              line-height: 1.06;
+              letter-spacing: -.032em;
+            }
+
+            [data-home-section="bestsellers"] .hp-bestseller-all-link {
+              width: 100%;
+              min-height: 54px;
+              justify-content: space-between;
+              padding-inline: 18px;
+            }
+          }
+
+          /* ==============================================
              V61 · LUXURY GIFT-BOX BESTSELLER CARDS
              Whole card = premium wrapped gift package.
              Product photography sits inside a framed window.
@@ -4209,6 +4289,233 @@ const Home = () => {
             }
           }
 
+
+          /* ==============================================
+             WHY HAMPORIUM · SIGNATURE STANDARD
+             Cinematic image drift + refined glass promise cards.
+          =============================================== */
+          @keyframes hpWhyImageDrift {
+            0%, 100% {
+              transform: translate3d(0,0,0) scale(1.035);
+            }
+
+            50% {
+              transform: translate3d(-0.8%, -0.6%, 0) scale(1.075);
+            }
+          }
+
+          @keyframes hpWhyGlowFloat {
+            0%, 100% {
+              transform: translate3d(0,0,0) scale(.94);
+              opacity: .48;
+            }
+
+            50% {
+              transform: translate3d(0,-14px,0) scale(1.06);
+              opacity: .78;
+            }
+          }
+
+          @keyframes hpWhyStatusPulse {
+            0%, 100% {
+              box-shadow: 0 0 0 0 rgba(244,120,34,.18);
+            }
+
+            50% {
+              box-shadow: 0 0 0 7px rgba(244,120,34,0);
+            }
+          }
+
+          @keyframes hpWhySignatureLine {
+            0%, 100% {
+              transform: scaleX(.42);
+              opacity: .48;
+            }
+
+            50% {
+              transform: scaleX(1);
+              opacity: 1;
+            }
+          }
+
+          .hp-why-stage {
+            isolation: isolate;
+          }
+
+          .hp-why-bg {
+            transform: translate3d(0,0,0) scale(1.035);
+            transform-origin: center center;
+            animation: hpWhyImageDrift 18s ease-in-out infinite;
+            will-change: transform;
+          }
+
+          .hp-why-glow {
+            animation: hpWhyGlowFloat 7.2s ease-in-out infinite;
+          }
+
+          .hp-why-glow-b {
+            animation-delay: -3.3s;
+          }
+
+          .hp-why-status-dot {
+            animation: hpWhyStatusPulse 2.4s ease-out infinite;
+          }
+
+          .hp-why-signature-line {
+            transform-origin: left center;
+            animation: hpWhySignatureLine 3.6s ease-in-out infinite;
+          }
+
+          .hp-why-card {
+            box-shadow:
+              0 24px 60px rgba(0,0,0,.18),
+              inset 0 1px 0 rgba(255,255,255,.035);
+            transition:
+              transform .62s cubic-bezier(.22,1,.36,1),
+              border-color .42s ease,
+              background-color .42s ease,
+              box-shadow .52s ease;
+          }
+
+          .hp-why-card::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            border-radius: inherit;
+            opacity: .55;
+            background:
+              radial-gradient(circle at 18% 12%, rgba(212,175,55,.10), transparent 26%),
+              linear-gradient(135deg, rgba(255,255,255,.035), transparent 42%);
+            transition: opacity .42s ease;
+          }
+
+          .hp-why-card::after {
+            content: "";
+            position: absolute;
+            left: 18px;
+            right: 18px;
+            bottom: 0;
+            height: 1px;
+            opacity: .22;
+            background: linear-gradient(90deg, transparent, #D4AF37, transparent);
+            transform: scaleX(.58);
+            transform-origin: center;
+            transition:
+              opacity .42s ease,
+              transform .62s cubic-bezier(.22,1,.36,1);
+          }
+
+          .hp-why-card-shine {
+            opacity: 0;
+            transform: translateX(0) skewX(-18deg);
+          }
+
+          .hp-why-icon-shell {
+            box-shadow:
+              inset 0 1px 0 rgba(255,255,255,.08),
+              0 8px 24px rgba(0,0,0,.16);
+            transition:
+              transform .62s cubic-bezier(.22,1,.36,1),
+              color .35s ease,
+              border-color .35s ease,
+              background-color .35s ease,
+              box-shadow .35s ease;
+          }
+
+          .hp-why-card-rule {
+            transform-origin: left center;
+          }
+
+          @media (hover:hover) and (pointer:fine) {
+            .hp-why-card:hover {
+              transform: translateY(-8px);
+              border-color: rgba(212,175,55,.42);
+              background-color: rgba(12,9,6,.52);
+              box-shadow:
+                0 34px 78px rgba(0,0,0,.30),
+                0 0 0 1px rgba(212,175,55,.05),
+                inset 0 1px 0 rgba(255,255,255,.06);
+            }
+
+            .hp-why-card:hover::before {
+              opacity: 1;
+            }
+
+            .hp-why-card:hover::after {
+              opacity: .72;
+              transform: scaleX(1);
+            }
+
+            .hp-why-card:hover .hp-why-card-shine {
+              opacity: 1;
+              transform: translateX(520%) skewX(-18deg);
+              transition:
+                transform .95s cubic-bezier(.22,1,.36,1),
+                opacity .18s ease;
+            }
+
+            .hp-why-card:hover .hp-why-icon-shell {
+              transform: translateY(-3px) rotate(-4deg) scale(1.08);
+              color: #F6C66A;
+              border-color: rgba(244,120,34,.62);
+              background: rgba(244,120,34,.10);
+              box-shadow:
+                0 12px 28px rgba(0,0,0,.22),
+                0 0 0 6px rgba(244,120,34,.05);
+            }
+
+            .hp-why-card:hover .hp-why-card-rule {
+              width: 74px;
+              background: linear-gradient(90deg, #F47822, #D4AF37, transparent);
+            }
+          }
+
+          @media (max-width: 639px) {
+            .hp-why-stage {
+              min-height: 0;
+            }
+
+            .hp-why-bg {
+              object-position: 62% center;
+              animation-duration: 22s;
+            }
+
+            .hp-why-card {
+              min-height: 176px;
+              padding: 16px;
+              border-radius: 20px;
+            }
+
+            .hp-why-card h3 {
+              overflow-wrap: normal;
+              word-break: normal;
+            }
+          }
+
+          @media (hover:none), (pointer:coarse) {
+            .hp-why-card:hover {
+              transform: none;
+            }
+
+            .hp-why-card-shine {
+              display: none;
+            }
+          }
+
+          @media (prefers-reduced-motion: reduce) {
+            .hp-why-bg,
+            .hp-why-glow,
+            .hp-why-status-dot,
+            .hp-why-signature-line {
+              animation: none !important;
+            }
+
+            .hp-why-bg {
+              transform: none !important;
+            }
+          }
+
         `}
       </style>
 
@@ -4969,14 +5276,14 @@ const Home = () => {
           <div className="mx-auto w-full max-w-[1900px]">
             <Reveal className="px-4 sm:px-0">
               <div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-end">
-                <div className="min-w-0">
+                <div className="hp-bestseller-heading-wrap min-w-0">
                   <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#F47822]">
                     CURATED BESTSELLERS
                   </p>
 
-                  <h2 className="hp-section-heading mt-5 text-[#171717]">
-                    The Hampers Everyone
-                    <span className="hp-section-heading-accent text-[#9B741D]">
+                  <h2 className="hp-section-heading hp-bestseller-section-title mt-5 text-[#171717]">
+                    <span className="block">The Hampers Everyone</span>
+                    <span className="hp-section-heading-accent hp-bestseller-section-accent text-[#9B741D]">
                       Keeps Coming Back For.
                     </span>
                   </h2>
@@ -4984,7 +5291,7 @@ const Home = () => {
 
                 <Link
                   to="/gifts"
-                  className="group mb-1 inline-flex h-[58px] w-fit items-center gap-5 border border-black/10 bg-white px-6 text-[12px] font-black uppercase tracking-[0.09em] text-[#171717] transition duration-300 hover:border-[#F47822] hover:bg-[#F47822] hover:text-white"
+                  className="hp-bestseller-all-link group mb-1 inline-flex h-[58px] w-fit items-center gap-5 border border-black/10 bg-white px-6 text-[12px] font-black uppercase tracking-[0.09em] text-[#171717] transition duration-300 hover:border-[#F47822] hover:bg-[#F47822] hover:text-white"
                 >
                   Explore All Hampers
                   <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#171717] text-white transition duration-300 group-hover:translate-x-1 group-hover:bg-white group-hover:text-[#F47822]">
@@ -5005,84 +5312,104 @@ const Home = () => {
         </section>
 
         {/* ==================================================
-            HAMPER ONE · LUXURY EDITORIAL
+            HAMPER ONE · FULL-BLEED PRIVATE COLLECTION
         =================================================== */}
 
-        <section data-home-section="hamper-one" className="hp-pointer-glow relative overflow-hidden bg-[#060606] text-white">
-          <div className="pointer-events-none absolute left-[10%] top-1/2 h-[420px] w-[420px] -translate-y-1/2 rounded-full bg-[#D4AF37]/[0.06] blur-[120px]" />
+        <section
+          data-home-section="hamper-one"
+          className="group hp-pointer-glow relative isolate min-h-[760px] overflow-hidden bg-[#050403] text-white sm:min-h-[820px] lg:min-h-[900px]"
+        >
+          {/* FULL-BLEED HAMPER ONE IMAGE */}
+          <SmartImage
+            src={hamperOneLuxury}
+            alt="HAMPER ONE luxury premium gift hamper"
+            loading="lazy"
+            decoding="async"
+            draggable={false}
+            className="absolute inset-0 h-full w-full object-cover object-[64%_center] transition-transform duration-[1800ms] ease-out group-hover:scale-[1.018] sm:object-center"
+          />
 
-          <div className="mx-auto grid min-h-[760px] w-full max-w-[1920px] lg:grid-cols-[0.72fr_1.28fr]">
-            {/* COPY */}
-            <Reveal className="relative z-10 flex flex-col justify-center px-5 py-16 sm:px-8 md:px-10 lg:px-12 xl:px-16 2xl:px-20">
-              <div className="flex items-center gap-4">
-                <span className="h-px w-14 bg-[#D4AF37]" />
+          {/* CINEMATIC LUXURY OVERLAYS */}
+          <div className="pointer-events-none absolute inset-0 bg-black/46" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#050403]/95 via-[#050403]/68 to-[#050403]/18 sm:from-[#050403]/92 sm:via-[#050403]/56 sm:to-transparent" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/58 via-transparent to-black/24" />
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_35%,rgba(212,175,55,0.13),transparent_31%)]" />
 
-                <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#D4AF37]">
-                  Private Collection
-                </p>
+          {/* FINE GOLD FRAME */}
+          <div className="pointer-events-none absolute inset-3 border border-[#D4AF37]/16 sm:inset-5 lg:inset-7" />
+          <div className="pointer-events-none absolute left-3 right-3 top-3 h-px bg-gradient-to-r from-transparent via-[#E8CD6E]/55 to-transparent sm:left-5 sm:right-5 sm:top-5 lg:left-7 lg:right-7 lg:top-7" />
+
+          <div className="relative z-10 mx-auto flex min-h-[760px] w-full max-w-[1920px] items-center px-5 py-20 sm:min-h-[820px] sm:px-8 md:px-10 lg:min-h-[900px] lg:px-14 xl:px-20 2xl:px-24">
+            <Reveal className="w-full">
+              <div className="max-w-[760px]">
+                {/* EYEBROW */}
+                <div className="flex items-center gap-4">
+                  <span className="h-px w-10 bg-[#D4AF37] sm:w-14" />
+
+                  <p className="text-[9px] font-black uppercase tracking-[0.30em] text-[#E3C45D] sm:text-[10px]">
+                    HAMPORIUM · PRIVATE COLLECTION
+                  </p>
+                </div>
+
+                {/* HERO TITLE */}
+                <h2 className="hp-section-heading mt-7 max-w-[760px] text-[#FFF8E8] sm:mt-8">
+                  HAMPER
+                  <span className="hp-section-heading-accent text-[#D4AF37]">
+                    ONE
+                  </span>
+                </h2>
+
+                {/* EDITORIAL STATEMENT · H3 JOINS THE GLOBAL ONE-TIME KINETIC SYSTEM */}
+                <h3
+                  style={{ fontFamily: DISPLAY_FONT }}
+                  className="mt-7 max-w-[650px] text-[27px] font-semibold leading-[1.06] text-white sm:mt-8 sm:text-[33px] md:text-[38px] lg:text-[42px]"
+                >
+                  A gift should feel like
+                  <span className="block italic text-[#F0D06B]">
+                    a moment in itself.
+                  </span>
+                </h3>
+
+                {/* QUIET LUXURY DETAILS */}
+                <div className="mt-7 flex flex-wrap items-center gap-x-5 gap-y-2 text-[9px] font-black uppercase tracking-[0.17em] text-white/58 sm:mt-8 sm:text-[10px]">
+                  <span>Signature Curation</span>
+                  <span className="h-1 w-1 rounded-full bg-[#D4AF37]" />
+                  <span>Gift Ready</span>
+                  <span className="h-1 w-1 rounded-full bg-[#D4AF37]" />
+                  <span>Private Series</span>
+                </div>
+
+                {/* CTA */}
+                <div className="mt-9 flex flex-col gap-3 sm:mt-10 sm:flex-row sm:items-center">
+                  <Link
+                    to="/hamper-one"
+                    className="group/cta inline-flex min-h-[56px] w-full items-center justify-between gap-7 bg-[#D4AF37] px-6 text-[11px] font-black uppercase tracking-[0.13em] text-[#111] transition duration-300 hover:bg-[#E8CD6E] sm:w-auto sm:min-w-[232px] sm:px-7"
+                  >
+                    Enter Hamper One
+                    <span className="text-[18px] transition duration-300 group-hover/cta:translate-x-1">
+                      →
+                    </span>
+                  </Link>
+
+                  <Link
+                    to="/gifts"
+                    className="group/secondary inline-flex min-h-[56px] w-full items-center justify-between gap-7 border border-white/18 bg-black/16 px-6 text-[11px] font-black uppercase tracking-[0.13em] text-white backdrop-blur-[3px] transition duration-300 hover:border-[#D4AF37]/55 hover:bg-black/28 sm:w-auto sm:min-w-[232px] sm:px-7"
+                  >
+                    Explore Hampers
+                    <span className="text-[18px] text-[#E4C865] transition duration-300 group-hover/secondary:translate-x-1">
+                      →
+                    </span>
+                  </Link>
+                </div>
               </div>
-
-              <h2 className="hp-section-heading mt-8 text-[#FFF4D8]">
-                HAMPER
-                <span className="hp-section-heading-accent text-[#D4AF37]">
-                  ONE
-                </span>
-              </h2>
-
-              <p
-                style={{ fontFamily: DISPLAY_FONT }}
-                className="mt-8 max-w-[610px] text-[29px] font-semibold leading-[1.02] text-white sm:text-[34px] lg:text-[38px]"
-              >
-                For moments that deserve
-                <span className="block italic text-[#F0D06B]">
-                  something unforgettable.
-                </span>
-              </p>
-
-              <p className="mt-6 max-w-[520px] text-[15px] font-medium leading-7 text-white/58 sm:text-[16px]">
-                Our most elevated ready-to-gift hamper, curated for unforgettable occasions.
-              </p>
-
-              <Link
-                to="/hamper-one"
-                className="group mt-9 inline-flex h-[58px] w-fit items-center gap-6 bg-[#D4AF37] px-7 text-[12px] font-black uppercase tracking-[0.1em] text-[#111] transition duration-300 hover:bg-[#E8CD6E]"
-              >
-                Enter Hamper One
-
-                <span className="transition duration-300 group-hover:translate-x-1">
-                  →
-                </span>
-              </Link>
             </Reveal>
+          </div>
 
-            {/* PREMIUM HAMPER VISUAL */}
-            <Reveal
-              delay={100}
-              className="hp-hamper-one-visual relative min-h-[560px] overflow-hidden sm:min-h-[640px] lg:min-h-[760px]"
-            >
-              <img
-                src={hamperOneLuxury}
-                alt="HAMPER ONE luxury premium gift hamper"
-                loading="lazy"
-                decoding="async"
-                className="hp-hamper-one-image absolute inset-0 h-full w-full object-cover object-center"
-                draggable="false"
-              />
-
-              <div
-                className="hp-hamper-one-curtain-line"
-                aria-hidden="true"
-              />
-
-              <div className="absolute inset-0 bg-gradient-to-r from-[#060606]/36 via-transparent to-transparent lg:from-[#060606]/24" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/28 via-transparent to-black/10" />
-
-              <div className="absolute left-5 top-5 z-10 border border-white/15 bg-black/25 px-4 py-3 backdrop-blur-md sm:left-8 sm:top-8">
-                <p className="text-[8px] font-black uppercase tracking-[0.2em] text-white/72">
-                  HAMPORIUM · PRIVATE SERIES
-                </p>
-              </div>
-            </Reveal>
+          {/* SMALL PRIVATE-SERIES SIGNATURE */}
+          <div className="pointer-events-none absolute bottom-7 right-7 z-10 hidden border border-white/14 bg-black/24 px-4 py-3 backdrop-blur-md lg:block xl:bottom-10 xl:right-10">
+            <p className="text-[8px] font-black uppercase tracking-[0.22em] text-white/68">
+              HAMPORIUM · PRIVATE SERIES
+            </p>
           </div>
         </section>
 
@@ -5321,58 +5648,6 @@ const Home = () => {
 
               </Reveal>
             </div>
-          </div>
-        </section>
-
-        {/* ==================================================
-            WHY CHOOSE HAMPORIUM
-        =================================================== */}
-
-        <section className="relative w-full overflow-hidden bg-[#050505] text-white">
-          <div className="absolute inset-0">
-            <SmartImage
-              src={HOME_IMAGES.hamperOne}
-              alt="Luxury curated gift hamper with premium presentation"
-              className="h-full w-full object-cover object-center"
-            />
-            <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(5,5,5,0.96)_0%,rgba(5,5,5,0.88)_34%,rgba(5,5,5,0.58)_62%,rgba(5,5,5,0.76)_100%)]" />
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_14%_18%,rgba(244,120,34,0.18),transparent_22%),radial-gradient(circle_at_85%_12%,rgba(212,175,55,0.16),transparent_20%),radial-gradient(circle_at_76%_78%,rgba(255,255,255,0.08),transparent_24%)]" />
-          </div>
-
-          <div className="hp-noise pointer-events-none absolute inset-0 opacity-[0.08]" />
-
-          <div className="relative z-10 mx-auto w-full max-w-[1900px] px-5 py-14 sm:px-8 sm:py-16 lg:px-10 lg:py-20 xl:px-14 2xl:px-16">
-            <Reveal className="max-w-[760px]">
-              <div className="inline-flex w-fit items-center gap-2 rounded-full border border-[#D4AF37]/25 bg-[#D4AF37]/[0.08] px-4 py-2 text-[11px] font-black uppercase tracking-[0.17em] text-[#E5C45E] backdrop-blur-md">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#F47822]" />
-                WHY HAMPORIUM
-              </div>
-
-              <h2 className="hp-section-heading mt-5 max-w-[780px] text-[#FFF8EC]">
-                We Don&apos;t Just Pack Gifts.
-                <span className="hp-section-heading-accent text-[#D4AF37]">
-                  We Frame Moments.
-                </span>
-              </h2>
-
-            </Reveal>
-
-            <Reveal delay={120} className="mt-10">
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:max-w-[1040px] lg:grid-cols-4 lg:gap-5">
-                <div className="rounded-[24px] border border-white/12 bg-black/24 p-5 backdrop-blur-md shadow-[0_18px_40px_rgba(0,0,0,.18)]">
-                  <PromiseCard icon={<GiftIcon />} title="Premium Curation" />
-                </div>
-                <div className="rounded-[24px] border border-white/12 bg-black/24 p-5 backdrop-blur-md shadow-[0_18px_40px_rgba(0,0,0,.18)]">
-                  <PromiseCard icon={<HeartIcon />} title="Personal Touch" />
-                </div>
-                <div className="rounded-[24px] border border-white/12 bg-black/24 p-5 backdrop-blur-md shadow-[0_18px_40px_rgba(0,0,0,.18)]">
-                  <PromiseCard icon={<ShieldIcon />} title="Gift-Ready" />
-                </div>
-                <div className="rounded-[24px] border border-white/12 bg-black/24 p-5 backdrop-blur-md shadow-[0_18px_40px_rgba(0,0,0,.18)]">
-                  <PromiseCard icon={<BulkIcon />} title="Bulk Ready" />
-                </div>
-              </div>
-            </Reveal>
           </div>
         </section>
 
