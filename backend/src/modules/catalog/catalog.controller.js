@@ -2175,6 +2175,80 @@ const PRODUCT_MASTER_SHEET = "Product Master";
 const HAMPER_COMPOSITION_SHEET = "Hamper Composition";
 const CONTAINER_SETUP_SHEET = "HAMPORIUM Container Setup";
 const DECORATION_MASTER_SHEET = "Decoration Master";
+const PROCUREMENT_HAMPER_MASTER_SHEET = "Hamper Master";
+const PROCUREMENT_HAMPER_RECIPE_SHEET = "Hamper Recipe";
+
+const PRODUCT_MASTER_SHEET_ALIASES = [
+  PRODUCT_MASTER_SHEET,
+  "02 Product Master",
+  "Products",
+  "Catalogue Master",
+  "Catalog Master",
+];
+
+const HAMPER_MASTER_SHEET_ALIASES = [
+  PROCUREMENT_HAMPER_MASTER_SHEET,
+  "09 Hamper Master",
+  "Curated Gift Master",
+  "Hamper / Curated Gift Master",
+];
+
+const HAMPER_RECIPE_SHEET_ALIASES = [
+  PROCUREMENT_HAMPER_RECIPE_SHEET,
+  "10 Hamper Recipe",
+  "Hamper BOM",
+  "Ready Made Composition",
+  "Ready-Made Composition",
+  HAMPER_COMPOSITION_SHEET,
+];
+
+/*
+ * Memory guardrails for large procurement workbooks. The real master contains
+ * many operational sheets that the catalogue importer does not need. Parsing
+ * all of them at once can expand a single-digit-MB XLSX into hundreds of MB of
+ * JavaScript objects.
+ */
+const PRODUCT_MASTER_MAX_PARSED_ROWS = 5000;
+
+const productMasterMemoryMb = () => {
+  const usage = process.memoryUsage();
+  return {
+    rss: Math.round(usage.rss / 1024 / 1024),
+    heapUsed: Math.round(usage.heapUsed / 1024 / 1024),
+    external: Math.round(usage.external / 1024 / 1024),
+  };
+};
+
+const logProductMasterMemory = (stage, filename = "") => {
+  const memory = productMasterMemoryMb();
+  console.info(
+    `[ProductMaster] ${stage}${filename ? ` (${filename})` : ""} | ` +
+      `rss=${memory.rss}MB heap=${memory.heapUsed}MB external=${memory.external}MB`
+  );
+};
+
+const readWorkbookSource = (source, options = {}) => {
+  if (Buffer.isBuffer(source)) {
+    return XLSX.read(source, {
+      type: "buffer",
+      ...options,
+    });
+  }
+
+  if (typeof source === "string" && source) {
+    return XLSX.readFile(source, options);
+  }
+
+  const error = new Error("Product Master Excel file is required");
+  error.statusCode = 400;
+  throw error;
+};
+
+const getProductMasterUploadSource = (file) => {
+  if (file?.path) return file.path;
+  if (file?.buffer) return file.buffer;
+  return null;
+};
 
 const normalizeMasterHeader = (value = "") =>
   String(value)
@@ -2209,18 +2283,133 @@ const masterText = (row, aliases = []) => {
   return String(value).trim();
 };
 
-const masterNumber = (row, aliases, label, errors) => {
-  const raw = getMasterValue(row, aliases);
-
+const parseMasterNumericValue = (raw, { percent = false } = {}) => {
   if (raw === undefined || raw === null || raw === "") return null;
 
-  const value = Number(raw);
+  if (typeof raw === "number") {
+    if (!Number.isFinite(raw)) return NaN;
+    if (percent && raw > 0 && raw <= 1) return raw * 100;
+    return raw;
+  }
+
+  const source = String(raw).trim();
+  if (!source) return null;
+
+  const hasPercentSuffix = source.endsWith("%");
+  const cleaned = source
+    .replace(/[₹$£€]/g, "")
+    .replace(/,/g, "")
+    .replace(/%$/, "")
+    .trim();
+
+  if (!cleaned) return null;
+
+  const value = Number(cleaned);
+  if (!Number.isFinite(value)) return NaN;
+
+  if (hasPercentSuffix) return value;
+  if (percent && value > 0 && value <= 1) return value * 100;
+  return value;
+};
+
+const masterNumber = (row, aliases, label, errors) => {
+  const raw = getMasterValue(row, aliases);
+  const value = parseMasterNumericValue(raw);
+
+  if (value === null) return null;
   if (!Number.isFinite(value)) {
     errors.push(`${label} must be numeric`);
     return null;
   }
 
   return value;
+};
+
+const masterPercentNumber = (row, aliases, label, errors) => {
+  const raw = getMasterValue(row, aliases);
+
+  if (typeof raw === "string") {
+    const compact = raw.trim();
+    const matches = compact.match(/-?\d+(?:\.\d+)?\s*%/g) || [];
+    if (matches.length > 1 || /\d\s*%?\s*\/\s*\d/.test(compact)) {
+      // Procurement masters sometimes keep a conditional tax note such as
+      // "5%/18%". Do not guess a rate. Import the row with tax unset and
+      // surface a warning at row level instead of rejecting the product.
+      return null;
+    }
+  }
+
+  const value = parseMasterNumericValue(raw, { percent: true });
+
+  if (value === null) return null;
+  if (!Number.isFinite(value)) {
+    errors.push(`${label} must be a valid percentage`);
+    return null;
+  }
+
+  return value;
+};
+
+const masterPriorityNumber = (row, aliases = ["Product Priority"]) => {
+  const raw = getMasterValue(row, aliases);
+  if (raw === undefined || raw === null || raw === "") return null;
+
+  const numeric = parseMasterNumericValue(raw);
+  if (Number.isFinite(numeric)) return numeric;
+
+  const value = String(raw).trim().toLowerCase();
+  const map = {
+    p0: 0,
+    p1: 10,
+    p2: 20,
+    p3: 30,
+    critical: 0,
+    urgent: 5,
+    high: 10,
+    medium: 50,
+    normal: 50,
+    low: 90,
+  };
+
+  return Object.prototype.hasOwnProperty.call(map, value) ? map[value] : null;
+};
+
+const masterHamperUse = (row) => {
+  const raw = getMasterValue(row, [
+    "Hamper Use",
+    "Hamper Use?",
+    "Use in Hamper",
+    "Custom Hamper Eligible?",
+  ]);
+
+  if (raw === undefined || raw === null || raw === "") return false;
+  if (typeof raw === "boolean") return raw;
+  if (typeof raw === "number") return raw !== 0;
+
+  const value = String(raw).trim().toLowerCase();
+  if (!value) return false;
+
+  if ([
+    "no",
+    "n",
+    "false",
+    "0",
+    "inactive",
+    "none",
+    "n/a",
+    "na",
+    "not applicable",
+    "not for hamper",
+    "do not use",
+  ].includes(value)) {
+    return false;
+  }
+
+  // The live procurement workbook stores usage labels such as
+  // "All Purpose", "Festive Gifting" and "Kids Hamper" instead of Yes/No.
+  // Any non-negative, non-empty usage label therefore means the item is
+  // hamper-eligible; customer visibility is still gated by price + dimensions.
+  return true;
 };
 
 const masterBoolean = (row, aliases, fallback = false) => {
@@ -2273,7 +2462,7 @@ const masterStatusActive = (row) => {
   const status = masterText(row, ["Status"]).toLowerCase();
 
   if (!status) return true;
-  if (["inactive", "archived", "disabled", "discontinued"].includes(status)) {
+  if (["inactive", "archived", "disabled", "discontinued", "draft", "hidden", "paused"].includes(status)) {
     return false;
   }
 
@@ -2330,12 +2519,35 @@ const getMasterComponentType = (row, { decoration = false } = {}) => {
 
   if (
     productType.includes("packaging material") ||
-    category === "packaging"
+    category === "packaging" ||
+    category.includes("internal hamper construction") ||
+    category.includes("packaging container")
   ) {
     return "packaging";
   }
 
-  if (category === "food" || taxonomy.startsWith("food-")) {
+  const foodText = `${category} ${productType}`;
+  const foodHints = [
+    "food",
+    "chocolate",
+    "confection",
+    "cookie",
+    "biscuit",
+    "bakery",
+    "coffee",
+    "tea",
+    "snack",
+    "dry fruit",
+    "nut",
+    "gourmet",
+    "beverage",
+  ];
+
+  if (
+    category === "food" ||
+    taxonomy.startsWith("food-") ||
+    foodHints.some((hint) => foodText.includes(hint))
+  ) {
     return "food";
   }
 
@@ -2406,13 +2618,13 @@ const buildMasterCommonFields = (row, errors) => {
     "Pieces per UOM / Case Pack Qty",
     errors
   );
-  const productPriority = masterNumber(row, ["Product Priority"], "Product Priority", errors);
+  const productPriority = masterPriorityNumber(row, ["Product Priority"]);
   const mrp = masterNumber(row, ["Retail MRP"], "Retail MRP", errors);
   const sellingPrice = masterNumber(row, ["Target Sell Price"], "Target Sell Price", errors);
   const latestUnitCost = masterNumber(row, ["Latest Unit Cost"], "Latest Unit Cost", errors);
   const actualLandedCost = masterNumber(row, ["Actual Landed Cost"], "Actual Landed Cost", errors);
-  const taxPercent = masterNumber(row, ["Tax %"], "Tax %", errors);
-  const minGrossMarginPercent = masterNumber(
+  const taxPercent = masterPercentNumber(row, ["Tax %"], "Tax %", errors);
+  const minGrossMarginPercent = masterPercentNumber(
     row,
     ["Min Gross Margin %"],
     "Min Gross Margin %",
@@ -2489,7 +2701,7 @@ const buildMasterCommonFields = (row, errors) => {
     fragile: masterBoolean(row, ["Fragile?"], false),
     expiryTracked: masterBoolean(row, ["Expiry Tracked?"], false),
     personalizable: masterBoolean(row, ["Personalizable?"], false),
-    hamperUse: masterBoolean(row, ["Hamper Use"], false),
+    hamperUse: masterHamperUse(row),
     channels: {
       corporate: masterBoolean(row, ["Corporate?"], false),
       wedding: masterBoolean(row, ["Wedding?"], false),
@@ -2501,13 +2713,206 @@ const buildMasterCommonFields = (row, errors) => {
   };
 };
 
-const findWorkbookSheet = (workbook, names = []) =>
-  workbook.SheetNames.find((sheetName) =>
-    names.some(
+const normalizeWorkbookSheetName = (value = "") => {
+  const source = String(value || "").trim();
+  const withoutNumericPrefix = source.replace(/^\s*\d+[a-z]?\s*[-_.:]?\s*/i, "");
+  return normalizeMasterHeader(withoutNumericPrefix);
+};
+
+const findWorkbookSheet = (workbook, names = []) => {
+  const candidates = names
+    .map((name) => ({
+      exact: normalizeMasterHeader(name),
+      flexible: normalizeWorkbookSheetName(name),
+    }))
+    .filter((item) => item.exact || item.flexible);
+
+  return workbook.SheetNames.find((sheetName) => {
+    const exact = normalizeMasterHeader(sheetName);
+    const flexible = normalizeWorkbookSheetName(sheetName);
+
+    return candidates.some(
       (candidate) =>
-        normalizeMasterHeader(sheetName) === normalizeMasterHeader(candidate)
-    )
+        exact === candidate.exact ||
+        flexible === candidate.flexible ||
+        flexible === candidate.exact
+    );
+  });
+};
+
+const rowContainsHeaderAlias = (values = [], aliases = []) => {
+  const normalizedValues = new Set(
+    values
+      .map((value) => normalizeMasterHeader(value))
+      .filter(Boolean)
   );
+
+  return aliases.some((alias) => normalizedValues.has(normalizeMasterHeader(alias)));
+};
+
+const getWorksheetScanRange = (worksheet, maxScanRows = 30) => {
+  const ref = worksheet?.["!ref"];
+  if (!ref) return undefined;
+
+  try {
+    const range = XLSX.utils.decode_range(ref);
+    range.e.r = Math.min(
+      range.e.r,
+      range.s.r + Math.max(1, Number(maxScanRows) || 30) - 1
+    );
+    return range;
+  } catch {
+    return undefined;
+  }
+};
+
+const detectWorksheetHeaderRow = (
+  worksheet,
+  requiredAliasGroups = [],
+  { maxScanRows = 30 } = {}
+) => {
+  if (!worksheet) return null;
+
+  /*
+   * Only materialize the first few rows needed for header detection. The old
+   * implementation converted the entire sheet to a matrix just to inspect the
+   * first 30-40 rows, temporarily duplicating large worksheets in memory.
+   */
+  const matrix = XLSX.utils.sheet_to_json(worksheet, {
+    header: 1,
+    defval: null,
+    raw: true,
+    blankrows: false,
+    range: getWorksheetScanRange(worksheet, maxScanRows),
+  });
+
+  const scanLimit = Math.min(matrix.length, maxScanRows);
+
+  for (let index = 0; index < scanLimit; index += 1) {
+    const values = matrix[index] || [];
+    const matches = requiredAliasGroups.every((aliases) =>
+      rowContainsHeaderAlias(values, aliases)
+    );
+    if (matches) return index + 1; // Excel row number
+  }
+
+  return null;
+};
+
+const normalizeMasterRowInPlace = (row = {}) => {
+  const entries = Object.entries(row);
+
+  for (const [key] of entries) delete row[key];
+  for (const [key, value] of entries) {
+    row[normalizeMasterHeader(key)] = value;
+  }
+
+  return row;
+};
+
+const readWorksheetObjects = (
+  worksheet,
+  { requiredAliasGroups = [], maxScanRows = 30, includeRow = null } = {}
+) => {
+  if (!worksheet) return { headerRow: null, rows: [] };
+
+  const headerRow = detectWorksheetHeaderRow(worksheet, requiredAliasGroups, {
+    maxScanRows,
+  });
+
+  if (!headerRow) {
+    return { headerRow: null, rows: [] };
+  }
+
+  const rawRows = XLSX.utils.sheet_to_json(worksheet, {
+    defval: null,
+    raw: true,
+    range: headerRow - 1,
+  });
+
+  const rows = [];
+
+  for (let index = 0; index < rawRows.length; index += 1) {
+    // Normalize the SheetJS row object in-place instead of keeping both a raw
+    // object and a cloned normalized object for every row.
+    const row = normalizeMasterRowInPlace(rawRows[index]);
+    const rowNumber = headerRow + 1 + index;
+    if (includeRow && !includeRow(row, rowNumber)) continue;
+    rows.push({ row, rowNumber });
+  }
+
+  return { headerRow, rows };
+};
+
+const detectProductMasterWorkbookProfile = (workbook) => {
+  const productSheetName = findWorkbookSheet(workbook, PRODUCT_MASTER_SHEET_ALIASES);
+  const hamperMasterSheetName = findWorkbookSheet(workbook, HAMPER_MASTER_SHEET_ALIASES);
+  const hamperRecipeSheetName = findWorkbookSheet(workbook, HAMPER_RECIPE_SHEET_ALIASES);
+  const procurementRecipeSheetName = findWorkbookSheet(workbook, [
+    PROCUREMENT_HAMPER_RECIPE_SHEET,
+    "10 Hamper Recipe",
+  ]);
+  const numberedProductSheet = workbook.SheetNames.some((name) =>
+    /^\s*\d+[a-z]?\s+product\s+master\s*$/i.test(String(name || ""))
+  );
+
+  const procurementMaster = Boolean(
+    numberedProductSheet || hamperMasterSheetName || procurementRecipeSheetName
+  );
+
+  return {
+    key: procurementMaster ? "procurement_master" : "catalog_import",
+    label: procurementMaster
+      ? "HAMPORIUM Procurement / Inventory Master"
+      : "HAMPORIUM Catalogue Import",
+    productSheetName,
+    hamperMasterSheetName,
+    hamperRecipeSheetName,
+    allowPartialImport: procurementMaster,
+    strictBuilderEligibility: !procurementMaster,
+    requireReadyMadeContainer: !procurementMaster,
+  };
+};
+
+const getProductMasterSheetSelection = (sheetCatalog, workbookProfile) => {
+  const selected = new Set();
+  const add = (sheetName) => {
+    if (sheetName) selected.add(sheetName);
+  };
+
+  add(workbookProfile.productSheetName);
+  add(workbookProfile.hamperMasterSheetName);
+  add(workbookProfile.hamperRecipeSheetName);
+  add(
+    findWorkbookSheet(sheetCatalog, [
+      CONTAINER_SETUP_SHEET,
+      "Container Setup",
+      "Box Setup",
+    ])
+  );
+  add(
+    findWorkbookSheet(sheetCatalog, [
+      DECORATION_MASTER_SHEET,
+      "Decorations",
+    ])
+  );
+
+  return [...selected];
+};
+
+const releaseWorkbookSheets = (workbook) => {
+  if (!workbook) return;
+
+  if (workbook.Sheets) {
+    for (const key of Object.keys(workbook.Sheets)) {
+      delete workbook.Sheets[key];
+    }
+  }
+
+  if (Array.isArray(workbook.SheetNames)) {
+    workbook.SheetNames.length = 0;
+  }
+};
 
 const parseContainerSetupSheet = (workbook) => {
   const sheetName = findWorkbookSheet(workbook, [
@@ -2520,16 +2925,20 @@ const parseContainerSetupSheet = (workbook) => {
     return { sheetName: null, bySku: new Map(), errors: [] };
   }
 
-  const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], {
-    defval: null,
-    raw: true,
+  const extracted = readWorksheetObjects(workbook.Sheets[sheetName], {
+    requiredAliasGroups: [
+      ["Container SKU", "Product SKU", "SKU"],
+      ["Container Name", "Product Name", "Name"],
+    ],
+    includeRow: (row) =>
+      Boolean(masterText(row, ["Container SKU", "Product SKU", "SKU"])) ||
+      Boolean(masterText(row, ["Container Name", "Product Name", "Name"])),
   });
 
   const bySku = new Map();
   const errors = [];
 
-  rows.map(normalizeMasterRow).forEach((row, index) => {
-    const rowNumber = index + 2;
+  extracted.rows.forEach(({ row, rowNumber }) => {
     const sku = masterText(row, ["Container SKU", "Product SKU", "SKU"]);
     if (!sku) return;
 
@@ -2591,16 +3000,20 @@ const parseDecorationMasterSheet = (workbook) => {
     return { sheetName: null, bySku: new Map(), errors: [] };
   }
 
-  const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], {
-    defval: null,
-    raw: true,
+  const extracted = readWorksheetObjects(workbook.Sheets[sheetName], {
+    requiredAliasGroups: [
+      ["Decoration SKU", "Product SKU", "SKU"],
+      ["Decoration Name", "Product Name", "Name"],
+    ],
+    includeRow: (row) =>
+      Boolean(masterText(row, ["Decoration SKU", "Product SKU", "SKU"])) ||
+      Boolean(masterText(row, ["Decoration Name", "Product Name", "Name"])),
   });
 
   const bySku = new Map();
   const errors = [];
 
-  rows.map(normalizeMasterRow).forEach((row, index) => {
-    const rowNumber = index + 2;
+  extracted.rows.forEach(({ row, rowNumber }) => {
     const sku = masterText(row, ["Decoration SKU", "Product SKU", "SKU"]);
     if (!sku) return;
 
@@ -2611,7 +3024,7 @@ const parseDecorationMasterSheet = (workbook) => {
 
     const priceErrors = [];
     const sellingPrice = masterNumber(row, ["Target Sell Price"], "Target Sell Price", priceErrors);
-    const taxPercent = masterNumber(row, ["Tax %"], "Tax %", priceErrors);
+    const taxPercent = masterPercentNumber(row, ["Tax %"], "Tax %", priceErrors);
     if (priceErrors.length) {
       errors.push(...priceErrors.map((message) => `${DECORATION_MASTER_SHEET} row ${rowNumber}: ${message}`));
     }
@@ -2630,10 +3043,20 @@ const parseDecorationMasterSheet = (workbook) => {
   return { sheetName, bySku, errors };
 };
 
-const buildComponentMasterPayload = (row, { decorationMasterEntry = null } = {}) => {
+const buildComponentMasterPayload = (
+  row,
+  { decorationMasterEntry = null, strictBuilderEligibility = true } = {}
+) => {
   const errors = [];
   const review = [];
+  const warnings = [];
   const common = buildMasterCommonFields(row, errors);
+  const rawTaxText = masterText(row, ["Tax %"]);
+  if (/\d\s*%?\s*\/\s*\d/.test(rawTaxText)) {
+    warnings.push(
+      `Tax rate "${rawTaxText}" is conditional/ambiguous, so tax was left unset for review`
+    );
+  }
   const decoration = isMasterDecorationRow(row, decorationMasterEntry);
   const type = getMasterComponentType(row, { decoration });
   const hamperRole = decoration ? "decoration" : "content";
@@ -2708,13 +3131,15 @@ const buildComponentMasterPayload = (row, { decorationMasterEntry = null } = {})
   payload.channels = common.channels;
   payload.isActive = common.isActive;
 
+  let requestedCustomerSelectable = false;
+
   if (decoration) {
     payload.decorationType =
       masterText(row, ["Decoration Type"]) ||
       decorationMasterEntry?.decorationType ||
       "Decoration";
     payload.countsTowardBoxCapacity = false;
-    payload.customerSelectable =
+    requestedCustomerSelectable =
       common.isActive &&
       masterBoolean(
         row,
@@ -2728,7 +3153,7 @@ const buildComponentMasterPayload = (row, { decorationMasterEntry = null } = {})
       ["Counts Toward Box Capacity?"],
       type !== "packaging"
     );
-    payload.customerSelectable =
+    requestedCustomerSelectable =
       type !== "packaging" && common.hamperUse && common.isActive;
   }
 
@@ -2739,9 +3164,10 @@ const buildComponentMasterPayload = (row, { decorationMasterEntry = null } = {})
 
   if (common.sourceUpdatedAt) payload.source.sourceUpdatedAt = common.sourceUpdatedAt;
 
-  if (payload.customerSelectable && hamperRole !== "decoration") {
+  const builderMissing = [];
+  if (requestedCustomerSelectable && hamperRole !== "decoration") {
     if (!validPositiveDimensions(common.dimensions)) {
-      review.push("Customer-selectable item requires Product Length, Width and Height");
+      builderMissing.push("Product Length, Width and Height");
     }
 
     if (
@@ -2749,19 +3175,37 @@ const buildComponentMasterPayload = (row, { decorationMasterEntry = null } = {})
       !Number.isFinite(Number(common.weight.value)) ||
       Number(common.weight.value) <= 0
     ) {
-      review.push("Customer-selectable item requires Net Product Weight");
+      builderMissing.push("Net Product Weight");
     }
 
-    if (common.sellingPrice === null) {
-      review.push("Customer-selectable item requires Target Sell Price");
+    if (!hasPrice(payload.sellingPrice)) {
+      builderMissing.push("Target Sell Price");
     }
   }
 
-  if (decoration && payload.customerSelectable && payload.sellingPrice === undefined) {
-    review.push("Customer-selectable decoration requires Target Sell Price");
+  if (requestedCustomerSelectable && hamperRole === "decoration" && !hasPrice(payload.sellingPrice)) {
+    builderMissing.push("Target Sell Price");
   }
 
-  return { payload, errors, review };
+  if (strictBuilderEligibility && builderMissing.length > 0) {
+    review.push(
+      `Customer-selectable item requires ${builderMissing.join(", ")}`
+    );
+    payload.customerSelectable = requestedCustomerSelectable;
+  } else {
+    payload.customerSelectable =
+      requestedCustomerSelectable && builderMissing.length === 0;
+
+    if (!strictBuilderEligibility && requestedCustomerSelectable && builderMissing.length > 0) {
+      warnings.push(
+        `Imported safely but hidden from the custom builder until ${builderMissing.join(", ")} ${
+          builderMissing.length === 1 ? "is" : "are"
+        } supplied`
+      );
+    }
+  }
+
+  return { payload, errors, review, warnings };
 };
 
 const buildContainerMasterPayload = (row, setupEntry = null) => {
@@ -3038,32 +3482,65 @@ const collectChangedFields = (current, incoming, prefix = "") => {
 };
 
 const parseHamperCompositionSheet = (workbook) => {
-  const sheetName = findWorkbookSheet(workbook, [
-    HAMPER_COMPOSITION_SHEET,
-    "Hamper BOM",
-    "Ready Made Composition",
-    "Ready-Made Composition",
-  ]);
+  const sheetName = findWorkbookSheet(workbook, HAMPER_RECIPE_SHEET_ALIASES);
 
   if (!sheetName) {
-    return { sheetName: null, byHamperSku: new Map(), errors: [] };
+    return {
+      sheetName: null,
+      headerRow: null,
+      byHamperSku: new Map(),
+      errors: [],
+    };
   }
 
-  const rawRows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], {
-    defval: null,
-    raw: true,
+  const extracted = readWorksheetObjects(workbook.Sheets[sheetName], {
+    requiredAliasGroups: [
+      [
+        "Hamper SKU",
+        "Parent Hamper SKU",
+        "Parent Product SKU",
+        "Ready Made Hamper SKU",
+        "Hamper Code",
+      ],
+      [
+        "Item SKU",
+        "Child SKU",
+        "Component SKU",
+        "Container SKU",
+        "Product SKU",
+      ],
+    ],
+    includeRow: (row) =>
+      Boolean(
+        masterText(row, [
+          "Hamper SKU",
+          "Parent Hamper SKU",
+          "Parent Product SKU",
+          "Ready Made Hamper SKU",
+          "Hamper Code",
+        ])
+      ) ||
+      Boolean(
+        masterText(row, [
+          "Item SKU",
+          "Child SKU",
+          "Component SKU",
+          "Container SKU",
+          "Product SKU",
+        ])
+      ),
   });
 
   const byHamperSku = new Map();
   const errors = [];
 
-  rawRows.map(normalizeMasterRow).forEach((row, index) => {
-    const rowNumber = index + 2;
+  extracted.rows.forEach(({ row, rowNumber }) => {
     const hamperSku = masterText(row, [
       "Hamper SKU",
       "Parent Hamper SKU",
       "Parent Product SKU",
       "Ready Made Hamper SKU",
+      "Hamper Code",
     ]);
     const childSku = masterText(row, [
       "Item SKU",
@@ -3072,34 +3549,53 @@ const parseHamperCompositionSheet = (workbook) => {
       "Container SKU",
       "Product SKU",
     ]);
-    const roleRaw = masterText(row, ["Role", "Item Role", "Type"]).toLowerCase();
+    const roleRaw = masterText(row, [
+      "Role",
+      "Item Role",
+      "Type",
+      "Component Type",
+    ]).toLowerCase();
     const builderSection = masterText(row, ["Builder Section"]).toLowerCase();
 
     let role = "content";
     if (roleRaw.includes("container") || roleRaw === "box") role = "container";
-    else if (roleRaw.includes("decoration") || builderSection.includes("decoration")) role = "decoration";
-    else if (roleRaw.includes("pack") || roleRaw.includes("material")) role = "packaging";
+    else if (roleRaw.includes("decoration") || builderSection.includes("decoration")) {
+      role = "decoration";
+    } else if (roleRaw.includes("pack") || roleRaw.includes("material")) {
+      role = "packaging";
+    }
 
     const quantityRaw = getMasterValue(row, ["Quantity", "Qty"]);
     const quantity = quantityRaw === null || quantityRaw === "" ? 1 : Number(quantityRaw);
-    const sortOrderRaw = getMasterValue(row, ["Sort Order", "Sequence"]);
+    const sortOrderRaw = getMasterValue(row, [
+      "Sort Order",
+      "Sequence",
+      "Assembly Sequence",
+      "Line No",
+    ]);
     const sortOrder =
-      sortOrderRaw === null || sortOrderRaw === "" ? index : Number(sortOrderRaw);
+      sortOrderRaw === null || sortOrderRaw === "" ? rowNumber : Number(sortOrderRaw);
 
     if (!hamperSku || !childSku) {
-      errors.push(`Hamper Composition row ${rowNumber} requires Hamper SKU and Item SKU`);
+      errors.push(`${sheetName} row ${rowNumber} requires Hamper SKU/Code and Item/Product SKU`);
       return;
     }
 
     if (!Number.isFinite(quantity) || quantity <= 0) {
-      errors.push(`Hamper Composition row ${rowNumber} has invalid quantity`);
+      errors.push(`${sheetName} row ${rowNumber} has invalid quantity`);
       return;
     }
 
     if (!Number.isFinite(sortOrder)) {
-      errors.push(`Hamper Composition row ${rowNumber} has invalid sort order`);
+      errors.push(`${sheetName} row ${rowNumber} has invalid sort order`);
       return;
     }
+
+    const mandatoryRaw = getMasterValue(row, ["Mandatory?"]);
+    const isOptional =
+      mandatoryRaw !== null && mandatoryRaw !== undefined && mandatoryRaw !== ""
+        ? !masterBoolean(row, ["Mandatory?"], true)
+        : masterBoolean(row, ["Optional?", "Is Optional"], false);
 
     const entry = {
       rowNumber,
@@ -3108,9 +3604,13 @@ const parseHamperCompositionSheet = (workbook) => {
       role,
       quantity,
       unit: masterText(row, ["Unit", "UOM"]) || "pc",
-      displayName: masterText(row, ["Display Name", "Item Name"]),
+      displayName: masterText(row, [
+        "Display Name",
+        "Item Name",
+        "Product Name",
+      ]),
       sortOrder,
-      isOptional: masterBoolean(row, ["Optional?", "Is Optional"], false),
+      isOptional,
       specification: masterText(row, ["Specification"]),
       notes: masterText(row, ["Notes"]),
       countsTowardBoxCapacity: masterBoolean(
@@ -3124,7 +3624,88 @@ const parseHamperCompositionSheet = (workbook) => {
     byHamperSku.get(hamperSku).push(entry);
   });
 
-  return { sheetName, byHamperSku, errors };
+  return {
+    sheetName,
+    headerRow: extracted.headerRow,
+    byHamperSku,
+    errors,
+  };
+};
+
+const parseProcurementHamperMasterSheet = (workbook) => {
+  const sheetName = findWorkbookSheet(workbook, HAMPER_MASTER_SHEET_ALIASES);
+
+  if (!sheetName) {
+    return { sheetName: null, headerRow: null, rows: [], errors: [] };
+  }
+
+  const extracted = readWorksheetObjects(workbook.Sheets[sheetName], {
+    requiredAliasGroups: [
+      ["Hamper Code", "Hamper SKU", "Product SKU"],
+      ["Hamper Name", "Product Name", "Name"],
+    ],
+    includeRow: (row) =>
+      Boolean(masterText(row, ["Hamper Code", "Hamper SKU", "Product SKU"])) ||
+      Boolean(masterText(row, ["Hamper Name", "Product Name", "Name"])),
+  });
+
+  const rows = [];
+  const errors = [];
+
+  extracted.rows.forEach(({ row, rowNumber }) => {
+    const hamperCode = masterText(row, ["Hamper Code", "Hamper SKU", "Product SKU"]);
+    const hamperName = masterText(row, ["Hamper Name", "Product Name", "Name"]);
+
+    if (!hamperCode && !hamperName) return;
+
+    if (!hamperCode) {
+      errors.push(`${sheetName} row ${rowNumber} requires Hamper Code`);
+      return;
+    }
+
+    const vertical = masterText(row, ["Vertical", "Website Category", "Category"]);
+    const occasion = masterText(row, ["Occasion"]);
+    const recipient = masterText(row, ["Recipient / Segment", "Recipient", "Segment"]);
+    const theme = masterText(row, ["Theme"]);
+    const salesNotes = masterText(row, ["Sales Notes"]);
+    const opsNotes = masterText(row, ["Ops Notes", "Notes"]);
+    const recipeVersion = masterText(row, ["Recipe Version"]);
+    const status = masterText(row, ["Status"]) || "Draft";
+    const imageUrl = masterText(row, ["Image / Asset URL", "Image URL"]);
+
+    const synthetic = normalizeMasterRow({
+      "Product SKU": hamperCode,
+      "Product Name": hamperName,
+      "Product Type": "Ready Made Hamper",
+      "Record Type": "Ready Made Hamper",
+      "Website Category": vertical || occasion || "Hampers",
+      Category: vertical || occasion || "Hampers",
+      Subcategory: theme || occasion,
+      Segment: recipient,
+      "Size / Pack": recipeVersion || "Standard",
+      Status: status,
+      "Product Priority": masterText(row, ["Priority"]),
+      "Target Sell Price": getMasterValue(row, ["Target Sell Price"]),
+      "Retail MRP": getMasterValue(row, ["MRP / List Price", "Retail MRP"]),
+      "Min Gross Margin %": getMasterValue(row, ["Minimum Margin %", "Min Gross Margin %"]),
+      "Lead Time Days": getMasterValue(row, ["Lead Time Days"]),
+      "Product Length cm": getMasterValue(row, ["Shipping Length cm"]),
+      "Product Width cm": getMasterValue(row, ["Shipping Width cm"]),
+      "Product Height cm": getMasterValue(row, ["Shipping Height cm"]),
+      "Net Product Weight kg": getMasterValue(row, ["Hamper Gross Weight kg"]),
+      "Image / Asset URL": imageUrl,
+      Notes: [salesNotes, opsNotes].filter(Boolean).join(" | "),
+      "Corporate?": /corporate/i.test(`${vertical} ${occasion} ${recipient}`) ? "Yes" : "No",
+      "Wedding?": /wedding/i.test(`${vertical} ${occasion} ${recipient}`) ? "Yes" : "No",
+      "Diwali?": /diwali/i.test(`${vertical} ${occasion} ${theme}`) ? "Yes" : "No",
+      "HAMPER ONE?": /hamper one/i.test(`${vertical} ${occasion} ${theme}`) ? "Yes" : "No",
+      "Last Updated Date & Time": getMasterValue(row, ["Last Updated", "Updated At"]),
+    });
+
+    rows.push({ row: synthetic, rowNumber });
+  });
+
+  return { sheetName, headerRow: extracted.headerRow, rows, errors };
 };
 
 const addLookupRecord = (map, record) => {
@@ -3234,10 +3815,12 @@ const resolveReadyMadeCategoryFromContext = (name, context) => {
 const buildReadyMadeMasterPayload = async (
   row,
   compositionEntries = [],
-  context
+  context,
+  { requireContainer = true } = {}
 ) => {
   const errors = [];
   const review = [];
+  const warnings = [];
   const common = buildMasterCommonFields(row, errors);
   const categoryName = masterText(row, [
     "Website Category",
@@ -3273,11 +3856,17 @@ const buildReadyMadeMasterPayload = async (
   const decorationEntries = compositionEntries.filter((entry) => entry.role === "decoration");
 
   if (compositionEntries.length === 0) {
-    review.push(`No ${HAMPER_COMPOSITION_SHEET} rows were found for this ready-made hamper SKU`);
+    review.push("No hamper recipe/composition rows were found for this ready-made hamper SKU");
   }
 
-  if (containerEntries.length !== 1) {
-    review.push("Ready-made hamper requires exactly one container in Hamper Composition");
+  if (requireContainer && containerEntries.length !== 1) {
+    review.push("Ready-made hamper requires exactly one container in the composition");
+  } else if (!requireContainer && containerEntries.length === 0) {
+    warnings.push(
+      "No dedicated HAMPORIUM container is linked yet; the ready-made hamper will use its recipe packaging and can be completed later"
+    );
+  } else if (containerEntries.length > 1) {
+    review.push("Ready-made hamper cannot have more than one container");
   }
 
   if (contentEntries.length === 0) {
@@ -3506,6 +4095,7 @@ const buildReadyMadeMasterPayload = async (
     categoryId: category?._id || null,
     errors,
     review,
+    warnings,
     compositionSummary: {
       containerSku: containerEntries[0]?.childSku || null,
       contentLines: contentEntries.length,
@@ -3566,30 +4156,125 @@ const calculateReadyMadeHamperMetrics = (sku) => {
 };
 
 const analyzeProductMasterBuffer = async (
-  buffer,
+  source,
   filename = "",
   { replaceMode = true } = {}
 ) => {
-  const workbook = XLSX.read(buffer, {
-    type: "buffer",
-    cellDates: true,
-    raw: true,
+  logProductMasterMemory("analyze:start", filename);
+
+  /*
+   * Pass 1 is sheet-name-only. This does not inflate all worksheet XML into
+   * cell objects and lets us decide exactly which tabs are relevant.
+   */
+  let sheetCatalog = readWorkbookSource(source, {
+    bookSheets: true,
+    bookProps: false,
+    bookVBA: false,
   });
 
-  const sheetName = findWorkbookSheet(workbook, [PRODUCT_MASTER_SHEET]);
+  const workbookProfile = detectProductMasterWorkbookProfile(sheetCatalog);
+  const sheetName = workbookProfile.productSheetName;
 
   if (!sheetName) {
-    const error = new Error(`Workbook must contain a \"${PRODUCT_MASTER_SHEET}\" sheet`);
+    releaseWorkbookSheets(sheetCatalog);
+    sheetCatalog = null;
+
+    const error = new Error(
+      `Workbook must contain a Product Master sheet. Supported examples: "Product Master" and "02 Product Master".`
+    );
     error.statusCode = 400;
     throw error;
   }
 
-  const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], {
-    defval: null,
-    raw: true,
+  const selectedSheetNames = getProductMasterSheetSelection(
+    sheetCatalog,
+    workbookProfile
+  );
+
+  if (!selectedSheetNames.includes(sheetName)) {
+    selectedSheetNames.unshift(sheetName);
+  }
+
+  /*
+   * Pass 2 parses ONLY catalogue-related tabs. The real workbook has 30+ tabs
+   * (inventory, geography, GST, dashboards, etc.); none of those are needed to
+   * build catalogue records and parsing them is the main source of the memory
+   * spike on small Render instances.
+   */
+  let parsedWorkbook = readWorkbookSource(source, {
+    sheets: selectedSheetNames,
+    sheetRows: PRODUCT_MASTER_MAX_PARSED_ROWS,
+    cellDates: false,
+    cellFormula: false,
+    cellHTML: false,
+    cellText: false,
+    cellStyles: false,
+    sheetStubs: false,
+    bookDeps: false,
+    bookFiles: false,
+    bookVBA: false,
+    dense: true,
   });
 
-  if (rows.length === 0) {
+  // Some SheetJS versions retain every name in SheetNames even when only a
+  // subset was parsed. Give helper parsers a workbook view containing only the
+  // sheets we intentionally loaded.
+  let workbook = {
+    ...parsedWorkbook,
+    SheetNames: selectedSheetNames.filter(
+      (name) => parsedWorkbook.Sheets?.[name]
+    ),
+    Sheets: parsedWorkbook.Sheets || {},
+  };
+
+  releaseWorkbookSheets(sheetCatalog);
+  sheetCatalog = null;
+  parsedWorkbook = null;
+
+  if (!workbook.Sheets?.[sheetName]) {
+    releaseWorkbookSheets(workbook);
+    workbook = null;
+
+    const error = new Error(
+      `Unable to read the Product Master sheet "${sheetName}".`
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const productSheet = readWorksheetObjects(workbook.Sheets[sheetName], {
+    requiredAliasGroups: [
+      ["Product SKU (10 digits numeric — immutable)", "Product SKU", "SKU"],
+      ["Product Name", "Name"],
+    ],
+    maxScanRows: 40,
+    includeRow: (row) => {
+      const sku = masterText(row, [
+        "Product SKU (10 digits numeric — immutable)",
+        "Product SKU",
+        "SKU",
+      ]);
+      const name = masterText(row, ["Product Name", "Name"]);
+      const usableSku = sku && !String(sku).trim().startsWith("=");
+      return Boolean(name || usableSku);
+    },
+  });
+
+  if (!productSheet.headerRow) {
+    releaseWorkbookSheets(workbook);
+    workbook = null;
+
+    const error = new Error(
+      `Unable to find the Product Master header row in "${sheetName}". The sheet must contain Product SKU and Product Name columns.`
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (productSheet.rows.length === 0) {
+    releaseWorkbookSheets(workbook);
+    workbook = null;
+
     const error = new Error("Product Master sheet does not contain any data rows");
     error.statusCode = 400;
     throw error;
@@ -3598,28 +4283,44 @@ const analyzeProductMasterBuffer = async (
   const composition = parseHamperCompositionSheet(workbook);
   const containerSetup = parseContainerSetupSheet(workbook);
   const decorationMaster = parseDecorationMasterSheet(workbook);
-  const normalizedRows = rows.map(normalizeMasterRow);
+  const procurementHampers =
+    workbookProfile.key === "procurement_master"
+      ? parseProcurementHamperMasterSheet(workbook)
+      : { sheetName: null, headerRow: null, rows: [], errors: [] };
+
+  // Everything needed from the worksheets has now been converted to compact
+  // row/maps. Drop the large SheetJS cell structures before DB comparison and
+  // payload construction.
+  releaseWorkbookSheets(workbook);
+  workbook = null;
+  logProductMasterMemory("analyze:sheets-released", filename);
+
   const skuCounts = new Map();
   const rowMeta = [];
   const allSkus = new Set();
   const categoryNames = new Set();
 
-  normalizedRows.forEach((row, index) => {
+  const addMeta = ({
+    row,
+    rowNumber,
+    sourceSheetName,
+    recordType = null,
+  }) => {
     const externalSku = masterText(row, [
       "Product SKU (10 digits numeric — immutable)",
       "Product SKU",
       "SKU",
     ]);
-    const recordType = getMasterRecordType(row);
+    const resolvedRecordType = recordType || getMasterRecordType(row);
     const name = masterText(row, ["Product Name", "Name"]);
-    const rowNumber = index + 2;
+    const rowKey = `${sourceSheetName}:${rowNumber}`;
 
     if (externalSku) {
       skuCounts.set(externalSku, (skuCounts.get(externalSku) || 0) + 1);
       allSkus.add(externalSku);
     }
 
-    if (recordType === "ready_made_hamper") {
+    if (resolvedRecordType === "ready_made_hamper") {
       const categoryName = masterText(row, [
         "Website Category",
         "Ready Made Category",
@@ -3629,25 +4330,38 @@ const analyzeProductMasterBuffer = async (
       if (categoryName) categoryNames.add(categoryName);
     }
 
-    rowMeta.push({ row, rowNumber, recordType, externalSku, name });
-  });
+    rowMeta.push({
+      row,
+      rowNumber,
+      rowKey,
+      sourceSheetName,
+      recordType: resolvedRecordType,
+      externalSku,
+      name,
+    });
+  };
+
+  for (const entry of productSheet.rows) {
+    addMeta({
+      row: entry.row,
+      rowNumber: entry.rowNumber,
+      sourceSheetName: sheetName,
+    });
+  }
+
+  for (const entry of procurementHampers.rows) {
+    addMeta({
+      row: entry.row,
+      rowNumber: entry.rowNumber,
+      sourceSheetName: procurementHampers.sheetName,
+      recordType: "ready_made_hamper",
+    });
+  }
 
   for (const entries of composition.byHamperSku.values()) {
     for (const entry of entries) allSkus.add(entry.childSku);
   }
 
-  /*
-   * TESTING HARD-REPLACE MODE
-   * -------------------------------------------------------
-   * In replace mode the selected workbook is the source of truth and the
-   * current catalogue will be cleared on Confirm Import. Preview therefore
-   * must not depend on the existing catalogue at all. Besides making Analyze
-   * much faster on Render/MongoDB Atlas, this avoids stale/legacy records or
-   * old schemas causing the preview endpoint to fail before the replacement
-   * can happen.
-   *
-   * Non-replace/merge mode can still compare against MongoDB normally.
-   */
   const existingContext = replaceMode
     ? createEmptyCatalogContext()
     : await buildExistingCatalogContext({
@@ -3655,7 +4369,7 @@ const analyzeProductMasterBuffer = async (
         categoryNames: [...categoryNames],
       });
 
-  const builtBaseByRow = new Map();
+  const builtBaseByKey = new Map();
   const workbookComponentsBySku = new Map();
   const workbookContainersBySku = new Map();
 
@@ -3671,9 +4385,10 @@ const analyzeProductMasterBuffer = async (
         : buildComponentMasterPayload(meta.row, {
             decorationMasterEntry:
               decorationMaster.bySku.get(meta.externalSku) || null,
+            strictBuilderEligibility: workbookProfile.strictBuilderEligibility,
           });
 
-    builtBaseByRow.set(meta.rowNumber, built);
+    builtBaseByKey.set(meta.rowKey, built);
 
     if (meta.externalSku && built.errors.length === 0) {
       if (meta.recordType === "container") {
@@ -3700,15 +4415,25 @@ const analyzeProductMasterBuffer = async (
   };
 
   const results = [];
+  const rowIssueBlocksImport = !workbookProfile.allowPartialImport;
 
   for (const meta of rowMeta) {
-    const { row, rowNumber, recordType, externalSku, name } = meta;
+    const {
+      row,
+      rowNumber,
+      rowKey,
+      sourceSheetName,
+      recordType,
+      externalSku,
+      name,
+    } = meta;
 
     if (recordType === "ready_made_hamper") {
       const built = await buildReadyMadeMasterPayload(
         row,
         composition.byHamperSku.get(externalSku) || [],
-        context
+        context,
+        { requireContainer: workbookProfile.requireReadyMadeContainer }
       );
 
       if (externalSku && skuCounts.get(externalSku) > 1) {
@@ -3736,11 +4461,15 @@ const analyzeProductMasterBuffer = async (
       if (built.errors.length > 0) {
         results.push({
           rowNumber,
+          rowKey,
+          sourceSheetName,
           externalSku,
           name,
           recordType,
           action: "ERROR",
           reason: built.errors.join("; "),
+          warnings: built.warnings || [],
+          blocking: rowIssueBlocksImport,
           changedFields: [],
           compositionSummary: built.compositionSummary,
         });
@@ -3764,11 +4493,15 @@ const analyzeProductMasterBuffer = async (
       if (built.review.length > 0) {
         results.push({
           rowNumber,
+          rowKey,
+          sourceSheetName,
           externalSku,
           name,
           recordType,
           action: "REVIEW",
           reason: [...new Set(built.review)].join("; "),
+          warnings: built.warnings || [],
+          blocking: rowIssueBlocksImport,
           changedFields: [],
           compositionSummary: built.compositionSummary,
           _payload: {
@@ -3806,6 +4539,8 @@ const analyzeProductMasterBuffer = async (
 
       results.push({
         rowNumber,
+        rowKey,
+        sourceSheetName,
         externalSku,
         name,
         recordType,
@@ -3814,10 +4549,12 @@ const analyzeProductMasterBuffer = async (
           action === "CREATE"
             ? built.categoryId
               ? "New ready-made hamper Product + SKU"
-              : `New ready-made hamper Product + SKU; website category \"${built.categoryName}\" will be created`
+              : `New ready-made hamper Product + SKU; website category "${built.categoryName}" will be created`
             : replaceMode
               ? "Existing Product Master ready-made hamper will be replaced by this workbook"
               : "Existing ready-made hamper has Product Master / composition changes",
+        warnings: built.warnings || [],
+        blocking: false,
         changedFields,
         compositionSummary: built.compositionSummary,
         _payload: {
@@ -3832,7 +4569,24 @@ const analyzeProductMasterBuffer = async (
       continue;
     }
 
-    const built = builtBaseByRow.get(rowNumber);
+    const built = builtBaseByKey.get(rowKey);
+
+    if (!built) {
+      results.push({
+        rowNumber,
+        rowKey,
+        sourceSheetName,
+        externalSku,
+        name,
+        recordType,
+        action: "ERROR",
+        reason: "Unable to build this Product Master row",
+        warnings: [],
+        blocking: rowIssueBlocksImport,
+        changedFields: [],
+      });
+      continue;
+    }
 
     if (externalSku && skuCounts.get(externalSku) > 1) {
       built.errors.push("Duplicate Product SKU exists more than once in this workbook");
@@ -3841,11 +4595,15 @@ const analyzeProductMasterBuffer = async (
     if (built.errors.length > 0) {
       results.push({
         rowNumber,
+        rowKey,
+        sourceSheetName,
         externalSku,
         name,
         recordType,
         action: "ERROR",
         reason: built.errors.join("; "),
+        warnings: built.warnings || [],
+        blocking: rowIssueBlocksImport,
         changedFields: [],
       });
       continue;
@@ -3862,7 +4620,7 @@ const analyzeProductMasterBuffer = async (
     const existing = getLookupRecord(ownMap, externalSku);
     const conflicting = getLookupRecord(otherMap, externalSku);
 
-    const reviewMessages = [...built.review];
+    const reviewMessages = [...(built.review || [])];
 
     if (conflicting && conflicting?.source?.type !== "product_master") {
       reviewMessages.push(
@@ -3879,11 +4637,15 @@ const analyzeProductMasterBuffer = async (
     if (reviewMessages.length > 0) {
       results.push({
         rowNumber,
+        rowKey,
+        sourceSheetName,
         externalSku,
         name,
         recordType,
         action: "REVIEW",
         reason: [...new Set(reviewMessages)].join("; "),
+        warnings: built.warnings || [],
+        blocking: rowIssueBlocksImport,
         changedFields: existing ? collectChangedFields(existing, built.payload) : [],
         _payload: built.payload,
         _existingId: existing?._id || null,
@@ -3894,11 +4656,18 @@ const analyzeProductMasterBuffer = async (
     if (!existing) {
       results.push({
         rowNumber,
+        rowKey,
+        sourceSheetName,
         externalSku,
         name,
         recordType,
         action: "CREATE",
-        reason: "New Product Master record",
+        reason:
+          built.warnings?.length > 0
+            ? "New Product Master record; imported with safe visibility limits"
+            : "New Product Master record",
+        warnings: built.warnings || [],
+        blocking: false,
         changedFields: [],
         _payload: built.payload,
         _existingId: null,
@@ -3910,6 +4679,8 @@ const analyzeProductMasterBuffer = async (
 
     results.push({
       rowNumber,
+      rowKey,
+      sourceSheetName,
       externalSku,
       name,
       recordType,
@@ -3919,6 +4690,8 @@ const analyzeProductMasterBuffer = async (
         : changedFields.length > 0
           ? "Existing record has Product Master changes"
           : "No Product Master changes detected",
+      warnings: built.warnings || [],
+      blocking: false,
       changedFields,
       _payload: built.payload,
       _existingId: existing._id,
@@ -3929,6 +4702,7 @@ const analyzeProductMasterBuffer = async (
     ...composition.errors,
     ...containerSetup.errors,
     ...decorationMaster.errors,
+    ...procurementHampers.errors,
   ];
 
   const summary = {
@@ -3938,6 +4712,10 @@ const analyzeProductMasterBuffer = async (
     skip: 0,
     review: 0,
     error: allSheetErrors.length,
+    importable: 0,
+    nonBlockingIssues: workbookProfile.allowPartialImport
+      ? allSheetErrors.length
+      : 0,
     components: { create: 0, update: 0, skip: 0, review: 0, error: 0 },
     containers: { create: 0, update: 0, skip: 0, review: 0, error: 0 },
     readyMadeHampers: { create: 0, update: 0, skip: 0, review: 0, error: 0 },
@@ -3946,6 +4724,14 @@ const analyzeProductMasterBuffer = async (
   for (const result of results) {
     const key = result.action.toLowerCase();
     if (Object.prototype.hasOwnProperty.call(summary, key)) summary[key] += 1;
+    if (["CREATE", "UPDATE"].includes(result.action)) summary.importable += 1;
+    if (
+      workbookProfile.allowPartialImport &&
+      ["ERROR", "REVIEW"].includes(result.action) &&
+      result.blocking === false
+    ) {
+      summary.nonBlockingIssues += 1;
+    }
 
     const group =
       result.recordType === "container"
@@ -3957,10 +4743,18 @@ const analyzeProductMasterBuffer = async (
     if (Object.prototype.hasOwnProperty.call(group, key)) group[key] += 1;
   }
 
+  logProductMasterMemory("analyze:complete", filename);
+
   return {
     filename,
     sheetName,
+    productHeaderRow: productSheet.headerRow,
+    workbookProfile,
+    allowPartialImport: workbookProfile.allowPartialImport,
+    hamperMasterSheetName: procurementHampers.sheetName,
+    hamperMasterHeaderRow: procurementHampers.headerRow,
     compositionSheetName: composition.sheetName,
+    compositionHeaderRow: composition.headerRow,
     containerSetupSheetName: containerSetup.sheetName,
     decorationSheetName: decorationMaster.sheetName,
     compositionErrors: allSheetErrors,
@@ -4014,11 +4808,15 @@ const buildContainerReviewData = (result) => {
 
 const publicImportResult = (result) => ({
   rowNumber: result.rowNumber,
+  rowKey: result.rowKey || `${result.sourceSheetName || "Product Master"}:${result.rowNumber}`,
+  sourceSheetName: result.sourceSheetName || null,
   externalSku: result.externalSku,
   name: result.name,
   recordType: result.recordType,
   action: result.action,
   reason: result.reason,
+  warnings: result.warnings || [],
+  blocking: result.blocking !== false,
   changedFields: result.changedFields || [],
   compositionSummary: result.compositionSummary || null,
   reviewData: buildContainerReviewData(result),
@@ -4238,7 +5036,9 @@ const ensureImportedCategory = async (categoryName, importedAt) => {
 ========================================================= */
 
 export const previewProductMasterImport = asyncHandler(async (req, res) => {
-  if (!req.file?.buffer) {
+  const uploadSource = getProductMasterUploadSource(req.file);
+
+  if (!uploadSource) {
     return res.status(400).json({
       success: false,
       message: "Product Master Excel file is required",
@@ -4246,20 +5046,29 @@ export const previewProductMasterImport = asyncHandler(async (req, res) => {
   }
 
   const analysis = await analyzeProductMasterBuffer(
-    req.file.buffer,
+    uploadSource,
     req.file.originalname || "",
     { replaceMode: true }
   );
 
   res.status(200).json({
     success: true,
-    message:
-      "Product Master analyzed successfully. Confirm Import will replace the previous Product Master catalogue with this workbook.",
+    message: analysis.allowPartialImport
+      ? "Workbook analyzed successfully. This procurement-style workbook can import valid rows while incomplete rows stay in REVIEW/ERROR and are skipped safely."
+      : "Product Master analyzed successfully. Confirm Import will replace the previous Product Master catalogue with this workbook after all REVIEW/ERROR rows are resolved.",
     importMode: "replace_product_master",
-    replacementStrategy: "testing_hard_replace",
+    replacementStrategy: analysis.allowPartialImport
+      ? "safe_partial_hard_replace"
+      : "strict_hard_replace",
+    workbookProfile: analysis.workbookProfile,
+    allowPartialImport: analysis.allowPartialImport,
     filename: analysis.filename,
     sheetName: analysis.sheetName,
+    productHeaderRow: analysis.productHeaderRow,
+    hamperMasterSheetName: analysis.hamperMasterSheetName,
+    hamperMasterHeaderRow: analysis.hamperMasterHeaderRow,
     compositionSheetName: analysis.compositionSheetName,
+    compositionHeaderRow: analysis.compositionHeaderRow,
     containerSetupSheetName: analysis.containerSetupSheetName,
     decorationSheetName: analysis.decorationSheetName,
     compositionErrors: analysis.compositionErrors,
@@ -4270,7 +5079,9 @@ export const previewProductMasterImport = asyncHandler(async (req, res) => {
 
 export const completeProductMasterContainerReview = asyncHandler(
   async (req, res) => {
-    if (!req.file?.buffer) {
+    const uploadSource = getProductMasterUploadSource(req.file);
+
+    if (!uploadSource) {
       return res.status(400).json({
         success: false,
         message: "Product Master Excel file is required",
@@ -4289,7 +5100,7 @@ export const completeProductMasterContainerReview = asyncHandler(
     const completion = parseContainerReviewCompletion(req.body.completion);
 
     const analysis = await analyzeProductMasterBuffer(
-      req.file.buffer,
+      uploadSource,
       req.file.originalname || "",
       { replaceMode: true }
     );
@@ -4572,7 +5383,9 @@ export const completeProductMasterContainerReview = asyncHandler(
 );
 
 export const confirmProductMasterImport = asyncHandler(async (req, res) => {
-  if (!req.file?.buffer) {
+  const uploadSource = getProductMasterUploadSource(req.file);
+
+  if (!uploadSource) {
     return res.status(400).json({
       success: false,
       message: "Product Master Excel file is required",
@@ -4580,23 +5393,39 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
   }
 
   const preflight = await analyzeProductMasterBuffer(
-    req.file.buffer,
+    uploadSource,
     req.file.originalname || "",
     { replaceMode: true }
   );
 
-  const blockingRows = preflight.results.filter((item) =>
-    ["ERROR", "REVIEW"].includes(item.action)
+  const blockingRows = preflight.results.filter(
+    (item) =>
+      ["ERROR", "REVIEW"].includes(item.action) &&
+      item.blocking !== false
+  );
+  const blockingSheetErrors = preflight.allowPartialImport
+    ? []
+    : preflight.compositionErrors;
+  const importableRows = preflight.results.filter((item) =>
+    ["CREATE", "UPDATE"].includes(item.action)
+  );
+  const importableBaseRows = importableRows.filter(
+    (item) => item.recordType !== "ready_made_hamper"
   );
 
-  if (preflight.compositionErrors.length > 0 || blockingRows.length > 0) {
+  if (blockingSheetErrors.length > 0 || blockingRows.length > 0) {
     return res.status(409).json({
       success: false,
       message:
-        "Import was not started because the workbook still has errors or review items. No existing catalogue data was deleted.",
+        "Import was not started because this strict catalogue workbook still has blocking REVIEW/ERROR rows. No existing catalogue data was deleted.",
       importMode: "replace_product_master",
+      replacementStrategy: "strict_hard_replace",
+      workbookProfile: preflight.workbookProfile,
+      allowPartialImport: preflight.allowPartialImport,
       filename: preflight.filename,
       sheetName: preflight.sheetName,
+      productHeaderRow: preflight.productHeaderRow,
+      hamperMasterSheetName: preflight.hamperMasterSheetName,
       compositionSheetName: preflight.compositionSheetName,
       containerSetupSheetName: preflight.containerSetupSheetName,
       decorationSheetName: preflight.decorationSheetName,
@@ -4606,28 +5435,34 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
     });
   }
 
-  const removed = await replaceProductMasterCatalog();
-
-  const analysis = await analyzeProductMasterBuffer(
-    req.file.buffer,
-    req.file.originalname || "",
-    { replaceMode: true }
-  );
-
-  const postResetBlocking = analysis.results.filter((item) =>
-    ["ERROR", "REVIEW"].includes(item.action)
-  );
-
-  if (analysis.compositionErrors.length > 0 || postResetBlocking.length > 0) {
-    const error = new Error(
-      "Catalogue reset completed, but the workbook became invalid during the fresh import analysis. Re-run Analyze File and fix the reported rows."
-    );
-    error.statusCode = 409;
-    throw error;
+  if (importableRows.length === 0 || importableBaseRows.length === 0) {
+    return res.status(409).json({
+      success: false,
+      message:
+        "Import was not started because no valid base Product Master rows were found. Existing catalogue data is unchanged.",
+      importMode: "replace_product_master",
+      workbookProfile: preflight.workbookProfile,
+      allowPartialImport: preflight.allowPartialImport,
+      filename: preflight.filename,
+      sheetName: preflight.sheetName,
+      compositionErrors: preflight.compositionErrors,
+      summary: preflight.summary,
+      results: preflight.results.map(publicImportResult),
+    });
   }
 
+  /*
+   * IMPORTANT: do not parse the workbook a second time after clearing the
+   * catalogue. replaceMode analysis already uses an empty catalogue context,
+   * so the preflight payloads are exactly the payloads needed for the fresh
+   * import. Reusing them cuts Confirm Import workbook parsing roughly in half
+   * and removes the highest memory spike from the old flow.
+   */
+  const analysis = preflight;
+  const removed = await replaceProductMasterCatalog();
+
   const importedAt = new Date();
-  const resultByRow = new Map();
+  const resultByKey = new Map();
   const summary = {
     totalRows: analysis.summary.totalRows,
     created: 0,
@@ -4640,6 +5475,11 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
 
   for (const item of analysis.results) {
     if (item.recordType === "ready_made_hamper") continue;
+
+    if (!["CREATE", "UPDATE"].includes(item.action)) {
+      resultByKey.set(item.rowKey, publicImportResult(item));
+      continue;
+    }
 
     try {
       const Model = item.recordType === "container" ? Container : Component;
@@ -4654,103 +5494,110 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
       };
 
       await Model.create(payload);
-      resultByRow.set(item.rowNumber, {
+      resultByKey.set(item.rowKey, {
         ...publicImportResult(item),
         action: "CREATED",
       });
     } catch (error) {
-      resultByRow.set(item.rowNumber, {
+      resultByKey.set(item.rowKey, {
         ...publicImportResult(item),
         action: "ERROR",
+        blocking: false,
         reason: error.message || "Unable to import this row",
       });
     }
   }
 
-  const baseErrors = [...resultByRow.values()].filter(
-    (item) => item.action === "ERROR"
+  const runtimeBaseErrors = [...resultByKey.values()].filter(
+    (item) =>
+      item.recordType !== "ready_made_hamper" &&
+      item.action === "ERROR"
   );
 
-  if (baseErrors.length === 0) {
-    const baseLookup = await buildImportedBaseLookup();
+  const baseLookup = await buildImportedBaseLookup();
 
-    for (const item of analysis.results) {
-      if (item.recordType !== "ready_made_hamper") continue;
+  for (const item of analysis.results) {
+    if (item.recordType !== "ready_made_hamper") continue;
 
-      try {
-        const category = await ensureImportedCategory(
-          item._payload.categoryName,
-          importedAt
-        );
-
-        const productPayload = {
-          ...item._payload.product,
-          category: category._id,
-          source: {
-            ...(item._payload.product.source || {}),
-            type: "product_master",
-            externalSku: item.externalSku,
-            lastSyncedAt: importedAt,
-          },
-        };
-
-        const skuPayload = resolveReadyMadeReferences(
-          {
-            ...item._payload.sku,
-            source: {
-              ...(item._payload.sku.source || {}),
-              type: "product_master",
-              externalSku: item.externalSku,
-              lastSyncedAt: importedAt,
-            },
-          },
-          baseLookup
-        );
-
-        const product = await Product.create({
-          ...productPayload,
-          slug: await ensureUniqueSlug(Product, productPayload.name),
-        });
-
-        try {
-          await SKU.create({
-            ...skuPayload,
-            product: product._id,
-          });
-        } catch (error) {
-          await Product.findByIdAndDelete(product._id);
-          throw error;
-        }
-
-        await syncProductPriceRange(product._id);
-
-        resultByRow.set(item.rowNumber, {
-          ...publicImportResult(item),
-          action: "CREATED",
-        });
-      } catch (error) {
-        resultByRow.set(item.rowNumber, {
-          ...publicImportResult(item),
-          action: "ERROR",
-          reason: error.message || "Unable to import ready-made hamper",
-        });
-      }
+    if (!["CREATE", "UPDATE"].includes(item.action)) {
+      resultByKey.set(item.rowKey, publicImportResult(item));
+      continue;
     }
-  } else {
-    for (const item of analysis.results) {
-      if (item.recordType !== "ready_made_hamper") continue;
-      resultByRow.set(item.rowNumber, {
+
+    if (!analysis.allowPartialImport && runtimeBaseErrors.length > 0) {
+      resultByKey.set(item.rowKey, {
         ...publicImportResult(item),
         action: "ERROR",
         reason:
           "Ready-made hamper was not imported because one or more base component/container rows failed",
       });
+      continue;
+    }
+
+    try {
+      const category = await ensureImportedCategory(
+        item._payload.categoryName,
+        importedAt
+      );
+
+      const productPayload = {
+        ...item._payload.product,
+        category: category._id,
+        source: {
+          ...(item._payload.product.source || {}),
+          type: "product_master",
+          externalSku: item.externalSku,
+          lastSyncedAt: importedAt,
+        },
+      };
+
+      const skuPayload = resolveReadyMadeReferences(
+        {
+          ...item._payload.sku,
+          source: {
+            ...(item._payload.sku.source || {}),
+            type: "product_master",
+            externalSku: item.externalSku,
+            lastSyncedAt: importedAt,
+          },
+        },
+        baseLookup
+      );
+
+      const product = await Product.create({
+        ...productPayload,
+        slug: await ensureUniqueSlug(Product, productPayload.name),
+      });
+
+      try {
+        await SKU.create({
+          ...skuPayload,
+          product: product._id,
+        });
+      } catch (error) {
+        await Product.findByIdAndDelete(product._id);
+        throw error;
+      }
+
+      await syncProductPriceRange(product._id);
+
+      resultByKey.set(item.rowKey, {
+        ...publicImportResult(item),
+        action: "CREATED",
+      });
+    } catch (error) {
+      resultByKey.set(item.rowKey, {
+        ...publicImportResult(item),
+        action: "ERROR",
+        blocking: false,
+        reason: error.message || "Unable to import ready-made hamper",
+      });
     }
   }
 
-  const results = [...analysis.results]
-    .sort((a, b) => a.rowNumber - b.rowNumber)
-    .map((item) => resultByRow.get(item.rowNumber) || publicImportResult(item));
+  const results = analysis.results.map(
+    (item) => resultByKey.get(item.rowKey) || publicImportResult(item)
+  );
 
   for (const item of results) {
     if (item.action === "CREATED") summary.created += 1;
@@ -4775,20 +5622,36 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
     containers: databaseContainers,
   };
 
+  const importedCount = summary.created + summary.updated;
+  const partialIssues = summary.review + summary.errors + analysis.compositionErrors.length;
+  const success = analysis.allowPartialImport
+    ? importedCount > 0
+    : summary.errors === 0 && summary.review === 0;
+
   res.status(200).json({
-    success: summary.errors === 0,
-    message:
-      summary.errors === 0
+    success,
+    message: analysis.allowPartialImport
+      ? partialIssues > 0
+        ? `Real/master workbook imported ${importedCount} valid rows. ${partialIssues} incomplete or invalid rows were left out safely and are listed for review.`
+        : "Real/master workbook imported successfully."
+      : summary.errors === 0
         ? "Previous Product Master catalogue was replaced successfully with the new workbook"
         : "Previous Product Master catalogue was cleared and the new import completed with row errors",
     importMode: "replace_product_master",
-    replacementStrategy: "testing_hard_replace",
+    replacementStrategy: analysis.allowPartialImport
+      ? "safe_partial_hard_replace"
+      : "strict_hard_replace",
+    workbookProfile: analysis.workbookProfile,
+    allowPartialImport: analysis.allowPartialImport,
     databaseState,
     filename: analysis.filename,
     sheetName: analysis.sheetName,
+    productHeaderRow: analysis.productHeaderRow,
+    hamperMasterSheetName: analysis.hamperMasterSheetName,
     compositionSheetName: analysis.compositionSheetName,
     containerSetupSheetName: analysis.containerSetupSheetName,
     decorationSheetName: analysis.decorationSheetName,
+    compositionErrors: analysis.compositionErrors,
     summary,
     results,
   });

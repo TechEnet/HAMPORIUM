@@ -1,4 +1,7 @@
 import { Router } from "express";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import multer from "multer";
 
 import {
@@ -72,15 +75,44 @@ const upload = multer({
   },
 });
 
+/* =========================================================
+   PRODUCT MASTER EXCEL UPLOAD - MEMORY SAFE
+========================================================= */
+
+/*
+ * Do NOT keep procurement workbooks in process memory. The real HAMPORIUM
+ * workbook is ~9 MB compressed but expands to well over 100 MB of worksheet
+ * XML. multer.memoryStorage() keeps the compressed upload alive in V8 while
+ * SheetJS is also building worksheet objects, which can push a small Render
+ * instance over its memory limit.
+ *
+ * Store the upload on Render's ephemeral /tmp filesystem instead. The
+ * controller reads only the Product Master related sheets, and this middleware
+ * removes the temp file as soon as the response finishes/closes.
+ */
+const productMasterTempDir = path.join(
+  os.tmpdir(),
+  "hamporium-product-master"
+);
+fs.mkdirSync(productMasterTempDir, { recursive: true });
+
 const excelUpload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024, files: 1 },
+  dest: productMasterTempDir,
+  limits: {
+    // Current real workbook is ~9 MB. Keep a defensive ceiling so a very large
+    // workbook cannot unexpectedly consume hundreds of MB while parsing.
+    fileSize: 15 * 1024 * 1024,
+    files: 1,
+  },
   fileFilter: (req, file, cb) => {
     const name = String(file.originalname || "").toLowerCase();
-    const validExtension = name.endsWith(".xlsx") || name.endsWith(".xls");
+    const validExtension =
+      name.endsWith(".xlsx") ||
+      name.endsWith(".xls") ||
+      name.endsWith(".xlsm");
 
     if (!validExtension) {
-      const error = new Error("Only Excel .xlsx or .xls files are allowed");
+      const error = new Error("Only Excel .xlsx, .xls or .xlsm files are allowed");
       error.statusCode = 400;
       return cb(error);
     }
@@ -88,6 +120,42 @@ const excelUpload = multer({
     cb(null, true);
   },
 });
+
+let activeProductMasterRequest = null;
+
+const productMasterRequestGuard = (req, res, next) => {
+  if (activeProductMasterRequest) {
+    res.setHeader("Retry-After", "5");
+    return res.status(429).json({
+      success: false,
+      message:
+        "Another Product Master analyze/import is already running. Wait a few seconds and try again.",
+    });
+  }
+
+  const token = Symbol("product-master-request");
+  activeProductMasterRequest = token;
+  let finished = false;
+
+  const cleanup = () => {
+    if (finished) return;
+    finished = true;
+
+    if (activeProductMasterRequest === token) {
+      activeProductMasterRequest = null;
+    }
+
+    const tempPath = req.file?.path;
+    if (tempPath) {
+      fs.promises.unlink(tempPath).catch(() => {});
+    }
+  };
+
+  res.once("finish", cleanup);
+  res.once("close", cleanup);
+
+  next();
+};
 
 /* =========================================================
    PUBLIC
@@ -120,18 +188,21 @@ router.delete("/admin/upload-image", deleteCatalogImage);
 
 router.post(
   "/admin/import/product-master/preview",
+  productMasterRequestGuard,
   excelUpload.single("file"),
   previewProductMasterImport
 );
 
 router.post(
   "/admin/import/product-master/confirm",
+  productMasterRequestGuard,
   excelUpload.single("file"),
   confirmProductMasterImport
 );
 
 router.post(
   "/admin/import/product-master/complete-container",
+  productMasterRequestGuard,
   excelUpload.single("file"),
   completeProductMasterContainerReview
 );
