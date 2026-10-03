@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
-import * as XLSX from "xlsx";
+import { readFileSync } from "node:fs";
+import * as XLSXModule from "xlsx";
 
 import Product from "./product.model.js";
 import SKU from "./sku.model.js";
@@ -17,6 +18,11 @@ import {
   normalizeDiscountConfig,
   validateDiscountConfig,
 } from "../tax/tax.service.js";
+
+// `xlsx` is CommonJS in many Node deployments. Depending on the Node/ESM
+// interop path, functions can live on the namespace object or on `default`.
+// Normalize it once so `read`, `utils`, etc. are reliable on Render as well.
+const XLSX = XLSXModule.default?.utils ? XLSXModule.default : XLSXModule;
 
 /* =========================================================
    COMMON HELPERS
@@ -2346,7 +2352,7 @@ const looksLikeProductMasterHeader = (values = []) => {
 
 const streamCompactProductMasterWorkbook = async (sourcePath, filename = "") => {
   const compactPath = `${sourcePath}.catalog-${process.pid}-${Date.now()}.xlsx`;
-  const selectedSheets = [];
+  const selectedSheetNames = [];
   let totalRowsKept = 0;
 
   logProductMasterMemory("stream:start", filename);
@@ -2360,88 +2366,126 @@ const streamCompactProductMasterWorkbook = async (sourcePath, filename = "") => 
     worksheets: "emit",
   });
 
-  for await (const worksheetReader of workbookReader) {
-    const sheetName = String(worksheetReader?.name || "").trim();
-    if (!sheetName) continue;
+  const workbookWriter = new ExcelJS.stream.xlsx.WorkbookWriter({
+    filename: compactPath,
+    useStyles: false,
+    useSharedStrings: false,
+  });
 
-    let selected = isLikelyProductMasterImportSheet(sheetName);
-    const rows = [];
-    let seenRows = 0;
+  try {
+    for await (const worksheetReader of workbookReader) {
+      const sheetName = String(worksheetReader?.name || "").trim();
+      if (!sheetName) continue;
 
-    for await (const rowOrRows of worksheetReader) {
-      const batch =
-        Array.isArray(rowOrRows) &&
-        rowOrRows.length > 0 &&
-        rowOrRows[0]?.getCell
-          ? rowOrRows
-          : [rowOrRows];
+      let selected = isLikelyProductMasterImportSheet(sheetName);
+      let outputSheet = selected
+        ? workbookWriter.addWorksheet(sheetName)
+        : null;
+      const scanBuffer = [];
+      let seenRows = 0;
+      let keptRows = 0;
 
-      for (const row of batch) {
-        if (!row?.getCell) continue;
-        seenRows += 1;
+      const writeRow = (values) => {
+        if (!outputSheet) return;
+        if (keptRows >= PRODUCT_MASTER_MAX_PARSED_ROWS) return;
 
-        const values = excelStreamRowValues(row);
+        outputSheet.addRow(values).commit();
+        keptRows += 1;
+        totalRowsKept += 1;
 
-        if (!selected && seenRows <= PRODUCT_MASTER_STREAM_SCAN_ROWS) {
-          if (looksLikeProductMasterHeader(values)) selected = true;
+        if (totalRowsKept > PRODUCT_MASTER_MAX_TOTAL_STREAM_ROWS) {
+          const error = new Error(
+            `Workbook has too many catalogue rows to analyze safely. Limit is ${PRODUCT_MASTER_MAX_TOTAL_STREAM_ROWS} rows across Product Master-related sheets.`
+          );
+          error.statusCode = 413;
+          throw error;
         }
+      };
 
-        if (selected && seenRows <= PRODUCT_MASTER_MAX_PARSED_ROWS) {
-          rows.push(values);
-          totalRowsKept += 1;
+      for await (const rowOrRows of worksheetReader) {
+        const batch =
+          Array.isArray(rowOrRows) &&
+          rowOrRows.length > 0 &&
+          rowOrRows[0]?.getCell
+            ? rowOrRows
+            : [rowOrRows];
 
-          if (totalRowsKept > PRODUCT_MASTER_MAX_TOTAL_STREAM_ROWS) {
-            const error = new Error(
-              `Workbook has too many catalogue rows to analyze safely. Limit is ${PRODUCT_MASTER_MAX_TOTAL_STREAM_ROWS} rows across Product Master-related sheets.`
-            );
-            error.statusCode = 413;
-            throw error;
+        for (const row of batch) {
+          if (!row?.getCell) continue;
+          seenRows += 1;
+
+          // Once an unrelated sheet has failed the small header scan, keep
+          // draining the stream without materializing/converting its cells.
+          if (!selected && seenRows > PRODUCT_MASTER_STREAM_SCAN_ROWS) {
+            continue;
           }
+
+          const values = excelStreamRowValues(row);
+
+          if (!selected) {
+            if (seenRows <= PRODUCT_MASTER_STREAM_SCAN_ROWS) {
+              scanBuffer.push(values);
+
+              if (looksLikeProductMasterHeader(values)) {
+                selected = true;
+                outputSheet = workbookWriter.addWorksheet(sheetName);
+
+                for (const bufferedValues of scanBuffer) {
+                  writeRow(bufferedValues);
+                }
+
+                scanBuffer.length = 0;
+              }
+            }
+
+            // The current row is already in scanBuffer and gets flushed above
+            // if this sheet becomes selected, so do not write it twice.
+            continue;
+          }
+
+          writeRow(values);
         }
+      }
+
+      scanBuffer.length = 0;
+
+      if (outputSheet) {
+        outputSheet.commit();
+        selectedSheetNames.push(sheetName);
       }
     }
 
-    if (selected && rows.length > 0) {
-      selectedSheets.push({ name: sheetName, rows });
+    if (selectedSheetNames.length === 0) {
+      const error = new Error(
+        'Unable to locate a Product Master-compatible sheet in this workbook.'
+      );
+      error.statusCode = 400;
+      throw error;
     }
-  }
 
-  if (selectedSheets.length === 0) {
-    const error = new Error(
-      'Unable to locate a Product Master-compatible sheet in this workbook.'
-    );
-    error.statusCode = 400;
+    await workbookWriter.commit();
+  } catch (error) {
+    try {
+      await import("node:fs/promises").then(({ unlink }) =>
+        unlink(compactPath).catch(() => {})
+      );
+    } catch {
+      // Best-effort temp cleanup only.
+    }
+
     throw error;
   }
-
-  const compactWorkbook = XLSX.utils.book_new();
-
-  for (const sheet of selectedSheets) {
-    const worksheet = XLSX.utils.aoa_to_sheet(sheet.rows, {
-      cellDates: true,
-    });
-    XLSX.utils.book_append_sheet(compactWorkbook, worksheet, sheet.name);
-    // Let V8 reclaim row arrays before the next stage when possible.
-    sheet.rows.length = 0;
-  }
-
-  XLSX.writeFile(compactWorkbook, compactPath, {
-    bookType: "xlsx",
-    compression: true,
-  });
-
-  compactWorkbook.SheetNames.length = 0;
-  for (const key of Object.keys(compactWorkbook.Sheets || {})) {
-    delete compactWorkbook.Sheets[key];
-  }
-  selectedSheets.length = 0;
 
   console.info(
     `[ProductMaster] stream:compact-ready (${filename || "workbook"}) | rows=${totalRowsKept}`
   );
   logProductMasterMemory("stream:compact-ready", filename);
 
-  return compactPath;
+  return {
+    path: compactPath,
+    sheetNames: selectedSheetNames,
+    totalRows: totalRowsKept,
+  };
 };
 
 const analyzeUploadedProductMaster = async (
@@ -2471,9 +2515,12 @@ const analyzeUploadedProductMaster = async (
   let compactPath = null;
 
   try {
-    compactPath = await streamCompactProductMasterWorkbook(source, filename);
-    return await analyzeProductMasterBuffer(compactPath, filename, {
+    const compact = await streamCompactProductMasterWorkbook(source, filename);
+    compactPath = compact.path;
+
+    return await analyzeProductMasterBuffer(compact.path, filename, {
       replaceMode,
+      preselectedSheetNames: compact.sheetNames,
     });
   } finally {
     if (compactPath) {
@@ -2497,7 +2544,15 @@ const readWorkbookSource = (source, options = {}) => {
   }
 
   if (typeof source === "string" && source) {
-    return XLSX.readFile(source, options);
+    // SheetJS ESM builds do not reliably expose readFile(). Reading the compact
+    // temp workbook ourselves works in every supported Node ESM configuration.
+    // This file is intentionally small because the streaming pass has already
+    // removed all unrelated procurement/dashboard sheets.
+    const fileBuffer = readFileSync(source);
+    return XLSX.read(fileBuffer, {
+      type: "buffer",
+      ...options,
+    });
   }
 
   const error = new Error("Product Master Excel file is required");
@@ -4419,21 +4474,38 @@ const calculateReadyMadeHamperMetrics = (sku) => {
 const analyzeProductMasterBuffer = async (
   source,
   filename = "",
-  { replaceMode = true } = {}
+  { replaceMode = true, preselectedSheetNames = null } = {}
 ) => {
   logProductMasterMemory("analyze:start", filename);
 
-  /*
-   * Pass 1 is sheet-name-only. This does not inflate all worksheet XML into
-   * cell objects and lets us decide exactly which tabs are relevant.
-   */
-  let sheetCatalog = readWorkbookSource(source, {
-    bookSheets: true,
-    bookProps: false,
-    bookVBA: false,
-  });
+  let sheetCatalog = null;
+  let workbookProfile = null;
+  let selectedSheetNames = [];
 
-  const workbookProfile = detectProductMasterWorkbookProfile(sheetCatalog);
+  /*
+   * A streamed XLSX/XLSM upload has already been compacted to catalogue-only
+   * sheets. In that path we can skip the old sheet-name pass and parse the
+   * compact workbook exactly once. Legacy Buffer/.xls uploads still use the
+   * two-pass path below.
+   */
+  if (Array.isArray(preselectedSheetNames) && preselectedSheetNames.length > 0) {
+    selectedSheetNames = [...new Set(preselectedSheetNames.filter(Boolean))];
+    sheetCatalog = { SheetNames: [...selectedSheetNames], Sheets: {} };
+    workbookProfile = detectProductMasterWorkbookProfile(sheetCatalog);
+  } else {
+    sheetCatalog = readWorkbookSource(source, {
+      bookSheets: true,
+      bookProps: false,
+      bookVBA: false,
+    });
+
+    workbookProfile = detectProductMasterWorkbookProfile(sheetCatalog);
+    selectedSheetNames = getProductMasterSheetSelection(
+      sheetCatalog,
+      workbookProfile
+    );
+  }
+
   const sheetName = workbookProfile.productSheetName;
 
   if (!sheetName) {
@@ -4447,21 +4519,10 @@ const analyzeProductMasterBuffer = async (
     throw error;
   }
 
-  const selectedSheetNames = getProductMasterSheetSelection(
-    sheetCatalog,
-    workbookProfile
-  );
-
   if (!selectedSheetNames.includes(sheetName)) {
     selectedSheetNames.unshift(sheetName);
   }
 
-  /*
-   * Pass 2 parses ONLY catalogue-related tabs. The real workbook has 30+ tabs
-   * (inventory, geography, GST, dashboards, etc.); none of those are needed to
-   * build catalogue records and parsing them is the main source of the memory
-   * spike on small Render instances.
-   */
   let parsedWorkbook = readWorkbookSource(source, {
     sheets: selectedSheetNames,
     sheetRows: PRODUCT_MASTER_MAX_PARSED_ROWS,
@@ -4477,9 +4538,6 @@ const analyzeProductMasterBuffer = async (
     dense: true,
   });
 
-  // Some SheetJS versions retain every name in SheetNames even when only a
-  // subset was parsed. Give helper parsers a workbook view containing only the
-  // sheets we intentionally loaded.
   let workbook = {
     ...parsedWorkbook,
     SheetNames: selectedSheetNames.filter(
