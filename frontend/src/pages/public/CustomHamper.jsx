@@ -1615,7 +1615,6 @@ const CustomHamper = () => {
                 number="01"
                 eyebrow="Start with the base"
                 title="Choose your hamper box"
-                description="Pick the shape and size you want to build around. You can view full dimensions only when you need them."
                 meta={selectedContainer ? selectedContainer.name : "Choose one box"}
               >
                 {containers.length === 0 ? (
@@ -1660,7 +1659,6 @@ const CustomHamper = () => {
                 number="02"
                 eyebrow="Curate the inside"
                 title="Add your gifts"
-                description="Every product shown here is checked against the box you selected. As you add items, the live hamper fills in real time."
                 meta={selectedItemCount ? `${selectedItemCount} selected` : "Choose your favourites"}
               >
                 <V30MobileLivePreview
@@ -1805,7 +1803,6 @@ const CustomHamper = () => {
                 number="03"
                 eyebrow="Optional finish"
                 title="Add the finishing touch"
-                description="Ribbons, tags and decorative details do not use gift capacity. Keep it simple or make it celebratory."
                 meta={selectedDecorationCount ? `${selectedDecorationCount} selected` : "Optional"}
               >
                 {decorativeComponents.length > 0 && (
@@ -1868,7 +1865,6 @@ const CustomHamper = () => {
                 number="04"
                 eyebrow="Make it personal"
                 title="Personalise only what matters"
-                description="Open only the options you need. Artwork, a message and packing notes are all optional."
                 meta={personalizationPayload ? "Personalisation added" : "Optional"}
               >
                 <div className="space-y-3">
@@ -1991,7 +1987,6 @@ const CustomHamper = () => {
                 number="05"
                 eyebrow="Final step"
                 title="Tell us about the bulk order"
-                description="No payment is taken now. Submit the configured hamper for a quotation and review the commercial offer before paying."
                 meta={`${Number(bulkQuantity || 0).toLocaleString("en-IN")} hampers`}
               >
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -2062,7 +2057,6 @@ const CustomHamper = () => {
                 number="05"
                 eyebrow="Final check"
                 title="Review your hamper"
-                description="The important things only: your box, gift count, fill level and final price."
                 meta={configuration?.orderable ? "Ready to add" : "Review required"}
               >
                 <div className="grid gap-2 sm:grid-cols-4">
@@ -2178,22 +2172,22 @@ const V30Progress = ({
   );
 };
 
-const V30Panel = ({ number, eyebrow, title, description, meta, children }) => (
-  <section className="v30-panel-mobile-sticky-safe v30-step-in overflow-visible rounded-[24px] border border-black/[0.065] bg-white shadow-[0_20px_60px_rgba(45,31,17,.055)] md:overflow-hidden sm:rounded-[28px]">
-    <div className="border-b border-black/[0.06] px-4 py-5 sm:px-6 sm:py-6 lg:px-7">
-      <div className="flex items-start gap-4">
-        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#D4AF37]/28 bg-[#FFF9E9] text-[9px] font-black text-[#8A6815]">{number}</span>
+const V30Panel = ({ number, eyebrow, title, meta, children }) => (
+  <section className="v30-panel-mobile-sticky-safe v30-step-in overflow-visible rounded-[20px] border border-black/[0.06] bg-white shadow-[0_16px_46px_rgba(45,31,17,.05)] md:overflow-hidden sm:rounded-[26px]">
+    <div className="relative border-b border-black/[0.055] px-4 py-3.5 sm:px-6 sm:py-5 lg:px-7">
+      <span className="absolute bottom-3 left-0 top-3 w-[3px] rounded-r-full bg-gradient-to-b from-[#F47822] to-[#D4AF37]" aria-hidden="true" />
+      <div className="flex items-center gap-3">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#D4AF37]/26 bg-[#FFF9E9] text-[8px] font-black text-[#8A6815] shadow-[0_4px_14px_rgba(212,175,55,.08)] sm:h-9 sm:w-9 sm:text-[9px]">{number}</span>
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#9A7316]">{eyebrow}</p>
-            {meta && <span className="max-w-[52%] truncate text-[8px] font-bold text-black/28">{meta}</span>}
+          <div className="flex items-center justify-between gap-2">
+            <p className="truncate text-[7.5px] font-black uppercase tracking-[0.14em] text-[#9A7316] sm:text-[8px]">{eyebrow}</p>
+            {meta && <span className="max-w-[48%] truncate rounded-full bg-[#F8F4EA] px-2 py-1 text-[7px] font-black text-[#8A6815]/75 sm:text-[8px]">{meta}</span>}
           </div>
-          <h2 style={{ fontFamily: DISPLAY_FONT }} className="mt-1 text-[30px] font-semibold leading-[.95] tracking-[-.035em] text-[#171717] sm:text-[38px]">{title}</h2>
-          <p className="mt-2 max-w-2xl text-[10px] font-medium leading-5 text-black/40 sm:text-[11px]">{description}</p>
+          <h2 style={{ fontFamily: DISPLAY_FONT }} className="mt-0.5 truncate text-[27px] font-semibold leading-none tracking-[-.035em] text-[#171717] sm:mt-1 sm:text-[36px]">{title}</h2>
         </div>
       </div>
     </div>
-    <div className="px-4 py-5 sm:px-6 sm:py-6 lg:px-7">{children}</div>
+    <div className="px-4 py-4 sm:px-6 sm:py-6 lg:px-7">{children}</div>
   </section>
 );
 
