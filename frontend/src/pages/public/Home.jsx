@@ -4769,6 +4769,164 @@ const Home = () => {
             }
           }
 
+          /* ==================================================
+             V80 · ALIGNED CINEMATIC TYPOGRAPHY
+             All major Home section headings share one visual scale.
+             Journey titles get a larger premium treatment and their own
+             compositor-only kinetic entrance so the diagonal story stays smooth.
+          ================================================== */
+
+          .hp-home-v65 .hp-section-heading {
+            font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif !important;
+            font-size: clamp(64px, 6.8vw, 112px) !important;
+            font-weight: 700 !important;
+            line-height: .86 !important;
+            letter-spacing: -.046em !important;
+            text-wrap: balance;
+          }
+
+          .hp-home-v65 .hp-section-heading-accent {
+            margin-top: .055em;
+            font: inherit;
+            font-style: italic;
+            line-height: .88 !important;
+            letter-spacing: -.044em !important;
+          }
+
+          .hp-home-v65 .hp-journey-feature-title {
+            position: relative;
+            max-width: 920px;
+            margin: 0;
+            padding-bottom: .18em;
+            font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif !important;
+            font-size: clamp(60px, 6.9vw, 110px) !important;
+            font-weight: 700 !important;
+            line-height: .84 !important;
+            letter-spacing: -.048em !important;
+            text-wrap: balance;
+            text-shadow:
+              0 16px 44px rgba(0,0,0,.62),
+              0 2px 4px rgba(0,0,0,.42);
+          }
+
+          .hp-home-v65 .hp-journey-feature-title::after {
+            content: "";
+            display: block;
+            width: clamp(72px, 8vw, 132px);
+            height: 2px;
+            margin-top: .22em;
+            transform: scaleX(.34);
+            transform-origin: left center;
+            opacity: .58;
+            background: linear-gradient(90deg, #F3D66D 0%, #D4AF37 58%, transparent 100%);
+            transition:
+              transform .9s cubic-bezier(.16,1,.3,1),
+              opacity .55s ease;
+          }
+
+          .hp-home-v65 .hp-journey-feature-title.is-kinetic-visible::after {
+            transform: scaleX(1);
+            opacity: .95;
+          }
+
+          @keyframes hpKineticFeatureIn {
+            0% {
+              opacity: 0;
+              transform: translate3d(0, 52px, 0) scale(.95) skewY(.72deg);
+            }
+            68% {
+              opacity: 1;
+              transform: translate3d(0, -3px, 0) scale(1.006) skewY(0deg);
+            }
+            100% {
+              opacity: 1;
+              transform: translate3d(0, 0, 0) scale(1) skewY(0deg);
+            }
+          }
+
+          .hp-home-v65 .hp-kinetic-heading[data-hp-kinetic-variant="feature"] {
+            opacity: 0;
+            transform: translate3d(0, 52px, 0) scale(.95) skewY(.72deg);
+            transform-origin: left center;
+          }
+
+          .hp-home-v65 .hp-kinetic-heading.is-kinetic-visible[data-hp-kinetic-variant="feature"] {
+            animation: hpKineticFeatureIn 980ms cubic-bezier(.16,1,.3,1) both;
+          }
+
+          /* Give every heading on Home the same premium motion rhythm. */
+          .hp-home-v65 .hp-kinetic-heading.is-kinetic-visible[data-hp-kinetic-variant="section"] {
+            animation-duration: 920ms;
+            animation-timing-function: cubic-bezier(.16,1,.3,1);
+          }
+
+          .hp-home-v65 .hp-kinetic-heading.is-kinetic-visible[data-hp-kinetic-variant="standard"],
+          .hp-home-v65 .hp-kinetic-heading.is-kinetic-visible[data-hp-kinetic-variant="sub"],
+          .hp-home-v65 .hp-kinetic-heading.is-kinetic-visible[data-hp-kinetic-variant="dialog"] {
+            animation-duration: 760ms;
+            animation-timing-function: cubic-bezier(.16,1,.3,1);
+          }
+
+          .hp-home-v65 .hp-kinetic-heading.is-kinetic-visible[data-hp-kinetic-variant="card"] {
+            animation-duration: 620ms;
+            animation-timing-function: cubic-bezier(.16,1,.3,1);
+          }
+
+          .hp-home-v65 .hp-kinetic-heading {
+            transform-style: preserve-3d;
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+          }
+
+          @media (max-width: 1023px) {
+            .hp-home-v65 .hp-section-heading {
+              font-size: clamp(56px, 9vw, 88px) !important;
+            }
+
+            .hp-home-v65 .hp-journey-feature-title {
+              font-size: clamp(54px, 9.4vw, 84px) !important;
+              line-height: .86 !important;
+            }
+          }
+
+          @media (max-width: 639px) {
+            .hp-home-v65 .hp-section-heading {
+              font-size: clamp(48px, 13.2vw, 66px) !important;
+              line-height: .89 !important;
+              letter-spacing: -.04em !important;
+            }
+
+            .hp-home-v65 .hp-section-heading-accent {
+              line-height: .91 !important;
+              letter-spacing: -.038em !important;
+            }
+
+            .hp-home-v65 .hp-journey-feature-title {
+              max-width: 96%;
+              font-size: clamp(50px, 14vw, 70px) !important;
+              line-height: .86 !important;
+              letter-spacing: -.043em !important;
+              padding-bottom: .14em;
+            }
+
+            .hp-home-v65 .hp-journey-feature-title::after {
+              width: 78px;
+              margin-top: .24em;
+            }
+
+            .hp-home-v65 .hp-kinetic-heading[data-hp-kinetic-variant="feature"] {
+              transform: translate3d(0, 30px, 0) scale(.972);
+            }
+          }
+
+          @media (prefers-reduced-motion: reduce) {
+            .hp-home-v65 .hp-journey-feature-title::after {
+              transform: scaleX(1) !important;
+              opacity: .95 !important;
+              transition: none !important;
+            }
+          }
+
         `}
       </style>
 
@@ -4894,7 +5052,7 @@ const Home = () => {
 
                     <h3
                       style={{ fontFamily: DISPLAY_FONT }}
-                      className="hp-story-line max-w-[700px] text-[40px] font-semibold leading-[0.9] tracking-[-0.025em] text-white drop-shadow-[0_10px_35px_rgba(0,0,0,.62)] sm:text-[54px] lg:text-[68px] xl:text-[76px]"
+                      className="hp-journey-feature-title max-w-[920px] text-white"
                     >
                       {item.title}
                     </h3>
@@ -8046,7 +8204,8 @@ const useHomeEnhancements = (homeRef, reducedMotion) => {
       heading.classList.add("hp-kinetic-heading");
 
       let variant = "standard";
-      if (heading.classList.contains("hp-section-heading")) variant = "section";
+      if (heading.classList.contains("hp-journey-feature-title")) variant = "feature";
+      else if (heading.classList.contains("hp-section-heading")) variant = "section";
       else if (heading.classList.contains("hp-bestseller-title")) variant = "card";
       else if (heading.closest(".hp-home-quick-dialog")) variant = "dialog";
       else if (heading.matches("h3, h4")) variant = "sub";
