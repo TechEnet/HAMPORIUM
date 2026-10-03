@@ -292,6 +292,197 @@ const resolveProductImage = (
 };
 
 // ======================================================
+// HAMPORIUM SIGNATURE NAVIGATION
+// Important routes close like wrapping paper, stamp the H seal,
+// then reveal the next page. The overlay lives on document.body so
+// it survives the SPA route swap and can finish its opening motion.
+// ======================================================
+
+let hamporiumRouteTransitionLocked = false;
+
+const runHamporiumRouteTransition = (to, navigate, reducedMotion = false) => {
+  if (typeof window === "undefined" || typeof document === "undefined") {
+    navigate(to);
+    return;
+  }
+
+  if (reducedMotion || hamporiumRouteTransitionLocked) {
+    if (!hamporiumRouteTransitionLocked) navigate(to);
+    return;
+  }
+
+  hamporiumRouteTransitionLocked = true;
+
+  const overlay = document.createElement("div");
+  overlay.className = "hp-route-gift-transition";
+  overlay.setAttribute("aria-hidden", "true");
+
+  const style = document.createElement("style");
+  style.textContent = `
+    .hp-route-gift-transition {
+      position: fixed;
+      inset: 0;
+      z-index: 2147483000;
+      pointer-events: auto;
+      overflow: hidden;
+      background: transparent;
+      isolation: isolate;
+    }
+    .hp-route-gift-transition .hp-route-wrap-panel {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 50.5%;
+      background:
+        radial-gradient(ellipse at 50% 0%, rgba(231,196,105,.055) 0 12%, transparent 13% 100%) 0 0/52px 76px,
+        linear-gradient(115deg, rgba(255,255,255,.024), transparent 32%, rgba(212,175,55,.042) 52%, transparent 74%),
+        linear-gradient(180deg,#100c08 0%,#080604 55%,#0d0906 100%);
+      box-shadow: inset 0 0 60px rgba(212,175,55,.05);
+      transition: transform 280ms cubic-bezier(.16,1,.3,1);
+      will-change: transform;
+    }
+    .hp-route-gift-transition .hp-route-wrap-panel::after {
+      content: "";
+      position: absolute;
+      inset: 12px;
+      border: 1px solid rgba(212,175,55,.15);
+      pointer-events: none;
+    }
+    .hp-route-gift-transition .hp-route-wrap-left { left: 0; transform: translate3d(-104%,0,0); }
+    .hp-route-gift-transition .hp-route-wrap-right { right: 0; transform: translate3d(104%,0,0); }
+    .hp-route-gift-transition.is-closing .hp-route-wrap-left,
+    .hp-route-gift-transition.is-closing .hp-route-wrap-right { transform: translate3d(0,0,0); }
+
+    .hp-route-gift-transition .hp-route-ribbon {
+      position: absolute;
+      z-index: 4;
+      left: 0;
+      right: 0;
+      top: 50%;
+      height: 30px;
+      transform: translateY(-50%) scaleX(0);
+      transform-origin: center;
+      opacity: 0;
+      border-block: 1px solid rgba(255,240,184,.28);
+      background: linear-gradient(180deg,#70450c 0%,#d7ad43 25%,#fff0b0 50%,#d7ad43 75%,#70450c 100%);
+      box-shadow: 0 7px 26px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.42);
+    }
+    .hp-route-gift-transition.is-closing .hp-route-ribbon {
+      animation: hpRouteRibbonClose 250ms 105ms cubic-bezier(.16,1,.3,1) both;
+    }
+    .hp-route-gift-transition .hp-route-seal {
+      position: absolute;
+      z-index: 6;
+      left: 50%;
+      top: 50%;
+      display: grid;
+      width: 76px;
+      height: 76px;
+      place-items: center;
+      border-radius: 50%;
+      border: 1px solid rgba(255,235,165,.72);
+      color: #291a05;
+      font: 700 29px/1 'Cormorant Garamond',Georgia,serif;
+      background: radial-gradient(circle at 34% 28%,#fff1b2 0%,#efd46f 24%,#d1a53b 52%,#936014 80%,#5d3908 100%);
+      box-shadow: 0 18px 46px rgba(0,0,0,.46), inset 0 1px 0 rgba(255,255,255,.54);
+      opacity: 0;
+      transform: translate(-50%,-50%) scale(.38) rotate(-22deg);
+    }
+    .hp-route-gift-transition .hp-route-seal::after {
+      content: "";
+      position: absolute;
+      inset: 9px;
+      border: 1px dashed rgba(83,50,6,.45);
+      border-radius: inherit;
+    }
+    .hp-route-gift-transition.is-closing .hp-route-seal {
+      animation: hpRouteSealStamp 240ms 175ms cubic-bezier(.2,1.32,.34,1) both;
+    }
+    .hp-route-gift-transition.is-revealing .hp-route-wrap-left { transform: translate3d(-104%,0,0); transition-duration: 300ms; }
+    .hp-route-gift-transition.is-revealing .hp-route-wrap-right { transform: translate3d(104%,0,0); transition-duration: 300ms; }
+    .hp-route-gift-transition.is-revealing .hp-route-ribbon {
+      opacity: 0;
+      transform: translateY(-50%) scaleX(.72);
+      transition: opacity 130ms ease, transform 220ms ease;
+    }
+    .hp-route-gift-transition.is-revealing .hp-route-seal {
+      opacity: 0;
+      transform: translate(-50%,-50%) scale(.72) rotate(18deg);
+      transition: opacity 130ms ease, transform 220ms ease;
+    }
+    @keyframes hpRouteRibbonClose {
+      from { opacity:0; transform:translateY(-50%) scaleX(0); }
+      to { opacity:1; transform:translateY(-50%) scaleX(1); }
+    }
+    @keyframes hpRouteSealStamp {
+      0% { opacity:0; transform:translate(-50%,-50%) scale(.38) rotate(-22deg); }
+      68% { opacity:1; transform:translate(-50%,-50%) scale(1.08) rotate(3deg); }
+      100% { opacity:1; transform:translate(-50%,-50%) scale(1) rotate(0); }
+    }
+    @media (max-width: 639px) {
+      .hp-route-gift-transition .hp-route-ribbon { height: 24px; }
+      .hp-route-gift-transition .hp-route-seal { width: 64px; height: 64px; font-size: 25px; }
+    }
+  `;
+
+  const left = document.createElement("div");
+  left.className = "hp-route-wrap-panel hp-route-wrap-left";
+  const right = document.createElement("div");
+  right.className = "hp-route-wrap-panel hp-route-wrap-right";
+  const ribbon = document.createElement("div");
+  ribbon.className = "hp-route-ribbon";
+  const seal = document.createElement("div");
+  seal.className = "hp-route-seal";
+  seal.textContent = "H";
+
+  overlay.append(style, left, right, ribbon, seal);
+  document.body.appendChild(overlay);
+
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => overlay.classList.add("is-closing"));
+  });
+
+  window.setTimeout(() => {
+    navigate(to);
+    overlay.classList.add("is-revealing");
+  }, 390);
+
+  window.setTimeout(() => {
+    overlay.remove();
+    hamporiumRouteTransitionLocked = false;
+  }, 730);
+};
+
+const SignatureLink = ({ to, onClick, target, children, ...props }) => {
+  const navigate = useNavigate();
+  const reducedMotion = useMediaPreference("(prefers-reduced-motion: reduce)");
+
+  const handleClick = (event) => {
+    onClick?.(event);
+    if (event.defaultPrevented) return;
+
+    const modified =
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey ||
+      target === "_blank";
+
+    if (modified || typeof to !== "string") return;
+
+    event.preventDefault();
+    runHamporiumRouteTransition(to, navigate, reducedMotion);
+  };
+
+  return (
+    <Link to={to} target={target} onClick={handleClick} {...props}>
+      {children}
+    </Link>
+  );
+};
+
+// ======================================================
 // HOME
 // ======================================================
 
@@ -349,11 +540,14 @@ const Home = () => {
     giftNavigatingRef.current = true;
     setGiftRevealActive(true);
     window.clearTimeout(giftRevealTimerRef.current);
+
+    const destination = `/gifts?${params.toString()}`;
+    runHamporiumRouteTransition(destination, navigate, reducedMotion);
+
     giftRevealTimerRef.current = window.setTimeout(() => {
-      navigate(`/gifts?${params.toString()}`);
       giftNavigatingRef.current = false;
       setGiftRevealActive(false);
-    }, reducedMotion ? 0 : 520);
+    }, reducedMotion ? 80 : 760);
   };
 
   const activeGiftOccasion = GIFT_OCCASIONS.find((item) => item.id === giftOccasion) || GIFT_OCCASIONS[0];
@@ -2037,15 +2231,62 @@ const Home = () => {
             bottom: 18svh;
           }
 
+          /*
+            Keep the opening question visually separate from the first journey card.
+            The feature titles stay large; only the two-line intro gets a slightly
+            tighter editorial scale so START HERE / question / 01 content never collide.
+          */
+          .hp-home-v65 .hp-journey-intro-heading {
+            /*
+              The question is the editorial intro, not the main card title.
+              Keeping it one clear tier smaller prevents it from visually
+              colliding with the first journey title on shorter desktops.
+            */
+            max-width: 820px !important;
+            font-size: clamp(52px, 4.8vw, 78px) !important;
+            line-height: .89 !important;
+            letter-spacing: -.041em !important;
+          }
+
+          /*
+            Page 01 contains both the section intro and the card headline.
+            Give that first card its own lower content anchor; pages 02/03 keep
+            the higher 18svh anchor requested for the diagonal hand-off.
+          */
+          .hp-home-v65 .hp-journey-first-page .hp-journey-story-content {
+            bottom: 10svh;
+          }
+
           @media (max-width: 1023px) {
             .hp-home-v65 .hp-journey-story-content {
               bottom: 15svh;
+            }
+
+            .hp-home-v65 .hp-journey-first-page .hp-journey-story-content {
+              bottom: 8svh;
+            }
+
+            .hp-home-v65 .hp-journey-intro-heading {
+              max-width: 720px !important;
+              font-size: clamp(48px, 7vw, 64px) !important;
+              line-height: .9 !important;
             }
           }
 
           @media (max-width: 639px) {
             .hp-home-v65 .hp-journey-story-content {
               bottom: 13svh;
+            }
+
+            .hp-home-v65 .hp-journey-first-page .hp-journey-story-content {
+              bottom: 6svh;
+            }
+
+            .hp-home-v65 .hp-journey-intro-heading {
+              max-width: 92vw !important;
+              font-size: clamp(40px, 10.8vw, 50px) !important;
+              line-height: .92 !important;
+              letter-spacing: -.034em !important;
             }
           }
 
@@ -5140,6 +5381,401 @@ const Home = () => {
             }
           }
 
+          /* ==================================================
+             V82 · HAMPORIUM SIGNATURE WOW SYSTEM
+             Golden thread + floating concierge + Peek Inside.
+          ================================================== */
+
+          .hamporium-home {
+            --hp-golden-progress: 0;
+            --hp-golden-y: 0%;
+            --hp-golden-fade: .72;
+          }
+
+          .hp-home-golden-thread {
+            position: fixed;
+            z-index: 118;
+            top: 0;
+            bottom: 0;
+            left: max(7px, env(safe-area-inset-left));
+            width: 46px;
+            pointer-events: none;
+            opacity: var(--hp-golden-fade);
+            transition: opacity .28s ease;
+          }
+
+          .hp-home-golden-thread svg {
+            width: 100%;
+            height: 100%;
+            overflow: visible;
+          }
+
+          .hp-home-golden-thread-path-soft {
+            fill: none;
+            stroke: rgba(212,175,55,.10);
+            stroke-width: 4;
+          }
+
+          .hp-home-golden-thread-path {
+            fill: none;
+            stroke: url(#hpGoldenThreadGradient);
+            stroke-width: 1.55;
+            stroke-linecap: round;
+            stroke-dasharray: 1;
+            stroke-dashoffset: calc(1 - var(--hp-golden-progress));
+            filter: drop-shadow(0 0 5px rgba(212,175,55,.30));
+          }
+
+          .hp-home-golden-thread-knot {
+            position: absolute;
+            left: 22px;
+            top: var(--hp-golden-y);
+            width: 8px;
+            height: 8px;
+            border: 1px solid rgba(255,237,164,.72);
+            background: radial-gradient(circle at 35% 30%, #F6E5A2, #C9962E 58%, #734608);
+            box-shadow: 0 0 14px rgba(212,175,55,.38);
+            transform: translate(-50%,-50%) rotate(45deg);
+            transition: top 70ms linear;
+          }
+
+          .hp-gift-concierge-fab {
+            position: fixed;
+            z-index: 126;
+            right: clamp(14px, 2.4vw, 34px);
+            bottom: max(18px, env(safe-area-inset-bottom));
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            min-height: 52px;
+            padding: 0 17px;
+            border: 1px solid rgba(238,203,108,.42);
+            border-radius: 999px;
+            background: rgba(16,12,8,.92);
+            color: #FFF2C8;
+            box-shadow: 0 18px 54px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.04);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            font-size: 10px;
+            font-weight: 900;
+            letter-spacing: .10em;
+            text-transform: uppercase;
+            opacity: 0;
+            transform: translate3d(0,18px,0) scale(.96);
+            pointer-events: none;
+            transition: opacity .38s ease, transform .55s cubic-bezier(.16,1,.3,1), border-color .3s ease;
+          }
+
+          .hp-gift-concierge-fab.is-visible {
+            opacity: 1;
+            transform: translate3d(0,0,0) scale(1);
+            pointer-events: auto;
+          }
+
+          .hp-gift-concierge-fab:hover {
+            border-color: rgba(244,211,110,.78);
+            transform: translate3d(0,-2px,0) scale(1.01);
+          }
+
+          .hp-gift-concierge-fab-mark {
+            display: grid;
+            width: 28px;
+            height: 28px;
+            flex: 0 0 28px;
+            place-items: center;
+            border-radius: 50%;
+            background: radial-gradient(circle at 34% 28%,#fff1b2,#d1a53b 56%,#7c4b0b);
+            color: #211504;
+            font-family: 'Cormorant Garamond',Georgia,serif;
+            font-size: 15px;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,.45);
+          }
+
+          .hp-gift-concierge-backdrop {
+            position: fixed;
+            z-index: 160;
+            inset: 0;
+            display: grid;
+            align-items: end;
+            background: rgba(7,5,3,.60);
+            backdrop-filter: blur(7px);
+            -webkit-backdrop-filter: blur(7px);
+            animation: hpConciergeBackdropIn .28s ease both;
+          }
+
+          .hp-gift-concierge-sheet {
+            width: min(720px, calc(100vw - 24px));
+            margin: 0 auto 12px;
+            overflow: hidden;
+            border: 1px solid rgba(218,181,78,.30);
+            border-radius: 28px 28px 20px 20px;
+            background:
+              radial-gradient(circle at 50% 0%, rgba(212,175,55,.12), transparent 34%),
+              linear-gradient(155deg,#18120d 0%,#0b0806 56%,#15100b 100%);
+            color: #FFF6DE;
+            box-shadow: 0 -26px 90px rgba(0,0,0,.44), inset 0 1px 0 rgba(255,255,255,.035);
+            animation: hpConciergeSheetIn .48s cubic-bezier(.16,1,.3,1) both;
+          }
+
+          .hp-gift-concierge-sheet-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 18px;
+            padding: 20px 22px 16px;
+            border-bottom: 1px solid rgba(255,235,174,.10);
+          }
+
+          .hp-gift-concierge-sheet-head p {
+            margin: 0;
+            color: #D9B74C;
+            font-size: 9px;
+            font-weight: 900;
+            letter-spacing: .18em;
+            text-transform: uppercase;
+          }
+
+          .hp-gift-concierge-sheet-head button {
+            display: grid;
+            width: 40px;
+            height: 40px;
+            place-items: center;
+            border: 1px solid rgba(255,255,255,.12);
+            border-radius: 50%;
+            background: rgba(255,255,255,.03);
+            color: #F9E8BD;
+          }
+
+          .hp-gift-concierge-body { padding: 22px; }
+
+          .hp-gift-concierge-progress {
+            display: grid;
+            grid-template-columns: repeat(3,1fr);
+            gap: 7px;
+            margin-bottom: 22px;
+          }
+
+          .hp-gift-concierge-progress span {
+            height: 2px;
+            border-radius: 99px;
+            background: rgba(255,255,255,.10);
+            overflow: hidden;
+          }
+
+          .hp-gift-concierge-progress span.is-active {
+            background: linear-gradient(90deg,#F47822,#D4AF37,#F4D36A);
+            box-shadow: 0 0 12px rgba(212,175,55,.18);
+          }
+
+          .hp-gift-concierge-question {
+            margin: 0;
+            max-width: 620px;
+            font-family: 'Cormorant Garamond','Playfair Display',Georgia,serif;
+            font-size: clamp(32px,5.5vw,52px);
+            font-weight: 700;
+            line-height: .94;
+            letter-spacing: -.035em;
+          }
+
+          .hp-gift-concierge-options {
+            display: grid;
+            grid-template-columns: repeat(2,minmax(0,1fr));
+            gap: 9px;
+            margin-top: 22px;
+          }
+
+          .hp-gift-concierge-option {
+            min-height: 54px;
+            padding: 10px 13px;
+            border: 1px solid rgba(255,255,255,.11);
+            border-radius: 14px;
+            background: rgba(255,255,255,.025);
+            color: rgba(255,246,222,.70);
+            font-size: 11px;
+            font-weight: 800;
+            text-align: left;
+            transition: background .26s ease, border-color .26s ease, color .26s ease, transform .32s cubic-bezier(.16,1,.3,1);
+          }
+
+          .hp-gift-concierge-option:hover,
+          .hp-gift-concierge-option.is-selected {
+            border-color: rgba(226,191,91,.62);
+            background: rgba(212,175,55,.10);
+            color: #FFE8A7;
+            transform: translateY(-1px);
+          }
+
+          .hp-gift-concierge-actions {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-top: 24px;
+          }
+
+          .hp-gift-concierge-back {
+            min-height: 48px;
+            padding: 0 12px;
+            color: rgba(255,246,222,.58);
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+          }
+
+          .hp-gift-concierge-next {
+            min-height: 50px;
+            margin-left: auto;
+            padding: 0 20px;
+            border: 1px solid rgba(255,231,156,.38);
+            border-radius: 999px;
+            background: linear-gradient(90deg,#A96D13,#E0B84D 48%,#F0CF69 70%,#A66A12);
+            color: #1E1507;
+            font-size: 10px;
+            font-weight: 950;
+            letter-spacing: .12em;
+            text-transform: uppercase;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,.42), 0 12px 30px rgba(0,0,0,.22);
+          }
+
+          @keyframes hpConciergeBackdropIn { from { opacity:0; } to { opacity:1; } }
+          @keyframes hpConciergeSheetIn { from { opacity:0; transform:translateY(28px) scale(.985); } to { opacity:1; transform:none; } }
+
+          /* Peek Inside · preserve the approved gift-card design.
+             Idle cards stay pixel-for-pixel in the original wrapping language;
+             hover/tap only adds a restrained content reveal over the photo. */
+          .hp-home-v65 .hp-peek-photo {
+            transition:
+              transform .82s cubic-bezier(.16,1,.3,1),
+              filter .48s ease !important;
+          }
+
+          .hp-home-v65 .hp-peek-inside {
+            position: absolute;
+            z-index: 7;
+            left: 14px;
+            right: 76px;
+            bottom: 14px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            opacity: 0;
+            transform: translate3d(0,10px,0);
+            pointer-events: none;
+            transition:
+              opacity .32s ease .04s,
+              transform .5s cubic-bezier(.16,1,.3,1) .03s;
+          }
+
+          .hp-home-v65 .hp-peek-chip {
+            min-height: 26px;
+            display: inline-flex;
+            align-items: center;
+            padding: 0 9px;
+            border: 1px solid rgba(255,238,181,.36);
+            border-radius: 999px;
+            background: rgba(12,9,6,.70);
+            color: #FFF0C3;
+            backdrop-filter: blur(7px);
+            -webkit-backdrop-filter: blur(7px);
+            font-size: 7px;
+            font-weight: 900;
+            letter-spacing: .075em;
+            text-transform: uppercase;
+            box-shadow: 0 7px 18px rgba(0,0,0,.15);
+          }
+
+          .hp-home-v65 .hp-peek-toggle {
+            position: absolute;
+            z-index: 10;
+            top: 22px;
+            right: 22px;
+            display: inline-flex;
+            min-height: 36px;
+            align-items: center;
+            gap: 7px;
+            padding: 0 11px;
+            border: 1px solid rgba(234,217,188,.76);
+            border-radius: 999px;
+            background: rgba(255,250,241,.91);
+            color: #332819;
+            font-size: 9px;
+            font-weight: 800;
+            letter-spacing: .035em;
+            box-shadow: 0 7px 20px rgba(0,0,0,.09);
+            opacity: 0;
+            transform: translateY(4px);
+            transition:
+              opacity .25s ease,
+              transform .36s cubic-bezier(.16,1,.3,1),
+              background .25s ease;
+          }
+
+          .hp-home-v65 .hp-peek-toggle svg { width: 14px; height: 14px; }
+          .hp-home-v65 .hp-bestseller-card:hover .hp-peek-toggle,
+          .hp-home-v65 .hp-bestseller-card:focus-within .hp-peek-toggle,
+          .hp-home-v65 .hp-bestseller-card.is-peeking .hp-peek-toggle {
+            opacity: 1;
+            transform: none;
+          }
+
+          @media (hover:hover) and (pointer:fine) {
+            .hp-home-v65 .hp-bestseller-card:hover .hp-peek-photo,
+            .hp-home-v65 .hp-bestseller-card.is-peeking .hp-peek-photo {
+              transform: translateZ(0) scale(1.045) !important;
+              filter: brightness(.88) saturate(1.025) !important;
+            }
+
+            .hp-home-v65 .hp-bestseller-card:hover .hp-peek-inside,
+            .hp-home-v65 .hp-bestseller-card.is-peeking .hp-peek-inside {
+              opacity: 1;
+              transform: translate3d(0,0,0);
+            }
+          }
+
+          @media (max-width:1023px), (hover:none), (pointer:coarse) {
+            .hp-home-v65 .hp-peek-toggle {
+              opacity: 1;
+              transform: none;
+              top: 18px;
+              right: 18px;
+              min-height: 34px;
+              padding-inline: 10px;
+            }
+
+            .hp-home-v65 .hp-bestseller-card.is-peeking .hp-peek-photo {
+              transform: translateZ(0) scale(1.04) !important;
+              filter: brightness(.87) saturate(1.02) !important;
+            }
+
+            .hp-home-v65 .hp-bestseller-card.is-peeking .hp-peek-inside {
+              opacity: 1;
+              transform: none;
+            }
+          }
+
+          @media (max-width:639px) {
+            .hp-home-golden-thread { width:30px; opacity:var(--hp-golden-fade); }
+            .hp-home-golden-thread-knot { left:14px; width:7px; height:7px; }
+            .hp-gift-concierge-fab { right:12px; bottom:max(12px,env(safe-area-inset-bottom)); min-height:48px; padding:0 13px; font-size:8.5px; }
+            .hp-gift-concierge-fab-mark { width:25px; height:25px; flex-basis:25px; font-size:13px; }
+            .hp-gift-concierge-sheet { width:calc(100vw - 12px); margin-bottom:6px; border-radius:22px 22px 16px 16px; }
+            .hp-gift-concierge-sheet-head { padding:16px 16px 13px; }
+            .hp-gift-concierge-body { padding:18px 16px max(18px,env(safe-area-inset-bottom)); }
+            .hp-gift-concierge-options { grid-template-columns:1fr 1fr; gap:7px; }
+            .hp-gift-concierge-option { min-height:50px; font-size:10px; }
+            .hp-peek-chip { min-height:24px !important; padding-inline:7px !important; font-size:6.5px !important; }
+            .hp-home-v65 .hp-peek-inside { left:11px; right:66px; bottom:11px; gap:5px; }
+          }
+
+          @media (prefers-reduced-motion:reduce) {
+            .hp-home-golden-thread-knot,
+            .hp-gift-concierge-fab,
+            .hp-gift-concierge-sheet,
+            .hp-peek-inside,
+            .hp-peek-photo { transition:none !important; animation:none !important; }
+          }
+
         `}
       </style>
 
@@ -5153,6 +5789,22 @@ const Home = () => {
           aria-hidden="true"
         >
           <span />
+        </div>
+
+        <div className="hp-home-golden-thread" aria-hidden="true">
+          <svg viewBox="0 0 48 1000" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="hpGoldenThreadGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#F47822" />
+                <stop offset="42%" stopColor="#D4AF37" />
+                <stop offset="74%" stopColor="#F4D36A" />
+                <stop offset="100%" stopColor="#A96D13" />
+              </linearGradient>
+            </defs>
+            <path className="hp-home-golden-thread-path-soft" d="M22 0 C10 105 38 195 22 295 C8 395 36 488 21 590 C8 694 35 790 20 1000" pathLength="1" />
+            <path className="hp-home-golden-thread-path" d="M22 0 C10 105 38 195 22 295 C8 395 36 488 21 590 C8 694 35 790 20 1000" pathLength="1" />
+          </svg>
+          <span className="hp-home-golden-thread-knot" />
         </div>
 
         <CinematicHero onIntroComplete={finishCinematicIntro} />
@@ -5209,10 +5861,10 @@ const Home = () => {
               objectPosition: "center center",
             },
           ].map((item, index) => (
-            <Link
+            <SignatureLink
               key={item.label}
               to={item.to}
-              className="hp-story-page hp-journey-story-page hp-fluid-host group relative block"
+              className={`hp-story-page hp-journey-story-page hp-fluid-host group relative block ${index === 0 ? "hp-journey-first-page" : ""}`}
               aria-label={`${item.title}. ${item.cta}`}
             >
               <div className="hp-story-sheet hp-journey-story-sheet">
@@ -5237,7 +5889,7 @@ const Home = () => {
                       START HERE
                     </p>
 
-                    <h2 className="hp-section-heading mt-4 max-w-[1000px] text-[#FFF4DC] drop-shadow-[0_12px_42px_rgba(0,0,0,.58)]">
+                    <h2 className="hp-section-heading hp-journey-intro-heading mt-4 max-w-[1000px] text-[#FFF4DC] drop-shadow-[0_12px_42px_rgba(0,0,0,.58)]">
                       <span className="hp-story-line block" style={{ "--hp-story-delay": "90ms" }}>
                         How Do You Want
                       </span>
@@ -5290,10 +5942,18 @@ const Home = () => {
                   <span className="h-px w-9 bg-[#D4AF37]/55 sm:w-12" />
                 </div>
               </div>
-            </Link>
+            </SignatureLink>
           ))}
         </section>
 
+        <FloatingGiftConcierge
+          giftOccasion={giftOccasion}
+          setGiftOccasion={setGiftOccasion}
+          giftBudget={giftBudget}
+          setGiftBudget={setGiftBudget}
+          onFindGift={handleFindGift}
+          busy={giftRevealActive}
+        />
 
 
         {/* ==================================================
@@ -5881,7 +6541,7 @@ const Home = () => {
                   </h2>
                 </div>
 
-                <Link
+                <SignatureLink
                   to="/gifts"
                   className="hp-bestseller-all-link group mb-1 inline-flex h-[58px] w-fit items-center gap-5 border border-black/10 bg-white px-6 text-[12px] font-black uppercase tracking-[0.09em] text-[#171717] transition duration-300 hover:border-[#F47822] hover:bg-[#F47822] hover:text-white"
                 >
@@ -5889,7 +6549,7 @@ const Home = () => {
                   <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#171717] text-white transition duration-300 group-hover:translate-x-1 group-hover:bg-white group-hover:text-[#F47822]">
                     →
                   </span>
-                </Link>
+                </SignatureLink>
               </div>
             </Reveal>
 
@@ -6146,13 +6806,13 @@ const Home = () => {
               </InteractiveRail>
 
               <Reveal delay={160} className="mt-8 flex flex-wrap items-center gap-5">
-                <Link
+                <SignatureLink
                   to="/custom-hamper?mode=bulk"
                   className="inline-flex h-[56px] items-center gap-5 bg-[#F47822] px-7 text-[12px] font-black uppercase tracking-[0.09em] text-white shadow-[0_18px_40px_rgba(244,120,34,.22)] transition hover:bg-[#DF6518]"
                 >
                   Build & Request Quote
                   <span className="text-lg">→</span>
-                </Link>
+                </SignatureLink>
 
               </Reveal>
             </div>
@@ -6188,7 +6848,7 @@ const Home = () => {
               </h2>
 
               <div className="mt-8 flex flex-wrap gap-4">
-                <Link
+                <SignatureLink
                   to="/gifts"
                   className="inline-flex h-[58px] items-center gap-5 bg-white px-7 text-[12px] font-black uppercase tracking-[0.09em] text-[#171717] transition hover:bg-[#F47822] hover:text-white"
                 >
@@ -6196,9 +6856,9 @@ const Home = () => {
                   <span className="text-lg">
                     →
                   </span>
-                </Link>
+                </SignatureLink>
 
-                <Link
+                <SignatureLink
                   to="/custom-hamper"
                   className="inline-flex h-[58px] items-center gap-5 border border-white/28 bg-black/20 px-7 text-[12px] font-black uppercase tracking-[0.09em] text-white backdrop-blur-sm transition hover:border-[#D4AF37] hover:text-[#D4AF37]"
                 >
@@ -6206,7 +6866,7 @@ const Home = () => {
                   <span className="text-lg">
                     →
                   </span>
-                </Link>
+                </SignatureLink>
               </div>
             </div>
           </Reveal>
@@ -7129,8 +7789,95 @@ const HamperOneExperienceIcon = ({ type }) => {
 
 const HamperOneUnwrapExperience = () => {
   const [opened, setOpened] = useState(false);
+  const [pullProgress, setPullProgress] = useState(0);
+  const [pullDirection, setPullDirection] = useState(1);
+  const [isPulling, setIsPulling] = useState(false);
+  const pullRef = useRef({ active: false, pointerId: null, startX: 0, startY: 0, moved: false });
+  const pullProgressRef = useRef(0);
+  const suppressSealClickRef = useRef(false);
 
-  const reveal = () => setOpened(true);
+  const reveal = useCallback(() => {
+    pullRef.current.active = false;
+    pullProgressRef.current = 1;
+    setPullProgress(1);
+    setIsPulling(false);
+    setOpened(true);
+  }, []);
+
+  const beginPull = (event) => {
+    if (opened || event.button !== 0) return;
+    event.stopPropagation();
+    pullRef.current = {
+      active: true,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      moved: false,
+    };
+    pullProgressRef.current = 0;
+    setPullProgress(0);
+    setIsPulling(true);
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  };
+
+  const movePull = (event) => {
+    const state = pullRef.current;
+    if (!state.active || state.pointerId !== event.pointerId || opened) return;
+
+    const dx = event.clientX - state.startX;
+    const dy = event.clientY - state.startY;
+    const distance = Math.abs(dx) + Math.abs(dy) * .14;
+    const threshold = window.innerWidth < 640 ? 104 : 148;
+    const progress = Math.max(0, Math.min(1, distance / threshold));
+    const direction = Math.abs(dx) < 2 ? pullDirection : (dx >= 0 ? 1 : -1);
+
+    if (distance > 5) state.moved = true;
+    setPullDirection(direction);
+    pullProgressRef.current = progress;
+    setPullProgress(progress);
+
+    if (progress >= .82) {
+      suppressSealClickRef.current = true;
+      reveal();
+    }
+  };
+
+  const endPull = (event) => {
+    const state = pullRef.current;
+    if (state.pointerId !== event.pointerId) return;
+
+    event.stopPropagation();
+    state.active = false;
+    setIsPulling(false);
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+
+    if (state.moved) suppressSealClickRef.current = true;
+
+    if (!opened && pullProgressRef.current >= .68) {
+      reveal();
+    } else if (!opened) {
+      pullProgressRef.current = 0;
+      setPullProgress(0);
+    }
+
+    window.setTimeout(() => {
+      suppressSealClickRef.current = false;
+    }, 0);
+  };
+
+  const handleSealClick = (event) => {
+    event.stopPropagation();
+    if (opened) return;
+    if (suppressSealClickRef.current || pullRef.current.moved) {
+      suppressSealClickRef.current = false;
+      pullRef.current.moved = false;
+      return;
+    }
+    reveal();
+  };
+
+  const pullX = pullDirection * pullProgress * (typeof window !== "undefined" && window.innerWidth < 640 ? 88 : 126);
+  const curtainTravel = pullProgress * 17;
 
   return (
     <section
@@ -7166,6 +7913,63 @@ const HamperOneUnwrapExperience = () => {
               inset 0 1px 0 rgba(255,255,255,.58),
               inset 0 -8px 16px rgba(111,68,7,.26);
           }
+        }
+
+        @keyframes hpHamperPullReleaseGlow {
+          0% { opacity: 0; transform: translate(-50%,-50%) scale(.32); }
+          32% { opacity: .92; }
+          100% { opacity: 0; transform: translate(-50%,-50%) scale(2.15); }
+        }
+
+        .hp-home-v65 .hp-hamper-one-visual.is-pulling .hp-hamper-one-seal,
+        .hp-home-v65 .hp-hamper-one-visual.is-pulling .hp-unbox-ribbon,
+        .hp-home-v65 .hp-hamper-one-visual.is-pulling .hp-unbox-curtain,
+        .hp-home-v65 .hp-hamper-one-visual.is-pulling .hp-hamper-one-wrap-design {
+          transition-duration: 0ms !important;
+        }
+
+        .hp-home-v65 .hp-hamper-one-seal {
+          touch-action: none;
+          user-select: none;
+          -webkit-user-select: none;
+          cursor: grab;
+        }
+
+        .hp-home-v65 .hp-hamper-one-visual.is-pulling .hp-hamper-one-seal { cursor: grabbing; }
+
+        .hp-home-v65 .hp-hamper-pull-chevron {
+          position: absolute;
+          top: 50%;
+          color: rgba(75,43,5,.62);
+          font: 800 17px/1 Arial,sans-serif;
+          opacity: .54;
+          transform: translateY(-50%);
+          transition: opacity .25s ease, transform .35s cubic-bezier(.16,1,.3,1);
+        }
+
+        .hp-home-v65 .hp-hamper-pull-chevron-left { left: 11px; }
+        .hp-home-v65 .hp-hamper-pull-chevron-right { right: 11px; }
+        .hp-home-v65 .hp-hamper-one-seal:hover .hp-hamper-pull-chevron { opacity: .9; }
+        .hp-home-v65 .hp-hamper-one-seal:hover .hp-hamper-pull-chevron-left { transform: translate(-3px,-50%); }
+        .hp-home-v65 .hp-hamper-one-seal:hover .hp-hamper-pull-chevron-right { transform: translate(3px,-50%); }
+
+        .hp-home-v65 .hp-hamper-pull-release-glow {
+          position: absolute;
+          z-index: 78;
+          left: 50%;
+          top: 50%;
+          width: 150px;
+          height: 150px;
+          border-radius: 50%;
+          pointer-events: none;
+          opacity: 0;
+          background: radial-gradient(circle, rgba(255,241,184,.92) 0%, rgba(212,175,55,.38) 30%, rgba(244,120,34,.12) 56%, transparent 74%);
+          filter: blur(5px);
+          transform: translate(-50%,-50%) scale(.32);
+        }
+
+        .hp-home-v65 .hp-hamper-one-section.is-unwrapped .hp-hamper-pull-release-glow {
+          animation: hpHamperPullReleaseGlow .72s cubic-bezier(.16,1,.3,1) both;
         }
 
         .hp-home-v65 .hp-hamper-one-wrap-design {
@@ -7853,7 +8657,7 @@ const HamperOneUnwrapExperience = () => {
                 </h2>
 
                 <div className="hp-hamper-one-actions mt-8 flex w-full sm:w-auto">
-                  <Link
+                  <SignatureLink
                     to="/hamper-one"
                     className="group inline-flex min-h-[64px] w-full items-center justify-between border border-white/18 bg-black/30 px-6 text-[11px] font-black uppercase tracking-[0.16em] text-white backdrop-blur-sm transition duration-300 hover:-translate-y-0.5 hover:border-[#D4AF37]/60 hover:bg-black/48 hover:text-[#F0D06B] sm:w-auto sm:min-w-[285px]"
                   >
@@ -7861,7 +8665,7 @@ const HamperOneUnwrapExperience = () => {
                     <span className="text-[20px] transition duration-300 group-hover:translate-x-1">
                       →
                     </span>
-                  </Link>
+                  </SignatureLink>
                 </div>
               </div>
             </Reveal>
@@ -7880,15 +8684,23 @@ const HamperOneUnwrapExperience = () => {
                 }}
                 className={`hp-hamper-one-visual relative min-h-[520px] overflow-hidden rounded-[28px] border border-white/12 bg-black/24 shadow-[0_34px_100px_rgba(0,0,0,.38)] outline-none sm:min-h-[650px] lg:min-h-[710px] ${
                   !opened ? "cursor-pointer" : ""
-                }`}
+                } ${isPulling ? "is-pulling" : ""}`}
+                style={{
+                  "--hp-pull-progress": pullProgress,
+                  "--hp-pull-x": `${pullX}px`,
+                }}
               >
                 <SmartImage
                   src={hamperOneLuxury}
                   alt="HAMPER ONE revealed"
                   loading="lazy"
                   className={`absolute inset-0 h-full w-full object-cover object-[60%_center] transition duration-[1200ms] ease-[cubic-bezier(.16,1,.3,1)] ${
-                    opened ? "scale-100 brightness-[1.03] saturate-[1.08]" : "scale-[1.035] brightness-[.78]"
+                    opened ? "scale-100 brightness-[1.03] saturate-[1.08]" : "scale-[1.035]"
                   }`}
+                  style={!opened ? {
+                    filter: `brightness(${(.78 + pullProgress * .20).toFixed(3)}) saturate(${(1 + pullProgress * .08).toFixed(3)})`,
+                    transform: `scale(${(1.035 - pullProgress * .022).toFixed(4)})`,
+                  } : undefined}
                 />
 
                 <div className="absolute inset-0 bg-gradient-to-t from-black/64 via-transparent to-black/20" />
@@ -7923,7 +8735,7 @@ const HamperOneUnwrapExperience = () => {
                   </div>
                 </div>
 
-                <Link
+                <SignatureLink
                   to="/hamper-one"
                   onClick={(event) => event.stopPropagation()}
                   className={`hp-hamper-one-experience-cta group ${
@@ -7932,13 +8744,17 @@ const HamperOneUnwrapExperience = () => {
                 >
                   <span>Discover Hamper One</span>
                   <span className="text-[20px] transition-transform duration-300 group-hover:translate-x-1">→</span>
-                </Link>
+                </SignatureLink>
 
                 {/* Poster cover */}
                 <div
                   className={`absolute inset-0 z-40 transition duration-[900ms] ${
                     opened ? "pointer-events-none opacity-0" : "opacity-100"
                   }`}
+                  style={!opened ? {
+                    opacity: Math.max(.54, 1 - pullProgress * .46),
+                    transform: `scale(${(1 - pullProgress * .006).toFixed(4)})`,
+                  } : undefined}
                 >
                   <SmartImage
                     src={bestsellerExecutiveLuxury}
@@ -7954,6 +8770,10 @@ const HamperOneUnwrapExperience = () => {
                     className={`hp-hamper-one-wrap-design pointer-events-none absolute transition duration-700 ${
                       opened ? "opacity-0" : "opacity-100"
                     }`}
+                    style={!opened ? {
+                      opacity: Math.max(.48, 1 - pullProgress * .52),
+                      transform: `translateX(${(-pullDirection * pullProgress * 7).toFixed(1)}px) scale(${(1 - pullProgress * .012).toFixed(4)}) rotate(${(-pullDirection * pullProgress * .35).toFixed(2)}deg)`,
+                    } : undefined}
                     aria-hidden="true"
                   >
                     <span className="hp-hamper-one-wrap-motif" />
@@ -7973,12 +8793,14 @@ const HamperOneUnwrapExperience = () => {
                   className={`hp-unbox-curtain hp-unbox-curtain-left absolute inset-y-0 left-0 z-50 w-1/2 border-r border-[#D4AF37]/16 transition-transform duration-[1250ms] ease-[cubic-bezier(.16,1,.3,1)] ${
                     opened ? "-translate-x-[104%]" : "translate-x-0"
                   }`}
+                  style={!opened ? { transform: `translateX(-${curtainTravel.toFixed(2)}%)` } : undefined}
                 />
 
                 <div
                   className={`hp-unbox-curtain hp-unbox-curtain-right absolute inset-y-0 right-0 z-50 w-1/2 border-l border-[#D4AF37]/16 transition-transform duration-[1250ms] ease-[cubic-bezier(.16,1,.3,1)] ${
                     opened ? "translate-x-[104%]" : "translate-x-0"
                   }`}
+                  style={!opened ? { transform: `translateX(${curtainTravel.toFixed(2)}%)` } : undefined}
                 />
 
                 {/* Ribbon */}
@@ -7986,12 +8808,20 @@ const HamperOneUnwrapExperience = () => {
                   className={`hp-unbox-ribbon hp-unbox-ribbon-v absolute left-1/2 top-0 z-[60] h-full w-8 -translate-x-1/2 transition-all duration-[850ms] ease-[cubic-bezier(.16,1,.3,1)] ${
                     opened ? "scale-y-0 opacity-0" : "scale-y-100 opacity-100"
                   }`}
+                  style={!opened ? {
+                    transform: `translateX(calc(-50% + ${(-pullX * .08).toFixed(1)}px)) scaleY(${(1 - pullProgress * .16).toFixed(3)}) rotate(${(pullDirection * pullProgress * 1.4).toFixed(2)}deg)`,
+                    opacity: Math.max(.52, 1 - pullProgress * .40),
+                  } : undefined}
                 />
 
                 <div
                   className={`hp-unbox-ribbon hp-unbox-ribbon-h absolute left-0 top-1/2 z-[60] h-8 w-full -translate-y-1/2 transition-all duration-[850ms] ease-[cubic-bezier(.16,1,.3,1)] ${
                     opened ? "scale-x-0 opacity-0" : "scale-x-100 opacity-100"
                   }`}
+                  style={!opened ? {
+                    transform: `translateY(-50%) translateX(${(pullX * .08).toFixed(1)}px) scaleX(${(1 - pullProgress * .30).toFixed(3)}) rotate(${(-pullDirection * pullProgress * .8).toFixed(2)}deg)`,
+                    opacity: Math.max(.48, 1 - pullProgress * .44),
+                  } : undefined}
                 />
 
                 <span
@@ -7999,27 +8829,39 @@ const HamperOneUnwrapExperience = () => {
                   className={`pointer-events-none absolute left-1/2 top-1/2 z-[76] h-[132px] w-[132px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#F4D36A]/18 bg-[#D4AF37]/5 blur-[1px] transition-all duration-700 sm:h-[146px] sm:w-[146px] ${
                     opened ? "scale-50 opacity-0" : "scale-100 opacity-100"
                   }`}
+                  style={!opened ? {
+                    transform: `translate(-50%,-50%) scale(${(1 + pullProgress * .18).toFixed(3)})`,
+                    opacity: Math.max(.18, 1 - pullProgress * .62),
+                  } : undefined}
                 />
+
+                <span className="hp-hamper-pull-release-glow" aria-hidden="true" />
 
                 <button
                   type="button"
-                  aria-label="Unwrap Hamper One"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    reveal();
-                  }}
+                  aria-label="Pull or tap to unwrap Hamper One"
+                  onPointerDown={beginPull}
+                  onPointerMove={movePull}
+                  onPointerUp={endPull}
+                  onPointerCancel={endPull}
+                  onClick={handleSealClick}
                   className={`hp-hamper-one-seal absolute left-1/2 top-1/2 z-[80] grid h-[94px] w-[94px] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-[#FFE8A5]/52 bg-[radial-gradient(circle_at_34%_28%,#F6E4A3_0%,#D4AF37_46%,#99641C_100%)] text-[#2B1B05] shadow-[0_22px_50px_rgba(0,0,0,.38)] transition-all duration-[780ms] ease-[cubic-bezier(.16,1,.3,1)] sm:h-[102px] sm:w-[102px] ${
                     opened
                       ? "pointer-events-none scale-50 rotate-[28deg] opacity-0"
                       : "scale-100 rotate-0 opacity-100"
                   }`}
+                  style={!opened ? {
+                    transform: `translate(-50%,-50%) translateX(${pullX.toFixed(1)}px) rotate(${(pullDirection * pullProgress * 118).toFixed(1)}deg) scale(${(1 - pullProgress * .12).toFixed(3)})`,
+                  } : undefined}
                 >
+                  <span className="hp-hamper-pull-chevron hp-hamper-pull-chevron-left" aria-hidden="true">‹</span>
                   <span
                     style={{ fontFamily: DISPLAY_FONT }}
                     className="text-[30px] font-bold"
                   >
                     H
                   </span>
+                  <span className="hp-hamper-pull-chevron hp-hamper-pull-chevron-right" aria-hidden="true">›</span>
                 </button>
               </div>
             </div>
@@ -8061,10 +8903,30 @@ const PromiseCard = ({
 // PRODUCT CARD
 // ======================================================
 
-const LovedProductCard = ({ product, index = 0, onPreview, promotion }) => {
+const getPeekInsideItems = (product, index = 0) => {
+  const supplied = product?.contents || product?.items || product?.includedProducts;
+  if (Array.isArray(supplied) && supplied.length) {
+    return supplied
+      .slice(0, 3)
+      .map((item) => typeof item === "string" ? item : (item?.name || item?.title))
+      .filter(Boolean);
+  }
+
+  const safeSets = [
+    ["Curated treats", "Personal note", "Signature packaging"],
+    ["Premium picks", "Gift message", "Hand-finished wrap"],
+    ["Celebration edit", "Personal touch", "Luxury presentation"],
+  ];
+  return safeSets[index % safeSets.length];
+};
+
+const LovedProductCard = ({ product, index = 0, promotion }) => {
+  const [peeking, setPeeking] = useState(false);
   const destination = product.slug ? `/products/${product.slug}` : "/gifts";
+  const peekItems = getPeekInsideItems(product, index);
+
   return (
-    <article className={`hp-bestseller-card hp-gift-variant-${index % 5} group`}>
+    <article className={`hp-bestseller-card hp-gift-variant-${index % 5} group ${peeking ? "is-peeking" : ""}`}>
       <PromotionProductBadge promotion={promotion} />
 
       <div className="hp-gift-wrap-layer" aria-hidden="true">
@@ -8092,13 +8954,19 @@ const LovedProductCard = ({ product, index = 0, onPreview, promotion }) => {
         <span className="hp-gift-sparkle hp-gift-sparkle-c">✦</span>
       </div>
 
-      <Link to={destination} className="hp-gift-package" aria-label={`View ${product.name}`}>
+      <SignatureLink to={destination} className="hp-gift-package" aria-label={`View ${product.name}`}>
         <div className="hp-gift-product-window">
           <SmartImage
             src={product.image}
             alt={product.name}
-            className="absolute inset-0 h-full w-full object-cover object-center"
+            className="hp-peek-photo absolute inset-0 h-full w-full object-cover object-center"
           />
+
+          <div className="hp-peek-inside" aria-hidden={!peeking}>
+            {peekItems.map((item) => (
+              <span key={item} className="hp-peek-chip">{item}</span>
+            ))}
+          </div>
 
           <span className="hp-gift-image-charm" aria-hidden="true">
             <span>H</span>
@@ -8133,19 +9001,22 @@ const LovedProductCard = ({ product, index = 0, onPreview, promotion }) => {
             </span>
           </div>
         </div>
-      </Link>
+      </SignatureLink>
 
-      {!product.editorial && (
-        <button
-          type="button"
-          className="hp-quick-look"
-          aria-label={`Preview ${product.name}`}
-          onClick={onPreview}
-        >
-          <HomeControlIcon type="eye" />
-          <span>Quick look</span>
-        </button>
-      )}
+      <button
+        type="button"
+        className="hp-peek-toggle"
+        aria-pressed={peeking}
+        aria-label={`${peeking ? "Close" : "Peek inside"} ${product.name}`}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          setPeeking((value) => !value);
+        }}
+      >
+        <HomeControlIcon type="eye" />
+        <span>{peeking ? "Close peek" : "Peek inside"}</span>
+      </button>
     </article>
   );
 };
@@ -8317,10 +9188,18 @@ const useHomeEnhancements = (homeRef, reducedMotion) => {
       if (Math.abs(y - lastScrollY) < 0.5) return;
       lastScrollY = y;
 
+      const progress = Math.max(0, Math.min(1, y / pageTravel));
+
       if (progressFill) {
-        const progress = Math.max(0, Math.min(1, y / pageTravel));
         progressFill.style.transform = `scaleX(${progress.toFixed(3)})`;
       }
+
+      root.style.setProperty("--hp-golden-progress", progress.toFixed(4));
+      root.style.setProperty("--hp-golden-y", `${(progress * 100).toFixed(2)}%`);
+      const fade = progress > .91
+        ? Math.max(.08, .72 - ((progress - .91) / .09) * .64)
+        : .72;
+      root.style.setProperty("--hp-golden-fade", fade.toFixed(3));
 
       if (heroMotion && heroDim && heroLine) {
         if (y <= heroTravel * 1.12) {
@@ -8520,6 +9399,10 @@ const useHomeEnhancements = (homeRef, reducedMotion) => {
       kineticRevealTimers.forEach((frameId) => window.cancelAnimationFrame(frameId));
       kineticRevealTimers.clear();
 
+      root.style.removeProperty("--hp-golden-progress");
+      root.style.removeProperty("--hp-golden-y");
+      root.style.removeProperty("--hp-golden-fade");
+
       kineticHeadingNodes.forEach((heading) => {
         heading.classList.remove("hp-kinetic-heading", "is-kinetic-visible");
         heading.style.removeProperty("--hp-kinetic-x");
@@ -8674,7 +9557,7 @@ const CinematicHero = ({ onIntroComplete }) => {
       </div>
       {(failed || !allowVideo || (!ready && phase === "hidden")) && <div className="hp-hero-fallback-copy">
         <p>HAMPORIUM</p><h2>A little thought.<br /><em>An unforgettable gift.</em></h2>
-        <Link to="/gifts" onClick={finish}>Explore hampers <span aria-hidden="true">&#8594;</span></Link>
+        <SignatureLink to="/gifts" onClick={finish}>Explore hampers <span aria-hidden="true">&#8594;</span></SignatureLink>
       </div>}
       <div className="hp-hero-controls">
         <button type="button" className="hp-film-explore" onClick={explore}>Explore the collection <span aria-hidden="true">&#8595;</span></button>
@@ -8818,8 +9701,193 @@ const InteractiveRail = ({ id, label, className = "", controlsClass = "", childr
   </>;
 };
 
+const FloatingGiftConcierge = ({
+  giftOccasion,
+  setGiftOccasion,
+  giftBudget,
+  setGiftBudget,
+  onFindGift,
+  busy,
+}) => {
+  const [open, setOpen] = useState(false);
+  const [step, setStep] = useState(0);
+  const [recipient, setRecipient] = useState("special");
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      const journey = document.querySelector('[data-home-section="journey"]');
+      const finale = document.querySelector('[data-home-section="finale"]');
+      if (!journey) return;
+
+      const journeyRect = journey.getBoundingClientRect();
+      const finaleRect = finale?.getBoundingClientRect();
+      const passedJourney = journeyRect.bottom < window.innerHeight * .82;
+      const nearFinale = finaleRect ? finaleRect.top < window.innerHeight * .72 : false;
+      setVisible(passedJourney && !nearFinale);
+    };
+    const schedule = () => {
+      if (!frame) frame = window.requestAnimationFrame(update);
+    };
+    window.addEventListener("scroll", schedule, { passive: true });
+    window.addEventListener("resize", schedule, { passive: true });
+    update();
+    return () => {
+      if (frame) window.cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", schedule);
+      window.removeEventListener("resize", schedule);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (event) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const recipients = [
+    ["special", "Someone special"],
+    ["family", "Family"],
+    ["friend", "Friend"],
+    ["work", "Team / client"],
+  ];
+
+  const advance = () => setStep((value) => Math.min(2, value + 1));
+  const back = () => setStep((value) => Math.max(0, value - 1));
+
+  const submit = () => {
+    setOpen(false);
+    setStep(0);
+    onFindGift();
+  };
+
+  return (
+    <>
+      <button
+        type="button"
+        className={`hp-gift-concierge-fab ${visible || open ? "is-visible" : ""}`}
+        onClick={() => setOpen(true)}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+      >
+        <span className="hp-gift-concierge-fab-mark">✦</span>
+        <span>Need help choosing a gift?</span>
+      </button>
+
+      {open && (
+        <div
+          className="hp-gift-concierge-backdrop"
+          role="presentation"
+          onPointerDown={(event) => {
+            if (event.target === event.currentTarget) setOpen(false);
+          }}
+        >
+          <section
+            className="hp-gift-concierge-sheet"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="hp-gift-concierge-title"
+          >
+            <div className="hp-gift-concierge-sheet-head">
+              <p>HAMPORIUM · Gift Concierge</p>
+              <button type="button" onClick={() => setOpen(false)} aria-label="Close gift concierge">
+                <HomeControlIcon type="close" />
+              </button>
+            </div>
+
+            <div className="hp-gift-concierge-body">
+              <div className="hp-gift-concierge-progress" aria-hidden="true">
+                {[0,1,2].map((item) => <span key={item} className={item <= step ? "is-active" : ""} />)}
+              </div>
+
+              {step === 0 && (
+                <>
+                  <h2 id="hp-gift-concierge-title" className="hp-gift-concierge-question">Who are you gifting?</h2>
+                  <div className="hp-gift-concierge-options">
+                    {recipients.map(([id, label]) => (
+                      <button
+                        key={id}
+                        type="button"
+                        className={`hp-gift-concierge-option ${recipient === id ? "is-selected" : ""}`}
+                        onClick={() => setRecipient(id)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {step === 1 && (
+                <>
+                  <h2 id="hp-gift-concierge-title" className="hp-gift-concierge-question">What is the moment?</h2>
+                  <div className="hp-gift-concierge-options">
+                    {GIFT_OCCASIONS.map((occasion) => (
+                      <button
+                        key={occasion.id}
+                        type="button"
+                        className={`hp-gift-concierge-option ${giftOccasion === occasion.id ? "is-selected" : ""}`}
+                        onClick={() => setGiftOccasion(occasion.id)}
+                      >
+                        {occasion.label}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {step === 2 && (
+                <>
+                  <h2 id="hp-gift-concierge-title" className="hp-gift-concierge-question">Choose a comfortable budget.</h2>
+                  <div className="hp-gift-concierge-options">
+                    {GIFT_BUDGETS.map((budget) => (
+                      <button
+                        key={budget.id}
+                        type="button"
+                        className={`hp-gift-concierge-option ${giftBudget === budget.id ? "is-selected" : ""}`}
+                        onClick={() => setGiftBudget(budget.id)}
+                      >
+                        {budget.label}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              <div className="hp-gift-concierge-actions">
+                {step > 0 ? (
+                  <button type="button" className="hp-gift-concierge-back" onClick={back}>← Back</button>
+                ) : (
+                  <span />
+                )}
+
+                {step < 2 ? (
+                  <button type="button" className="hp-gift-concierge-next" onClick={advance}>Next →</button>
+                ) : (
+                  <button type="button" className="hp-gift-concierge-next" onClick={submit} disabled={busy}>
+                    {busy ? "Opening matches" : "Show my gifts →"}
+                  </button>
+                )}
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
+    </>
+  );
+};
+
 const BestsellerCollection = ({ products, promotions, loading, error, onRetry }) => {
-  const [preview, setPreview] = useState(null);
   return <div className="hp-collection-interactive">
     {error && <div className="hp-collection-notice" role="status"><span>{error}</span><button type="button" onClick={onRetry} disabled={loading}>Try again</button></div>}
     <InteractiveRail id="home-bestseller-rail" label="Hampers" className="hp-snap-rail hp-bestseller-runway" controlsClass="hp-bestseller-controls">
@@ -8829,12 +9897,10 @@ const BestsellerCollection = ({ products, promotions, loading, error, onRetry })
             product={product}
             index={index}
             promotion={findPromotionForProduct(product, promotions)}
-            onPreview={() => setPreview(product)}
           />
         </div>
       ))}
     </InteractiveRail>
-    {preview && <HomeQuickLook product={preview} onClose={() => setPreview(null)} />}
   </div>;
 };
 
@@ -8865,7 +9931,7 @@ const HomeQuickLook = ({ product, onClose }) => {
         {product.shortDescription && <p className="hp-quick-description">{product.shortDescription}</p>}
         <p className="hp-quick-price">{product.price !== null ? formatHomePrice(product.price) : "View available options"}</p>
         <p className="hp-quick-note">Explore the contents, available options and delivery details on the product page.</p>
-        <Link to={product.slug ? `/products/${product.slug}` : "/gifts"} className="hp-quick-link" onClick={onClose}>View full details <span aria-hidden="true">&#8594;</span></Link>
+        <SignatureLink to={product.slug ? `/products/${product.slug}` : "/gifts"} className="hp-quick-link" onClick={onClose}>View full details <span aria-hidden="true">&#8594;</span></SignatureLink>
         <button type="button" className="hp-quick-continue" onClick={onClose}>Continue exploring</button>
       </div>
     </div>
