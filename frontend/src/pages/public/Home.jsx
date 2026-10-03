@@ -2232,29 +2232,55 @@ const Home = () => {
           }
 
           /*
-            Keep the opening question visually separate from the first journey card.
-            The feature titles stay large; only the two-line intro gets a slightly
-            tighter editorial scale so START HERE / question / 01 content never collide.
+            V86 · JOURNEY OPENING HIERARCHY
+            Keep the question full-width, but lock it to two deliberate editorial lines.
+            The route title begins below with clear breathing room.
           */
+          .hp-home-v65 .hp-journey-first-intro {
+            left: clamp(28px, 4.1vw, 78px) !important;
+            right: clamp(28px, 4.1vw, 78px) !important;
+            top: clamp(30px, 4.4svh, 58px) !important;
+            width: auto;
+            max-width: none !important;
+          }
+
           .hp-home-v65 .hp-journey-intro-heading {
-            /*
-              The question is the editorial intro, not the main card title.
-              Keeping it one clear tier smaller prevents it from visually
-              colliding with the first journey title on shorter desktops.
-            */
-            max-width: 820px !important;
-            font-size: clamp(52px, 4.8vw, 78px) !important;
-            line-height: .89 !important;
-            letter-spacing: -.041em !important;
+            width: 100%;
+            max-width: none !important;
+            font-size: clamp(54px, 4.55vw, 78px) !important;
+            line-height: .88 !important;
+            letter-spacing: -.04em !important;
+            white-space: normal;
+            text-wrap: balance;
+          }
+
+          /* Full-width two-line composition on desktop/tablet/mobile. */
+          .hp-home-v65 .hp-journey-intro-heading > .hp-story-line:first-child,
+          .hp-home-v65 .hp-journey-intro-heading > .hp-section-heading-accent {
+            display: block !important;
+          }
+
+          .hp-home-v65 .hp-journey-intro-heading > .hp-section-heading-accent {
+            margin-left: 0 !important;
+            margin-top: .045em !important;
+            line-height: .90 !important;
+          }
+
+          /* The intro already has a gold italic phrase; no extra kinetic underline here. */
+          .hp-home-v65 .hp-journey-intro-heading::after {
+            display: none !important;
           }
 
           /*
-            Page 01 contains both the section intro and the card headline.
-            Give that first card its own lower content anchor; pages 02/03 keep
-            the higher 18svh anchor requested for the diagonal hand-off.
+            Give page 01 a deliberate gap between the wide question and its route.
+            Pages 02/03 keep the higher anchor required for the diagonal hand-off.
           */
           .hp-home-v65 .hp-journey-first-page .hp-journey-story-content {
-            bottom: 10svh;
+            bottom: 3.2svh;
+          }
+
+          .hp-home-v65 .hp-journey-first-page .hp-journey-feature-title {
+            max-width: 760px;
           }
 
           @media (max-width: 1023px) {
@@ -2262,14 +2288,19 @@ const Home = () => {
               bottom: 15svh;
             }
 
-            .hp-home-v65 .hp-journey-first-page .hp-journey-story-content {
-              bottom: 8svh;
+            .hp-home-v65 .hp-journey-first-intro {
+              left: 32px !important;
+              right: 32px !important;
+              top: 34px !important;
             }
 
             .hp-home-v65 .hp-journey-intro-heading {
-              max-width: 720px !important;
-              font-size: clamp(48px, 7vw, 64px) !important;
-              line-height: .9 !important;
+              font-size: clamp(44px, 6.6vw, 62px) !important;
+              line-height: .90 !important;
+            }
+
+            .hp-home-v65 .hp-journey-first-page .hp-journey-story-content {
+              bottom: 4.5svh;
             }
           }
 
@@ -2278,15 +2309,21 @@ const Home = () => {
               bottom: 13svh;
             }
 
-            .hp-home-v65 .hp-journey-first-page .hp-journey-story-content {
-              bottom: 6svh;
+            .hp-home-v65 .hp-journey-first-intro {
+              left: 20px !important;
+              right: 20px !important;
+              top: 25px !important;
             }
 
             .hp-home-v65 .hp-journey-intro-heading {
-              max-width: 92vw !important;
-              font-size: clamp(40px, 10.8vw, 50px) !important;
+              font-size: clamp(34px, 9.6vw, 46px) !important;
               line-height: .92 !important;
               letter-spacing: -.034em !important;
+            }
+
+
+            .hp-home-v65 .hp-journey-first-page .hp-journey-story-content {
+              bottom: 3.5svh;
             }
           }
 
@@ -5066,9 +5103,9 @@ const Home = () => {
             margin: 0;
             padding-bottom: .18em;
             font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif !important;
-            font-size: clamp(60px, 6.9vw, 110px) !important;
+            font-size: clamp(54px, 5.8vw, 90px) !important;
             font-weight: 700 !important;
-            line-height: .84 !important;
+            line-height: .89 !important;
             letter-spacing: -.048em !important;
             text-wrap: balance;
             text-shadow:
@@ -5151,7 +5188,7 @@ const Home = () => {
             }
 
             .hp-home-v65 .hp-journey-feature-title {
-              font-size: clamp(54px, 9.4vw, 84px) !important;
+              font-size: clamp(48px, 7.8vw, 72px) !important;
               line-height: .86 !important;
             }
           }
@@ -5170,7 +5207,7 @@ const Home = () => {
 
             .hp-home-v65 .hp-journey-feature-title {
               max-width: 96%;
-              font-size: clamp(50px, 14vw, 70px) !important;
+              font-size: clamp(42px, 11.5vw, 58px) !important;
               line-height: .86 !important;
               letter-spacing: -.043em !important;
               padding-bottom: .14em;
@@ -5641,119 +5678,6 @@ const Home = () => {
           @keyframes hpConciergeBackdropIn { from { opacity:0; } to { opacity:1; } }
           @keyframes hpConciergeSheetIn { from { opacity:0; transform:translateY(28px) scale(.985); } to { opacity:1; transform:none; } }
 
-          /* Peek Inside · preserve the approved gift-card design.
-             Idle cards stay pixel-for-pixel in the original wrapping language;
-             hover/tap only adds a restrained content reveal over the photo. */
-          .hp-home-v65 .hp-peek-photo {
-            transition:
-              transform .82s cubic-bezier(.16,1,.3,1),
-              filter .48s ease !important;
-          }
-
-          .hp-home-v65 .hp-peek-inside {
-            position: absolute;
-            z-index: 7;
-            left: 14px;
-            right: 76px;
-            bottom: 14px;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-            opacity: 0;
-            transform: translate3d(0,10px,0);
-            pointer-events: none;
-            transition:
-              opacity .32s ease .04s,
-              transform .5s cubic-bezier(.16,1,.3,1) .03s;
-          }
-
-          .hp-home-v65 .hp-peek-chip {
-            min-height: 26px;
-            display: inline-flex;
-            align-items: center;
-            padding: 0 9px;
-            border: 1px solid rgba(255,238,181,.36);
-            border-radius: 999px;
-            background: rgba(12,9,6,.70);
-            color: #FFF0C3;
-            backdrop-filter: blur(7px);
-            -webkit-backdrop-filter: blur(7px);
-            font-size: 7px;
-            font-weight: 900;
-            letter-spacing: .075em;
-            text-transform: uppercase;
-            box-shadow: 0 7px 18px rgba(0,0,0,.15);
-          }
-
-          .hp-home-v65 .hp-peek-toggle {
-            position: absolute;
-            z-index: 10;
-            top: 22px;
-            right: 22px;
-            display: inline-flex;
-            min-height: 36px;
-            align-items: center;
-            gap: 7px;
-            padding: 0 11px;
-            border: 1px solid rgba(234,217,188,.76);
-            border-radius: 999px;
-            background: rgba(255,250,241,.91);
-            color: #332819;
-            font-size: 9px;
-            font-weight: 800;
-            letter-spacing: .035em;
-            box-shadow: 0 7px 20px rgba(0,0,0,.09);
-            opacity: 0;
-            transform: translateY(4px);
-            transition:
-              opacity .25s ease,
-              transform .36s cubic-bezier(.16,1,.3,1),
-              background .25s ease;
-          }
-
-          .hp-home-v65 .hp-peek-toggle svg { width: 14px; height: 14px; }
-          .hp-home-v65 .hp-bestseller-card:hover .hp-peek-toggle,
-          .hp-home-v65 .hp-bestseller-card:focus-within .hp-peek-toggle,
-          .hp-home-v65 .hp-bestseller-card.is-peeking .hp-peek-toggle {
-            opacity: 1;
-            transform: none;
-          }
-
-          @media (hover:hover) and (pointer:fine) {
-            .hp-home-v65 .hp-bestseller-card:hover .hp-peek-photo,
-            .hp-home-v65 .hp-bestseller-card.is-peeking .hp-peek-photo {
-              transform: translateZ(0) scale(1.045) !important;
-              filter: brightness(.88) saturate(1.025) !important;
-            }
-
-            .hp-home-v65 .hp-bestseller-card:hover .hp-peek-inside,
-            .hp-home-v65 .hp-bestseller-card.is-peeking .hp-peek-inside {
-              opacity: 1;
-              transform: translate3d(0,0,0);
-            }
-          }
-
-          @media (max-width:1023px), (hover:none), (pointer:coarse) {
-            .hp-home-v65 .hp-peek-toggle {
-              opacity: 1;
-              transform: none;
-              top: 18px;
-              right: 18px;
-              min-height: 34px;
-              padding-inline: 10px;
-            }
-
-            .hp-home-v65 .hp-bestseller-card.is-peeking .hp-peek-photo {
-              transform: translateZ(0) scale(1.04) !important;
-              filter: brightness(.87) saturate(1.02) !important;
-            }
-
-            .hp-home-v65 .hp-bestseller-card.is-peeking .hp-peek-inside {
-              opacity: 1;
-              transform: none;
-            }
-          }
-
           @media (max-width:639px) {
             .hp-home-golden-thread { width:30px; opacity:var(--hp-golden-fade); }
             .hp-home-golden-thread-knot { left:14px; width:7px; height:7px; }
@@ -5764,16 +5688,12 @@ const Home = () => {
             .hp-gift-concierge-body { padding:18px 16px max(18px,env(safe-area-inset-bottom)); }
             .hp-gift-concierge-options { grid-template-columns:1fr 1fr; gap:7px; }
             .hp-gift-concierge-option { min-height:50px; font-size:10px; }
-            .hp-peek-chip { min-height:24px !important; padding-inline:7px !important; font-size:6.5px !important; }
-            .hp-home-v65 .hp-peek-inside { left:11px; right:66px; bottom:11px; gap:5px; }
           }
 
           @media (prefers-reduced-motion:reduce) {
             .hp-home-golden-thread-knot,
             .hp-gift-concierge-fab,
-            .hp-gift-concierge-sheet,
-            .hp-peek-inside,
-            .hp-peek-photo { transition:none !important; animation:none !important; }
+            .hp-gift-concierge-sheet { transition:none !important; animation:none !important; }
           }
 
         `}
@@ -5884,7 +5804,7 @@ const Home = () => {
                 <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_20%,rgba(212,175,55,.12),transparent_28%),radial-gradient(circle_at_80%_78%,rgba(244,120,34,.08),transparent_26%)]" />
 
                 {index === 0 && (
-                  <div className="absolute left-5 right-5 top-7 z-20 sm:left-8 sm:right-8 sm:top-10 lg:left-14 lg:right-auto lg:top-14 xl:left-20">
+                  <div className="hp-journey-first-intro absolute z-20">
                     <p className="hp-story-kicker text-[10px] font-black uppercase tracking-[0.23em] text-[#F47822] sm:text-[11px]">
                       START HERE
                     </p>
@@ -7791,33 +7711,95 @@ const HamperOneUnwrapExperience = () => {
   const [opened, setOpened] = useState(false);
   const [pullProgress, setPullProgress] = useState(0);
   const [pullDirection, setPullDirection] = useState(1);
+  const [pullX, setPullX] = useState(0);
   const [isPulling, setIsPulling] = useState(false);
-  const pullRef = useRef({ active: false, pointerId: null, startX: 0, startY: 0, moved: false });
-  const pullProgressRef = useRef(0);
+  const [isRepacking, setIsRepacking] = useState(false);
+  const [tapNudge, setTapNudge] = useState(false);
+  const visualRef = useRef(null);
+  const pullRef = useRef({
+    active: false,
+    pointerId: null,
+    startX: 0,
+    startY: 0,
+    moved: false,
+    intent: null,
+    direction: 1,
+    maxTravel: 170,
+    progress: 0,
+    x: 0,
+  });
+  const pullFrameRef = useRef(null);
+  const pendingPullRef = useRef({ progress: 0, direction: 1, x: 0 });
   const suppressSealClickRef = useRef(false);
+  const tapNudgeTimerRef = useRef(null);
 
-  const reveal = useCallback(() => {
-    pullRef.current.active = false;
-    pullProgressRef.current = 1;
-    setPullProgress(1);
-    setIsPulling(false);
-    setOpened(true);
+  const commitPullFrame = useCallback((progress, direction, x) => {
+    pendingPullRef.current = { progress, direction, x };
+
+    if (pullFrameRef.current !== null) return;
+
+    pullFrameRef.current = window.requestAnimationFrame(() => {
+      pullFrameRef.current = null;
+      const next = pendingPullRef.current;
+      setPullProgress(next.progress);
+      setPullDirection(next.direction);
+      setPullX(next.x);
+    });
   }, []);
 
+  useEffect(() => () => {
+    if (pullFrameRef.current !== null) {
+      window.cancelAnimationFrame(pullFrameRef.current);
+    }
+    window.clearTimeout(tapNudgeTimerRef.current);
+  }, []);
+
+  const reveal = useCallback((fromPull = false) => {
+    if (isRepacking) return;
+
+    window.clearTimeout(tapNudgeTimerRef.current);
+    setTapNudge(false);
+
+    if (fromPull && typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+      navigator.vibrate(10);
+    }
+
+    const state = pullRef.current;
+    state.active = false;
+    state.progress = 1;
+
+    const pulled = fromPull === true;
+    const direction = state.direction || 1;
+    const finishX = pulled ? direction * state.maxTravel : 0;
+
+    commitPullFrame(1, direction, finishX);
+    setIsPulling(false);
+    setOpened(true);
+  }, [commitPullFrame, isRepacking]);
+
   const beginPull = (event) => {
-    if (opened || event.button !== 0) return;
+    if (opened || isRepacking || (event.pointerType === "mouse" && event.button !== 0)) return;
+
     event.stopPropagation();
+
+    const width = visualRef.current?.getBoundingClientRect?.().width || 620;
+    const maxTravel = Math.max(104, Math.min(286, width * (width < 520 ? .31 : .30)));
+
     pullRef.current = {
       active: true,
       pointerId: event.pointerId,
       startX: event.clientX,
       startY: event.clientY,
       moved: false,
+      intent: null,
+      direction: pullDirection || 1,
+      maxTravel,
+      progress: 0,
+      x: 0,
     };
-    pullProgressRef.current = 0;
-    setPullProgress(0);
-    setIsPulling(true);
-    event.currentTarget.setPointerCapture?.(event.pointerId);
+
+    commitPullFrame(0, pullDirection || 1, 0);
+    setIsPulling(false);
   };
 
   const movePull = (event) => {
@@ -7826,19 +7808,46 @@ const HamperOneUnwrapExperience = () => {
 
     const dx = event.clientX - state.startX;
     const dy = event.clientY - state.startY;
-    const distance = Math.abs(dx) + Math.abs(dy) * .14;
-    const threshold = window.innerWidth < 640 ? 104 : 148;
-    const progress = Math.max(0, Math.min(1, distance / threshold));
-    const direction = Math.abs(dx) < 2 ? pullDirection : (dx >= 0 ? 1 : -1);
+    const absX = Math.abs(dx);
+    const absY = Math.abs(dy);
 
-    if (distance > 5) state.moved = true;
-    setPullDirection(direction);
-    pullProgressRef.current = progress;
-    setPullProgress(progress);
+    if (!state.intent) {
+      if (absX < 6 && absY < 6) return;
 
-    if (progress >= .82) {
+      // Let vertical finger movement remain a normal page scroll on mobile.
+      if (absY > absX * 1.18) {
+        state.intent = "vertical";
+        state.moved = true;
+        suppressSealClickRef.current = true;
+        setIsPulling(false);
+        return;
+      }
+
+      state.intent = "horizontal";
+      state.direction = dx >= 0 ? 1 : -1;
+      setIsPulling(true);
+      event.currentTarget.setPointerCapture?.(event.pointerId);
+    }
+
+    if (state.intent !== "horizontal") return;
+
+    event.preventDefault?.();
+
+    const distance = Math.min(state.maxTravel, absX);
+    const progress = Math.max(0, Math.min(1, distance / state.maxTravel));
+    const x = state.direction * distance;
+
+    if (distance > 7) state.moved = true;
+    state.progress = progress;
+    state.x = x;
+
+    commitPullFrame(progress, state.direction, x);
+
+    // Crossing the release point completes the unwrap without waiting for pointer-up.
+    const liveReleasePoint = state.maxTravel < 150 ? .76 : .82;
+    if (progress >= liveReleasePoint) {
       suppressSealClickRef.current = true;
-      reveal();
+      reveal(true);
     }
   };
 
@@ -7853,38 +7862,116 @@ const HamperOneUnwrapExperience = () => {
 
     if (state.moved) suppressSealClickRef.current = true;
 
-    if (!opened && pullProgressRef.current >= .68) {
-      reveal();
+    const releasePoint = state.maxTravel < 150 ? .62 : .68;
+    if (!opened && state.intent === "horizontal" && state.progress >= releasePoint) {
+      reveal(true);
     } else if (!opened) {
-      pullProgressRef.current = 0;
-      setPullProgress(0);
+      state.progress = 0;
+      state.x = 0;
+      window.requestAnimationFrame(() => commitPullFrame(0, state.direction || 1, 0));
     }
 
     window.setTimeout(() => {
       suppressSealClickRef.current = false;
-    }, 0);
+      pullRef.current.moved = false;
+    }, 40);
   };
 
   const handleSealClick = (event) => {
     event.stopPropagation();
-    if (opened) return;
+    if (opened || isRepacking) return;
+
     if (suppressSealClickRef.current || pullRef.current.moved) {
       suppressSealClickRef.current = false;
       pullRef.current.moved = false;
       return;
     }
-    reveal();
+
+    // Keyboard users still get a complete accessible action. A mouse/touch tap
+    // deliberately does NOT unwrap: it demonstrates the sliding gesture instead.
+    if (event.detail === 0) {
+      reveal(true);
+      return;
+    }
+
+    window.clearTimeout(tapNudgeTimerRef.current);
+    setTapNudge(false);
+    window.requestAnimationFrame(() => setTapNudge(true));
+    tapNudgeTimerRef.current = window.setTimeout(() => setTapNudge(false), 920);
   };
 
-  const pullX = pullDirection * pullProgress * (typeof window !== "undefined" && window.innerWidth < 640 ? 88 : 126);
-  const curtainTravel = pullProgress * 17;
+  const repack = useCallback((event) => {
+    event?.stopPropagation?.();
+    if (!opened || isRepacking) return;
+
+    const width = visualRef.current?.getBoundingClientRect?.().width || 620;
+    const maxTravel = Math.max(104, Math.min(286, width * (width < 520 ? .31 : .30)));
+    const direction = pullDirection || 1;
+
+    pullRef.current = {
+      active: false,
+      pointerId: null,
+      startX: 0,
+      startY: 0,
+      moved: false,
+      intent: null,
+      direction,
+      maxTravel,
+      progress: 1,
+      x: direction * maxTravel,
+    };
+
+    suppressSealClickRef.current = true;
+    setIsPulling(false);
+    setIsRepacking(true);
+
+    // Start from the released position, then physically pull the wrap back together.
+    commitPullFrame(1, direction, direction * maxTravel);
+    setOpened(false);
+
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        pullRef.current.progress = 0;
+        pullRef.current.x = 0;
+        commitPullFrame(0, direction, 0);
+      });
+    });
+
+    window.setTimeout(() => {
+      setIsRepacking(false);
+      suppressSealClickRef.current = false;
+    }, 1180);
+  }, [commitPullFrame, isRepacking, opened, pullDirection]);
+
+  const pullStatus = tapNudge
+    ? "Slide it — don’t tap"
+    : isPulling
+      ? pullProgress < .40
+        ? "Keep sliding"
+        : pullProgress < .68
+          ? "Ribbon releasing"
+          : "Almost open"
+      : "Slide to unwrap";
+
+  const pullSubcopy = isPulling
+    ? pullProgress >= .68
+      ? "Keep going to release"
+      : "Left or right"
+    : tapNudge
+      ? "Drag the clasp left or right"
+      : "Drag the gold clasp";
+
+  const releaseProgress = Math.max(0, Math.min(1, (pullProgress - .08) / .92));
+  const ribbonRelease = Math.max(0, Math.min(1, (pullProgress - .04) / .96));
+  const curtainTravel = releaseProgress * 48;
+  const ribbonRetract = ribbonRelease * 88;
 
   return (
     <section
       data-home-section="hamper-one"
       className={`hp-hamper-one-section hp-fluid-host relative isolate overflow-hidden bg-[#060504] text-white ${
         opened ? "is-unwrapped" : ""
-      }`}
+      } ${isRepacking ? "is-repacking" : ""}`}
     >
       <style>{`
         @keyframes hpHamperWrapGlow {
@@ -7929,7 +8016,7 @@ const HamperOneUnwrapExperience = () => {
         }
 
         .hp-home-v65 .hp-hamper-one-seal {
-          touch-action: none;
+          touch-action: pan-y;
           user-select: none;
           -webkit-user-select: none;
           cursor: grab;
@@ -7952,6 +8039,140 @@ const HamperOneUnwrapExperience = () => {
         .hp-home-v65 .hp-hamper-one-seal:hover .hp-hamper-pull-chevron { opacity: .9; }
         .hp-home-v65 .hp-hamper-one-seal:hover .hp-hamper-pull-chevron-left { transform: translate(-3px,-50%); }
         .hp-home-v65 .hp-hamper-one-seal:hover .hp-hamper-pull-chevron-right { transform: translate(3px,-50%); }
+
+        .hp-home-v65 .hp-hamper-pull-coach {
+          position: absolute;
+          z-index: 84;
+          left: 50%;
+          top: 18px;
+          width: min(86%, 360px);
+          pointer-events: none;
+          transform: translateX(-50%);
+          text-align: center;
+          transition: opacity .36s ease, transform .55s cubic-bezier(.16,1,.3,1);
+        }
+
+        .hp-home-v65 .hp-hamper-pull-coach-main {
+          display: inline-flex;
+          min-height: 38px;
+          align-items: center;
+          gap: 11px;
+          padding: 0 15px;
+          border: 1px solid rgba(242,210,115,.36);
+          border-radius: 999px;
+          background: rgba(8,6,4,.70);
+          color: #F5D878;
+          box-shadow: 0 11px 30px rgba(0,0,0,.26), inset 0 1px 0 rgba(255,255,255,.04);
+          backdrop-filter: blur(10px);
+          -webkit-backdrop-filter: blur(10px);
+          font: 800 9px/1 'Manrope',Arial,sans-serif;
+          letter-spacing: .15em;
+          text-transform: uppercase;
+        }
+
+        .hp-home-v65 .hp-hamper-pull-coach-arrow {
+          color: rgba(255,238,180,.74);
+          font-size: 15px;
+          letter-spacing: 0;
+          transition: transform .35s cubic-bezier(.16,1,.3,1);
+        }
+
+        .hp-home-v65 .hp-hamper-one-visual.is-pulling .hp-hamper-pull-coach-arrow:first-child {
+          transform: translateX(-4px);
+        }
+
+        .hp-home-v65 .hp-hamper-one-visual.is-pulling .hp-hamper-pull-coach-arrow:last-child {
+          transform: translateX(4px);
+        }
+
+        .hp-home-v65 .hp-hamper-pull-coach-sub {
+          display: block;
+          margin-top: 7px;
+          color: rgba(255,247,224,.68);
+          font: 650 9px/1.25 'Manrope',Arial,sans-serif;
+          letter-spacing: .035em;
+          text-shadow: 0 2px 9px rgba(0,0,0,.72);
+        }
+
+        .hp-home-v65 .hp-hamper-pull-coach-track {
+          display: block;
+          width: min(180px, 58%);
+          height: 2px;
+          margin: 8px auto 0;
+          overflow: hidden;
+          border-radius: 999px;
+          background: rgba(255,242,193,.14);
+        }
+
+        .hp-home-v65 .hp-hamper-pull-coach-track > span {
+          display: block;
+          width: 100%;
+          height: 100%;
+          transform: scaleX(var(--hp-pull-progress, 0));
+          transform-origin: left center;
+          border-radius: inherit;
+          background: linear-gradient(90deg,#B77B1A,#F6DC7C,#FFF0B0);
+          box-shadow: 0 0 12px rgba(240,201,99,.32);
+          transition: transform .08s linear;
+        }
+
+        .hp-home-v65 .hp-hamper-one-section.is-unwrapped .hp-hamper-pull-coach,
+        .hp-home-v65 .hp-hamper-one-section.is-repacking .hp-hamper-pull-coach {
+          opacity: 0;
+          transform: translateX(-50%) translateY(-8px);
+        }
+
+        .hp-home-v65 .hp-hamper-repack {
+          position: absolute;
+          z-index: 88;
+          top: 16px;
+          right: 16px;
+          display: inline-flex;
+          min-height: 42px;
+          align-items: center;
+          gap: 9px;
+          padding: 0 14px;
+          border: 1px solid rgba(242,210,115,.34);
+          border-radius: 999px;
+          background: rgba(9,7,5,.72);
+          color: #F6DC83;
+          box-shadow: 0 12px 30px rgba(0,0,0,.24);
+          backdrop-filter: blur(10px);
+          -webkit-backdrop-filter: blur(10px);
+          font: 800 9px/1 'Manrope',Arial,sans-serif;
+          letter-spacing: .12em;
+          text-transform: uppercase;
+          opacity: 0;
+          pointer-events: none;
+          transform: translateY(-7px) scale(.97);
+          transition: opacity .36s ease .28s, transform .5s cubic-bezier(.16,1,.3,1) .28s, border-color .3s ease, background .3s ease;
+        }
+
+        .hp-home-v65 .hp-hamper-one-section.is-unwrapped .hp-hamper-repack {
+          opacity: 1;
+          pointer-events: auto;
+          transform: translateY(0) scale(1);
+        }
+
+        .hp-home-v65 .hp-hamper-repack:hover {
+          border-color: rgba(246,220,131,.72);
+          background: rgba(27,20,10,.88);
+        }
+
+        .hp-home-v65 .hp-hamper-repack-icon {
+          font-size: 16px;
+          line-height: 1;
+          letter-spacing: 0;
+          transition: transform .5s cubic-bezier(.16,1,.3,1);
+        }
+
+        .hp-home-v65 .hp-hamper-repack:hover .hp-hamper-repack-icon {
+          transform: rotate(-70deg);
+        }
+
+        .hp-home-v65 .hp-hamper-one-section.is-repacking .hp-hamper-one-seal {
+          pointer-events: none !important;
+        }
 
         .hp-home-v65 .hp-hamper-pull-release-glow {
           position: absolute;
@@ -8622,6 +8843,674 @@ const HamperOneUnwrapExperience = () => {
             display: none;
           }
         }
+
+
+        /* ==================================================
+           V90 · HAMPER ONE PHYSICAL PULL-RIBBON MECHANISM
+           The H seal is now an actual horizontal drag handle.
+           Ribbon segments release from the knot, paper parts from
+           the centre, and the real Hamper One image appears beneath.
+        ================================================== */
+        .hp-home-v65 .hp-hamper-one-visual {
+          --hp-pull-progress: 0;
+          --hp-pull-dir: 1;
+          overscroll-behavior: contain;
+        }
+
+        .hp-home-v65 .hp-hamper-one-seal {
+          touch-action: pan-y !important;
+          cursor: ew-resize !important;
+          overflow: visible;
+          will-change: transform, opacity;
+        }
+
+        .hp-home-v65 .hp-hamper-one-visual.is-pulling .hp-hamper-one-seal {
+          cursor: grabbing !important;
+          animation: none !important;
+        }
+
+        .hp-home-v65 .hp-hamper-pull-guide {
+          position: absolute;
+          z-index: 58;
+          left: 50%;
+          top: 50%;
+          width: min(48%, 430px);
+          height: 1px;
+          pointer-events: none;
+          opacity: .30;
+          transform: translate(-50%,-50%);
+          background: linear-gradient(90deg, transparent, rgba(248,220,132,.34) 15%, rgba(248,220,132,.12) 50%, rgba(248,220,132,.34) 85%, transparent);
+          box-shadow: 0 0 15px rgba(212,175,55,.08);
+          transition: opacity .4s ease;
+        }
+
+        .hp-home-v65 .hp-hamper-pull-guide::before,
+        .hp-home-v65 .hp-hamper-pull-guide::after {
+          content: "";
+          position: absolute;
+          top: 50%;
+          width: 8px;
+          height: 8px;
+          border-top: 1px solid rgba(246,217,126,.72);
+          border-right: 1px solid rgba(246,217,126,.72);
+        }
+
+        .hp-home-v65 .hp-hamper-pull-guide::before {
+          left: 4px;
+          transform: translateY(-50%) rotate(-135deg);
+        }
+
+        .hp-home-v65 .hp-hamper-pull-guide::after {
+          right: 4px;
+          transform: translateY(-50%) rotate(45deg);
+        }
+
+        .hp-home-v65 .hp-hamper-one-visual.is-pulling .hp-hamper-pull-guide {
+          opacity: .58;
+        }
+
+        .hp-home-v65 .hp-hamper-one-section.is-unwrapped .hp-hamper-pull-guide {
+          opacity: 0;
+        }
+
+        /* Horizontal ribbon is split at the knot so it visibly unthreads. */
+        .hp-home-v65 .hp-unbox-ribbon-h-left,
+        .hp-home-v65 .hp-unbox-ribbon-h-right {
+          position: absolute;
+          z-index: 60;
+          top: 50%;
+          width: 50%;
+          height: 42px !important;
+          transition:
+            transform .72s cubic-bezier(.16,1,.3,1),
+            opacity .48s ease;
+          will-change: transform, opacity;
+        }
+
+        .hp-home-v65 .hp-unbox-ribbon-h-left {
+          left: 0;
+          right: auto;
+          transform-origin: left center;
+        }
+
+        .hp-home-v65 .hp-unbox-ribbon-h-right {
+          right: 0;
+          left: auto;
+          transform-origin: right center;
+        }
+
+        /* Vertical ribbon is physically two pieces tied beneath the seal. */
+        .hp-home-v65 .hp-unbox-ribbon-v-top,
+        .hp-home-v65 .hp-unbox-ribbon-v-bottom {
+          position: absolute;
+          z-index: 61;
+          left: 50%;
+          width: 42px !important;
+          height: 50%;
+          transition:
+            transform .78s cubic-bezier(.16,1,.3,1),
+            opacity .46s ease;
+          will-change: transform, opacity;
+        }
+
+        .hp-home-v65 .hp-unbox-ribbon-v-top {
+          top: 0;
+          bottom: auto;
+          transform-origin: center top;
+        }
+
+        .hp-home-v65 .hp-unbox-ribbon-v-bottom {
+          bottom: 0;
+          top: auto;
+          transform-origin: center bottom;
+        }
+
+        .hp-home-v65 .hp-hamper-loose-ribbon-tail {
+          position: absolute;
+          z-index: 64;
+          left: 50%;
+          top: 50%;
+          width: 0;
+          height: 29px !important;
+          pointer-events: none;
+          transform-origin: left center;
+          border-radius: 999px 3px 3px 999px;
+          filter: saturate(1.04) brightness(1.04);
+          box-shadow:
+            inset 0 1px 0 rgba(255,255,255,.45),
+            inset 0 -1px 0 rgba(73,42,6,.28),
+            0 10px 24px rgba(0,0,0,.26),
+            0 0 18px rgba(212,175,55,.10);
+          transition:
+            width .60s cubic-bezier(.16,1,.3,1),
+            opacity .30s ease,
+            transform .60s cubic-bezier(.16,1,.3,1);
+          will-change: width, opacity, transform;
+        }
+
+        .hp-home-v65 .hp-hamper-loose-ribbon-tail::after {
+          content: "";
+          position: absolute;
+          top: 3px;
+          bottom: 3px;
+          right: 2px;
+          width: 12px;
+          clip-path: polygon(0 0,100% 50%,0 100%);
+          background: rgba(255,242,193,.34);
+        }
+
+        .hp-home-v65 .hp-hamper-pull-aura {
+          box-shadow:
+            0 0 0 1px rgba(212,175,55,.08),
+            0 0 42px rgba(212,175,55,.12),
+            inset 0 0 32px rgba(255,231,151,.04);
+          will-change: transform, opacity;
+        }
+
+        .hp-home-v65 .hp-hamper-knot-wing {
+          position: absolute !important;
+          z-index: 1 !important;
+          top: 50%;
+          width: 46px;
+          height: 25px;
+          border: 1px solid rgba(255,237,176,.48);
+          background: linear-gradient(135deg,#7c4d0e 0%,#d9af46 38%,#f5dd86 58%,#956016 100%);
+          box-shadow:
+            inset 0 1px 0 rgba(255,255,255,.35),
+            0 7px 16px rgba(0,0,0,.20);
+          opacity: .92;
+          transition:
+            transform .62s cubic-bezier(.16,1,.3,1),
+            opacity .34s ease;
+        }
+
+        .hp-home-v65 .hp-hamper-knot-wing-left {
+          left: -25px;
+          border-radius: 80% 26% 74% 34%;
+          transform: translateY(-50%) rotate(-24deg);
+        }
+
+        .hp-home-v65 .hp-hamper-knot-wing-right {
+          right: -25px;
+          border-radius: 26% 80% 34% 74%;
+          transform: translateY(-50%) rotate(24deg);
+        }
+
+        .hp-home-v65 .hp-hamper-one-visual.is-pulling .hp-hamper-knot-wing-left {
+          transform: translateY(-50%) translateX(-8px) rotate(-39deg) scaleX(.88);
+          opacity: .64;
+        }
+
+        .hp-home-v65 .hp-hamper-one-visual.is-pulling .hp-hamper-knot-wing-right {
+          transform: translateY(-50%) translateX(8px) rotate(39deg) scaleX(.88);
+          opacity: .64;
+        }
+
+        .hp-home-v65 .hp-hamper-seal-letter {
+          position: relative !important;
+          z-index: 3 !important;
+        }
+
+        /* A tiny idle side-to-side demonstration explains the interaction visually. */
+        @keyframes hpHamperSealSlideHint {
+          0%, 66%, 100% { transform: translate(-50%,-50%) translateX(0) rotate(0deg); }
+          73% { transform: translate(-50%,-50%) translateX(8px) rotate(5deg); }
+          80% { transform: translate(-50%,-50%) translateX(-8px) rotate(-5deg); }
+          87% { transform: translate(-50%,-50%) translateX(0) rotate(0deg); }
+        }
+
+        .hp-home-v65 .hp-hamper-one-section:not(.is-unwrapped)
+        .hp-hamper-one-visual:not(.is-pulling)
+        .hp-hamper-one-seal {
+          animation:
+            hpHamperSealAura 2.9s ease-out infinite,
+            hpHamperSealSlideHint 5.4s 1.2s ease-in-out infinite;
+        }
+
+        .hp-home-v65 .hp-hamper-one-visual.is-pulling .hp-unbox-ribbon-h-left,
+        .hp-home-v65 .hp-hamper-one-visual.is-pulling .hp-unbox-ribbon-h-right,
+        .hp-home-v65 .hp-hamper-one-visual.is-pulling .hp-unbox-ribbon-v-top,
+        .hp-home-v65 .hp-hamper-one-visual.is-pulling .hp-unbox-ribbon-v-bottom,
+        .hp-home-v65 .hp-hamper-one-visual.is-pulling .hp-hamper-loose-ribbon-tail,
+        .hp-home-v65 .hp-hamper-one-visual.is-pulling .hp-hamper-pull-aura,
+        .hp-home-v65 .hp-hamper-one-visual.is-pulling .hp-hamper-knot-wing {
+          transition-duration: 0ms !important;
+        }
+
+        /* Final release: ribbon exits first, then wrapping paper completes its cinematic split. */
+        .hp-home-v65 .hp-hamper-one-section.is-unwrapped .hp-unbox-ribbon-h-left {
+          transform: translateY(-50%) scaleX(.04) translateX(-16%);
+          opacity: 0;
+        }
+
+        .hp-home-v65 .hp-hamper-one-section.is-unwrapped .hp-unbox-ribbon-h-right {
+          transform: translateY(-50%) scaleX(.04) translateX(16%);
+          opacity: 0;
+        }
+
+        .hp-home-v65 .hp-hamper-one-section.is-unwrapped .hp-unbox-ribbon-v-top {
+          transform: translateX(-50%) translateY(-116%) rotate(-5deg);
+          opacity: 0;
+        }
+
+        .hp-home-v65 .hp-hamper-one-section.is-unwrapped .hp-unbox-ribbon-v-bottom {
+          transform: translateX(-50%) translateY(116%) rotate(5deg);
+          opacity: 0;
+        }
+
+        .hp-home-v65 .hp-hamper-one-section.is-unwrapped .hp-hamper-loose-ribbon-tail,
+        .hp-home-v65 .hp-hamper-one-section.is-unwrapped .hp-hamper-pull-aura,
+        .hp-home-v65 .hp-hamper-one-section.is-unwrapped .hp-hamper-one-wrap-design {
+          opacity: 0 !important;
+        }
+
+        @media (max-width: 639px) {
+          .hp-home-v65 .hp-hamper-pull-coach {
+            top: 10px;
+            width: min(92%, 300px);
+          }
+
+          .hp-home-v65 .hp-hamper-pull-coach-main {
+            min-height: 34px;
+            gap: 8px;
+            padding-inline: 12px;
+            font-size: 8px;
+            letter-spacing: .12em;
+          }
+
+          .hp-home-v65 .hp-hamper-pull-coach-sub {
+            margin-top: 5px;
+            font-size: 8px;
+          }
+
+          .hp-home-v65 .hp-hamper-pull-coach-track {
+            width: 132px;
+            margin-top: 6px;
+          }
+
+          .hp-home-v65 .hp-hamper-repack {
+            top: 10px;
+            right: 10px;
+            min-height: 36px;
+            gap: 7px;
+            padding-inline: 11px;
+            font-size: 7.5px;
+            letter-spacing: .10em;
+          }
+
+          .hp-home-v65 .hp-hamper-repack-icon {
+            font-size: 14px;
+          }
+
+          .hp-home-v65 .hp-hamper-pull-guide {
+            width: 58%;
+          }
+
+          .hp-home-v65 .hp-unbox-ribbon-h-left,
+          .hp-home-v65 .hp-unbox-ribbon-h-right {
+            height: 34px !important;
+          }
+
+          .hp-home-v65 .hp-unbox-ribbon-v-top,
+          .hp-home-v65 .hp-unbox-ribbon-v-bottom {
+            width: 34px !important;
+          }
+
+          .hp-home-v65 .hp-hamper-loose-ribbon-tail {
+            height: 24px !important;
+          }
+
+          .hp-home-v65 .hp-hamper-knot-wing {
+            width: 38px;
+            height: 21px;
+          }
+
+          .hp-home-v65 .hp-hamper-knot-wing-left { left: -20px; }
+          .hp-home-v65 .hp-hamper-knot-wing-right { right: -20px; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .hp-home-v65 .hp-hamper-one-section:not(.is-unwrapped)
+          .hp-hamper-one-visual:not(.is-pulling)
+          .hp-hamper-one-seal {
+            animation: none !important;
+          }
+        }
+
+
+        /* ==================================================
+           V92 · HAMPER ONE MAGNETIC CLASP UNWRAP
+           Cleaner luxury hardware, stronger slide affordance,
+           no pointer tap shortcut, and the same physical gesture
+           on desktop + mobile.
+        ================================================== */
+        .hp-home-v65 .hp-hamper-one-visual {
+          --hp-clasp-gold: #E1B54B;
+          --hp-clasp-pale: #FFF0B3;
+          --hp-clasp-deep: #70430B;
+        }
+
+        /* Make the wrap calmer and let the interaction hardware become the hero. */
+        .hp-home-v65 .hp-hamper-one-wrap-jewel { display: none !important; }
+        .hp-home-v65 .hp-hamper-one-wrap-design {
+          inset: 15px;
+          border-radius: 24px;
+          border-color: rgba(238,206,112,.27);
+          background:
+            linear-gradient(135deg, rgba(255,255,255,.018), transparent 35%, rgba(212,175,55,.022) 62%, transparent),
+            rgba(7,6,4,.055);
+          box-shadow:
+            inset 0 0 0 1px rgba(255,255,255,.025),
+            inset 0 0 36px rgba(212,175,55,.035),
+            0 18px 54px rgba(0,0,0,.20);
+        }
+        .hp-home-v65 .hp-hamper-one-wrap-motif { opacity: .48; }
+        .hp-home-v65 .hp-hamper-one-wrap-corner { opacity: .50; scale: .86; }
+
+        /* Slim couture ribbon instead of the previous oversized cross. */
+        .hp-home-v65 .hp-unbox-ribbon-h-left,
+        .hp-home-v65 .hp-unbox-ribbon-h-right {
+          height: 24px !important;
+          border-radius: 2px;
+          box-shadow:
+            inset 0 1px 0 rgba(255,255,255,.44),
+            inset 0 -1px 0 rgba(71,41,5,.22),
+            0 6px 17px rgba(0,0,0,.19),
+            0 0 15px rgba(212,175,55,.07);
+        }
+        .hp-home-v65 .hp-unbox-ribbon-v-top,
+        .hp-home-v65 .hp-unbox-ribbon-v-bottom {
+          width: 24px !important;
+          box-shadow:
+            inset 1px 0 0 rgba(255,255,255,.35),
+            inset -1px 0 0 rgba(71,41,5,.20),
+            0 6px 17px rgba(0,0,0,.18),
+            0 0 14px rgba(212,175,55,.06);
+        }
+        .hp-home-v65 .hp-hamper-loose-ribbon-tail {
+          height: 18px !important;
+          border-radius: 999px 2px 2px 999px;
+          opacity: .88;
+        }
+
+        /* Slider rail: subtle enough to stay premium, obvious enough to invite dragging. */
+        .hp-home-v65 .hp-hamper-pull-guide {
+          z-index: 72;
+          width: min(43%, 360px);
+          height: 12px;
+          opacity: .48;
+          border-radius: 999px;
+          background:
+            linear-gradient(90deg,
+              transparent 0%,
+              rgba(225,181,75,.25) 10%,
+              rgba(255,240,179,.16) 50%,
+              rgba(225,181,75,.25) 90%,
+              transparent 100%) center/100% 1px no-repeat;
+          box-shadow: none;
+        }
+        .hp-home-v65 .hp-hamper-pull-guide::before,
+        .hp-home-v65 .hp-hamper-pull-guide::after {
+          top: 50%;
+          width: 7px;
+          height: 7px;
+          border: 1px solid rgba(247,221,139,.62);
+          border-radius: 50%;
+          background: rgba(28,19,8,.72);
+          box-shadow: 0 0 0 4px rgba(212,175,55,.045);
+        }
+        .hp-home-v65 .hp-hamper-pull-guide::before {
+          left: 3px;
+          transform: translateY(-50%);
+        }
+        .hp-home-v65 .hp-hamper-pull-guide::after {
+          right: 3px;
+          transform: translateY(-50%);
+        }
+        .hp-home-v65 .hp-hamper-one-visual.is-pulling .hp-hamper-pull-guide,
+        .hp-home-v65 .hp-hamper-one-visual.is-tap-nudge .hp-hamper-pull-guide {
+          opacity: .90;
+          filter: drop-shadow(0 0 7px rgba(229,190,87,.26));
+        }
+
+        /* The old coin becomes a compact jewellery-like magnetic clasp. */
+        .hp-home-v65 .hp-hamper-one-seal {
+          width: 122px !important;
+          height: 70px !important;
+          border-radius: 20px !important;
+          border: 1px solid rgba(255,234,157,.72) !important;
+          background:
+            linear-gradient(180deg, rgba(255,248,213,.16), transparent 28%),
+            linear-gradient(135deg, #7B4B0D 0%, #D9AD3F 19%, #FFF0A8 48%, #D4A139 72%, #754509 100%) !important;
+          box-shadow:
+            0 17px 38px rgba(0,0,0,.36),
+            0 0 0 1px rgba(212,175,55,.10),
+            0 0 26px rgba(212,175,55,.09),
+            inset 0 1px 0 rgba(255,255,255,.52),
+            inset 0 -8px 16px rgba(91,52,6,.20) !important;
+          animation: none !important;
+          cursor: ew-resize !important;
+        }
+        .hp-home-v65 .hp-hamper-one-seal::before {
+          inset: 7px !important;
+          border: 1px solid rgba(255,230,146,.28) !important;
+          border-radius: 14px !important;
+          background:
+            linear-gradient(180deg, rgba(255,255,255,.028), transparent 45%),
+            linear-gradient(135deg, #20160A 0%, #0D0A06 58%, #1A1108 100%) !important;
+          box-shadow:
+            inset 0 1px 0 rgba(255,255,255,.035),
+            inset 0 0 20px rgba(212,175,55,.045) !important;
+        }
+        .hp-home-v65 .hp-hamper-one-seal::after {
+          inset: 3px !important;
+          border: 1px solid rgba(72,42,7,.34) !important;
+          border-radius: 17px !important;
+          background: none !important;
+        }
+        .hp-home-v65 .hp-hamper-seal-letter {
+          display: grid;
+          place-items: center;
+          width: 46px;
+          height: 46px;
+          border: 1px solid rgba(255,240,184,.82);
+          border-radius: 50%;
+          color: #2A1A06;
+          background:
+            radial-gradient(circle at 34% 28%, #FFF7CD 0%, #F2D56E 34%, #C89428 67%, #7A4B0C 100%);
+          box-shadow:
+            0 7px 16px rgba(0,0,0,.28),
+            inset 0 1px 0 rgba(255,255,255,.68),
+            inset 0 -5px 10px rgba(97,56,7,.18);
+          font-size: 25px !important;
+          line-height: 1;
+          text-shadow: 0 1px 0 rgba(255,255,255,.38);
+        }
+        .hp-home-v65 .hp-hamper-pull-chevron { display: none !important; }
+
+        .hp-home-v65 .hp-hamper-clasp-grip {
+          position: absolute;
+          z-index: 2;
+          top: 50%;
+          width: 16px;
+          height: 34px;
+          transform: translateY(-50%);
+          border-radius: 8px;
+          opacity: .54;
+          background:
+            repeating-linear-gradient(90deg,
+              rgba(255,240,178,.54) 0 1px,
+              transparent 1px 4px);
+        }
+        .hp-home-v65 .hp-hamper-clasp-grip-left { left: 14px; }
+        .hp-home-v65 .hp-hamper-clasp-grip-right { right: 14px; }
+
+        /* Ribbon tabs now look like they are trapped under the hardware, not cartoon bow ears. */
+        .hp-home-v65 .hp-hamper-knot-wing {
+          top: 50%;
+          width: 31px;
+          height: 16px;
+          border-radius: 3px;
+          border-color: rgba(255,233,161,.30);
+          background: linear-gradient(180deg,#8C5811,#E0B84C 42%,#F6DC7A 58%,#8D5811);
+          box-shadow: 0 4px 10px rgba(0,0,0,.18);
+          opacity: .86;
+        }
+        .hp-home-v65 .hp-hamper-knot-wing-left {
+          left: -22px;
+          transform: translateY(-50%) rotate(-6deg);
+        }
+        .hp-home-v65 .hp-hamper-knot-wing-right {
+          right: -22px;
+          transform: translateY(-50%) rotate(6deg);
+        }
+        .hp-home-v65 .hp-hamper-one-visual.is-pulling .hp-hamper-knot-wing-left {
+          transform: translateY(-50%) translateX(-10px) rotate(-14deg) scaleX(.84);
+          opacity: .54;
+        }
+        .hp-home-v65 .hp-hamper-one-visual.is-pulling .hp-hamper-knot-wing-right {
+          transform: translateY(-50%) translateX(10px) rotate(14deg) scaleX(.84);
+          opacity: .54;
+        }
+
+        /* Instruction sits with the hardware instead of floating at the top of the gift. */
+        .hp-home-v65 .hp-hamper-pull-coach {
+          top: calc(50% + 60px);
+          width: min(80%, 300px);
+          transform: translateX(-50%);
+        }
+        .hp-home-v65 .hp-hamper-pull-coach-main {
+          min-height: 30px;
+          gap: 8px;
+          padding: 0 12px;
+          border-color: rgba(235,201,106,.24);
+          background: rgba(10,8,5,.58);
+          color: #F5D879;
+          box-shadow: 0 8px 20px rgba(0,0,0,.20);
+          font-size: 8px;
+          letter-spacing: .16em;
+        }
+        .hp-home-v65 .hp-hamper-pull-coach-gesture {
+          display: inline-block;
+          color: #FFE59A;
+          font: 700 15px/1 Arial,sans-serif;
+          letter-spacing: 0;
+          transition: transform .35s cubic-bezier(.16,1,.3,1);
+        }
+        .hp-home-v65 .hp-hamper-one-visual.is-pulling .hp-hamper-pull-coach-gesture {
+          transform: scaleX(1.34);
+        }
+        .hp-home-v65 .hp-hamper-pull-coach-sub {
+          margin-top: 5px;
+          color: rgba(255,247,224,.54);
+          font-size: 8px;
+        }
+        .hp-home-v65 .hp-hamper-pull-coach-track {
+          width: 118px;
+          height: 2px;
+          margin-top: 7px;
+          background: rgba(255,242,193,.11);
+        }
+
+        /* Tap does not open. It gives a physical demo so the user learns the gesture. */
+        @keyframes hpHamperClaspTapNudge {
+          0%, 100% { transform: translate(-50%,-50%) translateX(0) rotate(0deg); }
+          24% { transform: translate(-50%,-50%) translateX(14px) rotate(3deg); }
+          52% { transform: translate(-50%,-50%) translateX(-12px) rotate(-3deg); }
+          76% { transform: translate(-50%,-50%) translateX(5px) rotate(1deg); }
+        }
+        @keyframes hpHamperClaspIdleHint {
+          0%, 72%, 100% { transform: translate(-50%,-50%) translateX(0); }
+          78% { transform: translate(-50%,-50%) translateX(5px); }
+          84% { transform: translate(-50%,-50%) translateX(-5px); }
+          90% { transform: translate(-50%,-50%) translateX(0); }
+        }
+        .hp-home-v65 .hp-hamper-one-section:not(.is-unwrapped)
+        .hp-hamper-one-visual:not(.is-pulling):not(.is-tap-nudge)
+        .hp-hamper-one-seal {
+          animation: hpHamperClaspIdleHint 6.2s 1.4s ease-in-out infinite !important;
+        }
+        .hp-home-v65 .hp-hamper-one-visual.is-tap-nudge .hp-hamper-one-seal {
+          animation: hpHamperClaspTapNudge .82s cubic-bezier(.16,1,.3,1) both !important;
+        }
+        .hp-home-v65 .hp-hamper-one-visual.is-tap-nudge .hp-hamper-pull-coach-main {
+          border-color: rgba(245,214,124,.56);
+          background: rgba(24,17,8,.78);
+        }
+
+        .hp-home-v65 .hp-hamper-one-visual.is-pulling .hp-hamper-one-seal {
+          animation: none !important;
+          box-shadow:
+            0 22px 48px rgba(0,0,0,.42),
+            0 0 0 6px rgba(212,175,55,.075),
+            0 0 32px rgba(238,201,100,.14),
+            inset 0 1px 0 rgba(255,255,255,.54),
+            inset 0 -8px 16px rgba(91,52,6,.20) !important;
+        }
+
+        /* Repack stays playful but quiet after the premium reveal. */
+        .hp-home-v65 .hp-hamper-repack {
+          top: 14px;
+          right: 14px;
+          min-height: 38px;
+          padding: 0 12px;
+          background: rgba(8,7,5,.64);
+          font-size: 8px;
+          letter-spacing: .13em;
+        }
+
+        @media (max-width: 639px) {
+          .hp-home-v65 .hp-hamper-one-seal {
+            width: 102px !important;
+            height: 60px !important;
+            border-radius: 17px !important;
+          }
+          .hp-home-v65 .hp-hamper-one-seal::before { border-radius: 12px !important; }
+          .hp-home-v65 .hp-hamper-one-seal::after { border-radius: 14px !important; }
+          .hp-home-v65 .hp-hamper-seal-letter {
+            width: 38px;
+            height: 38px;
+            font-size: 21px !important;
+          }
+          .hp-home-v65 .hp-hamper-clasp-grip {
+            width: 13px;
+            height: 29px;
+          }
+          .hp-home-v65 .hp-hamper-clasp-grip-left { left: 11px; }
+          .hp-home-v65 .hp-hamper-clasp-grip-right { right: 11px; }
+          .hp-home-v65 .hp-hamper-knot-wing { width: 25px; height: 13px; }
+          .hp-home-v65 .hp-hamper-knot-wing-left { left: -17px; }
+          .hp-home-v65 .hp-hamper-knot-wing-right { right: -17px; }
+          .hp-home-v65 .hp-unbox-ribbon-h-left,
+          .hp-home-v65 .hp-unbox-ribbon-h-right { height: 20px !important; }
+          .hp-home-v65 .hp-unbox-ribbon-v-top,
+          .hp-home-v65 .hp-unbox-ribbon-v-bottom { width: 20px !important; }
+          .hp-home-v65 .hp-hamper-loose-ribbon-tail { height: 15px !important; }
+          .hp-home-v65 .hp-hamper-pull-guide { width: min(62%, 250px); }
+          .hp-home-v65 .hp-hamper-pull-coach {
+            top: calc(50% + 53px);
+            width: min(86%, 250px);
+          }
+          .hp-home-v65 .hp-hamper-pull-coach-main {
+            min-height: 28px;
+            padding: 0 10px;
+            font-size: 7.5px;
+          }
+          .hp-home-v65 .hp-hamper-pull-coach-sub { font-size: 7px; }
+          .hp-home-v65 .hp-hamper-repack {
+            top: 9px;
+            right: 9px;
+            min-height: 34px;
+            padding-inline: 10px;
+            font-size: 7px;
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .hp-home-v65 .hp-hamper-one-visual:not(.is-pulling) .hp-hamper-one-seal {
+            animation: none !important;
+          }
+        }
       `}</style>
 
       <div className="hp-hamper-one-stage relative min-h-[760px] sm:min-h-[820px] lg:min-h-[900px]">
@@ -8672,22 +9561,16 @@ const HamperOneUnwrapExperience = () => {
 
             <div className="hp-hamper-one-visual-wrap relative z-20 mx-auto w-full max-w-[980px]">
               <div
-                role={!opened ? "button" : undefined}
-                tabIndex={!opened ? 0 : -1}
-                aria-label={!opened ? "Tap to unwrap Hamper One" : undefined}
-                onClick={!opened ? reveal : undefined}
-                onKeyDown={(event) => {
-                  if (!opened && (event.key === "Enter" || event.key === " ")) {
-                    event.preventDefault();
-                    reveal();
-                  }
-                }}
+                ref={visualRef}
                 className={`hp-hamper-one-visual relative min-h-[520px] overflow-hidden rounded-[28px] border border-white/12 bg-black/24 shadow-[0_34px_100px_rgba(0,0,0,.38)] outline-none sm:min-h-[650px] lg:min-h-[710px] ${
-                  !opened ? "cursor-pointer" : ""
-                } ${isPulling ? "is-pulling" : ""}`}
+                  isPulling ? "is-pulling" : ""
+                } ${tapNudge ? "is-tap-nudge" : ""}`}
                 style={{
                   "--hp-pull-progress": pullProgress,
                   "--hp-pull-x": `${pullX}px`,
+                  "--hp-pull-dir": pullDirection,
+                  "--hp-ribbon-release": ribbonRelease,
+                  "--hp-curtain-travel": `${curtainTravel}%`,
                 }}
               >
                 <SmartImage
@@ -8698,8 +9581,8 @@ const HamperOneUnwrapExperience = () => {
                     opened ? "scale-100 brightness-[1.03] saturate-[1.08]" : "scale-[1.035]"
                   }`}
                   style={!opened ? {
-                    filter: `brightness(${(.78 + pullProgress * .20).toFixed(3)}) saturate(${(1 + pullProgress * .08).toFixed(3)})`,
-                    transform: `scale(${(1.035 - pullProgress * .022).toFixed(4)})`,
+                    filter: `brightness(${(.76 + pullProgress * .27).toFixed(3)}) saturate(${(1 + pullProgress * .11).toFixed(3)})`,
+                    transform: `scale(${(1.038 - pullProgress * .034).toFixed(4)})`,
                   } : undefined}
                 />
 
@@ -8752,8 +9635,8 @@ const HamperOneUnwrapExperience = () => {
                     opened ? "pointer-events-none opacity-0" : "opacity-100"
                   }`}
                   style={!opened ? {
-                    opacity: Math.max(.54, 1 - pullProgress * .46),
-                    transform: `scale(${(1 - pullProgress * .006).toFixed(4)})`,
+                    opacity: Math.max(.14, 1 - pullProgress * .86),
+                    transform: `scale(${(1 - pullProgress * .010).toFixed(4)})`,
                   } : undefined}
                 >
                   <SmartImage
@@ -8771,8 +9654,8 @@ const HamperOneUnwrapExperience = () => {
                       opened ? "opacity-0" : "opacity-100"
                     }`}
                     style={!opened ? {
-                      opacity: Math.max(.48, 1 - pullProgress * .52),
-                      transform: `translateX(${(-pullDirection * pullProgress * 7).toFixed(1)}px) scale(${(1 - pullProgress * .012).toFixed(4)}) rotate(${(-pullDirection * pullProgress * .35).toFixed(2)}deg)`,
+                      opacity: Math.max(.18, 1 - pullProgress * .82),
+                      transform: `translateX(${(-pullDirection * pullProgress * 12).toFixed(1)}px) scale(${(1 - pullProgress * .018).toFixed(4)}) rotate(${(-pullDirection * pullProgress * .55).toFixed(2)}deg)`,
                     } : undefined}
                     aria-hidden="true"
                   >
@@ -8788,50 +9671,110 @@ const HamperOneUnwrapExperience = () => {
                   </div>
                 </div>
 
-                {/* Curtain pair */}
+                {/* Split wrapping paper: it parts from the centre as the seal is pulled. */}
                 <div
-                  className={`hp-unbox-curtain hp-unbox-curtain-left absolute inset-y-0 left-0 z-50 w-1/2 border-r border-[#D4AF37]/16 transition-transform duration-[1250ms] ease-[cubic-bezier(.16,1,.3,1)] ${
+                  className={`hp-unbox-curtain hp-unbox-curtain-left absolute inset-y-0 left-0 z-50 w-1/2 border-r border-[#D4AF37]/16 transition-transform duration-[1050ms] ease-[cubic-bezier(.16,1,.3,1)] ${
                     opened ? "-translate-x-[104%]" : "translate-x-0"
                   }`}
-                  style={!opened ? { transform: `translateX(-${curtainTravel.toFixed(2)}%)` } : undefined}
-                />
-
-                <div
-                  className={`hp-unbox-curtain hp-unbox-curtain-right absolute inset-y-0 right-0 z-50 w-1/2 border-l border-[#D4AF37]/16 transition-transform duration-[1250ms] ease-[cubic-bezier(.16,1,.3,1)] ${
-                    opened ? "translate-x-[104%]" : "translate-x-0"
-                  }`}
-                  style={!opened ? { transform: `translateX(${curtainTravel.toFixed(2)}%)` } : undefined}
-                />
-
-                {/* Ribbon */}
-                <div
-                  className={`hp-unbox-ribbon hp-unbox-ribbon-v absolute left-1/2 top-0 z-[60] h-full w-8 -translate-x-1/2 transition-all duration-[850ms] ease-[cubic-bezier(.16,1,.3,1)] ${
-                    opened ? "scale-y-0 opacity-0" : "scale-y-100 opacity-100"
-                  }`}
                   style={!opened ? {
-                    transform: `translateX(calc(-50% + ${(-pullX * .08).toFixed(1)}px)) scaleY(${(1 - pullProgress * .16).toFixed(3)}) rotate(${(pullDirection * pullProgress * 1.4).toFixed(2)}deg)`,
-                    opacity: Math.max(.52, 1 - pullProgress * .40),
+                    transform: `translateX(-${curtainTravel.toFixed(2)}%) rotate(${(-pullDirection * releaseProgress * .22).toFixed(2)}deg)`,
                   } : undefined}
                 />
 
                 <div
-                  className={`hp-unbox-ribbon hp-unbox-ribbon-h absolute left-0 top-1/2 z-[60] h-8 w-full -translate-y-1/2 transition-all duration-[850ms] ease-[cubic-bezier(.16,1,.3,1)] ${
-                    opened ? "scale-x-0 opacity-0" : "scale-x-100 opacity-100"
+                  className={`hp-unbox-curtain hp-unbox-curtain-right absolute inset-y-0 right-0 z-50 w-1/2 border-l border-[#D4AF37]/16 transition-transform duration-[1050ms] ease-[cubic-bezier(.16,1,.3,1)] ${
+                    opened ? "translate-x-[104%]" : "translate-x-0"
                   }`}
                   style={!opened ? {
-                    transform: `translateY(-50%) translateX(${(pullX * .08).toFixed(1)}px) scaleX(${(1 - pullProgress * .30).toFixed(3)}) rotate(${(-pullDirection * pullProgress * .8).toFixed(2)}deg)`,
-                    opacity: Math.max(.48, 1 - pullProgress * .44),
+                    transform: `translateX(${curtainTravel.toFixed(2)}%) rotate(${(-pullDirection * releaseProgress * .22).toFixed(2)}deg)`,
+                  } : undefined}
+                />
+
+                {/* Clear but compact interaction coaching. It reacts to the pull instead of adding permanent copy to the wrap. */}
+                <div
+                  id="hp-hamper-pull-help"
+                  className="hp-hamper-pull-coach"
+                  style={{ "--hp-pull-progress": pullProgress }}
+                  aria-live="polite"
+                >
+                  <span className="hp-hamper-pull-coach-main">
+                    <span className="hp-hamper-pull-coach-gesture" aria-hidden="true">↔</span>
+                    <span>{pullStatus}</span>
+                  </span>
+                  <span className="hp-hamper-pull-coach-sub">{pullSubcopy}</span>
+                  <span className="hp-hamper-pull-coach-track" aria-hidden="true"><span /></span>
+                </div>
+
+                <button
+                  type="button"
+                  className="hp-hamper-repack"
+                  onClick={repack}
+                  aria-label="Wrap Hamper One again so you can replay the unwrap"
+                >
+                  <span className="hp-hamper-repack-icon" aria-hidden="true">↺</span>
+                  <span>Wrap again</span>
+                </button>
+
+                {/* Subtle centre guide makes the gold seal read like a real slider. */}
+                <span className="hp-hamper-pull-guide" aria-hidden="true" />
+
+                {/* Horizontal satin ribbon unthreads from the centre towards both outer edges. */}
+                <div
+                  className="hp-unbox-ribbon hp-unbox-ribbon-h hp-unbox-ribbon-h-left"
+                  aria-hidden="true"
+                  style={!opened ? {
+                    transform: `translateY(-50%) scaleX(${(1 - ribbonRetract / 100).toFixed(3)}) translateX(${(-releaseProgress * 5).toFixed(2)}%)`,
+                    opacity: Math.max(.16, 1 - ribbonRelease * .74),
+                  } : undefined}
+                />
+                <div
+                  className="hp-unbox-ribbon hp-unbox-ribbon-h hp-unbox-ribbon-h-right"
+                  aria-hidden="true"
+                  style={!opened ? {
+                    transform: `translateY(-50%) scaleX(${(1 - ribbonRetract / 100).toFixed(3)}) translateX(${(releaseProgress * 5).toFixed(2)}%)`,
+                    opacity: Math.max(.16, 1 - ribbonRelease * .74),
+                  } : undefined}
+                />
+
+                {/* Vertical ribbon is genuinely untied: upper and lower halves release away from the knot. */}
+                <div
+                  className="hp-unbox-ribbon hp-unbox-ribbon-v hp-unbox-ribbon-v-top"
+                  aria-hidden="true"
+                  style={!opened ? {
+                    transform: `translateX(-50%) translateY(-${(ribbonRelease * 108).toFixed(2)}%) rotate(${(-pullDirection * ribbonRelease * 3.8).toFixed(2)}deg)`,
+                    opacity: Math.max(.10, 1 - ribbonRelease * .86),
+                  } : undefined}
+                />
+                <div
+                  className="hp-unbox-ribbon hp-unbox-ribbon-v hp-unbox-ribbon-v-bottom"
+                  aria-hidden="true"
+                  style={!opened ? {
+                    transform: `translateX(-50%) translateY(${(ribbonRelease * 108).toFixed(2)}%) rotate(${(pullDirection * ribbonRelease * 3.8).toFixed(2)}deg)`,
+                    opacity: Math.max(.10, 1 - ribbonRelease * .86),
+                  } : undefined}
+                />
+
+                {/* Loose satin tail visibly follows the dragged seal, so the pull feels physical. */}
+                <span
+                  className="hp-unbox-ribbon hp-hamper-loose-ribbon-tail"
+                  aria-hidden="true"
+                  style={!opened ? {
+                    width: `${Math.max(0, Math.abs(pullX)).toFixed(1)}px`,
+                    opacity: Math.min(.92, pullProgress * 1.34),
+                    transform: pullDirection > 0
+                      ? `translateY(-50%) rotate(${(pullProgress * 2.2).toFixed(2)}deg)`
+                      : `translate(-100%,-50%) rotate(${(-pullProgress * 2.2).toFixed(2)}deg)`,
                   } : undefined}
                 />
 
                 <span
                   aria-hidden="true"
-                  className={`pointer-events-none absolute left-1/2 top-1/2 z-[76] h-[132px] w-[132px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#F4D36A]/18 bg-[#D4AF37]/5 blur-[1px] transition-all duration-700 sm:h-[146px] sm:w-[146px] ${
+                  className={`hp-hamper-pull-aura pointer-events-none absolute left-1/2 top-1/2 z-[76] h-[132px] w-[132px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#F4D36A]/18 bg-[#D4AF37]/5 transition-all duration-700 sm:h-[146px] sm:w-[146px] ${
                     opened ? "scale-50 opacity-0" : "scale-100 opacity-100"
                   }`}
                   style={!opened ? {
-                    transform: `translate(-50%,-50%) scale(${(1 + pullProgress * .18).toFixed(3)})`,
-                    opacity: Math.max(.18, 1 - pullProgress * .62),
+                    transform: `translate(-50%,-50%) translateX(${(pullX * .16).toFixed(1)}px) scale(${(1 + pullProgress * .28).toFixed(3)})`,
+                    opacity: Math.max(.10, .72 - pullProgress * .58),
                   } : undefined}
                 />
 
@@ -8839,29 +9782,32 @@ const HamperOneUnwrapExperience = () => {
 
                 <button
                   type="button"
-                  aria-label="Pull or tap to unwrap Hamper One"
+                  aria-label="Drag the gold H clasp left or right to unwrap Hamper One. Keyboard users can press Enter to open."
+                  aria-describedby="hp-hamper-pull-help"
                   onPointerDown={beginPull}
                   onPointerMove={movePull}
                   onPointerUp={endPull}
                   onPointerCancel={endPull}
                   onClick={handleSealClick}
-                  className={`hp-hamper-one-seal absolute left-1/2 top-1/2 z-[80] grid h-[94px] w-[94px] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-[#FFE8A5]/52 bg-[radial-gradient(circle_at_34%_28%,#F6E4A3_0%,#D4AF37_46%,#99641C_100%)] text-[#2B1B05] shadow-[0_22px_50px_rgba(0,0,0,.38)] transition-all duration-[780ms] ease-[cubic-bezier(.16,1,.3,1)] sm:h-[102px] sm:w-[102px] ${
+                  className={`hp-hamper-one-seal absolute left-1/2 top-1/2 z-[80] grid h-[94px] w-[94px] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-[#FFE8A5]/52 bg-[radial-gradient(circle_at_34%_28%,#F6E4A3_0%,#D4AF37_46%,#99641C_100%)] text-[#2B1B05] shadow-[0_22px_50px_rgba(0,0,0,.38)] transition-all duration-[680ms] ease-[cubic-bezier(.16,1,.3,1)] sm:h-[102px] sm:w-[102px] ${
                     opened
                       ? "pointer-events-none scale-50 rotate-[28deg] opacity-0"
                       : "scale-100 rotate-0 opacity-100"
                   }`}
                   style={!opened ? {
-                    transform: `translate(-50%,-50%) translateX(${pullX.toFixed(1)}px) rotate(${(pullDirection * pullProgress * 118).toFixed(1)}deg) scale(${(1 - pullProgress * .12).toFixed(3)})`,
+                    transform: `translate(-50%,-50%) translateX(${pullX.toFixed(1)}px) rotate(${(pullDirection * pullProgress * 132).toFixed(1)}deg) scale(${(1 - pullProgress * .08).toFixed(3)})`,
                   } : undefined}
                 >
-                  <span className="hp-hamper-pull-chevron hp-hamper-pull-chevron-left" aria-hidden="true">‹</span>
+                  <span className="hp-hamper-knot-wing hp-hamper-knot-wing-left" aria-hidden="true" />
+                  <span className="hp-hamper-knot-wing hp-hamper-knot-wing-right" aria-hidden="true" />
+                  <span className="hp-hamper-clasp-grip hp-hamper-clasp-grip-left" aria-hidden="true" />
                   <span
                     style={{ fontFamily: DISPLAY_FONT }}
-                    className="text-[30px] font-bold"
+                    className="hp-hamper-seal-letter text-[30px] font-bold"
                   >
                     H
                   </span>
-                  <span className="hp-hamper-pull-chevron hp-hamper-pull-chevron-right" aria-hidden="true">›</span>
+                  <span className="hp-hamper-clasp-grip hp-hamper-clasp-grip-right" aria-hidden="true" />
                 </button>
               </div>
             </div>
@@ -8903,30 +9849,11 @@ const PromiseCard = ({
 // PRODUCT CARD
 // ======================================================
 
-const getPeekInsideItems = (product, index = 0) => {
-  const supplied = product?.contents || product?.items || product?.includedProducts;
-  if (Array.isArray(supplied) && supplied.length) {
-    return supplied
-      .slice(0, 3)
-      .map((item) => typeof item === "string" ? item : (item?.name || item?.title))
-      .filter(Boolean);
-  }
-
-  const safeSets = [
-    ["Curated treats", "Personal note", "Signature packaging"],
-    ["Premium picks", "Gift message", "Hand-finished wrap"],
-    ["Celebration edit", "Personal touch", "Luxury presentation"],
-  ];
-  return safeSets[index % safeSets.length];
-};
-
 const LovedProductCard = ({ product, index = 0, promotion }) => {
-  const [peeking, setPeeking] = useState(false);
   const destination = product.slug ? `/products/${product.slug}` : "/gifts";
-  const peekItems = getPeekInsideItems(product, index);
 
   return (
-    <article className={`hp-bestseller-card hp-gift-variant-${index % 5} group ${peeking ? "is-peeking" : ""}`}>
+    <article className={`hp-bestseller-card hp-gift-variant-${index % 5} group`}>
       <PromotionProductBadge promotion={promotion} />
 
       <div className="hp-gift-wrap-layer" aria-hidden="true">
@@ -8959,14 +9886,9 @@ const LovedProductCard = ({ product, index = 0, promotion }) => {
           <SmartImage
             src={product.image}
             alt={product.name}
-            className="hp-peek-photo absolute inset-0 h-full w-full object-cover object-center"
+            className="absolute inset-0 h-full w-full object-cover object-center"
           />
 
-          <div className="hp-peek-inside" aria-hidden={!peeking}>
-            {peekItems.map((item) => (
-              <span key={item} className="hp-peek-chip">{item}</span>
-            ))}
-          </div>
 
           <span className="hp-gift-image-charm" aria-hidden="true">
             <span>H</span>
@@ -9003,20 +9925,6 @@ const LovedProductCard = ({ product, index = 0, promotion }) => {
         </div>
       </SignatureLink>
 
-      <button
-        type="button"
-        className="hp-peek-toggle"
-        aria-pressed={peeking}
-        aria-label={`${peeking ? "Close" : "Peek inside"} ${product.name}`}
-        onClick={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          setPeeking((value) => !value);
-        }}
-      >
-        <HomeControlIcon type="eye" />
-        <span>{peeking ? "Close peek" : "Peek inside"}</span>
-      </button>
     </article>
   );
 };
