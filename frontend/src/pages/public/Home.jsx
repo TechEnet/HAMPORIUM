@@ -1997,6 +1997,37 @@ const Home = () => {
           .hp-story-page:nth-child(2) { z-index: 20; }
           .hp-story-page:nth-child(3) { z-index: 30; }
 
+          /* Journey stack uses the same diagonal language, but with 10% less tilt. */
+          .hp-journey-story-page {
+            --hp-story-cut: clamp(47px, 4.7vw, 86px);
+          }
+
+
+          /* V77 · ultra-smooth journey transitions */
+          .hp-journey-story-page,
+          .hp-journey-story-sheet,
+          .hp-journey-story-sheet > * {
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+          }
+
+          .hp-journey-story-sheet {
+            transform: translate3d(0,0,0);
+            will-change: clip-path, transform;
+          }
+
+          .hp-journey-story-page .hp-story-kicker,
+          .hp-journey-story-page h2,
+          .hp-journey-story-page h3,
+          .hp-journey-story-page p,
+          .hp-journey-story-page [class*="border-white"] {
+            transform: translate3d(0,0,0);
+          }
+
+          .hp-journey-story-page .hp-fluid-backdrop {
+            transform: translate3d(0,0,0);
+          }
+
           /*
             The visual sheet is the only clipped layer. Keeping clip-path off the
             sticky element makes Chrome/Edge/Safari much more stable during fast
@@ -4070,8 +4101,23 @@ const Home = () => {
 
           .hp-fluid-image-base {
             z-index: 0;
-            transform: translateZ(0);
-            transition: transform .46s cubic-bezier(.22,1,.36,1);
+            opacity: 1;
+            transform: translate3d(0,0,0) scale(1.006);
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+            will-change: transform;
+            transition:
+              transform 1.65s cubic-bezier(.16,1,.3,1);
+          }
+
+          .hp-fluid-image-hover {
+            z-index: 1;
+            opacity: 0;
+            transform: translate3d(0,0,0) scale(1.022);
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+            pointer-events: none;
+            will-change: auto;
           }
 
           .hp-fluid-canvas-wrap {
@@ -4079,12 +4125,19 @@ const Home = () => {
             overflow: hidden;
             opacity: 0;
             pointer-events: none;
-            transform: translateZ(0);
-            transition: opacity .14s ease-out;
+            transform: translate3d(0,0,0);
+            transition: opacity .42s cubic-bezier(.22,1,.36,1);
             will-change: opacity;
           }
 
-          .hp-fluid-backdrop.is-fluid-active .hp-fluid-canvas-wrap {
+          /*
+            V78 · FLICKER-FREE IMAGE BLEND
+            Once WebGL has drawn its first valid frame the canvas stays visible.
+            Hover only changes the shader mix; we do not fade the canvas in/out on
+            every pointer enter/leave. That removes the double cross-fade which was
+            producing the visible blink between the DOM images and WebGL texture.
+          */
+          .hp-fluid-backdrop.is-fluid-ready .hp-fluid-canvas-wrap {
             opacity: 1;
           }
 
@@ -4098,7 +4151,22 @@ const Home = () => {
           /* Small overscan prevents edge gaps while the wave bends the image. */
           @media (hover: hover) and (pointer: fine) {
             .hp-fluid-host:hover .hp-fluid-image-base {
-              transform: translateZ(0) scale(1.008);
+              transform: translate3d(0,0,0) scale(1.014);
+            }
+
+            /*
+              CSS cross-fade is fallback-only. On the normal WebGL path the shader
+              owns the entire A/B transition, so two different animations can never
+              fight each other or flash at different points in the blend.
+            */
+            .hp-fluid-host:hover .hp-fluid-backdrop.has-hover-image:not(.is-fluid-ready) .hp-fluid-image-base {
+              opacity: 0;
+              transition: opacity .95s cubic-bezier(.22,1,.36,1);
+            }
+
+            .hp-fluid-host:hover .hp-fluid-backdrop.has-hover-image:not(.is-fluid-ready) .hp-fluid-image-hover {
+              opacity: 1;
+              transition: opacity .95s cubic-bezier(.22,1,.36,1);
             }
           }
 
@@ -4694,6 +4762,11 @@ const Home = () => {
             .hp-unbox-ribbon {
               transition: none !important;
             }
+
+            .hp-hamper-one-seal,
+            .hp-hamper-one-wrap-design::after {
+              animation: none !important;
+            }
           }
 
         `}
@@ -4724,158 +4797,130 @@ const Home = () => {
         />
 
         {/* ==================================================
-            CHOOSE YOUR GIFTING JOURNEY
+            CHOOSE YOUR GIFTING JOURNEY · DIAGONAL SCROLL STORY
+            Uses the same sticky sheet / diagonal hand-off language as
+            the 01 / 02 / 03 Brand Story stack below.
         =================================================== */}
 
-        <section data-home-section="journey" className="hp-pointer-glow relative overflow-hidden bg-[#080706] px-4 py-16 text-white sm:px-6 lg:px-0 lg:py-0">
-          <div className="hp-journey-glow pointer-events-none absolute left-1/2 top-1/2 h-[480px] w-[480px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#D4AF37]/10 blur-[125px]" />
+        <section
+          data-home-section="journey"
+          className="hp-story-stack hp-journey-story-stack hp-pointer-glow relative bg-[#080706] text-white"
+        >
+          {[
+            {
+              label: "01 · READY TO GIFT",
+              title: "Shop Signature Hampers",
+              copy: "Ready-made premium hampers, curated and gift-ready.",
+              image: HOME_IMAGES.journeySignature1,
+              hoverImage: HOME_IMAGES.journeySignature2,
+              to: "/gifts",
+              cta: "Shop Hampers",
+              objectPosition: "center center",
+            },
+            {
+              label: "02 · MADE BY YOU",
+              title: "Build Your Own Hamper",
+              copy: "Choose the box, products and finishing touches your way.",
+              image: HOME_IMAGES.journeyBuild1,
+              hoverImage: HOME_IMAGES.journeyBuild2,
+              to: "/custom-hamper",
+              cta: "Start Building",
+              objectPosition: "center center",
+            },
+            {
+              label: "03 · SCALE IT UP",
+              title: "Bulk & Event Gifting",
+              copy: "Premium gifting for teams, weddings and memorable events.",
+              image: HOME_IMAGES.journeyBulk1,
+              hoverImage: HOME_IMAGES.journeyBulk2,
+              to: "/custom-hamper?mode=bulk",
+              cta: "Plan Bulk Gifting",
+              objectPosition: "center center",
+            },
+          ].map((item, index) => (
+            <Link
+              key={item.label}
+              to={item.to}
+              className="hp-story-page hp-journey-story-page hp-fluid-host group relative block"
+              aria-label={`${item.title}. ${item.cta}`}
+            >
+              <div className="hp-story-sheet hp-journey-story-sheet">
+                <FluidBackdrop
+                  src={item.image}
+                  hoverSrc={item.hoverImage}
+                  alt={item.title}
+                  loading={index === 0 ? "eager" : "lazy"}
+                  fetchPriority={index === 0 ? "high" : "low"}
+                  style={{ objectPosition: item.objectPosition }}
+                  imageClassName="hp-story-image hp-journey-story-image object-cover"
+                  strength={index === 1 ? 21 : 19}
+                />
 
-          <div className="relative z-10 mx-auto max-w-[1800px] lg:max-w-none">
-            <Reveal className="px-1 pb-9 sm:px-3 lg:px-14 lg:pb-12 lg:pt-14 xl:px-20">
-              <div className="max-w-[1050px]">
-                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#F47822]">
-                  START HERE
-                </p>
+                <div className="absolute inset-0 bg-gradient-to-t from-black/88 via-black/12 to-black/18" />
+                <div className="absolute inset-0 bg-gradient-to-r from-black/66 via-black/12 to-transparent" />
+                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_20%,rgba(212,175,55,.12),transparent_28%),radial-gradient(circle_at_80%_78%,rgba(244,120,34,.08),transparent_26%)]" />
 
-                <h2 className="hp-section-heading mt-5 text-[#FFF4DC]">
-                  How Do You Want
-                  <span className="hp-section-heading-accent text-[#D4AF37]">
-                    To Gift Today?
-                  </span>
-                </h2>
-              </div>
-            </Reveal>
+                {index === 0 && (
+                  <div className="absolute left-5 right-5 top-7 z-20 sm:left-8 sm:right-8 sm:top-10 lg:left-14 lg:right-auto lg:top-14 xl:left-20">
+                    <p className="hp-story-kicker text-[10px] font-black uppercase tracking-[0.23em] text-[#F47822] sm:text-[11px]">
+                      START HERE
+                    </p>
 
-            <InteractiveRail id="home-journey-rail" label="Ways to gift" className="hp-journey-grid hp-snap-rail" controlsClass="hp-rail-controls-dark hp-rail-mobile-only">
-              {[
-                {
-                  label: "01 · READY TO GIFT",
-                  title: "Shop Signature Hampers",
-                  copy:
-                    "Ready-made premium hampers.",
-                  image:
-                    HOME_IMAGES.journeySignature1,
-                  hoverImage:
-                    HOME_IMAGES.journeySignature2,
-                  to: "/gifts",
-                  cta: "Shop Hampers",
-                },
-                {
-                  label: "02 · MADE BY YOU",
-                  title: "Build Your Own Hamper",
-                  copy:
-                    "Create it your way.",
-                  image:
-                    HOME_IMAGES.journeyBuild1,
-                  hoverImage:
-                    HOME_IMAGES.journeyBuild2,
-                  to: "/custom-hamper",
-                  cta: "Start Building",
-                },
-                {
-                  label: "03 · SCALE IT UP",
-                  title: "Bulk & Event Gifting",
-                  copy:
-                    "For teams, weddings and events.",
-                  image:
-                    HOME_IMAGES.journeyBulk1,
-                  hoverImage:
-                    HOME_IMAGES.journeyBulk2,
-                  to: "/custom-hamper?mode=bulk",
-                  cta: "Plan Bulk Gifting",
-                },
-              ].map(
-                (
-                  item,
-                  index
-                ) => (
-                  <Link
-                    key={
-                      item.label
-                    }
-                    to={
-                      item.to
-                    }
-                    className="group relative min-h-[540px] overflow-hidden lg:min-h-[690px]"
-                  >
-                    <SmartImage
-                      src={
-                        item.image
-                      }
-                      alt={
-                        item.title
-                      }
-                      loading={
-                        index === 0
-                          ? "eager"
-                          : "lazy"
-                      }
-                      fetchPriority={
-                        index === 0
-                          ? "high"
-                          : "low"
-                      }
-                      className="hp-journey-base absolute inset-0 h-full w-full object-cover object-center"
-                    />
-
-                    <SmartImage
-                      src={
-                        item.hoverImage
-                      }
-                      alt=""
-                      loading="lazy"
-                      fetchPriority="low"
-                      className="hp-journey-hover absolute inset-0 h-full w-full object-cover object-center"
-                    />
-
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/86 via-black/14 to-black/8" />
-
-                    <div className="absolute inset-x-0 top-0 p-6 sm:p-8">
-                      <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/78">
-                        {
-                          item.label
-                        }
-                      </p>
-                    </div>
-
-                    <div className="absolute inset-x-0 bottom-0 p-6 sm:p-8 lg:p-10">
-                      <span className="block h-px w-12 bg-[#D4AF37]" />
-
-                      <h3
-                        style={{
-                          fontFamily:
-                            DISPLAY_FONT,
-                        }}
-                        className="mt-5 max-w-[500px] text-[38px] font-semibold leading-[0.92] text-white sm:text-[46px] lg:text-[52px]"
+                    <h2 className="hp-section-heading mt-4 max-w-[1000px] text-[#FFF4DC] drop-shadow-[0_12px_42px_rgba(0,0,0,.58)]">
+                      <span className="hp-story-line block" style={{ "--hp-story-delay": "90ms" }}>
+                        How Do You Want
+                      </span>
+                      <span
+                        className="hp-section-heading-accent hp-story-line text-[#D4AF37]"
+                        style={{ "--hp-story-delay": "190ms" }}
                       >
-                        {
-                          item.title
-                        }
-                      </h3>
+                        To Gift Today?
+                      </span>
+                    </h2>
+                  </div>
+                )}
 
-                      <p className="mt-4 max-w-[420px] text-[15px] font-medium leading-7 text-white/72">
-                        {
-                          item.copy
-                        }
+                <div className="absolute inset-x-0 bottom-0 z-20 p-5 pb-9 sm:p-8 sm:pb-12 lg:p-14 lg:pb-16 xl:p-20 xl:pb-20">
+                  <div className="max-w-[760px]">
+                    <div className="mb-4 flex items-center gap-3 sm:mb-5">
+                      <span className="h-[2px] w-12 bg-[#D4AF37] sm:w-16" />
+                      <p
+                        className="hp-story-kicker text-[9px] font-black uppercase tracking-[0.2em] text-[#F6D76E] sm:text-[11px]"
+                        style={{ "--hp-story-delay": "80ms" }}
+                      >
+                        {item.label}
                       </p>
-
-                      <div className="mt-7 flex items-center justify-between border-t border-white/15 pt-5">
-                        <span className="text-[12px] font-black uppercase tracking-[0.11em] text-[#F1D574]">
-                          {
-                            item.cta
-                          }
-                        </span>
-
-                        <span className="text-[26px] transition group-hover:translate-x-1 group-hover:text-[#F47822]">
-                          →
-                        </span>
-                      </div>
                     </div>
-                  </Link>
-                )
-              )}
-            </InteractiveRail>
-          </div>
+
+                    <h3
+                      style={{ fontFamily: DISPLAY_FONT }}
+                      className="hp-story-line max-w-[700px] text-[40px] font-semibold leading-[0.9] tracking-[-0.025em] text-white drop-shadow-[0_10px_35px_rgba(0,0,0,.62)] sm:text-[54px] lg:text-[68px] xl:text-[76px]"
+                    >
+                      {item.title}
+                    </h3>
+
+                    <p className="mt-4 max-w-[560px] text-[13px] font-medium leading-6 text-white/72 sm:text-[15px] sm:leading-7">
+                      {item.copy}
+                    </p>
+
+                    <div className="mt-6 inline-flex min-h-[52px] items-center gap-5 border border-white/20 bg-black/25 px-5 text-[10px] font-black uppercase tracking-[0.14em] text-[#F4D36A] backdrop-blur-sm transition duration-300 group-hover:border-[#D4AF37]/60 group-hover:bg-black/40 sm:min-h-[58px] sm:px-6 sm:text-[11px]">
+                      <span>{item.cta}</span>
+                      <span className="text-[20px] transition-transform duration-300 group-hover:translate-x-1.5">
+                        →
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pointer-events-none absolute bottom-6 right-5 z-20 flex items-center gap-3 text-[8px] font-black uppercase tracking-[0.18em] text-white/40 sm:bottom-8 sm:right-8 lg:bottom-10 lg:right-10">
+                  <span>
+                    {String(index + 1).padStart(2, "0")} / 03
+                  </span>
+                  <span className="h-px w-9 bg-[#D4AF37]/55 sm:w-12" />
+                </div>
+              </div>
+            </Link>
+          ))}
         </section>
 
 
@@ -5494,9 +5539,14 @@ const Home = () => {
         <HamperOneUnwrapExperience />
 
         {/* ==================================================
-            HAMPORIUM BRAND STORY · FULL-SCREEN SCROLL PAGES
+            HAMPORIUM BRAND STORY · TEMPORARILY DISABLED
+            Pages commented out:
+            01 · Every Product / Earns Its Place.
+            02 · Thoughtful Details / Change The Feeling.
+            03 · The Unboxing / Is Part Of The Gift.
         =================================================== */}
 
+        {/*
         <section data-home-section="brand" className="hp-story-stack hp-pointer-glow relative bg-[#090807] text-white">
           {[
             {
@@ -5622,6 +5672,7 @@ const Home = () => {
             </div>
           ))}
         </section>
+        */}
 
         {/* ==================================================
             BULK / EVENT GIFTING · EDITORIAL FLOW
@@ -5849,6 +5900,7 @@ const SmartImage = ({ src, alt = "", className = "", loading = "lazy", fetchPrio
 
 const FluidBackdrop = ({
   src,
+  hoverSrc = "",
   alt = "",
   imageClassName = "object-cover object-center",
   loading = "lazy",
@@ -5879,6 +5931,9 @@ const FluidBackdrop = ({
     velocityY: 0,
     amount: 0,
   });
+  const hoverMixTargetRef = useRef(0);
+  const hoverMixCurrentRef = useRef(0);
+  const lastFrameTimeRef = useRef(0);
 
   useEffect(() => {
     const layer = layerRef.current;
@@ -5922,18 +5977,21 @@ const FluidBackdrop = ({
       precision highp float;
 
       uniform sampler2D u_texture;
+      uniform sampler2D u_hoverTexture;
       uniform vec2 u_resolution;
       uniform vec2 u_imageResolution;
+      uniform vec2 u_hoverImageResolution;
       uniform vec2 u_mouse;
       uniform vec2 u_velocity;
       uniform vec2 u_objectPosition;
       uniform float u_time;
       uniform float u_amount;
       uniform float u_strength;
+      uniform float u_hoverMix;
 
-      vec2 coverUv(vec2 uv) {
+      vec2 coverUvFor(vec2 uv, vec2 imageResolution) {
         float screenAspect = u_resolution.x / max(u_resolution.y, 1.0);
-        float imageAspect = u_imageResolution.x / max(u_imageResolution.y, 1.0);
+        float imageAspect = imageResolution.x / max(imageResolution.y, 1.0);
         vec2 scale = vec2(1.0);
         vec2 offset = vec2(0.0);
 
@@ -5946,6 +6004,18 @@ const FluidBackdrop = ({
         }
 
         return uv * scale + offset;
+      }
+
+      vec4 blendedTexture(vec2 uv) {
+        vec4 baseSample = texture2D(
+          u_texture,
+          coverUvFor(uv, u_imageResolution)
+        );
+        vec4 hoverSample = texture2D(
+          u_hoverTexture,
+          coverUvFor(uv, u_hoverImageResolution)
+        );
+        return mix(baseSample, hoverSample, u_hoverMix);
       }
 
       void main() {
@@ -6014,19 +6084,16 @@ const FluidBackdrop = ({
         distortion.y += wake * 0.0026 * wakeEnvelope * strength;
 
         vec2 displacedUv = clamp(uv + distortion, 0.001, 0.999);
-        vec2 textureUv = coverUv(displacedUv);
 
-        vec4 mainSample = texture2D(u_texture, textureUv);
+        vec4 mainSample = blendedTexture(displacedUv);
 
         /* Subtle refraction along the wave crests. */
         vec2 chromaOffset = distortion * 0.13;
-        vec4 redSample = texture2D(
-          u_texture,
-          coverUv(clamp(displacedUv + chromaOffset, 0.001, 0.999))
+        vec4 redSample = blendedTexture(
+          clamp(displacedUv + chromaOffset, 0.001, 0.999)
         );
-        vec4 blueSample = texture2D(
-          u_texture,
-          coverUv(clamp(displacedUv - chromaOffset, 0.001, 0.999))
+        vec4 blueSample = blendedTexture(
+          clamp(displacedUv - chromaOffset, 0.001, 0.999)
         );
 
         vec3 refracted = vec3(
@@ -6103,28 +6170,53 @@ const FluidBackdrop = ({
 
     const uniforms = {
       texture: gl.getUniformLocation(program, "u_texture"),
+      hoverTexture: gl.getUniformLocation(program, "u_hoverTexture"),
       resolution: gl.getUniformLocation(program, "u_resolution"),
       imageResolution: gl.getUniformLocation(program, "u_imageResolution"),
+      hoverImageResolution: gl.getUniformLocation(program, "u_hoverImageResolution"),
       mouse: gl.getUniformLocation(program, "u_mouse"),
       velocity: gl.getUniformLocation(program, "u_velocity"),
       objectPosition: gl.getUniformLocation(program, "u_objectPosition"),
       time: gl.getUniformLocation(program, "u_time"),
       amount: gl.getUniformLocation(program, "u_amount"),
       strength: gl.getUniformLocation(program, "u_strength"),
+      hoverMix: gl.getUniformLocation(program, "u_hoverMix"),
     };
 
-    const texture = gl.createTexture();
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    const configureTexture = (unit) => {
+      const texture = gl.createTexture();
+      gl.activeTexture(unit);
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      // Keep every sampler complete before the real image finishes decoding.
+      // This prevents a one-frame black flash on fast hover entry.
+      gl.texImage2D(
+        gl.TEXTURE_2D,
+        0,
+        gl.RGBA,
+        1,
+        1,
+        0,
+        gl.RGBA,
+        gl.UNSIGNED_BYTE,
+        new Uint8Array([0, 0, 0, 255])
+      );
+      return texture;
+    };
+
+    const texture = configureTexture(gl.TEXTURE0);
+    const hoverTexture = configureTexture(gl.TEXTURE1);
     gl.uniform1i(uniforms.texture, 0);
+    gl.uniform1i(uniforms.hoverTexture, 1);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
 
     let imageWidth = 1;
     let imageHeight = 1;
+    let hoverImageWidth = 1;
+    let hoverImageHeight = 1;
     let objectPosition = [0.5, 0.5];
     let resizeObserver;
     let destroyed = false;
@@ -6182,35 +6274,97 @@ const FluidBackdrop = ({
       readObjectPosition();
     };
 
-    const image = new Image();
-    if (/^https?:/i.test(String(src || ""))) image.crossOrigin = "anonymous";
-    image.decoding = "async";
+    let baseReady = false;
+    let hoverReady = false;
 
-    image.onload = () => {
-      if (destroyed) return;
+    const uploadTextureImage = (asset, targetTexture, textureUnit, isHover = false) => {
+      if (!asset || destroyed) return;
 
-      imageWidth = Math.max(1, image.naturalWidth || image.width || 1);
-      imageHeight = Math.max(1, image.naturalHeight || image.height || 1);
+      const width = Math.max(1, asset.naturalWidth || asset.width || 1);
+      const height = Math.max(1, asset.naturalHeight || asset.height || 1);
 
-      gl.bindTexture(gl.TEXTURE_2D, texture);
+      if (isHover) {
+        hoverImageWidth = width;
+        hoverImageHeight = height;
+      } else {
+        imageWidth = width;
+        imageHeight = height;
+      }
+
+      gl.activeTexture(textureUnit);
+      gl.bindTexture(gl.TEXTURE_2D, targetTexture);
       gl.texImage2D(
         gl.TEXTURE_2D,
         0,
         gl.RGBA,
         gl.RGBA,
         gl.UNSIGNED_BYTE,
-        image
+        asset
       );
 
-      readyRef.current = true;
+      readyRef.current = baseReady;
       resizeCanvas();
+      requestFrame();
     };
 
-    image.onerror = () => {
+    const baseImageAsset = new Image();
+    if (/^https?:/i.test(String(src || ""))) {
+      baseImageAsset.crossOrigin = "anonymous";
+    }
+    baseImageAsset.decoding = "async";
+    baseImageAsset.onload = () => {
+      if (destroyed) return;
+      baseReady = true;
+      uploadTextureImage(baseImageAsset, texture, gl.TEXTURE0, false);
+
+      // If no alternate image exists, mirror the base texture so the shader
+      // can use one code path without any flash or incomplete texture state.
+      if (!hoverImageAsset) {
+        hoverReady = true;
+        uploadTextureImage(baseImageAsset, hoverTexture, gl.TEXTURE1, true);
+      }
+
+      /*
+        Keep the DOM image underneath until WebGL has actually painted at least
+        one valid frame. The second rAF avoids exposing an empty/old canvas on
+        fast pointer entry, which was the most obvious source of the flick.
+      */
+      requestFrame();
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          if (!destroyed && baseReady) {
+            layer.classList.add("is-fluid-ready");
+          }
+        });
+      });
+    };
+    baseImageAsset.onerror = () => {
       readyRef.current = false;
     };
 
-    image.src = src;
+    const hoverImageAsset = hoverSrc ? new Image() : null;
+    if (hoverImageAsset) {
+      if (/^https?:/i.test(String(hoverSrc || ""))) {
+        hoverImageAsset.crossOrigin = "anonymous";
+      }
+      hoverImageAsset.decoding = "async";
+      hoverImageAsset.onload = () => {
+        if (destroyed) return;
+        hoverReady = true;
+        uploadTextureImage(hoverImageAsset, hoverTexture, gl.TEXTURE1, true);
+        if (activeRef.current) {
+          hoverMixTargetRef.current = 1;
+          requestFrame();
+        }
+      };
+      hoverImageAsset.onerror = () => {
+        hoverReady = false;
+        hoverMixTargetRef.current = 0;
+      };
+      hoverImageAsset.src = hoverSrc;
+    }
+
+    baseImageAsset.src = src;
 
     const draw = (timestamp) => {
       frameRef.current = 0;
@@ -6220,29 +6374,70 @@ const FluidBackdrop = ({
       const target = targetRef.current;
       const current = currentRef.current;
 
-      const pointerEase = activeRef.current ? 0.20 : 0.12;
-      const velocityEase = activeRef.current ? 0.16 : 0.10;
-      const amountEase = activeRef.current ? 0.16 : 0.09;
+      /*
+        Frame-rate independent interpolation.
+        The previous per-frame percentages completed much faster on a 120 Hz
+        display than on 60 Hz, so the A/B image transition could look like a
+        sudden flash. These exponential rates are based on elapsed seconds, so
+        the timing is identical on 60 / 90 / 120 / 144 Hz screens.
+      */
+      const previousFrameTime = lastFrameTimeRef.current || timestamp;
+      const deltaSeconds = Math.min(
+        0.05,
+        Math.max(1 / 240, (timestamp - previousFrameTime) / 1000)
+      );
+      lastFrameTimeRef.current = timestamp;
 
-      current.x += (target.x - current.x) * pointerEase;
-      current.y += (target.y - current.y) * pointerEase;
-      current.velocityX +=
-        (target.velocityX - current.velocityX) * velocityEase;
-      current.velocityY +=
-        (target.velocityY - current.velocityY) * velocityEase;
-      current.amount += (target.amount - current.amount) * amountEase;
+      const approach = (value, destination, rate) => {
+        const factor = 1 - Math.exp(-rate * deltaSeconds);
+        return value + (destination - value) * factor;
+      };
 
-      target.velocityX *= 0.82;
-      target.velocityY *= 0.82;
+      const pointerRate = activeRef.current ? 11.5 : 7.2;
+      const velocityRate = activeRef.current ? 10.0 : 6.2;
+      const amountRate = activeRef.current ? 8.0 : 5.2;
+      // ~1 second premium cross-fade, independent of monitor refresh rate.
+      const imageBlendRate = activeRef.current ? 3.25 : 3.05;
+
+      current.x = approach(current.x, target.x, pointerRate);
+      current.y = approach(current.y, target.y, pointerRate);
+      current.velocityX = approach(
+        current.velocityX,
+        target.velocityX,
+        velocityRate
+      );
+      current.velocityY = approach(
+        current.velocityY,
+        target.velocityY,
+        velocityRate
+      );
+      current.amount = approach(current.amount, target.amount, amountRate);
+      hoverMixCurrentRef.current = approach(
+        hoverMixCurrentRef.current,
+        hoverMixTargetRef.current,
+        imageBlendRate
+      );
+
+      const velocityDecayX = Math.exp(-9.0 * deltaSeconds);
+      const velocityDecayY = Math.exp(-10.5 * deltaSeconds);
+      target.velocityX *= velocityDecayX;
+      target.velocityY *= velocityDecayY;
 
 
       if (readyRef.current) {
         gl.useProgram(program);
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, hoverTexture);
 
         gl.uniform2f(uniforms.resolution, canvas.width, canvas.height);
         gl.uniform2f(uniforms.imageResolution, imageWidth, imageHeight);
+        gl.uniform2f(
+          uniforms.hoverImageResolution,
+          hoverImageWidth,
+          hoverImageHeight
+        );
         gl.uniform2f(uniforms.mouse, current.x, current.y);
         gl.uniform2f(
           uniforms.velocity,
@@ -6263,6 +6458,16 @@ const FluidBackdrop = ({
           uniforms.strength,
           Math.max(0.7, Math.min(1.7, Number(strength || 16) / 16))
         );
+        const rawHoverMix = hoverReady
+          ? Math.max(0, Math.min(1, hoverMixCurrentRef.current))
+          : 0;
+        const smoothHoverMix =
+          rawHoverMix * rawHoverMix * (3 - 2 * rawHoverMix);
+
+        gl.uniform1f(
+          uniforms.hoverMix,
+          smoothHoverMix
+        );
 
         gl.drawArrays(gl.TRIANGLES, 0, 6);
       }
@@ -6273,9 +6478,14 @@ const FluidBackdrop = ({
         Math.abs(current.velocityX) > 0.002 ||
         Math.abs(current.velocityY) > 0.002 ||
         Math.abs(target.x - current.x) > 0.001 ||
-        Math.abs(target.y - current.y) > 0.001;
+        Math.abs(target.y - current.y) > 0.001 ||
+        Math.abs(hoverMixTargetRef.current - hoverMixCurrentRef.current) > 0.003;
 
-      if (!activeRef.current && current.amount <= 0.02) {
+      if (
+        !activeRef.current &&
+        current.amount <= 0.02 &&
+        hoverMixCurrentRef.current <= 0.015
+      ) {
         layer.classList.remove("is-fluid-active");
       }
 
@@ -6338,8 +6548,10 @@ const FluidBackdrop = ({
     const handleEnter = (event) => {
       resizeCanvas();
       activeRef.current = true;
+      hoverMixTargetRef.current = hoverReady ? 1 : 0;
       targetRef.current.amount = 1;
       startTimeRef.current = performance.now();
+      lastFrameTimeRef.current = performance.now();
       layer.classList.add("is-fluid-active");
       updatePointer(event, true);
     };
@@ -6348,8 +6560,10 @@ const FluidBackdrop = ({
       if (!activeRef.current) {
         resizeCanvas();
         activeRef.current = true;
+        hoverMixTargetRef.current = hoverReady ? 1 : 0;
         targetRef.current.amount = 1;
         startTimeRef.current = performance.now();
+        lastFrameTimeRef.current = performance.now();
         layer.classList.add("is-fluid-active");
       }
       updatePointer(event);
@@ -6357,6 +6571,7 @@ const FluidBackdrop = ({
 
     const handleLeave = () => {
       activeRef.current = false;
+      hoverMixTargetRef.current = 0;
       targetRef.current.amount = 0;
       targetRef.current.velocityX *= 0.45;
       targetRef.current.velocityY *= 0.45;
@@ -6407,17 +6622,18 @@ const FluidBackdrop = ({
         window.cancelAnimationFrame(frameRef.current);
       }
       gl.deleteTexture(texture);
+      gl.deleteTexture(hoverTexture);
       gl.deleteBuffer(positionBuffer);
       gl.deleteProgram(program);
       gl.deleteShader(vertexShader);
       gl.deleteShader(fragmentShader);
     };
-  }, [src, strength]);
+  }, [src, hoverSrc, strength]);
 
   return (
     <div
       ref={layerRef}
-      className="hp-fluid-backdrop"
+      className={`hp-fluid-backdrop ${hoverSrc ? "has-hover-image" : ""}`}
       aria-hidden={alt ? undefined : true}
     >
       <SmartImage
@@ -6430,6 +6646,18 @@ const FluidBackdrop = ({
         className={`hp-fluid-image hp-fluid-image-base ${imageClassName}`}
       />
 
+      {hoverSrc && (
+        <SmartImage
+          src={hoverSrc}
+          alt=""
+          loading="eager"
+          fetchPriority="low"
+          decoding={decoding}
+          style={style}
+          className={`hp-fluid-image hp-fluid-image-hover ${imageClassName}`}
+        />
+      )}
+
       <div className="hp-fluid-canvas-wrap" aria-hidden="true">
         <canvas
           ref={canvasRef}
@@ -6441,6 +6669,51 @@ const FluidBackdrop = ({
   );
 };
 
+
+
+const HAMPER_ONE_EXPERIENCE_FEATURES = [
+  { id: "curated", title: "Curated", subtitle: "Premium Products", icon: "gift" },
+  { id: "personal", title: "Personalised", subtitle: "To Perfection", icon: "pen" },
+  { id: "presentation", title: "Luxury", subtitle: "Presentation", icon: "diamond" },
+  { id: "delivery", title: "Thoughtful", subtitle: "Delivery", icon: "truck" },
+];
+
+const HamperOneExperienceIcon = ({ type }) => {
+  if (type === "pen") {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 20l4.2-1.05L18.9 8.25a2.12 2.12 0 0 0 0-3l-.15-.15a2.12 2.12 0 0 0-3 0L5.05 15.8 4 20Z" />
+        <path d="m14.7 6.15 3.15 3.15" />
+      </svg>
+    );
+  }
+
+  if (type === "diamond") {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="m3.5 8 4-4h9l4 4-8.5 12L3.5 8Z" />
+        <path d="m7.5 4 4.5 16L16.5 4M3.5 8h17M9.2 8 12 4l2.8 4" />
+      </svg>
+    );
+  }
+
+  if (type === "truck") {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M3 6h11v10H3zM14 10h4l3 3v3h-7z" />
+        <circle cx="7" cy="18" r="2" />
+        <circle cx="18" cy="18" r="2" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 9h16v11H4zM3 6h18v3H3zM12 6v14" />
+      <path d="M12 6H8.7a2.2 2.2 0 1 1 2.1-2.9L12 6Zm0 0h3.3a2.2 2.2 0 1 0-2.1-2.9L12 6Z" />
+    </svg>
+  );
+};
 
 
 // ======================================================
@@ -6462,16 +6735,50 @@ const HamperOneUnwrapExperience = () => {
       }`}
     >
       <style>{`
+        @keyframes hpHamperWrapGlow {
+          0%, 100% {
+            opacity: .48;
+            filter: drop-shadow(0 0 4px rgba(212,175,55,.12));
+          }
+          50% {
+            opacity: .86;
+            filter: drop-shadow(0 0 13px rgba(240,201,99,.32));
+          }
+        }
+
+        @keyframes hpHamperSealAura {
+          0%, 100% {
+            box-shadow:
+              0 18px 46px rgba(0,0,0,.42),
+              0 0 0 0 rgba(240,201,99,.18),
+              inset 0 1px 0 rgba(255,255,255,.52),
+              inset 0 -8px 16px rgba(111,68,7,.22);
+          }
+          50% {
+            box-shadow:
+              0 22px 54px rgba(0,0,0,.48),
+              0 0 0 10px rgba(240,201,99,0),
+              inset 0 1px 0 rgba(255,255,255,.58),
+              inset 0 -8px 16px rgba(111,68,7,.26);
+          }
+        }
+
         .hp-home-v65 .hp-hamper-one-wrap-design {
           position: absolute;
-          inset: 18px;
+          inset: 12px;
           z-index: 54;
           overflow: hidden;
-          border: 1px solid rgba(240,201,99,.26);
-          border-radius: 24px;
+          border: 1px solid rgba(244,221,145,.42);
+          border-radius: 27px;
+          background:
+            linear-gradient(145deg, rgba(255,255,255,.025), transparent 34%, rgba(212,175,55,.035) 61%, transparent),
+            rgba(7,6,4,.08);
           box-shadow:
-            inset 0 0 0 1px rgba(255,255,255,.025),
-            inset 0 0 34px rgba(212,175,55,.055);
+            inset 0 0 0 1px rgba(255,255,255,.035),
+            inset 0 0 0 5px rgba(212,175,55,.025),
+            inset 0 0 42px rgba(212,175,55,.06),
+            0 0 0 1px rgba(0,0,0,.36),
+            0 18px 54px rgba(0,0,0,.24);
           transition: opacity .58s ease, transform .78s cubic-bezier(.16,1,.3,1);
         }
 
@@ -6479,115 +6786,93 @@ const HamperOneUnwrapExperience = () => {
           content: "";
           position: absolute;
           inset: 9px;
-          border: 1px solid rgba(212,175,55,.12);
-          border-radius: 18px;
+          border: 1px solid rgba(212,175,55,.18);
+          border-radius: 20px;
           background:
-            linear-gradient(115deg, transparent 0 40%, rgba(255,236,173,.05) 46%, transparent 53%),
-            repeating-linear-gradient(135deg, rgba(255,255,255,.015) 0 1px, transparent 1px 13px);
+            linear-gradient(90deg, transparent, rgba(255,232,165,.08), transparent) top/100% 1px no-repeat,
+            linear-gradient(90deg, transparent, rgba(255,232,165,.07), transparent) bottom/100% 1px no-repeat,
+            linear-gradient(180deg, transparent, rgba(255,232,165,.06), transparent) left/1px 100% no-repeat,
+            linear-gradient(180deg, transparent, rgba(255,232,165,.06), transparent) right/1px 100% no-repeat;
+          box-shadow:
+            inset 0 0 0 1px rgba(255,255,255,.018),
+            inset 0 0 30px rgba(212,175,55,.026);
         }
 
         .hp-home-v65 .hp-hamper-one-wrap-design::after {
-          content: "HAMPORIUM  ·  PRIVATE SERIES";
+          content: "";
           position: absolute;
-          left: 50%;
-          bottom: 15px;
-          transform: translateX(-50%);
-          white-space: nowrap;
-          color: rgba(244,211,106,.48);
-          font-size: 7px;
-          font-weight: 900;
-          letter-spacing: .28em;
+          inset: 4px;
+          border-radius: 23px;
+          pointer-events: none;
+          background:
+            linear-gradient(90deg, transparent 0 43%, rgba(255,238,178,.15) 49%, rgba(255,238,178,.04) 53%, transparent 60%) top/100% 1px no-repeat,
+            linear-gradient(90deg, transparent 0 40%, rgba(212,175,55,.10) 50%, transparent 61%) bottom/100% 1px no-repeat;
+          opacity: .72;
+          animation: hpHamperWrapGlow 3.8s ease-in-out infinite;
         }
 
         .hp-home-v65 .hp-hamper-one-wrap-corner {
           position: absolute;
-          width: 34px;
-          height: 34px;
-          opacity: .72;
+          z-index: 3;
+          width: 42px;
+          height: 42px;
+          opacity: .88;
+          filter: drop-shadow(0 0 8px rgba(212,175,55,.18));
         }
 
         .hp-home-v65 .hp-hamper-one-wrap-corner::before,
         .hp-home-v65 .hp-hamper-one-wrap-corner::after {
           content: "";
           position: absolute;
-          background: linear-gradient(90deg, #8f641f, #f4dd91, #a87522);
+          background: linear-gradient(90deg, #74470d 0%, #e0b74c 45%, #f8e29a 70%, #9e6b1b 100%);
         }
 
         .hp-home-v65 .hp-hamper-one-wrap-corner::before {
           width: 100%;
           height: 1px;
+          box-shadow: 0 5px 0 rgba(212,175,55,.18);
         }
 
         .hp-home-v65 .hp-hamper-one-wrap-corner::after {
           width: 1px;
           height: 100%;
+          box-shadow: 5px 0 0 rgba(212,175,55,.18);
         }
 
-        .hp-home-v65 .hp-hamper-one-wrap-corner-tl { left: 18px; top: 18px; }
-        .hp-home-v65 .hp-hamper-one-wrap-corner-tr { right: 18px; top: 18px; transform: scaleX(-1); }
-        .hp-home-v65 .hp-hamper-one-wrap-corner-bl { left: 18px; bottom: 18px; transform: scaleY(-1); }
-        .hp-home-v65 .hp-hamper-one-wrap-corner-br { right: 18px; bottom: 18px; transform: scale(-1); }
+        .hp-home-v65 .hp-hamper-one-wrap-corner-tl { left: 20px; top: 20px; }
+        .hp-home-v65 .hp-hamper-one-wrap-corner-tr { right: 20px; top: 20px; transform: scaleX(-1); }
+        .hp-home-v65 .hp-hamper-one-wrap-corner-bl { left: 20px; bottom: 20px; transform: scaleY(-1); }
+        .hp-home-v65 .hp-hamper-one-wrap-corner-br { right: 20px; bottom: 20px; transform: scale(-1); }
 
         .hp-home-v65 .hp-hamper-one-wrap-motif {
           position: absolute;
-          inset: 13px;
-          border-radius: 20px;
-          opacity: .7;
+          inset: 10px;
+          border-radius: 21px;
+          opacity: .88;
           background:
-            radial-gradient(circle at 50% 50%, transparent 0 31%, rgba(244,221,145,.08) 31.3% 31.7%, transparent 32% 42%, rgba(212,175,55,.055) 42.3% 42.7%, transparent 43%),
-            repeating-linear-gradient(45deg, transparent 0 22px, rgba(255,255,255,.018) 22px 23px, transparent 23px 45px),
-            repeating-linear-gradient(-45deg, transparent 0 25px, rgba(212,175,55,.02) 25px 26px, transparent 26px 50px);
-          box-shadow: inset 0 0 0 1px rgba(244,221,145,.04);
+            radial-gradient(ellipse at 50% 4%, rgba(235,205,122,.07) 0 9%, transparent 10% 100%) 0 0/54px 78px,
+            radial-gradient(ellipse at 50% 96%, rgba(235,205,122,.045) 0 9%, transparent 10% 100%) 27px 39px/54px 78px,
+            repeating-linear-gradient(90deg, transparent 0 52px, rgba(255,255,255,.012) 52px 53px),
+            linear-gradient(145deg, rgba(255,255,255,.012), transparent 42%, rgba(212,175,55,.018) 70%, transparent);
+          box-shadow: inset 0 0 0 1px rgba(244,221,145,.035);
         }
 
         .hp-home-v65 .hp-hamper-one-wrap-jewel {
           position: absolute;
-          z-index: 2;
-          width: 8px;
-          height: 8px;
+          z-index: 4;
+          width: 7px;
+          height: 7px;
           border: 1px solid rgba(247,223,149,.72);
-          background: linear-gradient(135deg, #7c5015, #f2d77d 48%, #98651d);
+          background: linear-gradient(135deg, #6c410b, #f2d77d 48%, #8e5d16);
           transform: rotate(45deg);
-          box-shadow: 0 0 16px rgba(212,175,55,.22);
+          box-shadow: 0 0 16px rgba(212,175,55,.24);
         }
 
-        .hp-home-v65 .hp-hamper-one-wrap-jewel-a { left: 50%; top: 28px; margin-left: -4px; }
-        .hp-home-v65 .hp-hamper-one-wrap-jewel-b { left: 50%; bottom: 30px; margin-left: -4px; }
-        .hp-home-v65 .hp-hamper-one-wrap-jewel-c { left: 28px; top: 50%; margin-top: -4px; }
-        .hp-home-v65 .hp-hamper-one-wrap-jewel-d { right: 28px; top: 50%; margin-top: -4px; }
+        .hp-home-v65 .hp-hamper-one-wrap-jewel-a { left: 50%; top: 27px; margin-left: -4px; }
+        .hp-home-v65 .hp-hamper-one-wrap-jewel-b { left: 50%; bottom: 28px; margin-left: -4px; }
+        .hp-home-v65 .hp-hamper-one-wrap-jewel-c { left: 27px; top: 50%; margin-top: -4px; }
+        .hp-home-v65 .hp-hamper-one-wrap-jewel-d { right: 27px; top: 50%; margin-top: -4px; }
 
-        .hp-home-v65 .hp-hamper-one-tap-sign {
-          position: absolute;
-          z-index: 86;
-          left: 50%;
-          top: 22px;
-          transform: translateX(-50%);
-          display: inline-flex;
-          align-items: center;
-          gap: 9px;
-          border: 1px solid rgba(244,221,145,.38);
-          border-radius: 999px;
-          background: rgba(9,7,5,.74);
-          padding: 10px 16px;
-          color: #f5d972;
-          box-shadow: 0 12px 32px rgba(0,0,0,.28);
-          backdrop-filter: blur(10px);
-          -webkit-backdrop-filter: blur(10px);
-          font-size: 9px;
-          font-weight: 900;
-          letter-spacing: .2em;
-          text-transform: uppercase;
-          pointer-events: none;
-          transition: opacity .5s ease, transform .7s cubic-bezier(.16,1,.3,1);
-        }
-
-        .hp-home-v65 .hp-hamper-one-tap-sign::before {
-          content: "✦";
-          font-size: 10px;
-          color: #f7df95;
-        }
-
-        .hp-home-v65 .hp-hamper-one-section.is-unwrapped .hp-hamper-one-tap-sign,
         .hp-home-v65 .hp-hamper-one-section.is-unwrapped .hp-hamper-one-wrap-design {
           opacity: 0;
           transform: translateX(-50%) scale(.97);
@@ -6597,25 +6882,297 @@ const HamperOneUnwrapExperience = () => {
           transform: scale(.985);
         }
 
+        .hp-home-v65 .hp-hamper-one-experience-lid {
+          position: absolute;
+          z-index: 28;
+          top: 22px;
+          left: 7%;
+          right: 7%;
+          min-height: 43%;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+          padding: 24px 28px 22px;
+          overflow: hidden;
+          border: 1px solid rgba(236,198,94,.34);
+          border-radius: 26px 26px 18px 18px;
+          background:
+            radial-gradient(circle at 50% 0%, rgba(212,175,55,.13), transparent 38%),
+            linear-gradient(145deg, rgba(23,15,9,.94), rgba(7,6,5,.91));
+          box-shadow:
+            inset 0 0 0 1px rgba(255,255,255,.025),
+            inset 0 -28px 44px rgba(0,0,0,.22),
+            0 26px 60px rgba(0,0,0,.34);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+          transform-origin: 50% 100%;
+          transition: opacity .75s ease .15s, transform .9s cubic-bezier(.16,1,.3,1) .1s;
+        }
+
+        .hp-home-v65 .hp-hamper-one-experience-lid::before {
+          content: "";
+          position: absolute;
+          inset: 9px;
+          border: 1px solid rgba(212,175,55,.14);
+          border-radius: 18px 18px 12px 12px;
+          background:
+            radial-gradient(ellipse at 50% 0%, rgba(245,215,130,.055) 0 10%, transparent 11%) 0 0/48px 70px,
+            linear-gradient(90deg, transparent, rgba(255,234,168,.05), transparent) top/100% 1px no-repeat;
+          pointer-events: none;
+        }
+
+        .hp-home-v65 .hp-hamper-one-experience-lid::after {
+          content: "";
+          position: absolute;
+          left: 8%;
+          right: 8%;
+          bottom: -1px;
+          height: 2px;
+          background: linear-gradient(90deg, transparent, #D4AF37 22%, #F6E4A3 50%, #D4AF37 78%, transparent);
+          box-shadow: 0 0 18px rgba(212,175,55,.24);
+        }
+
+        .hp-home-v65 .hp-hamper-one-experience-lid h3 {
+          position: relative;
+          z-index: 2;
+          margin-top: 8px;
+          max-width: 650px;
+          text-align: center;
+          font-size: clamp(34px, 3.6vw, 58px);
+          line-height: .92;
+          letter-spacing: -.035em;
+          color: #FFF7E7;
+        }
+
+        .hp-home-v65 .hp-hamper-one-experience-features {
+          position: relative;
+          z-index: 2;
+          width: 100%;
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0,1fr));
+          gap: 10px;
+          margin-top: 20px;
+        }
+
+        .hp-home-v65 .hp-hamper-one-experience-feature {
+          position: relative;
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: flex-start;
+          gap: 7px;
+          text-align: center;
+        }
+
+        .hp-home-v65 .hp-hamper-one-experience-feature:not(:last-child)::after {
+          content: "";
+          position: absolute;
+          right: -5px;
+          top: 9px;
+          bottom: 7px;
+          width: 1px;
+          background: linear-gradient(180deg, transparent, rgba(212,175,55,.34), transparent);
+        }
+
+        .hp-home-v65 .hp-hamper-one-experience-icon {
+          width: 44px;
+          height: 44px;
+          display: grid;
+          place-items: center;
+          border: 1px solid rgba(236,198,94,.5);
+          border-radius: 999px;
+          background: rgba(212,175,55,.055);
+          box-shadow: inset 0 0 18px rgba(212,175,55,.05);
+        }
+
+        .hp-home-v65 .hp-hamper-one-experience-icon svg {
+          width: 20px;
+          height: 20px;
+          fill: none;
+          stroke: #E3BF5A;
+          stroke-width: 1.45;
+          stroke-linecap: round;
+          stroke-linejoin: round;
+        }
+
+        .hp-home-v65 .hp-hamper-one-experience-feature strong {
+          font-size: 9px;
+          line-height: 1.05;
+          font-weight: 900;
+          letter-spacing: .09em;
+          text-transform: uppercase;
+          color: #FFF0C2;
+        }
+
+        .hp-home-v65 .hp-hamper-one-experience-feature span {
+          max-width: 105px;
+          font-size: 8px;
+          line-height: 1.3;
+          font-weight: 700;
+          letter-spacing: .08em;
+          text-transform: uppercase;
+          color: rgba(255,255,255,.47);
+        }
+
+        .hp-home-v65 .hp-hamper-one-experience-cta {
+          position: absolute;
+          z-index: 30;
+          left: 50%;
+          bottom: 28px;
+          width: min(54%, 520px);
+          min-height: 58px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 18px;
+          transform: translateX(-50%);
+          padding: 0 24px;
+          border: 1px solid rgba(255,237,173,.55);
+          border-radius: 999px;
+          background: linear-gradient(90deg, #A96D13 0%, #D5AA38 19%, #F3D56F 48%, #DAB244 74%, #A66A12 100%);
+          color: #1D1509;
+          box-shadow:
+            inset 0 1px 0 rgba(255,255,255,.5),
+            0 16px 38px rgba(0,0,0,.28),
+            0 0 26px rgba(212,175,55,.12);
+          font-size: 10px;
+          font-weight: 900;
+          letter-spacing: .15em;
+          text-transform: uppercase;
+          transition: transform .3s ease, filter .3s ease;
+        }
+
+        .hp-home-v65 .hp-hamper-one-experience-cta:hover {
+          transform: translateX(-50%) translateY(-2px);
+          filter: brightness(1.08);
+        }
+
+        .hp-home-v65 .hp-hamper-one-experience-lid,
+        .hp-home-v65 .hp-hamper-one-experience-cta {
+          opacity: 0;
+          pointer-events: none;
+        }
+
+        .hp-home-v65 .hp-hamper-one-section.is-unwrapped .hp-hamper-one-experience-lid,
+        .hp-home-v65 .hp-hamper-one-section.is-unwrapped .hp-hamper-one-experience-cta {
+          opacity: 1;
+          pointer-events: auto;
+        }
+
+        .hp-home-v65 .hp-hamper-one-section.is-unwrapped .hp-hamper-one-experience-lid {
+          transform: perspective(900px) rotateX(0deg) translateY(0);
+        }
+
         .hp-home-v65 .hp-hamper-one-section .hp-unbox-curtain {
           background:
-            linear-gradient(90deg, rgba(255,255,255,.03), transparent 15%, rgba(212,175,55,.07) 48%, transparent 75%, rgba(0,0,0,.22)),
-            repeating-linear-gradient(90deg, #120d08 0 28px, #090705 28px 56px),
-            repeating-linear-gradient(135deg, rgba(244,221,145,.028) 0 1px, transparent 1px 12px);
+            radial-gradient(ellipse at 50% 0%, rgba(231,196,105,.055) 0 12%, transparent 13% 100%) 0 0/52px 76px,
+            radial-gradient(ellipse at 50% 100%, rgba(231,196,105,.035) 0 11%, transparent 12% 100%) 26px 38px/52px 76px,
+            linear-gradient(110deg, rgba(255,255,255,.025), transparent 28%, rgba(212,175,55,.045) 50%, transparent 72%, rgba(0,0,0,.16)),
+            linear-gradient(180deg, #0e0b08 0%, #090705 52%, #0b0806 100%);
           box-shadow:
-            inset 0 0 50px rgba(212,175,55,.07),
-            inset 0 0 0 1px rgba(244,221,145,.025),
+            inset 0 0 58px rgba(212,175,55,.055),
+            inset 0 1px 0 rgba(255,255,255,.022),
             0 0 42px rgba(0,0,0,.34);
         }
 
         .hp-home-v65 .hp-hamper-one-section .hp-unbox-ribbon {
+          border: 1px solid rgba(255,239,181,.30);
           background:
-            linear-gradient(90deg, #7d5314 0%, #b98527 12%, #efd377 36%, #fff0b1 50%, #d5aa45 68%, #9a691d 88%, #70460d 100%);
+            linear-gradient(90deg,
+              #70450c 0%,
+              #9d6819 8%,
+              #d7ad43 22%,
+              #f5dc83 42%,
+              #fff0b0 50%,
+              #e3bc56 62%,
+              #ad7622 82%,
+              #6a410b 100%);
           box-shadow:
-            inset 0 1px 0 rgba(255,255,255,.42),
-            inset 0 -1px 0 rgba(73,42,6,.28),
+            inset 0 1px 0 rgba(255,255,255,.48),
+            inset 0 -1px 0 rgba(73,42,6,.34),
+            inset 5px 0 10px rgba(255,255,255,.05),
+            inset -5px 0 10px rgba(75,43,5,.10),
             0 8px 24px rgba(0,0,0,.26),
-            0 0 22px rgba(212,175,55,.08);
+            0 0 22px rgba(212,175,55,.09);
+        }
+
+        .hp-home-v65 .hp-hamper-one-section .hp-unbox-ribbon::before,
+        .hp-home-v65 .hp-hamper-one-section .hp-unbox-ribbon::after {
+          content: "";
+          position: absolute;
+          pointer-events: none;
+          opacity: .62;
+        }
+
+        .hp-home-v65 .hp-hamper-one-section .hp-unbox-ribbon-v {
+          width: 42px !important;
+        }
+
+        .hp-home-v65 .hp-hamper-one-section .hp-unbox-ribbon-v::before,
+        .hp-home-v65 .hp-hamper-one-section .hp-unbox-ribbon-v::after {
+          top: 0;
+          bottom: 0;
+          width: 1px;
+          background: repeating-linear-gradient(to bottom, rgba(255,248,211,.70) 0 5px, transparent 5px 10px);
+        }
+
+        .hp-home-v65 .hp-hamper-one-section .hp-unbox-ribbon-v::before { left: 4px; }
+        .hp-home-v65 .hp-hamper-one-section .hp-unbox-ribbon-v::after { right: 4px; }
+
+        .hp-home-v65 .hp-hamper-one-section .hp-unbox-ribbon-h {
+          height: 42px !important;
+        }
+
+        .hp-home-v65 .hp-hamper-one-section .hp-unbox-ribbon-h::before,
+        .hp-home-v65 .hp-hamper-one-section .hp-unbox-ribbon-h::after {
+          left: 0;
+          right: 0;
+          height: 1px;
+          background: repeating-linear-gradient(to right, rgba(255,248,211,.68) 0 5px, transparent 5px 10px);
+        }
+
+        .hp-home-v65 .hp-hamper-one-section .hp-unbox-ribbon-h::before { top: 4px; }
+        .hp-home-v65 .hp-hamper-one-section .hp-unbox-ribbon-h::after { bottom: 4px; }
+
+        .hp-home-v65 .hp-hamper-one-seal {
+          border: 1px solid rgba(255,235,165,.70) !important;
+          background:
+            radial-gradient(circle at 35% 28%, #fff1b2 0%, #efd46f 23%, #d1a53b 52%, #936014 79%, #5d3908 100%) !important;
+          box-shadow:
+            0 18px 46px rgba(0,0,0,.42),
+            0 0 0 5px rgba(212,175,55,.08),
+            inset 0 1px 0 rgba(255,255,255,.52),
+            inset 0 -8px 16px rgba(111,68,7,.22) !important;
+          animation: hpHamperSealAura 2.9s ease-out infinite;
+        }
+
+        .hp-home-v65 .hp-hamper-one-seal::before,
+        .hp-home-v65 .hp-hamper-one-seal::after {
+          content: "";
+          position: absolute;
+          border-radius: 999px;
+          pointer-events: none;
+        }
+
+        .hp-home-v65 .hp-hamper-one-seal::before {
+          inset: 7px;
+          border: 1px solid rgba(91,54,6,.34);
+          box-shadow:
+            inset 0 0 0 2px rgba(255,244,198,.22),
+            0 0 0 1px rgba(255,242,188,.12);
+        }
+
+        .hp-home-v65 .hp-hamper-one-seal::after {
+          inset: 13px;
+          border: 1px dashed rgba(91,54,6,.42);
+        }
+
+        .hp-home-v65 .hp-hamper-one-seal > span {
+          position: relative;
+          z-index: 2;
+          text-shadow: 0 1px 0 rgba(255,255,255,.22);
         }
 
         @media (max-width: 639px) {
@@ -6697,6 +7254,14 @@ const HamperOneUnwrapExperience = () => {
             height: 78px !important;
           }
 
+          .hp-home-v65 .hp-hamper-one-section .hp-unbox-ribbon-v {
+            width: 34px !important;
+          }
+
+          .hp-home-v65 .hp-hamper-one-section .hp-unbox-ribbon-h {
+            height: 34px !important;
+          }
+
           .hp-home-v65 .hp-hamper-one-reveal-panel {
             left: 12px !important;
             right: auto !important;
@@ -6715,12 +7280,58 @@ const HamperOneUnwrapExperience = () => {
             line-height: .86 !important;
           }
 
-          .hp-home-v65 .hp-hamper-one-reveal-panel a {
-            min-height: 42px !important;
-            margin-top: 11px !important;
-            padding-inline: 12px !important;
+          .hp-home-v65 .hp-hamper-one-experience-lid {
+            top: 10px !important;
+            left: 10px !important;
+            right: 10px !important;
+            min-height: 48% !important;
+            padding: 14px 12px 13px !important;
+            border-radius: 18px 18px 14px 14px !important;
+          }
+
+          .hp-home-v65 .hp-hamper-one-experience-lid h3 {
+            margin-top: 6px !important;
+            font-size: clamp(25px, 8vw, 34px) !important;
+            line-height: .93 !important;
+          }
+
+          .hp-home-v65 .hp-hamper-one-experience-features {
+            margin-top: 12px !important;
+            gap: 6px !important;
+          }
+
+          .hp-home-v65 .hp-hamper-one-experience-feature {
+            gap: 4px !important;
+          }
+
+          .hp-home-v65 .hp-hamper-one-experience-icon {
+            width: 32px !important;
+            height: 32px !important;
+          }
+
+          .hp-home-v65 .hp-hamper-one-experience-icon svg {
+            width: 15px !important;
+            height: 15px !important;
+          }
+
+          .hp-home-v65 .hp-hamper-one-experience-feature strong {
             font-size: 8px !important;
-            letter-spacing: .13em !important;
+            letter-spacing: .06em !important;
+          }
+
+          .hp-home-v65 .hp-hamper-one-experience-feature span {
+            display: none !important;
+          }
+
+          .hp-home-v65 .hp-hamper-one-experience-cta {
+            left: 18px !important;
+            right: 18px !important;
+            bottom: 14px !important;
+            width: auto !important;
+            min-height: 46px !important;
+            padding-inline: 16px !important;
+            font-size: 8.5px !important;
+            letter-spacing: .12em !important;
           }
 
           .hp-home-v65 .hp-hamper-one-wrap-design {
@@ -6728,12 +7339,6 @@ const HamperOneUnwrapExperience = () => {
             border-radius: 18px !important;
           }
 
-          .hp-home-v65 .hp-hamper-one-tap-sign {
-            top: 14px !important;
-            padding: 8px 13px !important;
-            font-size: 8px !important;
-            letter-spacing: .17em !important;
-          }
         }
 
         @media (max-width: 390px) and (max-height: 720px) {
@@ -6763,6 +7368,45 @@ const HamperOneUnwrapExperience = () => {
           .hp-home-v65 .hp-hamper-one-visual-wrap {
             width: min(78vw, 320px) !important;
             height: clamp(255px, 34svh, 305px) !important;
+          }
+
+          .hp-home-v65 .hp-hamper-one-experience-lid {
+            top: 7px !important;
+            left: 7px !important;
+            right: 7px !important;
+            min-height: 50% !important;
+            padding: 10px 9px !important;
+          }
+
+          .hp-home-v65 .hp-hamper-one-experience-lid h3 {
+            font-size: 22px !important;
+          }
+
+          .hp-home-v65 .hp-hamper-one-experience-features {
+            margin-top: 8px !important;
+            gap: 4px !important;
+          }
+
+          .hp-home-v65 .hp-hamper-one-experience-icon {
+            width: 27px !important;
+            height: 27px !important;
+          }
+
+          .hp-home-v65 .hp-hamper-one-experience-icon svg {
+            width: 13px !important;
+            height: 13px !important;
+          }
+
+          .hp-home-v65 .hp-hamper-one-experience-feature strong {
+            font-size: 7px !important;
+          }
+
+          .hp-home-v65 .hp-hamper-one-experience-cta {
+            left: 12px !important;
+            right: 12px !important;
+            bottom: 10px !important;
+            min-height: 40px !important;
+            font-size: 7.5px !important;
           }
 
           .hp-home-v65 .hp-hamper-one-reveal-tags {
@@ -6845,40 +7489,45 @@ const HamperOneUnwrapExperience = () => {
                 <div className="absolute inset-0 bg-gradient-to-t from-black/64 via-transparent to-black/20" />
                 <div className="absolute inset-0 ring-1 ring-inset ring-white/8" />
 
-                {/* Revealed copy stays intentionally tiny so the hamper image remains the hero. */}
+                {/* HAMPER ONE premium experience reveal */}
                 <div
-                  className={`hp-hamper-one-reveal-panel absolute bottom-3 left-3 z-30 w-[min(72%,340px)] overflow-hidden rounded-[21px] border border-[#F4D36A]/22 bg-[linear-gradient(135deg,rgba(9,6,4,.78),rgba(18,11,6,.58))] p-4 shadow-[0_20px_54px_rgba(0,0,0,.34)] backdrop-blur-lg transition duration-700 sm:bottom-6 sm:left-6 sm:w-[360px] sm:p-5 ${
-                    opened
-                      ? "translate-y-0 opacity-100"
-                      : "pointer-events-none translate-y-8 opacity-0"
+                  className={`hp-hamper-one-experience-lid ${
+                    opened ? "translate-y-0 opacity-100" : "-translate-y-5 opacity-0"
                   }`}
+                  aria-hidden={!opened}
                 >
-                  <div className="pointer-events-none absolute -right-10 -top-12 h-28 w-28 rounded-full bg-[#D4AF37]/12 blur-3xl" />
-                  <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#F4D36A]/70 to-transparent" />
+                  <p className="relative z-[2] text-[8px] font-black uppercase tracking-[0.28em] text-[#E4BE56] sm:text-[9px]">
+                    HAMPER ONE
+                  </p>
 
-                  <div className="relative z-10">
-                    <p className="text-[7px] font-black uppercase tracking-[0.24em] text-[#F4D36A] sm:text-[8px]">
-                      HAMPER ONE · REVEALED
-                    </p>
+                  <h3 style={{ fontFamily: DISPLAY_FONT }}>
+                    A Premium
+                    <span className="block text-[#E8C55A]">Gifting Experience</span>
+                  </h3>
 
-                    <h3
-                      style={{ fontFamily: DISPLAY_FONT }}
-                      className="mt-2 text-[28px] font-semibold leading-[.88] tracking-[-.03em] text-[#FFF8EA] sm:text-[36px]"
-                    >
-                      Unwrapped.
-                      <span className="block italic text-[#E9C754]">Unforgettable.</span>
-                    </h3>
-
-                    <Link
-                      to="/hamper-one"
-                      onClick={(event) => event.stopPropagation()}
-                      className="group mt-4 inline-flex min-h-[46px] w-full items-center justify-between bg-[#D4AF37] px-4 text-[9px] font-black uppercase tracking-[0.14em] text-[#16110A] shadow-[0_12px_28px_rgba(212,175,55,.18)] transition duration-300 hover:-translate-y-0.5 hover:bg-[#E8CD6E] sm:w-auto sm:min-w-[230px] sm:px-5 sm:text-[10px]"
-                    >
-                      <span>Discover Hamper One</span>
-                      <span className="text-[18px] transition-transform duration-300 group-hover:translate-x-1">→</span>
-                    </Link>
+                  <div className="hp-hamper-one-experience-features">
+                    {HAMPER_ONE_EXPERIENCE_FEATURES.map((item) => (
+                      <div key={item.id} className="hp-hamper-one-experience-feature">
+                        <span className="hp-hamper-one-experience-icon">
+                          <HamperOneExperienceIcon type={item.icon} />
+                        </span>
+                        <strong>{item.title}</strong>
+                        <span>{item.subtitle}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
+
+                <Link
+                  to="/hamper-one"
+                  onClick={(event) => event.stopPropagation()}
+                  className={`hp-hamper-one-experience-cta group ${
+                    opened ? "opacity-100" : "pointer-events-none opacity-0"
+                  }`}
+                >
+                  <span>Discover Hamper One</span>
+                  <span className="text-[20px] transition-transform duration-300 group-hover:translate-x-1">→</span>
+                </Link>
 
                 {/* Poster cover */}
                 <div
@@ -6895,10 +7544,6 @@ const HamperOneUnwrapExperience = () => {
 
                   <div className="absolute inset-0 bg-black/36" />
                   <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_38%,rgba(255,224,150,.13),transparent_28%),linear-gradient(180deg,rgba(0,0,0,.08),rgba(0,0,0,.34))]" />
-
-                  <div className="pointer-events-none absolute left-5 top-5 z-[66] rounded-full border border-[#E8CA72]/30 bg-black/36 px-4 py-2 text-[8px] font-black uppercase tracking-[0.22em] text-[#F4D36A] backdrop-blur-md sm:left-7 sm:top-7">
-                    Private Series · 01
-                  </div>
 
                   <div
                     className={`hp-hamper-one-wrap-design pointer-events-none absolute transition duration-700 ${
@@ -6933,25 +7578,23 @@ const HamperOneUnwrapExperience = () => {
 
                 {/* Ribbon */}
                 <div
-                  className={`hp-unbox-ribbon absolute left-1/2 top-0 z-[60] h-full w-8 -translate-x-1/2 transition-all duration-[850ms] ease-[cubic-bezier(.16,1,.3,1)] ${
+                  className={`hp-unbox-ribbon hp-unbox-ribbon-v absolute left-1/2 top-0 z-[60] h-full w-8 -translate-x-1/2 transition-all duration-[850ms] ease-[cubic-bezier(.16,1,.3,1)] ${
                     opened ? "scale-y-0 opacity-0" : "scale-y-100 opacity-100"
                   }`}
                 />
 
                 <div
-                  className={`hp-unbox-ribbon absolute left-0 top-1/2 z-[60] h-8 w-full -translate-y-1/2 transition-all duration-[850ms] ease-[cubic-bezier(.16,1,.3,1)] ${
+                  className={`hp-unbox-ribbon hp-unbox-ribbon-h absolute left-0 top-1/2 z-[60] h-8 w-full -translate-y-1/2 transition-all duration-[850ms] ease-[cubic-bezier(.16,1,.3,1)] ${
                     opened ? "scale-x-0 opacity-0" : "scale-x-100 opacity-100"
                   }`}
                 />
 
-                <div
-                  className={`hp-hamper-one-tap-sign ${
-                    opened ? "pointer-events-none opacity-0" : "opacity-100"
-                  }`}
+                <span
                   aria-hidden="true"
-                >
-                  Tap to unwrap
-                </div>
+                  className={`pointer-events-none absolute left-1/2 top-1/2 z-[76] h-[132px] w-[132px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#F4D36A]/18 bg-[#D4AF37]/5 blur-[1px] transition-all duration-700 sm:h-[146px] sm:w-[146px] ${
+                    opened ? "scale-50 opacity-0" : "scale-100 opacity-100"
+                  }`}
+                />
 
                 <button
                   type="button"
