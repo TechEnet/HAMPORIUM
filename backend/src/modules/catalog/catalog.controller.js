@@ -2297,6 +2297,21 @@ const excelStreamCellValue = (value) => {
 
   if (typeof value !== "object") return value;
 
+  /*
+   * ExcelJS returns formula cells as objects. Google-Sheets-exported XLSX
+   * files contain thousands of formula cells, many with an empty cached
+   * result. Never stringify those objects to "[object Object]" because that
+   * makes an otherwise empty row look populated and bloats the compact file.
+   */
+  if (
+    Object.prototype.hasOwnProperty.call(value, "formula") ||
+    Object.prototype.hasOwnProperty.call(value, "sharedFormula")
+  ) {
+    return Object.prototype.hasOwnProperty.call(value, "result")
+      ? excelStreamCellValue(value.result)
+      : null;
+  }
+
   if (Object.prototype.hasOwnProperty.call(value, "result")) {
     return excelStreamCellValue(value.result);
   }
@@ -2315,15 +2330,36 @@ const excelStreamCellValue = (value) => {
 
   if (value.error) return null;
 
-  return String(value);
+  // Unknown ExcelJS object types should not turn blank rows into fake data.
+  return null;
 };
 
 const excelStreamRowValues = (row) => {
-  const maxColumn = Math.min(Number(row?.cellCount || 0), 250);
+  /*
+   * Do not rely only on row.cellCount. With ExcelJS's streaming reader some
+   * exported Google Sheets workbooks expose the populated cells through
+   * row.values while cellCount can be zero/incomplete. That was the cause of
+   * the compact Product Master having headers but no usable data rows.
+   */
+  const rowValues = Array.isArray(row?.values) ? row.values : [];
+  const detectedColumns = Math.max(
+    0,
+    rowValues.length > 0 ? rowValues.length - 1 : 0,
+    Number(row?.cellCount || 0)
+  );
+  const maxColumn = Math.min(detectedColumns, 250);
   const values = [];
 
   for (let column = 1; column <= maxColumn; column += 1) {
-    values.push(excelStreamCellValue(row.getCell(column).value));
+    const directValue = rowValues[column];
+    const cellValue =
+      directValue !== undefined
+        ? directValue
+        : typeof row?.getCell === "function"
+          ? row.getCell(column).value
+          : null;
+
+    values.push(excelStreamCellValue(cellValue));
   }
 
   while (values.length > 0) {
@@ -2334,6 +2370,13 @@ const excelStreamRowValues = (row) => {
 
   return values;
 };
+
+const streamRowHasMeaningfulValue = (values = []) =>
+  values.some((value) => {
+    if (value === null || value === undefined) return false;
+    if (typeof value === "string") return value.trim() !== "";
+    return true;
+  });
 
 const looksLikeProductMasterHeader = (values = []) => {
   const normalized = new Set(values.map(normalizeMasterHeader).filter(Boolean));
@@ -2443,6 +2486,21 @@ const streamCompactProductMasterWorkbook = async (sourcePath, filename = "") => 
             continue;
           }
 
+          /*
+           * Keep the first scan window exactly so titles/header rows survive.
+           * After that, drop rows whose cached/displayed values are completely
+           * empty. The real procurement workbook has formulas prefilled far
+           * below the 156 actual Product Master rows; copying those thousands
+           * of empty formula rows is unnecessary and was causing a large RAM
+           * spike.
+           */
+          if (
+            seenRows > PRODUCT_MASTER_STREAM_SCAN_ROWS &&
+            !streamRowHasMeaningfulValue(values)
+          ) {
+            continue;
+          }
+
           writeRow(values);
         }
       }
@@ -2452,6 +2510,9 @@ const streamCompactProductMasterWorkbook = async (sourcePath, filename = "") => 
       if (outputSheet) {
         outputSheet.commit();
         selectedSheetNames.push(sheetName);
+        console.info(
+          `[ProductMaster] stream:sheet (${sheetName}) | keptRows=${keptRows}`
+        );
       }
     }
 
@@ -4535,7 +4596,13 @@ const analyzeProductMasterBuffer = async (
     bookDeps: false,
     bookFiles: false,
     bookVBA: false,
-    dense: true,
+    /*
+     * Keep SheetJS's normal sparse worksheet representation here. Some xlsx
+     * versions used by Node/Render do not round-trip sheet_to_json reliably
+     * with dense worksheets, which can yield a detected header but zero data
+     * rows. The compact workbook is already small, so sparse mode is safe.
+     */
+    dense: false,
   });
 
   let workbook = {
@@ -4590,11 +4657,18 @@ const analyzeProductMasterBuffer = async (
     throw error;
   }
 
+  console.info(
+    `[ProductMaster] parsed-product-sheet (${sheetName}) | ` +
+      `headerRow=${productSheet.headerRow} dataRows=${productSheet.rows.length}`
+  );
+
   if (productSheet.rows.length === 0) {
     releaseWorkbookSheets(workbook);
     workbook = null;
 
-    const error = new Error("Product Master sheet does not contain any data rows");
+    const error = new Error(
+      `Product Master sheet "${sheetName}" was found, but no usable Product Name/SKU rows were read. Re-download the workbook as .xlsx and try again.`
+    );
     error.statusCode = 400;
     throw error;
   }
