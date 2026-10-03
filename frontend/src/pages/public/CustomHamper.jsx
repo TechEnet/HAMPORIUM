@@ -781,6 +781,7 @@ const CustomHamper = () => {
       return;
     }
 
+    setCartError("");
     setSelectionPending(true);
     setSelectionQuantity(
       setSelectedItems,
@@ -793,6 +794,7 @@ const CustomHamper = () => {
     const currentQuantity = selectedMap.get(component._id) || 0;
     if (currentQuantity <= 0) return;
 
+    setCartError("");
     setSelectionQuantity(
       setSelectedItems,
       component._id,
@@ -810,6 +812,7 @@ const CustomHamper = () => {
       return;
     }
 
+    setCartError("");
     setSelectionQuantity(
       setSelectedDecorations,
       component._id,
@@ -821,6 +824,7 @@ const CustomHamper = () => {
     const currentQuantity = decorationMap.get(component._id) || 0;
     if (currentQuantity <= 0) return;
 
+    setCartError("");
     setSelectionQuantity(
       setSelectedDecorations,
       component._id,
@@ -1132,7 +1136,7 @@ const CustomHamper = () => {
 
   return (
     <main
-      className="min-h-screen bg-[#FBF8F3] pb-20 pt-[84px] text-[#171717] sm:pt-[92px]"
+      className="min-h-screen bg-[#F6F1E9] pb-16 pt-[84px] text-[#171717] sm:pt-[92px]"
       style={{ fontFamily: "'Manrope', Arial, sans-serif" }}
     >
       <style>{`
@@ -1196,104 +1200,46 @@ const CustomHamper = () => {
           will-change: transform, opacity;
         }
 
-
         /* =====================================================
-           V20 · REAL-TIME PACKING STUDIO
-           Real product imagery drops into the selected box.
+           REAL-TIME PACKING STUDIO
         ====================================================== */
-
         @keyframes v20BoxArrive {
-          0% {
-            opacity: 0;
-            transform: translateX(-50%) translateY(24px) scale(.91);
-          }
-          64% {
-            opacity: 1;
-            transform: translateX(-50%) translateY(-3px) scale(1.018);
-          }
-          100% {
-            opacity: 1;
-            transform: translateX(-50%) translateY(0) scale(1);
-          }
+          0% { opacity: 0; transform: translateX(-50%) translateY(24px) scale(.91); }
+          64% { opacity: 1; transform: translateX(-50%) translateY(-3px) scale(1.018); }
+          100% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
         }
 
         @keyframes v20LidOpen {
-          0% {
-            opacity: .45;
-            transform: perspective(760px) rotateX(4deg) translateY(82%) scale(.94);
-          }
-          58% {
-            opacity: 1;
-            transform: perspective(760px) rotateX(66deg) translateY(-45%) scale(1.015);
-          }
-          100% {
-            opacity: 1;
-            transform: perspective(760px) rotateX(60deg) translateY(-39%) scale(1);
-          }
+          0% { opacity: .45; transform: perspective(760px) rotateX(4deg) translateY(82%) scale(.94); }
+          58% { opacity: 1; transform: perspective(760px) rotateX(66deg) translateY(-45%) scale(1.015); }
+          100% { opacity: 1; transform: perspective(760px) rotateX(60deg) translateY(-39%) scale(1); }
         }
 
         @keyframes v20LidClose {
-          0% {
-            transform: perspective(760px) rotateX(60deg) translateY(-39%) scale(1);
-          }
-          60% {
-            transform: perspective(760px) rotateX(6deg) translateY(74%) scale(.965);
-          }
-          100% {
-            transform: perspective(760px) rotateX(0deg) translateY(78%) scale(.97);
-          }
+          0% { transform: perspective(760px) rotateX(60deg) translateY(-39%) scale(1); }
+          60% { transform: perspective(760px) rotateX(6deg) translateY(74%) scale(.965); }
+          100% { transform: perspective(760px) rotateX(0deg) translateY(78%) scale(.97); }
         }
 
         @keyframes v20ItemDrop {
           0% {
             opacity: 0;
-            transform:
-              translate(-50%, -290px)
-              rotate(calc(var(--v20-rotate) - 13deg))
-              scale(.72);
+            transform: translate(-50%, -290px) rotate(calc(var(--v20-rotate) - 13deg)) scale(.72);
             filter: blur(2px);
           }
-          52% {
-            opacity: 1;
-            filter: blur(0);
-          }
-          72% {
-            transform:
-              translate(-50%, -42%)
-              rotate(calc(var(--v20-rotate) + 2deg))
-              scale(var(--v20-scale));
-          }
-          86% {
-            transform:
-              translate(-50%, -56%)
-              rotate(calc(var(--v20-rotate) - 1deg))
-              scale(var(--v20-scale));
-          }
+          52% { opacity: 1; filter: blur(0); }
+          72% { transform: translate(-50%, -42%) rotate(calc(var(--v20-rotate) + 2deg)) scale(var(--v20-scale)); }
+          86% { transform: translate(-50%, -56%) rotate(calc(var(--v20-rotate) - 1deg)) scale(var(--v20-scale)); }
           100% {
             opacity: 1;
-            transform:
-              translate(-50%, -50%)
-              rotate(var(--v20-rotate))
-              scale(var(--v20-scale));
+            transform: translate(-50%, -50%) rotate(var(--v20-rotate)) scale(var(--v20-scale));
             filter: blur(0);
           }
         }
 
         @keyframes v20ItemExit {
-          0% {
-            opacity: 1;
-            transform:
-              translate(-50%, -50%)
-              rotate(var(--v20-rotate))
-              scale(var(--v20-scale));
-          }
-          100% {
-            opacity: 0;
-            transform:
-              translate(-50%, -96%)
-              rotate(calc(var(--v20-rotate) + 8deg))
-              scale(.68);
-          }
+          0% { opacity: 1; transform: translate(-50%, -50%) rotate(var(--v20-rotate)) scale(var(--v20-scale)); }
+          100% { opacity: 0; transform: translate(-50%, -96%) rotate(calc(var(--v20-rotate) + 8deg)) scale(.68); }
         }
 
         @keyframes v20ItemPulse {
@@ -1333,9 +1279,7 @@ const CustomHamper = () => {
             radial-gradient(circle at 50% 9%, rgba(255,255,255,.98), transparent 30%),
             radial-gradient(circle at 50% 86%, rgba(212,175,55,.14), transparent 38%),
             linear-gradient(180deg, #FFFDF9 0%, #F5ECE0 58%, #E9D9C7 100%);
-          box-shadow:
-            inset 0 1px 0 rgba(255,255,255,.82),
-            0 8px 20px rgba(42,31,19,.035);
+          box-shadow: inset 0 1px 0 rgba(255,255,255,.82), 0 8px 20px rgba(42,31,19,.035);
         }
 
         .v20-live-stage::before {
@@ -1344,8 +1288,7 @@ const CustomHamper = () => {
           inset: 0;
           pointer-events: none;
           opacity: .24;
-          background-image:
-            radial-gradient(rgba(99,70,38,.13) .55px, transparent .55px);
+          background-image: radial-gradient(rgba(99,70,38,.13) .55px, transparent .55px);
           background-size: 8px 8px;
           mask-image: linear-gradient(to bottom, transparent, black 22%, black 84%, transparent);
         }
@@ -1369,10 +1312,10 @@ const CustomHamper = () => {
           inset: 0;
           z-index: 0;
           pointer-events: none;
-          opacity: .22;
+          opacity: .18;
           background-image:
-            linear-gradient(rgba(116,84,46,.12) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(116,84,46,.12) 1px, transparent 1px);
+            linear-gradient(rgba(116,84,46,.10) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(116,84,46,.10) 1px, transparent 1px);
           background-size: 34px 34px;
           mask-image: linear-gradient(to bottom, transparent 18%, black 54%, transparent 94%);
           transform: perspective(420px) rotateX(64deg) scale(1.5) translateY(28%);
@@ -1384,7 +1327,6 @@ const CustomHamper = () => {
           --v20-box-light: #F3D7AE;
           --v20-box-dark: #8E5A2C;
           --v20-box-deep: #563018;
-
           position: absolute;
           z-index: 12;
           left: 50%;
@@ -1422,10 +1364,7 @@ const CustomHamper = () => {
           animation: v20LidOpen .86s cubic-bezier(.16,.82,.22,1) both;
         }
 
-        .v20-box-lid.is-packed {
-          z-index: 56;
-          animation: v20LidClose .82s cubic-bezier(.2,.75,.2,1) both;
-        }
+        .v20-box-lid.is-packed { z-index: 56; animation: v20LidClose .82s cubic-bezier(.2,.75,.2,1) both; }
 
         .v20-box-lid-face {
           position: absolute;
@@ -1433,12 +1372,8 @@ const CustomHamper = () => {
           overflow: hidden;
           border: 1px solid rgba(77,45,20,.22);
           border-radius: 12px 12px 8px 8px;
-          background:
-            linear-gradient(145deg, var(--v20-box-light), var(--v20-box-main) 58%, var(--v20-box-dark));
-          box-shadow:
-            0 14px 26px rgba(48,28,12,.22),
-            inset 0 1px 0 rgba(255,255,255,.38),
-            inset 0 -5px 14px rgba(77,40,12,.11);
+          background: linear-gradient(145deg, var(--v20-box-light), var(--v20-box-main) 58%, var(--v20-box-dark));
+          box-shadow: 0 14px 26px rgba(48,28,12,.22), inset 0 1px 0 rgba(255,255,255,.38), inset 0 -5px 14px rgba(77,40,12,.11);
         }
 
         .v20-box-lid-face::before {
@@ -1450,418 +1385,42 @@ const CustomHamper = () => {
           pointer-events: none;
         }
 
-        .v20-box-lid-photo {
-          position: absolute;
-          inset: 0;
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          opacity: .19;
-          mix-blend-mode: multiply;
-          filter: saturate(.7) contrast(.9);
-        }
-
-        .v20-box-monogram {
-          position: absolute;
-          z-index: 2;
-          left: 50%;
-          top: 50%;
-          display: flex;
-          width: 52px;
-          height: 52px;
-          align-items: center;
-          justify-content: center;
-          transform: translate(-50%, -50%);
-          border: 1px solid rgba(255,240,191,.48);
-          border-radius: 999px;
-          color: #FFF2C8;
-          background: rgba(76,40,16,.20);
-          box-shadow: inset 0 0 0 5px rgba(255,255,255,.035);
-          font-family: 'Cormorant Garamond', Georgia, serif;
-          font-size: 25px;
-          font-weight: 700;
-          text-shadow: 0 2px 8px rgba(0,0,0,.22);
-          backdrop-filter: blur(2px);
-        }
-
-        .v20-box-back {
-          position: absolute;
-          z-index: 8;
-          left: 8%;
-          right: 8%;
-          top: 31%;
-          height: 31%;
-          clip-path: polygon(6% 0, 94% 0, 100% 100%, 0 100%);
-          border: 1px solid rgba(70,39,16,.18);
-          background: linear-gradient(180deg, var(--v20-box-main), var(--v20-box-dark));
-          box-shadow: inset 0 10px 18px rgba(255,255,255,.08);
-        }
-
-        .v20-box-well {
-          position: absolute;
-          z-index: 10;
-          left: 11.5%;
-          right: 11.5%;
-          top: 35%;
-          height: 44%;
-          overflow: hidden;
-          clip-path: polygon(5% 0, 95% 0, 100% 84%, 0 84%);
-          background:
-            radial-gradient(circle at 50% 68%, rgba(232,205,152,.52), transparent 38%),
-            linear-gradient(180deg, #5A361C, #2C180D 78%);
-          box-shadow:
-            inset 0 18px 32px rgba(0,0,0,.34),
-            inset 0 -8px 16px rgba(255,221,154,.06);
-        }
-
-        .v20-filler {
-          position: absolute;
-          z-index: 12;
-          left: 14%;
-          right: 14%;
-          top: 52%;
-          height: 24%;
-          overflow: hidden;
-          opacity: .92;
-        }
-
-        .v20-filler span {
-          position: absolute;
-          bottom: 0;
-          width: 26px;
-          height: 5px;
-          border-radius: 999px;
-          background: linear-gradient(90deg, #C59654, #E8C982, #9B6B31);
-          box-shadow: 0 2px 3px rgba(0,0,0,.12);
-          animation: v20FillerFloat 2.8s ease-in-out infinite;
-        }
-
-        .v20-item-layer {
-          position: absolute;
-          z-index: 24;
-          inset: 0;
-          pointer-events: none;
-        }
-
-        .v20-pack-item {
-          position: absolute;
-          transform:
-            translate(-50%, -50%)
-            rotate(var(--v20-rotate))
-            scale(var(--v20-scale));
-          transform-origin: center bottom;
-          will-change: transform, opacity;
-        }
-
-        .v20-pack-item.is-entering {
-          animation: v20ItemDrop .82s cubic-bezier(.17,.78,.2,1.08) both;
-        }
-
-        .v20-pack-item.is-exiting {
-          animation: v20ItemExit .34s cubic-bezier(.45,0,.8,.4) both;
-        }
-
-        .v20-pack-card {
-          position: relative;
-          width: 100%;
-          height: 100%;
-          overflow: hidden;
-          border: 1px solid rgba(61,39,20,.18);
-          border-radius: 9px;
-          background: linear-gradient(145deg, #FFFDF9, #EEDCC6);
-          box-shadow:
-            0 9px 18px rgba(36,22,10,.21),
-            inset 0 1px 0 rgba(255,255,255,.72);
-          animation: v20ItemPulse 2.8s ease-in-out infinite;
-        }
-
-        .v20-kind-bottle .v20-pack-card {
-          border-radius: 13px 13px 9px 9px;
-        }
-
-        .v20-kind-cylinder .v20-pack-card {
-          border-radius: 18px 18px 10px 10px;
-        }
-
-        .v20-kind-flat .v20-pack-card {
-          border-radius: 7px;
-        }
-
-        .v20-pack-image {
-          width: 100%;
-          height: 100%;
-          object-fit: contain;
-          padding: 4px;
-          background: rgba(255,255,255,.90);
-        }
-
-        .v20-pack-fallback {
-          display: flex;
-          width: 100%;
-          height: 100%;
-          align-items: center;
-          justify-content: center;
-          color: #8A631C;
-          background:
-            radial-gradient(circle at 30% 22%, rgba(255,255,255,.7), transparent 34%),
-            linear-gradient(145deg, #F6E5C9, #C99449);
-          font-family: 'Cormorant Garamond', Georgia, serif;
-          font-size: 22px;
-          font-weight: 700;
-        }
-
-        .v20-pack-label {
-          position: absolute;
-          left: 4px;
-          right: 4px;
-          bottom: 4px;
-          overflow: hidden;
-          padding: 2px 4px;
-          border-radius: 5px;
-          color: rgba(255,255,255,.94);
-          background: rgba(22,17,12,.70);
-          font-size: 5.5px;
-          font-weight: 800;
-          line-height: 1.1;
-          text-align: center;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-          backdrop-filter: blur(3px);
-        }
-
-        .v20-box-left,
-        .v20-box-right,
-        .v20-box-front {
-          position: absolute;
-          z-index: 42;
-          pointer-events: none;
-          border: 1px solid rgba(69,38,16,.18);
-          background: linear-gradient(180deg, var(--v20-box-main), var(--v20-box-dark));
-          box-shadow: inset 0 1px 0 rgba(255,255,255,.18);
-        }
-
-        .v20-box-left {
-          left: 6%;
-          top: 45%;
-          width: 20%;
-          height: 40%;
-          clip-path: polygon(0 0, 100% 13%, 100% 100%, 26% 88%);
-          background: linear-gradient(135deg, var(--v20-box-main), var(--v20-box-deep));
-        }
-
-        .v20-box-right {
-          right: 6%;
-          top: 45%;
-          width: 20%;
-          height: 40%;
-          clip-path: polygon(0 13%, 100% 0, 74% 88%, 0 100%);
-          background: linear-gradient(225deg, var(--v20-box-main), var(--v20-box-deep));
-        }
-
-        .v20-box-front {
-          left: 16%;
-          right: 16%;
-          bottom: 2%;
-          height: 33%;
-          clip-path: polygon(0 8%, 100% 8%, 93% 100%, 7% 100%);
-          background:
-            linear-gradient(180deg, var(--v20-box-main) 0%, var(--v20-box-dark) 78%, var(--v20-box-deep) 100%);
-          box-shadow:
-            0 12px 20px rgba(49,28,10,.18),
-            inset 0 1px 0 rgba(255,255,255,.20);
-        }
-
-        .v20-box-front::after {
-          content: "HAMPORIUM";
-          position: absolute;
-          left: 50%;
-          top: 52%;
-          transform: translate(-50%, -50%);
-          color: rgba(255,240,192,.80);
-          font-size: 7px;
-          font-weight: 900;
-          letter-spacing: .18em;
-          text-shadow: 0 2px 8px rgba(0,0,0,.15);
-        }
-
-        .v20-pack-ribbon-h,
-        .v20-pack-ribbon-v {
-          position: absolute;
-          z-index: 63;
-          pointer-events: none;
-          background:
-            linear-gradient(90deg, #9B6C11, #E8CB67 26%, #FFF0AD 50%, #D5A532 74%, #81530D);
-          box-shadow: inset 0 1px 0 rgba(255,255,255,.34), 0 4px 10px rgba(43,26,5,.16);
-          animation: v20RibbonSettle .48s cubic-bezier(.2,.8,.2,1) both;
-        }
-
-        .v20-pack-ribbon-h {
-          left: 17%;
-          right: 17%;
-          top: 68%;
-          height: 9px;
-          transform-origin: center;
-        }
-
-        .v20-pack-ribbon-v {
-          left: 50%;
-          top: 41%;
-          bottom: 5%;
-          width: 9px;
-          transform: translateX(-50%);
-          background:
-            linear-gradient(180deg, #FFF0AD, #D5A532 44%, #81530D);
-        }
-
-        .v20-packed-badge {
-          position: absolute;
-          z-index: 68;
-          left: 50%;
-          top: 63%;
-          display: flex;
-          min-width: 82px;
-          height: 29px;
-          align-items: center;
-          justify-content: center;
-          transform: translateX(-50%);
-          border: 1px solid rgba(255,239,175,.54);
-          border-radius: 999px;
-          color: #FFF0B5;
-          background: radial-gradient(circle at 35% 28%, #C99B33, #7F500D);
-          box-shadow: 0 8px 16px rgba(42,24,4,.22), inset 0 1px 0 rgba(255,255,255,.26);
-          font-size: 6.5px;
-          font-weight: 900;
-          letter-spacing: .10em;
-          text-transform: uppercase;
-        }
-
-        .v20-packing-toast {
-          position: absolute;
-          z-index: 90;
-          left: 50%;
-          top: 43px;
-          max-width: 76%;
-          overflow: hidden;
-          transform: translateX(-50%);
-          border: 1px solid rgba(212,175,55,.25);
-          border-radius: 999px;
-          padding: 7px 12px;
-          color: #5B4213;
-          background: rgba(255,252,244,.92);
-          box-shadow: 0 8px 24px rgba(44,29,11,.10);
-          font-size: 7.5px;
-          font-weight: 900;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-          backdrop-filter: blur(10px);
-          animation: v20PackingToast 1.35s ease both;
-        }
-
-        .v20-packing-toast::before {
-          content: "";
-          display: inline-block;
-          width: 6px;
-          height: 6px;
-          margin-right: 7px;
-          border-radius: 999px;
-          background: #F47822;
-          box-shadow: 0 0 0 4px rgba(244,120,34,.10);
-        }
-
-        .v20-empty-cue {
-          position: absolute;
-          z-index: 30;
-          left: 50%;
-          top: 50%;
-          width: 58%;
-          transform: translate(-50%, -50%);
-          border: 1px dashed rgba(92,65,34,.20);
-          border-radius: 14px;
-          padding: 12px 14px;
-          color: rgba(38,28,18,.40);
-          background: rgba(255,255,255,.46);
-          font-size: 8px;
-          font-weight: 800;
-          line-height: 1.5;
-          text-align: center;
-          backdrop-filter: blur(4px);
-        }
-
-        .v20-capacity-line {
-          position: absolute;
-          z-index: 80;
-          left: 10px;
-          right: 10px;
-          bottom: 8px;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-
-        .v20-capacity-track {
-          height: 4px;
-          flex: 1;
-          overflow: hidden;
-          border-radius: 999px;
-          background: rgba(77,50,25,.10);
-        }
-
-        .v20-capacity-fill {
-          height: 100%;
-          border-radius: inherit;
-          background: linear-gradient(90deg, #F47822, #D4AF37);
-          box-shadow: 0 0 14px rgba(244,120,34,.18);
-          transition: width .72s cubic-bezier(.22,1,.36,1);
-        }
-
-        .v20-capacity-copy {
-          width: 34px;
-          flex: 0 0 auto;
-          color: rgba(27,23,18,.46);
-          font-size: 7px;
-          font-weight: 900;
-          text-align: right;
-        }
-
-        .v20-decor-band {
-          position: absolute;
-          z-index: 62;
-          left: 18%;
-          right: 18%;
-          top: 68%;
-          height: 8px;
-          border-radius: 999px;
-          background: linear-gradient(90deg, #875B0B, #EED576 48%, #875B0B);
-          box-shadow: 0 3px 10px rgba(87,56,6,.20);
-          animation: v20RibbonSettle .46s cubic-bezier(.2,.8,.2,1) both;
-        }
-
-        .v20-decor-band-v {
-          position: absolute;
-          z-index: 61;
-          left: 50%;
-          top: 45%;
-          bottom: 7%;
-          width: 8px;
-          transform: translateX(-50%);
-          border-radius: 999px;
-          background: linear-gradient(180deg, #F7E9A8, #C39021 64%, #80520C);
-          animation: v20RibbonSettle .46s cubic-bezier(.2,.8,.2,1) both;
-        }
-
-        .v20-packed-glow {
-          position: absolute;
-          z-index: 3;
-          left: 50%;
-          bottom: 6%;
-          width: 72%;
-          height: 32%;
-          transform: translateX(-50%);
-          border-radius: 999px;
-          background: rgba(212,175,55,.18);
-          filter: blur(28px);
-          animation: v20PackedGlow 2.8s ease-in-out infinite;
-        }
+        .v20-box-lid-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .19; mix-blend-mode: multiply; filter: saturate(.7) contrast(.9); }
+        .v20-box-monogram { position: absolute; z-index: 2; left: 50%; top: 50%; display: flex; width: 52px; height: 52px; align-items: center; justify-content: center; transform: translate(-50%, -50%); border: 1px solid rgba(255,240,191,.48); border-radius: 999px; color: #FFF2C8; background: rgba(76,40,16,.20); box-shadow: inset 0 0 0 5px rgba(255,255,255,.035); font-family: 'Cormorant Garamond', Georgia, serif; font-size: 25px; font-weight: 700; text-shadow: 0 2px 8px rgba(0,0,0,.22); backdrop-filter: blur(2px); }
+        .v20-box-back { position: absolute; z-index: 8; left: 8%; right: 8%; top: 31%; height: 31%; clip-path: polygon(6% 0, 94% 0, 100% 100%, 0 100%); border: 1px solid rgba(70,39,16,.18); background: linear-gradient(180deg, var(--v20-box-main), var(--v20-box-dark)); box-shadow: inset 0 10px 18px rgba(255,255,255,.08); }
+        .v20-box-well { position: absolute; z-index: 10; left: 11.5%; right: 11.5%; top: 35%; height: 44%; overflow: hidden; clip-path: polygon(5% 0, 95% 0, 100% 84%, 0 84%); background: radial-gradient(circle at 50% 68%, rgba(232,205,152,.52), transparent 38%), linear-gradient(180deg, #5A361C, #2C180D 78%); box-shadow: inset 0 18px 32px rgba(0,0,0,.34), inset 0 -8px 16px rgba(255,221,154,.06); }
+        .v20-filler { position: absolute; z-index: 12; left: 14%; right: 14%; top: 52%; height: 24%; overflow: hidden; opacity: .92; }
+        .v20-filler span { position: absolute; bottom: 0; width: 26px; height: 5px; border-radius: 999px; background: linear-gradient(90deg, #C59654, #E8C982, #9B6B31); box-shadow: 0 2px 3px rgba(0,0,0,.12); animation: v20FillerFloat 2.8s ease-in-out infinite; }
+        .v20-item-layer { position: absolute; z-index: 24; inset: 0; pointer-events: none; }
+        .v20-pack-item { position: absolute; transform: translate(-50%, -50%) rotate(var(--v20-rotate)) scale(var(--v20-scale)); transform-origin: center bottom; will-change: transform, opacity; }
+        .v20-pack-item.is-entering { animation: v20ItemDrop .82s cubic-bezier(.17,.78,.2,1.08) both; }
+        .v20-pack-item.is-exiting { animation: v20ItemExit .34s cubic-bezier(.45,0,.8,.4) both; }
+        .v20-pack-card { position: relative; width: 100%; height: 100%; overflow: hidden; border: 1px solid rgba(61,39,20,.18); border-radius: 9px; background: linear-gradient(145deg, #FFFDF9, #EEDCC6); box-shadow: 0 9px 18px rgba(36,22,10,.21), inset 0 1px 0 rgba(255,255,255,.72); animation: v20ItemPulse 2.8s ease-in-out infinite; }
+        .v20-kind-bottle .v20-pack-card { border-radius: 13px 13px 9px 9px; }
+        .v20-kind-cylinder .v20-pack-card { border-radius: 18px 18px 10px 10px; }
+        .v20-kind-flat .v20-pack-card { border-radius: 7px; }
+        .v20-pack-image { width: 100%; height: 100%; object-fit: contain; padding: 4px; background: rgba(255,255,255,.90); }
+        .v20-pack-fallback { display: flex; width: 100%; height: 100%; align-items: center; justify-content: center; color: #8A631C; background: radial-gradient(circle at 30% 22%, rgba(255,255,255,.7), transparent 34%), linear-gradient(145deg, #F6E5C9, #C99449); font-family: 'Cormorant Garamond', Georgia, serif; font-size: 22px; font-weight: 700; }
+        .v20-pack-label { position: absolute; left: 4px; right: 4px; bottom: 4px; overflow: hidden; padding: 2px 4px; border-radius: 5px; color: rgba(255,255,255,.94); background: rgba(22,17,12,.70); font-size: 5.5px; font-weight: 800; line-height: 1.1; text-align: center; text-overflow: ellipsis; white-space: nowrap; backdrop-filter: blur(3px); }
+        .v20-box-left, .v20-box-right, .v20-box-front { position: absolute; z-index: 42; pointer-events: none; border: 1px solid rgba(69,38,16,.18); background: linear-gradient(180deg, var(--v20-box-main), var(--v20-box-dark)); box-shadow: inset 0 1px 0 rgba(255,255,255,.18); }
+        .v20-box-left { left: 6%; top: 45%; width: 20%; height: 40%; clip-path: polygon(0 0, 100% 13%, 100% 100%, 26% 88%); background: linear-gradient(135deg, var(--v20-box-main), var(--v20-box-deep)); }
+        .v20-box-right { right: 6%; top: 45%; width: 20%; height: 40%; clip-path: polygon(0 13%, 100% 0, 74% 88%, 0 100%); background: linear-gradient(225deg, var(--v20-box-main), var(--v20-box-deep)); }
+        .v20-box-front { left: 16%; right: 16%; bottom: 2%; height: 33%; clip-path: polygon(0 8%, 100% 8%, 93% 100%, 7% 100%); background: linear-gradient(180deg, var(--v20-box-main) 0%, var(--v20-box-dark) 78%, var(--v20-box-deep) 100%); box-shadow: 0 12px 20px rgba(49,28,10,.18), inset 0 1px 0 rgba(255,255,255,.20); }
+        .v20-box-front::after { content: "HAMPORIUM"; position: absolute; left: 50%; top: 52%; transform: translate(-50%, -50%); color: rgba(255,240,192,.80); font-size: 7px; font-weight: 900; letter-spacing: .18em; text-shadow: 0 2px 8px rgba(0,0,0,.15); }
+        .v20-pack-ribbon-h, .v20-pack-ribbon-v { position: absolute; z-index: 63; pointer-events: none; background: linear-gradient(90deg, #9B6C11, #E8CB67 26%, #FFF0AD 50%, #D5A532 74%, #81530D); box-shadow: inset 0 1px 0 rgba(255,255,255,.34), 0 4px 10px rgba(43,26,5,.16); animation: v20RibbonSettle .48s cubic-bezier(.2,.8,.2,1) both; }
+        .v20-pack-ribbon-h { left: 17%; right: 17%; top: 68%; height: 9px; transform-origin: center; }
+        .v20-pack-ribbon-v { left: 50%; top: 41%; bottom: 5%; width: 9px; transform: translateX(-50%); background: linear-gradient(180deg, #FFF0AD, #D5A532 44%, #81530D); }
+        .v20-packed-badge { position: absolute; z-index: 68; left: 50%; top: 63%; display: flex; min-width: 82px; height: 29px; align-items: center; justify-content: center; transform: translateX(-50%); border: 1px solid rgba(255,239,175,.54); border-radius: 999px; color: #FFF0B5; background: radial-gradient(circle at 35% 28%, #C99B33, #7F500D); box-shadow: 0 8px 16px rgba(42,24,4,.22), inset 0 1px 0 rgba(255,255,255,.26); font-size: 6.5px; font-weight: 900; letter-spacing: .10em; text-transform: uppercase; }
+        .v20-packing-toast { position: absolute; z-index: 90; left: 50%; top: 43px; max-width: 76%; overflow: hidden; transform: translateX(-50%); border: 1px solid rgba(212,175,55,.25); border-radius: 999px; padding: 7px 12px; color: #5B4213; background: rgba(255,252,244,.94); box-shadow: 0 8px 24px rgba(44,29,11,.10); font-size: 7.5px; font-weight: 900; text-overflow: ellipsis; white-space: nowrap; backdrop-filter: blur(10px); animation: v20PackingToast 1.35s ease both; }
+        .v20-packing-toast::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 7px; border-radius: 999px; background: #F47822; box-shadow: 0 0 0 4px rgba(244,120,34,.10); }
+        .v20-empty-cue { position: absolute; z-index: 30; left: 50%; top: 50%; width: 58%; transform: translate(-50%, -50%); border: 1px dashed rgba(92,65,34,.20); border-radius: 14px; padding: 12px 14px; color: rgba(38,28,18,.40); background: rgba(255,255,255,.52); font-size: 8px; font-weight: 800; line-height: 1.5; text-align: center; backdrop-filter: blur(4px); }
+        .v20-capacity-line { position: absolute; z-index: 80; left: 10px; right: 10px; bottom: 8px; display: flex; align-items: center; gap: 8px; }
+        .v20-capacity-track { height: 4px; flex: 1; overflow: hidden; border-radius: 999px; background: rgba(77,50,25,.10); }
+        .v20-capacity-fill { height: 100%; border-radius: inherit; background: linear-gradient(90deg, #F47822, #D4AF37); box-shadow: 0 0 14px rgba(244,120,34,.18); transition: width .72s cubic-bezier(.22,1,.36,1); }
+        .v20-capacity-copy { width: 34px; flex: 0 0 auto; color: rgba(27,23,18,.46); font-size: 7px; font-weight: 900; text-align: right; }
+        .v20-decor-band { position: absolute; z-index: 62; left: 18%; right: 18%; top: 68%; height: 8px; border-radius: 999px; background: linear-gradient(90deg, #875B0B, #EED576 48%, #875B0B); box-shadow: 0 3px 10px rgba(87,56,6,.20); animation: v20RibbonSettle .46s cubic-bezier(.2,.8,.2,1) both; }
+        .v20-decor-band-v { position: absolute; z-index: 61; left: 50%; top: 45%; bottom: 7%; width: 8px; transform: translateX(-50%); border-radius: 999px; background: linear-gradient(180deg, #F7E9A8, #C39021 64%, #80520C); animation: v20RibbonSettle .46s cubic-bezier(.2,.8,.2,1) both; }
+        .v20-packed-glow { position: absolute; z-index: 3; left: 50%; bottom: 6%; width: 72%; height: 32%; transform: translateX(-50%); border-radius: 999px; background: rgba(212,175,55,.18); filter: blur(28px); animation: v20PackedGlow 2.8s ease-in-out infinite; }
 
         @media (min-width: 1280px) {
           .v20-live-stage { min-height: 278px; }
@@ -1879,924 +1438,669 @@ const CustomHamper = () => {
           100% { transform: translateX(420%); }
         }
 
-        .v10-soft-scroll {
-          scrollbar-width: none;
-        }
+        .v10-soft-scroll { scrollbar-width: none; }
+        .v10-soft-scroll::-webkit-scrollbar { display: none; }
+        .v24-fixed-studio { scrollbar-width: none; }
+        .v24-fixed-studio::-webkit-scrollbar { display: none; }
+        .v10-primary-cta { position: relative; overflow: hidden; }
+        .v10-primary-cta::after { content: ""; position: absolute; inset: -60% auto -60% -34%; width: 22%; background: linear-gradient(90deg, transparent, rgba(255,255,255,.38), transparent); transform: skewX(-18deg); pointer-events: none; }
+        .v10-primary-cta:hover::after { animation: v10Shimmer .8s cubic-bezier(.16,1,.3,1); }
 
-        .v10-soft-scroll::-webkit-scrollbar {
-          display: none;
-        }
+        @keyframes v13ModalBackdropIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes v13ModalPanelIn { from { opacity: 0; transform: translateY(16px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        .v13-modal-backdrop { animation: v13ModalBackdropIn .18s ease-out both; }
+        .v13-modal-panel { animation: v13ModalPanelIn .24s cubic-bezier(.2,.78,.2,1) both; }
 
-        .v24-fixed-studio {
-          scrollbar-width: none;
-        }
+        /* V30 · CALM GIFT STUDIO */
+        @keyframes v30StepIn { from { opacity: 0; transform: translate3d(0,14px,0); } to { opacity: 1; transform: translate3d(0,0,0); } }
+        .v30-step-in { animation: v30StepIn .48s cubic-bezier(.2,.78,.2,1) both; }
+        .v30-scrollbar-none { scrollbar-width: none; }
+        .v30-scrollbar-none::-webkit-scrollbar { display: none; }
+        .v30-live-shell .v20-live-stage { border-radius: 22px; border-color: rgba(212,175,55,.12); box-shadow: inset 0 1px 0 rgba(255,255,255,.9), 0 16px 40px rgba(53,36,17,.06); }
+        .v30-mobile-live .v20-live-stage { min-height: 238px; border-radius: 18px; }
+        .v30-mobile-live .v20-box-world { width: 96%; height: 242px; bottom: -2px; }
+        .v30-mobile-live .v20-packing-toast { top: 16px; max-width: 84%; }
+        .v30-details > summary { list-style: none; }
+        .v30-details > summary::-webkit-details-marker { display: none; }
+        .v30-details[open] .v30-details-arrow { transform: rotate(45deg); }
 
+        @media (max-width: 767px) {
+          /* Keep the live packing box visible while the gift catalogue scrolls. */
+          .v30-panel-mobile-sticky-safe { overflow: visible !important; }
+          .v30-step-in { animation-name: v30StepInMobile; }
 
-        .v24-fixed-studio::-webkit-scrollbar {
-          display: none;
-        }
-
-        @media (min-width: 1280px) {
-          .v24-fixed-studio {
-            background: #FBF8F3;
+          .v30-mobile-live {
+            position: sticky;
+            top: 0;
+            z-index: 70;
+            margin: -20px -16px 14px;
+            padding: 5px 6px 6px;
+            border: 1px solid rgba(244,120,34,.12);
+            border-top: 0;
+            border-radius: 0 0 18px 18px;
+            background: rgba(255,253,249,.99);
+            box-shadow: 0 12px 30px rgba(42,29,14,.12);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
           }
-        }
 
-        @media (min-width: 1280px) {
-          .v24-fixed-studio {
-            animation: v7Rise .45s cubic-bezier(.2,.75,.2,1) both;
+          .v30-mobile-live .v20-live-stage {
+            min-height: 176px;
+            border-radius: 13px;
           }
+
+          .v30-mobile-live .v20-box-world {
+            width: 94%;
+            height: 182px;
+            bottom: -8px;
+          }
+
+          .v30-mobile-live .v20-packing-toast {
+            top: 10px;
+            max-width: 88%;
+            padding: 5px 9px;
+            font-size: 7px;
+          }
+
+          .v30-mobile-live .v20-capacity-line {
+            bottom: 5px;
+          }
+
+          .v30-mobile-live-summary {
+            margin-top: 5px;
+            overflow: hidden;
+            border: 1px solid rgba(0,0,0,.055);
+            border-radius: 12px;
+            background: #FAF8F4;
+          }
+
+          .v30-mobile-live-summary-grid {
+            display: grid;
+            grid-template-columns: .72fr .8fr 1.28fr;
+          }
+
+          .v30-mobile-live-summary-cell {
+            min-width: 0;
+            padding: 7px 9px 6px;
+          }
+
+          .v30-mobile-live-summary-cell + .v30-mobile-live-summary-cell {
+            border-left: 1px solid rgba(0,0,0,.06);
+          }
+
+          .v30-mobile-live-box-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            border-top: 1px solid rgba(0,0,0,.05);
+            padding: 6px 9px;
+          }
+
+          .v30-mobile-sticky-actions { position: sticky; bottom: max(10px, env(safe-area-inset-bottom)); z-index: 35; }
         }
 
-        .v10-primary-cta {
-          position: relative;
-          overflow: hidden;
-        }
-
-        .v10-primary-cta::after {
-          content: "";
-          position: absolute;
-          inset: -60% auto -60% -34%;
-          width: 22%;
-          background: linear-gradient(90deg, transparent, rgba(255,255,255,.38), transparent);
-          transform: skewX(-18deg);
-          pointer-events: none;
-        }
-
-        .v10-primary-cta:hover::after {
-          animation: v10Shimmer .8s cubic-bezier(.16,1,.3,1);
-        }
-
-        @keyframes v13ModalBackdropIn {
+        @keyframes v30StepInMobile {
           from { opacity: 0; }
           to { opacity: 1; }
-        }
-
-        @keyframes v13ModalPanelIn {
-          from { opacity: 0; transform: translateY(16px) scale(.985); }
-          to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-
-        .v13-modal-backdrop {
-          animation: v13ModalBackdropIn .18s ease-out both;
-        }
-
-        .v13-modal-panel {
-          animation: v13ModalPanelIn .24s cubic-bezier(.2,.78,.2,1) both;
         }
 
         @media (prefers-reduced-motion: reduce) {
           .v7-reveal, .v7-glow, .v7-spark, .v7-decoration, .v9-svg-box, .v9-svg-item, .v13-modal-backdrop, .v13-modal-panel,
           .v20-box-world, .v20-box-lid, .v20-pack-item, .v20-pack-card, .v20-packing-toast,
-          .v20-decor-band, .v20-decor-band-v, .v20-packed-glow, .v20-filler span {
+          .v20-decor-band, .v20-decor-band-v, .v20-packed-glow, .v20-filler span, .v30-step-in {
             animation-duration: .01ms !important;
             animation-iteration-count: 1 !important;
           }
         }
       `}</style>
 
-      <section className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 min-[2200px]:px-16">
-        <div className="grid w-full gap-6 xl:grid-cols-[minmax(0,1fr)_clamp(420px,25vw,520px)] xl:items-start 2xl:grid-cols-[minmax(0,1fr)_clamp(460px,23vw,560px)] 2xl:gap-8">
-          <div className="min-w-0 w-full">
-            <div className="v7-reveal border-b border-black/[0.07] pb-5 pt-2 sm:pb-6 lg:pt-4">
-              <div className="grid gap-5 2xl:grid-cols-[minmax(300px,.72fr)_minmax(480px,1.28fr)] 2xl:items-center 2xl:gap-8">
-                <h1
-                  style={{
-                    fontFamily:
-                      DISPLAY_FONT,
-                  }}
-                  className="max-w-[680px] text-[38px] font-semibold leading-[0.92] tracking-[-0.04em] text-[#171717] sm:text-[clamp(44px,4vw,72px)]"
-                >
-                  Create Your Own Hamper
-                </h1>
+      <section className="mx-auto w-full max-w-[1760px] px-3 sm:px-5 lg:px-7 xl:px-9 2xl:px-12">
+        <header className="relative overflow-hidden rounded-[26px] bg-[#171614] px-5 py-7 text-white shadow-[0_24px_80px_rgba(31,22,12,.14)] sm:rounded-[32px] sm:px-8 sm:py-9 lg:px-10 lg:py-10">
+          <div className="pointer-events-none absolute -right-24 -top-28 h-[380px] w-[380px] rounded-full bg-[radial-gradient(circle,rgba(212,175,55,.17),transparent_68%)] blur-[8px]" />
+          <div className="pointer-events-none absolute -bottom-28 left-[28%] h-[300px] w-[300px] rounded-full bg-[radial-gradient(circle,rgba(244,120,34,.12),transparent_70%)]" />
 
-                <div className="min-w-0">
-                  <div ref={mobileFlowRef} className="scroll-mt-[86px] md:hidden">
-                    <MobileBuilderProgress
-                      step={mobileStep}
-                      orderMode={orderMode}
-                    />
-                  </div>
-
-                  <div className="v10-soft-scroll hidden overflow-x-auto pb-1 md:block">
-                    <div className="flex min-w-[560px] items-start">
-                      {[
-                        [1, "Choose Box"],
-                        [2, "Add Items"],
-                        [3, "Finishing"],
-                        [4, "Personalise"],
-                        [5, orderMode === "bulk" ? "Quote" : "Review"],
-                      ].map(([step, label], index, list) => {
-                        const active =
-                          currentBuilderStep ===
-                          step;
-
-                        const complete =
-                          currentBuilderStep >
-                          step;
-
-                        return (
-                          <div
-                            key={step}
-                            className="flex flex-1 items-start"
-                          >
-                            <div className="flex min-w-[82px] flex-col items-center text-center">
-                              <span
-                                className={`flex h-9 w-9 items-center justify-center rounded-full border text-[9px] font-black transition-all duration-300 ${
-                                  active
-                                    ? "border-[#F47822] bg-[#F47822] text-white shadow-[0_7px_20px_rgba(244,120,34,.18)]"
-                                    : complete
-                                      ? "border-[#D4AF37] bg-[#FFF9EC] text-[#987116]"
-                                      : "border-black/[0.09] bg-white text-black/34"
-                                }`}
-                              >
-                                {complete
-                                  ? "✓"
-                                  : String(
-                                      step
-                                    ).padStart(
-                                      2,
-                                      "0"
-                                    )}
-                              </span>
-
-                              <span
-                                className={`mt-1.5 text-[8.5px] font-black ${
-                                  active
-                                    ? "text-[#171717]"
-                                    : "text-black/34"
-                                }`}
-                              >
-                                {label}
-                              </span>
-                            </div>
-
-                            {index <
-                              list.length -
-                                1 && (
-                              <span
-                                className={`mt-[18px] h-px flex-1 transition-colors duration-300 ${
-                                  complete
-                                    ? "bg-[#D4AF37]"
-                                    : "bg-black/[0.09]"
-                                }`}
-                              />
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <OrderModeChooser
-                    mode={orderMode}
-                    onChange={(nextMode) => {
-                      setOrderMode(nextMode);
-                      setCartError("");
-                    }}
-                  />
-                </div>
-              </div>
+          <div className="relative z-10 grid gap-7 lg:grid-cols-[minmax(0,1fr)_430px] lg:items-end">
+            <div className="max-w-[820px]">
+              <p className="text-[8px] font-black uppercase tracking-[0.23em] text-[#D9BB57] sm:text-[9px]">
+                HAMPORIUM · GIFT STUDIO
+              </p>
+              <h1
+                style={{ fontFamily: DISPLAY_FONT }}
+                className="mt-3 max-w-[800px] text-[44px] font-semibold leading-[.88] tracking-[-.045em] text-[#FFF6E4] sm:text-[56px] lg:text-[68px]"
+              >
+                Build a hamper,
+                <span className="block italic text-[#D9BB57]">beautifully.</span>
+              </h1>
+              <p className="mt-4 max-w-[640px] text-[11px] font-medium leading-5 text-white/48 sm:text-[12px] sm:leading-6">
+                Choose a box, add only what fits, finish it your way, then review the live hamper before checkout.
+              </p>
             </div>
 
-            {error && (
-              <div className="v7-reveal mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
-                {error}
-              </div>
-            )}
-
-            <div className="mt-6 min-w-0 w-full space-y-5 sm:space-y-10">
-            {(!isMobileWizard || mobileStep === 1) && (
-              <>
-            <V7Section
-              number="01"
-              title="Choose Your Hamper Box"
-              meta={selectedContainer ? selectedContainer.name : "Select a base"}
-            >
-              {containers.length === 0 ? (
-                <V7Empty>No custom hamper boxes are available right now.</V7Empty>
-              ) : (
-                <V15ContainerCarousel>
-                  {containers.map((container) => (
-                    <div
-                      key={container._id}
-                      data-hamper-box-slide="true"
-                      className="w-[82%] shrink-0 snap-start sm:w-[calc((100%-1rem)/2)] lg:w-[calc((100%-3rem)/4)]"
-                    >
-                      <V7ContainerCard
-                        container={container}
-                        active={container._id === containerId}
-                        onClick={() => {
-                          if (container._id === containerId) return;
-
-                          setContainerId(container._id);
-                          setSelectedItems([]);
-                          setSelectedDecorations([]);
-                          setConfiguration(null);
-                          setSelectionPending(false);
-                          setCartError("");
-                        }}
-                      />
-                    </div>
-                  ))}
-                </V15ContainerCarousel>
-              )}
-            </V7Section>
-
-            {isMobileWizard && (
-              <MobileStepActions
-                nextLabel="Continue to gifts"
-                nextDisabled={!canContinueFromBox}
-                onNext={() => moveMobileStep(2)}
-                hint={
-                  selectedContainer
-                    ? `${selectedContainer.name} selected`
-                    : "Select one hamper box to continue."
-                }
+            <div className="lg:justify-self-end">
+              <p className="mb-2 text-[7px] font-black uppercase tracking-[0.16em] text-white/32">
+                How are you ordering?
+              </p>
+              <OrderModeChooser
+                mode={orderMode}
+                onChange={(nextMode) => {
+                  setOrderMode(nextMode);
+                  setCartError("");
+                }}
               />
-            )}
-              </>
+            </div>
+          </div>
+        </header>
+
+        <div ref={mobileFlowRef} className="scroll-mt-[88px]">
+          <V30Progress
+            step={mobileStep}
+            orderMode={orderMode}
+            canContinueFromBox={canContinueFromBox}
+            canContinueFromProducts={canContinueFromProducts}
+            onStepChange={moveMobileStep}
+          />
+        </div>
+
+        {error && (
+          <div className="mt-4 rounded-[16px] border border-red-200 bg-red-50 px-4 py-3 text-[11px] font-semibold text-red-700">
+            {error}
+          </div>
+        )}
+
+        <div className="mt-5 grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_clamp(390px,30vw,500px)] xl:items-start 2xl:gap-7">
+          <div className="min-w-0">
+            {mobileStep === 1 && (
+              <V30Panel
+                number="01"
+                eyebrow="Start with the base"
+                title="Choose your hamper box"
+                description="Pick the shape and size you want to build around. You can view full dimensions only when you need them."
+                meta={selectedContainer ? selectedContainer.name : "Choose one box"}
+              >
+                {containers.length === 0 ? (
+                  <V7Empty>No custom hamper boxes are available right now.</V7Empty>
+                ) : (
+                  <V15ContainerCarousel>
+                    {containers.map((container) => (
+                      <div
+                        key={container._id}
+                        data-hamper-box-slide="true"
+                        className="w-[84%] shrink-0 snap-start sm:w-[calc((100%-1rem)/2)] lg:w-[calc((100%-2rem)/3)]"
+                      >
+                        <V7ContainerCard
+                          container={container}
+                          active={container._id === containerId}
+                          onClick={() => {
+                            if (container._id === containerId) return;
+                            setContainerId(container._id);
+                            setSelectedItems([]);
+                            setSelectedDecorations([]);
+                            setConfiguration(null);
+                            setSelectionPending(false);
+                            setCartError("");
+                          }}
+                        />
+                      </div>
+                    ))}
+                  </V15ContainerCarousel>
+                )}
+
+                <V30StepActions
+                  nextLabel="Add gifts"
+                  nextDisabled={!canContinueFromBox}
+                  onNext={() => moveMobileStep(2)}
+                  hint={selectedContainer ? `${selectedContainer.name} selected` : "Select one box to continue."}
+                />
+              </V30Panel>
             )}
 
-            {(!isMobileWizard || mobileStep === 2) && (
-              <>
-            <V7Section
-              number="02"
-              title="Add Products"
-              meta={
-                selectedItemCount > 0
-                  ? `${selectedItemCount} inside`
-                  : "Pick your favourites"
-              }
-            >
-              {isMobileWizard && (
-                <MobileLiveHamperStatus
+            {mobileStep === 2 && (
+              <V30Panel
+                number="02"
+                eyebrow="Curate the inside"
+                title="Add your gifts"
+                description="Every product shown here is checked against the box you selected. As you add items, the live hamper fills in real time."
+                meta={selectedItemCount ? `${selectedItemCount} selected` : "Choose your favourites"}
+              >
+                <V30MobileLivePreview
                   selectedContainer={selectedContainer}
+                  previewItems={previewItems}
+                  previewDecorations={previewDecorations}
                   selectedItemCount={selectedItemCount}
+                  selectedDecorationCount={selectedDecorationCount}
                   fillPercent={fillPercent}
                   configuration={configuration}
+                  canIncreaseAnyItem={canIncreaseAnyItem}
                   validating={validating || selectionPending}
                 />
-              )}
 
-              <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
-                <div className="relative">
-                  <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-base text-black/24">
-                    ⌕
-                  </span>
-                  <input
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Search products..."
-                    className="h-12 w-full rounded-full border border-black/[0.08] bg-[#FAF8F5] pl-11 pr-4 text-[12px] font-semibold outline-none transition focus:border-[#F47822] focus:bg-white focus:ring-4 focus:ring-[#F47822]/10"
-                  />
+                <div className="grid gap-2.5 sm:grid-cols-[minmax(0,1fr)_210px]">
+                  <div className="relative">
+                    <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-base text-black/24">⌕</span>
+                    <input
+                      value={search}
+                      onChange={(event) => setSearch(event.target.value)}
+                      placeholder="Search gifts"
+                      className="h-11 w-full rounded-full border border-black/[0.08] bg-[#FAF8F4] pl-11 pr-4 text-[11px] font-semibold outline-none transition focus:border-[#F47822] focus:bg-white focus:ring-4 focus:ring-[#F47822]/8"
+                    />
+                  </div>
+
+                  <select
+                    value={subcategoryFilter}
+                    onChange={(event) => setSubcategoryFilter(event.target.value)}
+                    className="h-11 rounded-full border border-black/[0.08] bg-[#FAF8F4] px-4 text-[10px] font-bold outline-none transition focus:border-[#F47822] focus:bg-white"
+                  >
+                    <option value="">All types</option>
+                    {subcategories.map((subcategory) => (
+                      <option key={subcategory} value={subcategory}>{subcategory}</option>
+                    ))}
+                  </select>
                 </div>
 
-                <select
-                  value={subcategoryFilter}
-                  onChange={(event) => setSubcategoryFilter(event.target.value)}
-                  className="h-12 rounded-full border border-black/[0.08] bg-[#FAF8F5] px-4 text-[11px] font-bold outline-none transition focus:border-[#F47822] focus:bg-white"
-                >
-                  <option value="">All subcategories</option>
-                  {subcategories.map((subcategory) => (
-                    <option key={subcategory} value={subcategory}>
-                      {subcategory}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="v10-soft-scroll mt-3 flex gap-2 overflow-x-auto pb-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCategoryFilter("");
-                    setSubcategoryFilter("");
-                  }}
-                  className={`shrink-0 rounded-full border px-4 py-2 text-[10px] font-black transition ${
-                    !categoryFilter
-                      ? "border-[#F47822] bg-[#F47822] text-white"
-                      : "border-black/[0.08] bg-white text-black/50 hover:border-[#F47822]/40 hover:text-[#F47822]"
-                  }`}
-                >
-                  All Products
-                </button>
-
-                {categories.slice(0, 8).map((category) => (
+                <div className="v30-scrollbar-none mt-3 flex gap-2 overflow-x-auto pb-1">
                   <button
-                    key={category}
                     type="button"
                     onClick={() => {
-                      setCategoryFilter(category);
+                      setCategoryFilter("");
                       setSubcategoryFilter("");
                     }}
-                    className={`shrink-0 rounded-full border px-4 py-2 text-[10px] font-black transition ${
-                      categoryFilter === category
+                    className={`shrink-0 rounded-full border px-3.5 py-2 text-[9px] font-black transition ${
+                      !categoryFilter
                         ? "border-[#171717] bg-[#171717] text-white"
-                        : "border-black/[0.08] bg-white text-black/50 hover:border-[#F47822]/40 hover:text-[#F47822]"
+                        : "border-black/[0.08] bg-white text-black/42 hover:border-[#D4AF37]/45 hover:text-[#8A6815]"
                     }`}
                   >
-                    {category}
+                    All gifts
                   </button>
-                ))}
-              </div>
 
-              <div className="mt-3 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2 text-[10px] font-bold text-black/35">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                  Only gift items that still fit stay visible
-                </div>
-
-                {(validating || selectionPending) && (
-                  <span className="rounded-full bg-[#171717] px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.08em] text-white/70">
-                    Checking fit…
-                  </span>
-                )}
-              </div>
-
-              {visibleComponents.length === 0 ? (
-                <V7Empty>
-                  This box has reached its practical limit. Remove an item or
-                  choose a larger box.
-                </V7Empty>
-              ) : (
-                <div
-                  data-hamper-products-grid="true"
-                  className="mt-5 grid grid-cols-2 gap-x-3 gap-y-5 sm:gap-x-4 sm:gap-y-7 lg:grid-cols-4"
-                >
-                  {paginatedComponents.map((component) => {
-                    const quantity = selectedMap.get(component._id) || 0;
-                    const candidate = candidateMap.get(String(component._id));
-                    const missingPrice =
-                      component.sellingPrice === null ||
-                      component.sellingPrice === undefined;
-                    const cannotAddMore = Boolean(
-                      !candidate ||
-                        candidate.selectable === false ||
-                        Number(candidate.maxAdditionalQuantity || 0) <= 0
-                    );
-
-                    return (
-                      <V7ProductCard
-                        key={component._id}
-                        component={component}
-                        quantity={quantity}
-                        selected={quantity > 0}
-                        locked={missingPrice || cannotAddMore}
-                        checking={validating || selectionPending}
-                        fitLeft={Number(candidate?.maxAdditionalQuantity || 0)}
-                        onMinus={() => decrementItem(component)}
-                        onPlus={() => incrementItem(component)}
-                      />
-                    );
-                  })}
-                </div>
-              )}
-
-              {visibleComponents.length > 0 && (
-                <ProductPager
-                  page={itemPage}
-                  totalPages={totalItemPages}
-                  totalItems={visibleComponents.length}
-                  rangeStart={itemRangeStart}
-                  rangeEnd={itemRangeEnd}
-                  onPageChange={setItemPage}
-                  compact={isMobileWizard}
-                />
-              )}
-            </V7Section>
-
-            {isMobileWizard && (
-              <MobileStepActions
-                backLabel="Box"
-                nextLabel="Continue to finishing"
-                nextDisabled={!canContinueFromProducts}
-                onBack={() => moveMobileStep(1)}
-                onNext={() => moveMobileStep(3)}
-                hint={
-                  selectedItemCount > 0
-                    ? `${selectedItemCount} gift${selectedItemCount === 1 ? "" : "s"} selected`
-                    : "Add at least one gift to continue."
-                }
-              />
-            )}
-              </>
-            )}
-
-            {(!isMobileWizard || mobileStep === 3) && (
-              <>
-            <V7Section
-              number="03"
-              title="Finishing Touches"
-              meta={
-                selectedDecorationCount > 0
-                  ? `${selectedDecorationCount} selected`
-                  : "Optional"
-              }
-              gold
-            >
-              <div className="mb-5 flex flex-col gap-2 border-y border-[#D4AF37]/16 py-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-[11px] font-black text-[#171717]">
-                    Decorations don’t use gift space.
-                  </p>
-                  <p className="mt-0.5 text-[10px] font-semibold leading-4 text-black/42">
-                    Ribbons, tags and other finishes are priced separately.
-                  </p>
-                </div>
-
-                <span className="shrink-0 text-[9px] font-black uppercase tracking-[0.08em] text-[#9A7316]">
-                  0% capacity
-                </span>
-              </div>
-
-              {decorativeComponents.length > 0 && (
-                <div className="relative max-w-md">
-                  <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-black/25">
-                    ⌕
-                  </span>
-                  <input
-                    value={decorationSearch}
-                    onChange={(event) => setDecorationSearch(event.target.value)}
-                    placeholder="Search ribbon, flowers, tags…"
-                    className="h-11 w-full rounded-xl border border-[#D4AF37]/20 bg-[#FFFCF6] pl-9 pr-3 text-[12px] font-semibold outline-none transition focus:border-[#D4AF37] focus:ring-4 focus:ring-[#D4AF37]/10"
-                  />
-                </div>
-              )}
-
-              {visibleDecorations.length === 0 ? (
-                <V7Empty>No decorative finishes are available yet.</V7Empty>
-              ) : (
-                <div
-                  data-hamper-decorations-grid="true"
-                  className="mt-5 grid grid-cols-2 gap-x-3 gap-y-5 sm:gap-x-4 sm:gap-y-7 lg:grid-cols-4 2xl:grid-cols-5"
-                >
-                  {paginatedDecorations.map((component) => (
-                    <V7DecorationCard
-                      key={component._id}
-                      component={component}
-                      quantity={decorationMap.get(component._id) || 0}
-                      onMinus={() => decrementDecoration(component)}
-                      onPlus={() => incrementDecoration(component)}
-                    />
+                  {categories.slice(0, 8).map((category) => (
+                    <button
+                      key={category}
+                      type="button"
+                      onClick={() => {
+                        setCategoryFilter(category);
+                        setSubcategoryFilter("");
+                      }}
+                      className={`shrink-0 rounded-full border px-3.5 py-2 text-[9px] font-black transition ${
+                        categoryFilter === category
+                          ? "border-[#D4AF37] bg-[#FFF7D9] text-[#7B5D13]"
+                          : "border-black/[0.08] bg-white text-black/42 hover:border-[#D4AF37]/45 hover:text-[#8A6815]"
+                      }`}
+                    >
+                      {category}
+                    </button>
                   ))}
                 </div>
-              )}
 
-              {isMobileWizard && visibleDecorations.length > 0 && (
-                <ProductPager
-                  page={decorationPage}
-                  totalPages={totalDecorationPages}
-                  totalItems={visibleDecorations.length}
-                  rangeStart={decorationRangeStart}
-                  rangeEnd={decorationRangeEnd}
-                  onPageChange={setDecorationPage}
-                  compact
-                  label="Finishing touches"
-                  scrollSelector='[data-hamper-decorations-grid="true"]'
+                <div className="mt-3 flex items-center justify-between gap-3 text-[8px] font-bold text-black/32">
+                  <span className="flex items-center gap-2">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                    Only items that still fit are shown
+                  </span>
+                  {(validating || selectionPending) && (
+                    <span className="shrink-0 text-[#8A6815]">Checking fit…</span>
+                  )}
+                </div>
+
+                {visibleComponents.length === 0 ? (
+                  <V7Empty>This box has reached its practical limit. Remove an item or choose a larger box.</V7Empty>
+                ) : (
+                  <div
+                    data-hamper-products-grid="true"
+                    className="mt-5 grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-3 sm:gap-x-4 sm:gap-y-7"
+                  >
+                    {paginatedComponents.map((component) => {
+                      const quantity = selectedMap.get(component._id) || 0;
+                      const candidate = candidateMap.get(String(component._id));
+                      const missingPrice = component.sellingPrice === null || component.sellingPrice === undefined;
+                      const cannotAddMore = Boolean(
+                        !candidate ||
+                          candidate.selectable === false ||
+                          Number(candidate.maxAdditionalQuantity || 0) <= 0
+                      );
+
+                      return (
+                        <V7ProductCard
+                          key={component._id}
+                          component={component}
+                          quantity={quantity}
+                          selected={quantity > 0}
+                          locked={missingPrice || cannotAddMore}
+                          checking={validating || selectionPending}
+                          fitLeft={Number(candidate?.maxAdditionalQuantity || 0)}
+                          onMinus={() => decrementItem(component)}
+                          onPlus={() => incrementItem(component)}
+                        />
+                      );
+                    })}
+                  </div>
+                )}
+
+                {visibleComponents.length > 0 && (
+                  <ProductPager
+                    page={itemPage}
+                    totalPages={totalItemPages}
+                    totalItems={visibleComponents.length}
+                    rangeStart={itemRangeStart}
+                    rangeEnd={itemRangeEnd}
+                    onPageChange={setItemPage}
+                    compact
+                  />
+                )}
+
+                <V30StepActions
+                  backLabel="Box"
+                  nextLabel="Finishing touches"
+                  nextDisabled={!canContinueFromProducts}
+                  onBack={() => moveMobileStep(1)}
+                  onNext={() => moveMobileStep(3)}
+                  hint={selectedItemCount ? `${selectedItemCount} gift${selectedItemCount === 1 ? "" : "s"} in your hamper` : "Add at least one gift to continue."}
                 />
-              )}
-            </V7Section>
-
-            {isMobileWizard && (
-              <MobileStepActions
-                backLabel="Gifts"
-                nextLabel={selectedDecorationCount > 0 ? "Continue" : "Skip & continue"}
-                onBack={() => moveMobileStep(2)}
-                onNext={() => moveMobileStep(4)}
-                hint={
-                  selectedDecorationCount > 0
-                    ? `${selectedDecorationCount} finishing touch${selectedDecorationCount === 1 ? "" : "es"} selected`
-                    : "Finishing touches are optional."
-                }
-              />
-            )}
-              </>
+              </V30Panel>
             )}
 
-            {(!isMobileWizard || mobileStep === 4) && (
-              <>
-            <V7Section
-              number="04"
-              title="Personalise Your Hamper"
-              meta={personalizationPayload ? "Added" : "Optional"}
-            >
-              <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(300px,.82fr)] lg:gap-8">
-                <div>
-                  <div className="border-t border-black/[0.07] pt-4 sm:pt-5">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#F47822]">
-                          1 · Add a logo or design
-                        </p>
-                        <p className="mt-1 max-w-xl text-[12px] font-semibold leading-5 text-black/46">
-                          Upload an image only if you want branding or custom artwork on the hamper.
-                        </p>
+            {mobileStep === 3 && (
+              <V30Panel
+                number="03"
+                eyebrow="Optional finish"
+                title="Add the finishing touch"
+                description="Ribbons, tags and decorative details do not use gift capacity. Keep it simple or make it celebratory."
+                meta={selectedDecorationCount ? `${selectedDecorationCount} selected` : "Optional"}
+              >
+                {decorativeComponents.length > 0 && (
+                  <div className="relative max-w-md">
+                    <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-black/25">⌕</span>
+                    <input
+                      value={decorationSearch}
+                      onChange={(event) => setDecorationSearch(event.target.value)}
+                      placeholder="Search ribbon, flowers, tags…"
+                      className="h-11 w-full rounded-full border border-[#D4AF37]/18 bg-[#FFFCF6] pl-9 pr-4 text-[11px] font-semibold outline-none transition focus:border-[#D4AF37] focus:ring-4 focus:ring-[#D4AF37]/8"
+                    />
+                  </div>
+                )}
+
+                {visibleDecorations.length === 0 ? (
+                  <V7Empty>No decorative finishes are available yet.</V7Empty>
+                ) : (
+                  <div
+                    data-hamper-decorations-grid="true"
+                    className="mt-5 grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-3 sm:gap-x-4 sm:gap-y-7"
+                  >
+                    {paginatedDecorations.map((component) => (
+                      <V7DecorationCard
+                        key={component._id}
+                        component={component}
+                        quantity={decorationMap.get(component._id) || 0}
+                        onMinus={() => decrementDecoration(component)}
+                        onPlus={() => incrementDecoration(component)}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {isMobileWizard && visibleDecorations.length > 0 && (
+                  <ProductPager
+                    page={decorationPage}
+                    totalPages={totalDecorationPages}
+                    totalItems={visibleDecorations.length}
+                    rangeStart={decorationRangeStart}
+                    rangeEnd={decorationRangeEnd}
+                    onPageChange={setDecorationPage}
+                    compact
+                    label="Finishing touches"
+                    scrollSelector='[data-hamper-decorations-grid="true"]'
+                  />
+                )}
+
+                <V30StepActions
+                  backLabel="Gifts"
+                  nextLabel={selectedDecorationCount ? "Personalise" : "Skip & personalise"}
+                  onBack={() => moveMobileStep(2)}
+                  onNext={() => moveMobileStep(4)}
+                  hint={selectedDecorationCount ? `${selectedDecorationCount} finishing touch${selectedDecorationCount === 1 ? "" : "es"} selected` : "Finishing touches are optional."}
+                />
+              </V30Panel>
+            )}
+
+            {mobileStep === 4 && (
+              <V30Panel
+                number="04"
+                eyebrow="Make it personal"
+                title="Personalise only what matters"
+                description="Open only the options you need. Artwork, a message and packing notes are all optional."
+                meta={personalizationPayload ? "Personalisation added" : "Optional"}
+              >
+                <div className="space-y-3">
+                  <details className="v30-details group rounded-[18px] border border-black/[0.07] bg-[#FBF9F5]" open={personalization.assets.length > 0}>
+                    <summary className="flex cursor-pointer items-center justify-between gap-4 px-4 py-4 sm:px-5">
+                      <div className="min-w-0">
+                        <p className="text-[9px] font-black uppercase tracking-[0.12em] text-[#9A7316]">01 · Artwork / logo</p>
+                        <p className="mt-1 text-[11px] font-semibold text-black/42">Upload only if you want branding or a custom design.</p>
+                      </div>
+                      <span className="v30-details-arrow flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-black/[0.08] bg-white text-[18px] leading-none text-black/40 transition-transform duration-300">+</span>
+                    </summary>
+
+                    <div className="border-t border-black/[0.06] px-4 pb-5 pt-4 sm:px-5">
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <label>
+                          <span className="mb-1.5 block text-[8px] font-black uppercase tracking-[0.08em] text-black/32">Artwork type</span>
+                          <select value={assetType} onChange={(event) => setAssetType(event.target.value)} className="h-11 w-full rounded-xl border border-black/[0.08] bg-white px-3 text-[11px] font-bold outline-none focus:border-[#D4AF37]">
+                            {PERSONALIZATION_ASSET_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                          </select>
+                        </label>
+                        <label>
+                          <span className="mb-1.5 block text-[8px] font-black uppercase tracking-[0.08em] text-black/32">Placement</span>
+                          <select value={assetPlacement} onChange={(event) => setAssetPlacement(event.target.value)} className="h-11 w-full rounded-xl border border-black/[0.08] bg-white px-3 text-[11px] font-bold outline-none focus:border-[#D4AF37]">
+                            {PERSONALIZATION_PLACEMENT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                          </select>
+                        </label>
                       </div>
 
-                      <span className="text-[9px] font-black text-black/34">
-                        {personalization.assets.length} / 4 images
-                      </span>
-                    </div>
-
-                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                      <label>
-                        <span className="mb-1.5 block text-[9px] font-black uppercase tracking-[0.08em] text-black/35">
-                          What are you uploading?
-                        </span>
-                        <select
-                          value={assetType}
-                          onChange={(event) => setAssetType(event.target.value)}
-                          className="h-11 w-full rounded-xl border border-black/[0.09] bg-white px-3 text-[12px] font-bold outline-none focus:border-[#F47822]"
-                        >
-                          {PERSONALIZATION_ASSET_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-
-                      <label>
-                        <span className="mb-1.5 block text-[9px] font-black uppercase tracking-[0.08em] text-black/35">
-                          Where should it go?
-                        </span>
-                        <select
-                          value={assetPlacement}
-                          onChange={(event) =>
-                            setAssetPlacement(event.target.value)
-                          }
-                          className="h-11 w-full rounded-xl border border-black/[0.09] bg-white px-3 text-[12px] font-bold outline-none focus:border-[#F47822]"
-                        >
-                          {PERSONALIZATION_PLACEMENT_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    </div>
-
-                    <label className="mt-3 block">
-                      <span className="mb-1.5 block text-[9px] font-black uppercase tracking-[0.08em] text-black/35">
-                        Placement details (optional)
-                      </span>
                       <input
                         value={assetNotes}
                         maxLength={500}
                         onChange={(event) => setAssetNotes(event.target.value)}
-                        placeholder="e.g. centred on the lid, small size, use gold logo only"
-                        className="h-11 w-full rounded-xl border border-black/[0.09] bg-white px-3 text-[12px] font-semibold outline-none focus:border-[#F47822]"
+                        placeholder="Placement note (optional)"
+                        className="mt-3 h-11 w-full rounded-xl border border-black/[0.08] bg-white px-3 text-[11px] font-semibold outline-none focus:border-[#D4AF37]"
                       />
-                    </label>
 
-                    <div className="mt-4 flex flex-wrap items-center gap-3">
-                      {user ? (
-                        <label
-                          className={`inline-flex h-11 cursor-pointer items-center justify-center rounded-xl px-4 text-[10px] font-black uppercase tracking-[0.08em] text-white transition ${
-                            uploadingAsset || personalization.assets.length >= 4
-                              ? "pointer-events-none bg-black/25"
-                              : "bg-[#171717] hover:bg-[#F47822]"
-                          }`}
-                        >
-                          {uploadingAsset ? "Uploading…" : "Upload image"}
-                          <input
-                            type="file"
-                            accept="image/jpeg,image/png,image/webp,image/avif"
-                            disabled={
-                              uploadingAsset || personalization.assets.length >= 4
-                            }
-                            onChange={handlePersonalizationUpload}
-                            className="hidden"
-                          />
-                        </label>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => navigate("/login")}
-                          className="h-11 rounded-xl bg-[#171717] px-4 text-[10px] font-black uppercase tracking-[0.08em] text-white transition hover:bg-[#F47822]"
-                        >
-                          Login to upload
-                        </button>
-                      )}
+                      <div className="mt-3 flex flex-wrap items-center gap-3">
+                        {user ? (
+                          <label className={`inline-flex h-11 cursor-pointer items-center justify-center rounded-xl px-4 text-[9px] font-black uppercase tracking-[0.08em] text-white transition ${uploadingAsset || personalization.assets.length >= 4 ? "pointer-events-none bg-black/25" : "bg-[#171717] hover:bg-[#9A7316]"}`}>
+                            {uploadingAsset ? "Uploading…" : "Upload image"}
+                            <input type="file" accept="image/jpeg,image/png,image/webp,image/avif" disabled={uploadingAsset || personalization.assets.length >= 4} onChange={handlePersonalizationUpload} className="hidden" />
+                          </label>
+                        ) : (
+                          <button type="button" onClick={() => navigate("/login")} className="h-11 rounded-xl bg-[#171717] px-4 text-[9px] font-black uppercase tracking-[0.08em] text-white">Login to upload</button>
+                        )}
+                        <span className="text-[9px] font-semibold text-black/30">{personalization.assets.length}/4 images · max 5 MB</span>
+                      </div>
 
-                      <span className="text-[10px] font-semibold text-black/32">
-                        JPG, PNG, WEBP or AVIF · up to 5 MB
-                      </span>
-                    </div>
+                      {personalizationError && <p className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-[9px] font-semibold text-red-700">{personalizationError}</p>}
 
-                    {personalizationError && (
-                      <p className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-[10px] font-semibold leading-4 text-red-700">
-                        {personalizationError}
-                      </p>
-                    )}
-                  </div>
-
-                  {personalization.assets.length > 0 && (
-                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                      {personalization.assets.map((asset, index) => (
-                        <div
-                          key={asset.publicId || `${asset.url}-${index}`}
-                          className="overflow-hidden rounded-[18px] border border-black/[0.07] bg-white"
-                        >
-                          <div className="flex gap-3 p-3">
-                            <img
-                              src={asset.url}
-                              alt={asset.fileName || "Personalization artwork"}
-                              className="h-20 w-20 shrink-0 rounded-xl border border-black/[0.06] bg-[#F6F2EC] object-contain p-1"
-                            />
-
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="min-w-0">
-                                  <p className="truncate text-[11px] font-black text-[#171717]">
-                                    {asset.fileName ||
-                                      personalizationLabel(
-                                        asset.type,
-                                        PERSONALIZATION_ASSET_OPTIONS
-                                      )}
-                                  </p>
-                                  <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.06em] text-[#F47822]">
-                                    {personalizationLabel(
-                                      asset.type,
-                                      PERSONALIZATION_ASSET_OPTIONS
-                                    )}
-                                  </p>
+                      {personalization.assets.length > 0 && (
+                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                          {personalization.assets.map((asset, index) => (
+                            <div key={asset.publicId || `${asset.url}-${index}`} className="rounded-[14px] border border-black/[0.07] bg-white p-3">
+                              <div className="flex gap-3">
+                                <img src={asset.url} alt={asset.fileName || "Personalization artwork"} className="h-16 w-16 shrink-0 rounded-lg bg-[#F6F2EC] object-contain p-1" />
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-[10px] font-black">{asset.fileName || personalizationLabel(asset.type, PERSONALIZATION_ASSET_OPTIONS)}</p>
+                                  <select value={asset.placement || "top_lid"} onChange={(event) => updatePersonalizationAsset(index, "placement", event.target.value)} className="mt-2 h-8 w-full rounded-lg border border-black/[0.07] bg-[#FAF8F5] px-2 text-[9px] font-bold outline-none">
+                                    {PERSONALIZATION_PLACEMENT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                                  </select>
+                                  <input
+                                    value={asset.notes || ""}
+                                    maxLength={500}
+                                    onChange={(event) => updatePersonalizationAsset(index, "notes", event.target.value)}
+                                    placeholder="Placement details"
+                                    className="mt-2 h-8 w-full rounded-lg border border-black/[0.07] bg-[#FAF8F5] px-2 text-[9px] font-semibold outline-none"
+                                  />
                                 </div>
-
-                                <button
-                                  type="button"
-                                  onClick={() => removePersonalizationAsset(index)}
-                                  className="rounded-lg border border-red-100 bg-red-50 px-2 py-1 text-[9px] font-black text-red-600 hover:bg-red-100"
-                                >
-                                  Remove
-                                </button>
+                                <button type="button" onClick={() => removePersonalizationAsset(index)} className="h-8 shrink-0 rounded-lg bg-red-50 px-2 text-[8px] font-black text-red-600">Remove</button>
                               </div>
                             </div>
-                          </div>
-
-                          <div className="grid gap-2 border-t border-black/[0.055] bg-[#FAF8F5] p-3">
-                            <select
-                              value={asset.placement || "top_lid"}
-                              onChange={(event) =>
-                                updatePersonalizationAsset(
-                                  index,
-                                  "placement",
-                                  event.target.value
-                                )
-                              }
-                              className="h-9 rounded-lg border border-black/[0.08] bg-white px-2.5 text-[10px] font-bold outline-none focus:border-[#F47822]"
-                            >
-                              {PERSONALIZATION_PLACEMENT_OPTIONS.map((option) => (
-                                <option key={option.value} value={option.value}>
-                                  {option.label}
-                                </option>
-                              ))}
-                            </select>
-
-                            <input
-                              value={asset.notes || ""}
-                              maxLength={500}
-                              onChange={(event) =>
-                                updatePersonalizationAsset(
-                                  index,
-                                  "notes",
-                                  event.target.value
-                                )
-                              }
-                              placeholder="Placement details"
-                              className="h-9 rounded-lg border border-black/[0.08] bg-white px-2.5 text-[10px] font-semibold outline-none focus:border-[#F47822]"
-                            />
-                          </div>
+                          ))}
                         </div>
-                      ))}
+                      )}
                     </div>
-                  )}
+                  </details>
+
+                  <details className="v30-details group rounded-[18px] border border-black/[0.07] bg-[#FBF9F5]" open={Boolean(personalization.message)}>
+                    <summary className="flex cursor-pointer items-center justify-between gap-4 px-4 py-4 sm:px-5">
+                      <div>
+                        <p className="text-[9px] font-black uppercase tracking-[0.12em] text-[#9A7316]">02 · Gift message</p>
+                        <p className="mt-1 text-[11px] font-semibold text-black/42">A short note to go inside the hamper.</p>
+                      </div>
+                      <span className="v30-details-arrow flex h-8 w-8 items-center justify-center rounded-full border border-black/[0.08] bg-white text-[18px] text-black/40 transition-transform duration-300">+</span>
+                    </summary>
+                    <div className="border-t border-black/[0.06] px-4 pb-5 pt-4 sm:px-5">
+                      <textarea rows="3" maxLength={500} value={personalization.message} onChange={(event) => setPersonalization((current) => ({ ...current, message: event.target.value }))} placeholder="e.g. Happy Anniversary, A & R" className="w-full resize-none rounded-xl border border-black/[0.08] bg-white p-3 text-[11px] font-semibold leading-5 outline-none focus:border-[#D4AF37]" />
+                      <span className="mt-1 block text-right text-[8px] font-bold text-black/24">{personalization.message.length}/500</span>
+                    </div>
+                  </details>
+
+                  <details className="v30-details group rounded-[18px] border border-black/[0.07] bg-[#FBF9F5]" open={Boolean(personalization.instructions)}>
+                    <summary className="flex cursor-pointer items-center justify-between gap-4 px-4 py-4 sm:px-5">
+                      <div>
+                        <p className="text-[9px] font-black uppercase tracking-[0.12em] text-[#9A7316]">03 · Packing notes</p>
+                        <p className="mt-1 text-[11px] font-semibold text-black/42">Tell us any important styling preference.</p>
+                      </div>
+                      <span className="v30-details-arrow flex h-8 w-8 items-center justify-center rounded-full border border-black/[0.08] bg-white text-[18px] text-black/40 transition-transform duration-300">+</span>
+                    </summary>
+                    <div className="border-t border-black/[0.06] px-4 pb-5 pt-4 sm:px-5">
+                      <textarea rows="4" maxLength={1500} value={personalization.instructions} onChange={(event) => setPersonalization((current) => ({ ...current, instructions: event.target.value }))} placeholder="e.g. ivory ribbon, small logo, no plastic wrap" className="w-full resize-none rounded-xl border border-black/[0.08] bg-white p-3 text-[11px] font-semibold leading-5 outline-none focus:border-[#D4AF37]" />
+                      <span className="mt-1 block text-right text-[8px] font-bold text-black/24">{personalization.instructions.length}/1500</span>
+                    </div>
+                  </details>
                 </div>
 
-                <div className="space-y-4 lg:border-l lg:border-black/[0.07] lg:pl-8">
-                  <label className="block border-t border-black/[0.08] pt-4">
-                    <span className="text-[10px] font-black uppercase tracking-[0.1em] text-[#F47822]">
-                      2 · Add a gift message
-                    </span>
-                    <span className="mt-1 block text-[11px] font-semibold leading-5 text-black/42">
-                      Optional — add a short message to include with the gift.
-                    </span>
-                    <textarea
-                      rows="3"
-                      maxLength={500}
-                      value={personalization.message}
-                      onChange={(event) =>
-                        setPersonalization((current) => ({
-                          ...current,
-                          message: event.target.value,
-                        }))
-                      }
-                      placeholder="e.g. Happy Anniversary, A & R"
-                      className="mt-2 w-full resize-none rounded-xl border border-black/[0.08] bg-[#FAF8F5] p-3 text-[12px] font-semibold leading-5 outline-none focus:border-[#F47822] focus:bg-white"
-                    />
-                    {personalization.message.length > 0 && (
-                      <span className="mt-1 block text-right text-[8px] font-bold text-black/25">
-                        {personalization.message.length}/500
-                      </span>
-                    )}
-                  </label>
-
-                  <label className="block border-t border-black/[0.08] pt-4">
-                    <span className="text-[10px] font-black uppercase tracking-[0.1em] text-[#F47822]">
-                      3 · Anything we should know?
-                    </span>
-                    <span className="mt-1 block text-[11px] font-semibold leading-5 text-black/42">
-                      Optional — tell us any important styling or packing preference.
-                    </span>
-                    <textarea
-                      rows="4"
-                      maxLength={1500}
-                      value={personalization.instructions}
-                      onChange={(event) =>
-                        setPersonalization((current) => ({
-                          ...current,
-                          instructions: event.target.value,
-                        }))
-                      }
-                      placeholder="e.g. Use ivory ribbon, keep the logo small, no plastic wrap"
-                      className="mt-2 w-full resize-none rounded-xl border border-black/[0.08] bg-[#FAF8F5] p-3 text-[12px] font-semibold leading-5 outline-none focus:border-[#F47822] focus:bg-white"
-                    />
-                    {personalization.instructions.length > 0 && (
-                      <span className="mt-1 block text-right text-[8px] font-bold text-black/25">
-                        {personalization.instructions.length}/1500
-                      </span>
-                    )}
-                  </label>
-
-                </div>
-              </div>
-            </V7Section>
-
-            {isMobileWizard && (
-              <MobileStepActions
-                backLabel="Finishing"
-                nextLabel={orderMode === "bulk" ? "Continue to quote" : "Review hamper"}
-                onBack={() => moveMobileStep(3)}
-                onNext={() => moveMobileStep(5)}
-                hint={
-                  personalizationPayload
-                    ? "Personalisation saved to this hamper."
-                    : "Personalisation is optional."
-                }
-              />
-            )}
-              </>
+                <V30StepActions
+                  backLabel="Finishing"
+                  nextLabel={orderMode === "bulk" ? "Quote details" : "Review hamper"}
+                  onBack={() => moveMobileStep(3)}
+                  onNext={() => moveMobileStep(5)}
+                  hint={personalizationPayload ? "Personalisation saved to this hamper." : "Personalisation is optional."}
+                />
+              </V30Panel>
             )}
 
-            {orderMode === "bulk" && (!isMobileWizard || mobileStep === 5) && (
-              <V7Section
+            {mobileStep === 5 && orderMode === "bulk" && (
+              <V30Panel
                 number="05"
+                eyebrow="Final step"
                 title="Tell us about the bulk order"
-                meta={`${Number(bulkQuantity || 0).toLocaleString(
-                  "en-IN"
-                )} hampers`}
-                gold
+                description="No payment is taken now. Submit the configured hamper for a quotation and review the commercial offer before paying."
+                meta={`${Number(bulkQuantity || 0).toLocaleString("en-IN")} hampers`}
               >
-                <div className="border-y border-[#D4AF37]/20 bg-[#FFFCF6]/70 px-1 py-4 sm:px-2 sm:py-5">
-                  <p className="text-[11px] font-extrabold text-[#171717]">
-                    No payment is taken now. Submit this hamper as a quotation
-                    request, review the commercial quote from HAMPORIUM, accept
-                    it, and then pay to place the final order.
-                  </p>
-                </div>
-
-                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                <div className="grid gap-3 sm:grid-cols-2">
                   <BulkField label="Bulk quantity *">
-                    <input
-                      type="number"
-                      min="1"
-                      max="100000"
-                      value={bulkQuantity}
-                      onChange={(event) => setBulkQuantity(event.target.value)}
-                      className="h-11 w-full rounded-xl border border-black/[0.09] bg-[#FAF8F5] px-3 text-[12px] font-bold outline-none focus:border-[#F47822] focus:bg-white"
-                    />
+                    <input type="number" min="1" max="100000" value={bulkQuantity} onChange={(event) => setBulkQuantity(event.target.value)} className="h-11 w-full rounded-xl border border-black/[0.08] bg-[#FAF8F5] px-3 text-[11px] font-bold outline-none focus:border-[#D4AF37] focus:bg-white" />
                   </BulkField>
-
                   <BulkField label="Required by *">
-                    <input
-                      type="date"
-                      min={getToday()}
-                      value={bulkRequiredDate}
-                      onChange={(event) => setBulkRequiredDate(event.target.value)}
-                      className="h-11 w-full rounded-xl border border-black/[0.09] bg-[#FAF8F5] px-3 text-[12px] font-bold outline-none focus:border-[#F47822] focus:bg-white"
-                    />
+                    <input type="date" min={getToday()} value={bulkRequiredDate} onChange={(event) => setBulkRequiredDate(event.target.value)} className="h-11 w-full rounded-xl border border-black/[0.08] bg-[#FAF8F5] px-3 text-[11px] font-bold outline-none focus:border-[#D4AF37] focus:bg-white" />
                   </BulkField>
-
                   <BulkField label="Purpose">
-                    <select
-                      value={bulkPurpose}
-                      onChange={(event) => setBulkPurpose(event.target.value)}
-                      className="h-11 w-full rounded-xl border border-black/[0.09] bg-[#FAF8F5] px-3 text-[12px] font-bold outline-none focus:border-[#F47822] focus:bg-white"
-                    >
-                      {BULK_PURPOSE_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
+                    <select value={bulkPurpose} onChange={(event) => setBulkPurpose(event.target.value)} className="h-11 w-full rounded-xl border border-black/[0.08] bg-[#FAF8F5] px-3 text-[11px] font-bold outline-none focus:border-[#D4AF37] focus:bg-white">
+                      {BULK_PURPOSE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                     </select>
                   </BulkField>
-
                   <BulkField label="Delivery model">
-                    <select
-                      value={bulkAddressModel}
-                      onChange={(event) => setBulkAddressModel(event.target.value)}
-                      className="h-11 w-full rounded-xl border border-black/[0.09] bg-[#FAF8F5] px-3 text-[12px] font-bold outline-none focus:border-[#F47822] focus:bg-white"
-                    >
+                    <select value={bulkAddressModel} onChange={(event) => setBulkAddressModel(event.target.value)} className="h-11 w-full rounded-xl border border-black/[0.08] bg-[#FAF8F5] px-3 text-[11px] font-bold outline-none focus:border-[#D4AF37] focus:bg-white">
                       <option value="not_decided">Not decided yet</option>
                       <option value="single_address">Single address</option>
                       <option value="multiple_addresses">Multiple addresses</option>
                     </select>
                   </BulkField>
-
                   <BulkField label="Company / organisation">
-                    <input
-                      value={bulkCompanyName}
-                      maxLength={200}
-                      onChange={(event) => setBulkCompanyName(event.target.value)}
-                      placeholder="Optional"
-                      className="h-11 w-full rounded-xl border border-black/[0.09] bg-[#FAF8F5] px-3 text-[12px] font-semibold outline-none focus:border-[#F47822] focus:bg-white"
-                    />
+                    <input value={bulkCompanyName} maxLength={200} onChange={(event) => setBulkCompanyName(event.target.value)} placeholder="Optional" className="h-11 w-full rounded-xl border border-black/[0.08] bg-[#FAF8F5] px-3 text-[11px] font-semibold outline-none focus:border-[#D4AF37] focus:bg-white" />
                   </BulkField>
-
                   <BulkField label="GSTIN">
-                    <input
-                      value={bulkGstNumber}
-                      maxLength={40}
-                      onChange={(event) =>
-                        setBulkGstNumber(event.target.value.toUpperCase())
-                      }
-                      placeholder="Optional"
-                      className="h-11 w-full rounded-xl border border-black/[0.09] bg-[#FAF8F5] px-3 text-[12px] font-semibold uppercase outline-none focus:border-[#F47822] focus:bg-white"
-                    />
+                    <input value={bulkGstNumber} maxLength={40} onChange={(event) => setBulkGstNumber(event.target.value.toUpperCase())} placeholder="Optional" className="h-11 w-full rounded-xl border border-black/[0.08] bg-[#FAF8F5] px-3 text-[11px] font-semibold uppercase outline-none focus:border-[#D4AF37] focus:bg-white" />
                   </BulkField>
                 </div>
 
-                <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                <div className="mt-3 grid gap-3 lg:grid-cols-2">
                   <BulkField label="Delivery locations">
-                    <textarea
-                      rows="4"
-                      value={bulkDeliveryLocations}
-                      onChange={(event) =>
-                        setBulkDeliveryLocations(event.target.value)
-                      }
-                      placeholder="City, office, venue or one location per line. You can leave this blank if not decided."
-                      className="w-full resize-none rounded-xl border border-black/[0.09] bg-[#FAF8F5] p-3 text-[12px] font-semibold leading-5 outline-none focus:border-[#F47822] focus:bg-white"
-                    />
+                    <textarea rows="4" value={bulkDeliveryLocations} onChange={(event) => setBulkDeliveryLocations(event.target.value)} placeholder="City, office, venue or one location per line." className="w-full resize-none rounded-xl border border-black/[0.08] bg-[#FAF8F5] p-3 text-[11px] font-semibold leading-5 outline-none focus:border-[#D4AF37] focus:bg-white" />
                   </BulkField>
-
                   <BulkField label="Anything else for the quotation">
-                    <textarea
-                      rows="4"
-                      maxLength={2000}
-                      value={bulkNotes}
-                      onChange={(event) => setBulkNotes(event.target.value)}
-                      placeholder="Delivery split, branding expectation, timeline or any commercial note."
-                      className="w-full resize-none rounded-xl border border-black/[0.09] bg-[#FAF8F5] p-3 text-[12px] font-semibold leading-5 outline-none focus:border-[#F47822] focus:bg-white"
-                    />
+                    <textarea rows="4" maxLength={2000} value={bulkNotes} onChange={(event) => setBulkNotes(event.target.value)} placeholder="Delivery split, branding expectation, timeline or commercial note." className="w-full resize-none rounded-xl border border-black/[0.08] bg-[#FAF8F5] p-3 text-[11px] font-semibold leading-5 outline-none focus:border-[#D4AF37] focus:bg-white" />
                   </BulkField>
                 </div>
 
-                {isMobileWizard && (
-                  <div className="mt-5 md:hidden">
-                    <button
-                      type="button"
-                      onClick={() => moveMobileStep(4)}
-                      className="inline-flex h-11 items-center gap-2 rounded-xl border border-black/[0.09] bg-white px-4 text-[10px] font-black text-black/55"
-                    >
-                      ← Back to personalise
-                    </button>
-                  </div>
-                )}
-              </V7Section>
+                <div className="mt-5 xl:hidden">
+                  <V7Studio
+                    selectedContainer={selectedContainer}
+                    previewItems={previewItems}
+                    previewDecorations={previewDecorations}
+                    selectedItemCount={selectedItemCount}
+                    selectedDecorationCount={selectedDecorationCount}
+                    fillPercent={fillPercent}
+                    configuration={configuration}
+                    personalization={personalizationPayload}
+                    canIncreaseAnyItem={canIncreaseAnyItem}
+                    validating={validating || selectionPending}
+                    cartError={cartError}
+                    canAddToCart={canPrimaryAction}
+                    addingToCart={primaryBusy}
+                    user={user}
+                    orderMode={orderMode}
+                    bulkQuantity={Number(bulkQuantity || 0)}
+                    onModeChange={(nextMode) => { setOrderMode(nextMode); setCartError(""); }}
+                    onAddToCart={handleRequestQuotation}
+                  />
+                </div>
+
+                <V30StepActions backLabel="Personalise" onBack={() => moveMobileStep(4)} hint="Review the live hamper and submit the quotation from the summary." />
+              </V30Panel>
             )}
-            </div>
+
+            {mobileStep === 5 && orderMode !== "bulk" && (
+              <V30Panel
+                number="05"
+                eyebrow="Final check"
+                title="Review your hamper"
+                description="The important things only: your box, gift count, fill level and final price."
+                meta={configuration?.orderable ? "Ready to add" : "Review required"}
+              >
+                <div className="grid gap-2 sm:grid-cols-4">
+                  <V30ReviewStat label="Box" value={selectedContainer?.name || "Not selected"} />
+                  <V30ReviewStat label="Gifts" value={String(selectedItemCount)} />
+                  <V30ReviewStat label="Gift fill" value={`${Math.round(fillPercent)}%`} />
+                  <V30ReviewStat label="Personalisation" value={personalizationPayload ? "Added" : "None"} />
+                </div>
+
+                <div className="mt-5 xl:hidden">
+                  <V7Studio
+                    selectedContainer={selectedContainer}
+                    previewItems={previewItems}
+                    previewDecorations={previewDecorations}
+                    selectedItemCount={selectedItemCount}
+                    selectedDecorationCount={selectedDecorationCount}
+                    fillPercent={fillPercent}
+                    configuration={configuration}
+                    personalization={personalizationPayload}
+                    canIncreaseAnyItem={canIncreaseAnyItem}
+                    validating={validating || selectionPending}
+                    cartError={cartError}
+                    canAddToCart={canPrimaryAction}
+                    addingToCart={primaryBusy}
+                    user={user}
+                    orderMode={orderMode}
+                    bulkQuantity={Number(bulkQuantity || 0)}
+                    onModeChange={(nextMode) => { setOrderMode(nextMode); setCartError(""); }}
+                    onAddToCart={handleAddToCart}
+                  />
+                </div>
+
+                <V30StepActions backLabel="Personalise" onBack={() => moveMobileStep(4)} hint="Your live hamper summary is ready." />
+              </V30Panel>
+            )}
           </div>
 
-          {(!isMobileWizard || mobileStep === 5) && (
-          <aside className="v24-fixed-studio xl:fixed xl:right-10 xl:top-[96px] xl:z-20 xl:h-[calc(100dvh-112px)] xl:w-[clamp(420px,25vw,520px)] xl:overflow-y-auto xl:overscroll-contain xl:border-l xl:border-black/[0.08] xl:pl-7 2xl:right-12 2xl:w-[clamp(460px,23vw,560px)] 2xl:pl-8 min-[2200px]:right-16">
-            {isMobileWizard && orderMode !== "bulk" && (
-              <div className="mb-5 rounded-[20px] border border-black/[0.07] bg-white p-4 shadow-[0_10px_30px_rgba(40,27,13,.05)] md:hidden">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-[9px] font-black uppercase tracking-[0.12em] text-[#F47822]">Step 05 · Review</p>
-                    <p className="mt-1 text-[12px] font-semibold text-black/45">Check your hamper, price and capacity before adding it to cart.</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => moveMobileStep(4)}
-                    className="shrink-0 rounded-full border border-black/[0.08] bg-[#FAF8F5] px-3 py-2 text-[9px] font-black text-black/48"
-                  >
-                    ← Back
-                  </button>
-                </div>
-              </div>
-            )}
+          <aside className="hidden xl:sticky xl:top-[104px] xl:block">
             <V7Studio
               selectedContainer={selectedContainer}
               previewItems={previewItems}
@@ -2814,55 +2118,193 @@ const CustomHamper = () => {
               user={user}
               orderMode={orderMode}
               bulkQuantity={Number(bulkQuantity || 0)}
-              onModeChange={(nextMode) => {
-                setOrderMode(nextMode);
-                setCartError("");
-              }}
-              onAddToCart={
-                orderMode === "bulk"
-                  ? handleRequestQuotation
-                  : handleAddToCart
-              }
+              onModeChange={(nextMode) => { setOrderMode(nextMode); setCartError(""); }}
+              onAddToCart={orderMode === "bulk" ? handleRequestQuotation : handleAddToCart}
             />
           </aside>
-          )}
         </div>
       </section>
     </main>
   );
 };
 
-const OrderModeChooser = ({ mode, onChange }) => (
-  <div className="mt-3 flex justify-end sm:mt-5">
-    <div className="inline-grid w-full grid-cols-2 overflow-hidden rounded-[14px] border border-black/[0.08] bg-white p-1 shadow-[0_6px_18px_rgba(38,28,16,.035)] sm:w-[430px] sm:rounded-none sm:border-x-0 sm:bg-transparent sm:p-0 sm:shadow-none">
-      <button
-        type="button"
-        onClick={() =>
-          onChange("personal")
-        }
-        className={`min-h-[44px] rounded-[10px] px-4 text-center text-[11px] font-black transition sm:min-h-[48px] sm:rounded-none sm:px-5 sm:text-[12px] ${
-          mode === "personal"
-            ? "bg-[#171717] text-white"
-            : "bg-transparent text-black/45 hover:bg-[#FAF8F5] hover:text-[#171717] sm:hover:bg-white"
-        }`}
-      >
-        Personal
-      </button>
+const V30Progress = ({
+  step,
+  orderMode,
+  canContinueFromBox,
+  canContinueFromProducts,
+  onStepChange,
+}) => {
+  const steps = [
+    [1, "Box"],
+    [2, "Gifts"],
+    [3, "Finish"],
+    [4, "Personalise"],
+    [5, orderMode === "bulk" ? "Quote" : "Review"],
+  ];
 
-      <button
-        type="button"
-        onClick={() =>
-          onChange("bulk")
-        }
-        className={`min-h-[44px] rounded-[10px] px-4 text-center text-[11px] font-black transition sm:min-h-[48px] sm:rounded-none sm:border-l sm:border-black/[0.09] sm:px-5 sm:text-[12px] ${
-          mode === "bulk"
-            ? "bg-[#F47822] text-white"
-            : "bg-transparent text-black/45 hover:bg-[#FFF7F1] hover:text-[#171717] sm:hover:bg-white"
-        }`}
-      >
-        Bulk / Event
-      </button>
+  const maxReachable = !canContinueFromBox ? 1 : !canContinueFromProducts ? 2 : 5;
+
+  return (
+    <nav className="v30-scrollbar-none mt-4 overflow-x-auto rounded-[18px] border border-black/[0.06] bg-white px-2 py-2 shadow-[0_10px_30px_rgba(45,31,17,.035)] sm:mt-5 sm:px-3" aria-label="Hamper builder steps">
+      <div className="flex min-w-[560px] items-center">
+        {steps.map(([number, label], index) => {
+          const active = step === number;
+          const complete = step > number;
+          const disabled = number > maxReachable;
+
+          return (
+            <div key={number} className="flex min-w-0 flex-1 items-center">
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => onStepChange(number)}
+                className={`group flex min-w-[88px] flex-1 items-center gap-2 rounded-xl px-2.5 py-2 text-left transition ${
+                  active ? "bg-[#171717] text-white" : disabled ? "cursor-not-allowed text-black/22" : "text-black/48 hover:bg-[#F8F4EE] hover:text-[#171717]"
+                }`}
+              >
+                <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[8px] font-black ${active ? "bg-[#D4AF37] text-[#171717]" : complete ? "bg-[#F2E7C2] text-[#8A6815]" : "bg-black/[0.045] text-black/42"}`}>
+                  {complete ? "✓" : String(number).padStart(2, "0")}
+                </span>
+                <span className="truncate text-[9px] font-black uppercase tracking-[0.06em]">{label}</span>
+              </button>
+
+              {index < steps.length - 1 && <span className={`mx-1 h-px w-4 shrink-0 sm:w-7 ${complete ? "bg-[#D4AF37]" : "bg-black/[0.08]"}`} />}
+            </div>
+          );
+        })}
+      </div>
+    </nav>
+  );
+};
+
+const V30Panel = ({ number, eyebrow, title, description, meta, children }) => (
+  <section className="v30-panel-mobile-sticky-safe v30-step-in overflow-visible rounded-[24px] border border-black/[0.065] bg-white shadow-[0_20px_60px_rgba(45,31,17,.055)] md:overflow-hidden sm:rounded-[28px]">
+    <div className="border-b border-black/[0.06] px-4 py-5 sm:px-6 sm:py-6 lg:px-7">
+      <div className="flex items-start gap-4">
+        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#D4AF37]/28 bg-[#FFF9E9] text-[9px] font-black text-[#8A6815]">{number}</span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#9A7316]">{eyebrow}</p>
+            {meta && <span className="max-w-[52%] truncate text-[8px] font-bold text-black/28">{meta}</span>}
+          </div>
+          <h2 style={{ fontFamily: DISPLAY_FONT }} className="mt-1 text-[30px] font-semibold leading-[.95] tracking-[-.035em] text-[#171717] sm:text-[38px]">{title}</h2>
+          <p className="mt-2 max-w-2xl text-[10px] font-medium leading-5 text-black/40 sm:text-[11px]">{description}</p>
+        </div>
+      </div>
     </div>
+    <div className="px-4 py-5 sm:px-6 sm:py-6 lg:px-7">{children}</div>
+  </section>
+);
+
+const V30StepActions = ({
+  backLabel = "Back",
+  nextLabel,
+  nextDisabled = false,
+  onBack,
+  onNext,
+  hint = "",
+}) => (
+  <div className="v30-mobile-sticky-actions mt-6 rounded-[16px] border border-black/[0.06] bg-white/95 p-2.5 shadow-[0_12px_34px_rgba(43,29,15,.07)] backdrop-blur-xl sm:flex sm:items-center sm:justify-between sm:gap-4 sm:p-3">
+    {hint && <p className="mb-2 px-1 text-[9px] font-semibold leading-4 text-black/36 sm:mb-0 sm:max-w-[50%]">{hint}</p>}
+    <div className={`grid gap-2 sm:ml-auto ${onBack && nextLabel ? "grid-cols-[88px_minmax(0,1fr)] sm:grid-cols-[100px_170px]" : "grid-cols-1 sm:w-auto"}`}>
+      {onBack && (
+        <button type="button" onClick={onBack} className="h-11 rounded-xl border border-black/[0.08] bg-[#FAF8F4] px-3 text-[9px] font-black text-black/50 transition hover:bg-white hover:text-[#171717] active:scale-[.98]">← {backLabel}</button>
+      )}
+      {nextLabel && (
+        <button type="button" disabled={nextDisabled} onClick={onNext} className="h-11 rounded-xl bg-[#171717] px-4 text-[9px] font-black uppercase tracking-[0.06em] text-white shadow-[0_9px_24px_rgba(23,23,23,.13)] transition hover:bg-[#9A7316] active:scale-[.99] disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/25 disabled:shadow-none">{nextLabel} →</button>
+      )}
+    </div>
+  </div>
+);
+
+const V30MobileLivePreview = (props) => {
+  const giftCount = Number(props.selectedItemCount || 0);
+  const roundedFill = Math.round(Number(props.fillPercent || 0));
+  const liveTotal =
+    props.configuration?.pricing?.total ??
+    props.selectedContainer?.sellingPrice ??
+    null;
+
+  return (
+    <div className="v30-mobile-live md:hidden">
+      <V7OpenTop3D {...props} />
+
+      <div className="v30-mobile-live-summary">
+        <div className="v30-mobile-live-summary-grid">
+          <div className="v30-mobile-live-summary-cell">
+            <p className="text-[7px] font-black uppercase tracking-[0.08em] text-black/30">Gifts</p>
+            <p className="mt-1 text-[15px] font-black leading-none text-[#171717]">{giftCount}</p>
+          </div>
+
+          <div className="v30-mobile-live-summary-cell">
+            <p className="text-[7px] font-black uppercase tracking-[0.08em] text-black/30">Filled</p>
+            <p className="mt-1 text-[15px] font-black leading-none text-[#171717]">{roundedFill}%</p>
+          </div>
+
+          <div className="v30-mobile-live-summary-cell text-right">
+            <p className="text-[7px] font-black uppercase tracking-[0.08em] text-black/30">Total</p>
+            <p
+              style={{ fontFamily: DISPLAY_FONT }}
+              className="mt-0.5 truncate text-[20px] font-semibold leading-none text-[#F47822]"
+            >
+              {liveTotal === null || liveTotal === undefined
+                ? "—"
+                : formatCurrency(liveTotal)}
+            </p>
+          </div>
+        </div>
+
+        <div className="v30-mobile-live-box-row">
+          <div className="min-w-0">
+            <p className="text-[6.5px] font-black uppercase tracking-[0.08em] text-black/28">Selected box</p>
+            <p className="mt-0.5 truncate text-[9px] font-black text-[#171717]">
+              {props.selectedContainer?.name || "Choose a hamper box"}
+            </p>
+          </div>
+
+          {Number(props.selectedDecorationCount || 0) > 0 && (
+            <span className="shrink-0 rounded-full bg-[#FFF8DE] px-2 py-1 text-[7px] font-black text-[#8A6815]">
+              +{props.selectedDecorationCount} finishing
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const V30ReviewStat = ({ label, value }) => (
+  <div className="min-w-0 rounded-[14px] border border-black/[0.06] bg-[#FAF8F4] px-3 py-3.5">
+    <p className="text-[7px] font-black uppercase tracking-[0.1em] text-black/28">{label}</p>
+    <p className="mt-1 truncate text-[11px] font-black text-[#171717]" title={value}>{value}</p>
+  </div>
+);
+
+const OrderModeChooser = ({ mode, onChange }) => (
+  <div className="inline-grid w-full grid-cols-2 rounded-[13px] border border-white/10 bg-white/[0.055] p-1 sm:w-[360px]">
+    <button
+      type="button"
+      onClick={() => onChange("personal")}
+      className={`h-10 rounded-[9px] px-4 text-[9px] font-black uppercase tracking-[0.06em] transition ${
+        mode === "personal"
+          ? "bg-[#F7EFD9] text-[#171717] shadow-[0_8px_22px_rgba(0,0,0,.16)]"
+          : "text-white/45 hover:text-white"
+      }`}
+    >
+      Personal
+    </button>
+    <button
+      type="button"
+      onClick={() => onChange("bulk")}
+      className={`h-10 rounded-[9px] px-4 text-[9px] font-black uppercase tracking-[0.06em] transition ${
+        mode === "bulk"
+          ? "bg-[#D4AF37] text-[#171717] shadow-[0_8px_22px_rgba(0,0,0,.16)]"
+          : "text-white/45 hover:text-white"
+      }`}
+    >
+      Bulk / Event
+    </button>
   </div>
 );
 
@@ -4235,49 +3677,41 @@ const V7Studio = ({
   user,
   orderMode = "personal",
   bulkQuantity = 0,
-  onModeChange,
   onAddToCart,
 }) => {
   const pricing = configuration?.pricing;
   const timing = configuration?.deliveryEstimate;
   const notReadyMessage =
     configuration && !configuration.orderable ? configuration.message : "";
+  const roundedFill = Math.round(Number(fillPercent || 0));
+  const unavailableCartMessage =
+    /no longer available for custom gifting|inactive, unavailable for this channel|unavailable for custom hampers/i.test(
+      String(cartError || "")
+    )
+      ? "One of the selected gifts or finishing touches changed availability. Update the selection once and try again."
+      : cartError;
 
   return (
-    <div className="min-w-0">
-      <div className="flex items-center justify-between gap-3 border-b border-black/[0.08] pb-4">
+    <div className="v30-live-shell overflow-hidden rounded-[24px] border border-black/[0.07] bg-white p-4 shadow-[0_24px_70px_rgba(45,31,17,.075)] sm:rounded-[28px] sm:p-5">
+      <div className="flex items-center justify-between gap-4 border-b border-black/[0.06] pb-4">
         <div>
-          <p
-            style={{ fontFamily: DISPLAY_FONT }}
-            className="text-[29px] font-semibold leading-none tracking-[-0.025em] text-[#171717]"
-          >
-            Your Hamper
-          </p>
-          <p className="mt-1 text-[9px] font-semibold text-black/34">
-            Real-time packing preview & summary
-          </p>
+          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#9A7316] sm:text-[11px]">Live hamper</p>
+          <p style={{ fontFamily: DISPLAY_FONT }} className="mt-1 text-[31px] font-semibold leading-none tracking-[-.025em] text-[#171717] sm:text-[34px]">Your Hamper</p>
         </div>
-
-        <span
-          className={`rounded-full px-2.5 py-1.5 text-[8px] font-black uppercase tracking-[0.08em] ${
-            validating
-              ? "bg-black/[0.05] text-black/34"
-              : configuration?.orderable
-                ? "bg-emerald-50 text-emerald-700"
-                : "bg-amber-50 text-amber-700"
-          }`}
-        >
-          {validating
-            ? "Checking"
+        <span className={`rounded-full px-3 py-2 text-[9px] font-black uppercase tracking-[0.08em] sm:text-[10px] ${
+          validating
+            ? "bg-black/[0.05] text-black/48"
             : configuration?.orderable
-              ? "Ready"
+              ? "bg-emerald-50 text-emerald-700"
               : selectedItemCount
-                ? "Adjust"
-                : "Start"}
+                ? "bg-amber-50 text-amber-700"
+                : "bg-black/[0.04] text-black/42"
+        }`}>
+          {validating ? "Updating" : configuration?.orderable ? "Ready" : selectedItemCount ? "Adjust" : "Start"}
         </span>
       </div>
 
-      <div className="pt-5">
+      <div className="pt-4">
         <V7OpenTop3D
           selectedContainer={selectedContainer}
           previewItems={previewItems}
@@ -4290,148 +3724,82 @@ const V7Studio = ({
           validating={validating}
         />
 
-        <div className="mt-3 flex items-center justify-between gap-3 border-y border-black/[0.06] py-3">
-          <div className="min-w-0">
-            <p className="text-[9px] font-black uppercase tracking-[0.1em] text-black/28">
-              Selected box
-            </p>
-            <p className="mt-1 truncate text-[12px] font-black text-[#171717]">
-              {selectedContainer?.name || "Choose a hamper box"}
-            </p>
+        <div className="mt-3 grid grid-cols-3 divide-x divide-black/[0.06] rounded-[14px] border border-black/[0.06] bg-[#FAF8F4]">
+          <div className="px-3 py-3.5">
+            <p className="text-[9px] font-black uppercase tracking-[0.08em] text-black/40 sm:text-[10px]">Gifts</p>
+            <p className="mt-1.5 text-[19px] font-black leading-none text-[#171717] sm:text-[21px]">{selectedItemCount}</p>
           </div>
-
-          <div className="flex shrink-0 items-center gap-4 text-right">
-            <V7TinyStat label="Items" value={selectedItemCount} />
-            <V7TinyStat label="Gift fill" value={`${Math.round(fillPercent)}%`} />
+          <div className="px-3 py-3.5">
+            <p className="text-[9px] font-black uppercase tracking-[0.08em] text-black/40 sm:text-[10px]">Filled</p>
+            <p className="mt-1.5 text-[19px] font-black leading-none text-[#171717] sm:text-[21px]">{roundedFill}%</p>
+          </div>
+          <div className="min-w-0 px-3 py-3.5 text-right">
+            <p className="text-[9px] font-black uppercase tracking-[0.08em] text-black/40 sm:text-[10px]">{orderMode === "bulk" ? "Per hamper" : "Total"}</p>
+            <p style={{ fontFamily: DISPLAY_FONT }} className="mt-1 truncate text-[21px] font-semibold leading-none text-[#F47822] sm:text-[23px]">
+              {pricing?.total === null || pricing?.total === undefined ? "—" : formatCurrency(pricing.total)}
+            </p>
           </div>
         </div>
 
-        <div className="mt-4 hidden grid-cols-2 border-y border-black/[0.08] bg-transparent md:grid">
-          <button
-            type="button"
-            onClick={() => onModeChange?.("personal")}
-            className={`h-10 text-[10px] font-black transition ${
-              orderMode === "personal"
-                ? "bg-[#FFF8F2] text-[#F47822] shadow-[inset_0_-2px_0_#F47822]"
-                : "text-black/48 hover:text-[#171717]"
-            }`}
-          >
-            Personal Order
-          </button>
-          <button
-            type="button"
-            onClick={() => onModeChange?.("bulk")}
-            className={`h-10 border-l border-black/[0.07] text-[10px] font-black transition ${
-              orderMode === "bulk"
-                ? "bg-[#FFFBF1] text-[#9B7616] shadow-[inset_0_-2px_0_#D4AF37]"
-                : "text-black/48 hover:text-[#171717]"
-            }`}
-          >
-            Bulk Quote
-          </button>
+        <div className="mt-3 flex items-center justify-between gap-3 border-b border-black/[0.06] pb-3">
+          <div className="min-w-0">
+            <p className="text-[9px] font-black uppercase tracking-[0.08em] text-black/40 sm:text-[10px]">Selected box</p>
+            <p className="mt-1 truncate text-[12px] font-black text-[#171717] sm:text-[13px]">{selectedContainer?.name || "Choose a hamper box"}</p>
+          </div>
+          {selectedDecorationCount > 0 && <span className="shrink-0 rounded-full bg-[#FFF8DE] px-3 py-1.5 text-[9px] font-black text-[#8A6815] sm:text-[10px]">+{selectedDecorationCount} finishing</span>}
         </div>
 
         {personalization?.enabled && (
-          <div className="mt-3 border-b border-black/[0.06] pb-3">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-[9px] font-black uppercase tracking-[0.1em] text-[#9B7616]">
-                Personalisation added
-              </p>
-              <span className="text-[9px] font-bold text-black/34">
-                {personalization.assets?.length || 0} artwork
-              </span>
-            </div>
-            {personalization.message && (
-              <p className="mt-1 line-clamp-2 text-[9px] font-semibold leading-4 text-black/42">
-                “{personalization.message}”
-              </p>
-            )}
+          <div className="mt-3 flex items-center justify-between gap-3 rounded-[12px] bg-[#FFF9EA] px-3 py-2.5">
+            <span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#8A6815] sm:text-[10px]">Personalisation added</span>
+            <span className="text-[9px] font-bold text-black/48 sm:text-[10px]">{personalization.assets?.length || 0} artwork</span>
           </div>
         )}
-
-        {pricing && (
-          <div className="mt-4">
-            <div className="space-y-2.5 text-[11px]">
-              <V7PriceRow label="Box" value={pricing.containerPrice} />
-              <V7PriceRow label="Items" value={pricing.itemsTotal} />
-              <V7PriceRow label="Finishing" value={pricing.decorationsTotal || 0} />
-            </div>
-
-            <div className="mt-3 flex items-end justify-between gap-4 border-t border-black/[0.08] pt-3">
-              <div>
-                <p className="text-[9px] font-black uppercase tracking-[0.1em] text-black/30">
-                  {orderMode === "bulk" ? "Indicative / hamper" : "Total (incl. GST)"}
-                </p>
-                <p className="mt-1 text-[9px] font-medium text-black/34">
-                  {orderMode === "bulk"
-                    ? "Final amount comes from the accepted quote"
-                    : "Secure checkout"}
-                </p>
-              </div>
-
-              <p
-                style={{ fontFamily: DISPLAY_FONT }}
-                className="text-[31px] font-semibold leading-none text-[#F47822]"
-              >
-                {pricing.total === null || pricing.total === undefined
-                  ? "—"
-                  : formatCurrency(pricing.total)}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {orderMode === "bulk" &&
-          pricing?.total !== null &&
-          pricing?.total !== undefined && (
-            <div className="mt-3 flex items-center justify-between gap-3 bg-[#FFFCF3] px-3 py-2.5">
-              <span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#9B7616]">
-                {Number(bulkQuantity || 0).toLocaleString("en-IN")} hampers
-              </span>
-              <span className="text-[12px] font-black text-[#171717]">
-                {formatCurrency(Number(pricing.total || 0) * Number(bulkQuantity || 0))}
-              </span>
-            </div>
-          )}
 
         {configuration?.capacity && (
           <div className="mt-3">
-            <div className="flex items-center justify-between text-[9px] font-bold text-black/36">
-              <span>Gift items capacity</span>
-              <span>{Math.round(fillPercent)}%</span>
+            <div className="flex items-center justify-between text-[10px] font-bold text-black/48 sm:text-[11px]">
+              <span>Gift capacity</span>
+              <span>{roundedFill}%</span>
             </div>
-            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-black/[0.06]">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-[#F47822] to-[#D4AF37] transition-all duration-500"
-                style={{ width: `${Math.min(100, fillPercent)}%` }}
-              />
+            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-black/[0.06]">
+              <div className="h-full rounded-full bg-gradient-to-r from-[#F47822] to-[#D4AF37] transition-[width] duration-500" style={{ width: `${Math.min(100, Math.max(0, roundedFill))}%` }} />
             </div>
-            <p className="mt-2 text-[7px] font-semibold leading-3 text-black/28">
-              Finishing materials are excluded from this meter.
-            </p>
           </div>
         )}
 
-        {(configuration?.earliestExpiryDate || timing?.expectedDeliveryDate) && (
-          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[8px] font-semibold text-black/32">
+        {orderMode === "bulk" && pricing?.total !== null && pricing?.total !== undefined && (
+          <div className="mt-3 flex items-center justify-between gap-3 rounded-[12px] bg-[#171717] px-3 py-2.5 text-white">
+            <span className="text-[9px] font-black uppercase tracking-[0.08em] text-white/65 sm:text-[10px]">{Number(bulkQuantity || 0).toLocaleString("en-IN")} hampers</span>
+            <span className="text-[13px] font-black sm:text-[14px]">{formatCurrency(Number(pricing.total || 0) * Number(bulkQuantity || 0))}</span>
+          </div>
+        )}
+
+        {(timing?.expectedDeliveryDate || configuration?.earliestExpiryDate) && (
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
             {timing?.expectedDeliveryDate && (
-              <span>Delivery {formatDate(timing.expectedDeliveryDate)}</span>
+              <div className="flex items-center gap-2.5 rounded-[11px] border border-black/[0.055] bg-[#FAF8F4] px-3 py-2.5 text-[10px] font-bold text-black/58 sm:text-[11px]">
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#F47822]" />
+                <span><strong className="font-black text-[#171717]">Delivery</strong> · {formatDate(timing.expectedDeliveryDate)}</span>
+              </div>
             )}
             {configuration?.earliestExpiryDate && (
-              <span>Earliest expiry {formatDate(configuration.earliestExpiryDate)}</span>
+              <div className="flex items-center gap-2.5 rounded-[11px] border border-[#D4AF37]/15 bg-[#FFFCF4] px-3 py-2.5 text-[10px] font-bold text-black/58 sm:text-[11px]">
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#D4AF37]" />
+                <span><strong className="font-black text-[#171717]">Earliest expiry</strong> · {formatDate(configuration.earliestExpiryDate)}</span>
+              </div>
             )}
           </div>
         )}
 
         {notReadyMessage && selectedItemCount > 0 && (
-          <div className="mt-3 border-l-[3px] border-amber-500 bg-amber-50 px-3 py-2.5 text-[9px] font-semibold leading-4 text-amber-800">
+          <div className="mt-3 border-l-[3px] border-amber-500 bg-amber-50 px-3.5 py-3 text-[10px] font-semibold leading-5 text-amber-900 sm:text-[11px]">
             {notReadyMessage}
           </div>
         )}
-
-        {cartError && (
-          <div className="mt-3 border-l-[3px] border-red-500 bg-red-50 px-3 py-2.5 text-[9px] font-semibold leading-4 text-red-700">
-            {cartError}
+        {unavailableCartMessage && (
+          <div className="mt-3 border-l-[3px] border-red-500 bg-red-50 px-3.5 py-3 text-[10px] font-semibold leading-5 text-red-700 sm:text-[11px]">
+            {unavailableCartMessage}
           </div>
         )}
 
@@ -4439,10 +3807,10 @@ const V7Studio = ({
           type="button"
           onClick={onAddToCart}
           disabled={!canAddToCart}
-          className={`v10-primary-cta mt-4 flex h-[48px] w-full items-center justify-center gap-3 rounded-[10px] px-5 text-[10px] font-black uppercase tracking-[0.08em] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:translate-y-0 disabled:bg-black/10 disabled:text-black/25 disabled:shadow-none ${
+          className={`v10-primary-cta mt-4 flex h-[48px] w-full items-center justify-center gap-3 rounded-[11px] px-5 text-[10px] font-black uppercase sm:text-[11px] tracking-[0.08em] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:translate-y-0 disabled:bg-black/10 disabled:text-black/25 disabled:shadow-none ${
             orderMode === "bulk"
               ? "bg-[#171717] text-white shadow-[0_12px_28px_rgba(23,23,23,.16)] hover:bg-[#9B7616]"
-              : "bg-[#F47822] text-white shadow-[0_12px_28px_rgba(244,120,34,.20)] hover:bg-[#171717]"
+              : "bg-[#F47822] text-white shadow-[0_12px_28px_rgba(244,120,34,.18)] hover:bg-[#171717]"
           }`}
         >
           {addingToCart
@@ -4459,7 +3827,7 @@ const V7Studio = ({
           {!addingToCart && <span>→</span>}
         </button>
 
-        
+        <p className="mt-2.5 text-center text-[9px] font-semibold text-black/38 sm:text-[10px]">Live preview updates as you build.</p>
       </div>
     </div>
   );
@@ -5629,9 +4997,12 @@ const V7OpenTop3D = ({
     <div className="v20-live-stage">
       <div className="v20-studio-grid" aria-hidden="true" />
 
+      {packingNote && (
+        <div key={packingNote} className="v20-packing-toast">{packingNote}</div>
+      )}
 
       {!selectedContainer ? (
-        <div className="absolute inset-0 z-10" aria-hidden="true" />
+        <div className="v20-empty-cue">Choose a box to start building your live hamper.</div>
       ) : (
         <div
           key={selectedContainer._id}
@@ -5707,6 +5078,17 @@ const V7OpenTop3D = ({
         </div>
       )}
 
+      {selectedContainer && (
+        <div className="v20-capacity-line">
+          <div className="v20-capacity-track">
+            <div
+              className="v20-capacity-fill"
+              style={{ width: `${Math.min(100, Math.max(0, Math.round(Number(fillPercent || 0))))}%` }}
+            />
+          </div>
+          <span className="v20-capacity-copy">{Math.round(Number(fillPercent || 0))}%</span>
+        </div>
+      )}
     </div>
   );
 };
@@ -5932,20 +5314,13 @@ const NoImage = () => (
 );
 
 const CustomHamperSkeleton = () => (
-  <main className="min-h-screen bg-[#FBF8F3] px-4 pb-20 pt-[112px] sm:px-6 lg:px-8">
-    <div className="w-full">
-      <div className="h-[280px] animate-pulse rounded-[30px] bg-black/[0.08]" />
-      <div className="mt-5 h-[74px] animate-pulse rounded-[22px] bg-black/[0.05]" />
-      <div className="mt-7 grid gap-7 xl:grid-cols-[minmax(0,1fr)_430px]">
-        <div className="space-y-7">
-          {[1, 2, 3].map((item) => (
-            <div
-              key={item}
-              className="h-[420px] animate-pulse rounded-[28px] bg-black/[0.05]"
-            />
-          ))}
-        </div>
-        <div className="h-[720px] animate-pulse rounded-[30px] bg-black/[0.09]" />
+  <main className="min-h-screen bg-[#F6F1E9] px-3 pb-16 pt-[92px] sm:px-5 lg:px-7">
+    <div className="mx-auto w-full max-w-[1760px]">
+      <div className="h-[250px] animate-pulse rounded-[30px] bg-[#171614]/90" />
+      <div className="mt-4 h-[64px] animate-pulse rounded-[18px] bg-white" />
+      <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_460px]">
+        <div className="h-[620px] animate-pulse rounded-[28px] bg-white" />
+        <div className="h-[610px] animate-pulse rounded-[28px] bg-white" />
       </div>
     </div>
   </main>

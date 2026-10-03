@@ -581,6 +581,9 @@ const Home = () => {
 
           .hamporium-home {
             font-family: 'Manrope', Arial, sans-serif;
+            overflow-anchor: none;
+            -webkit-font-smoothing: antialiased;
+            text-rendering: optimizeLegibility;
           }
 
           /* ==============================================
@@ -2054,27 +2057,8 @@ const Home = () => {
               opacity: 1;
             }
 
-            /*
-              Touch devices keep the default image.
-              Image A/B swapping remains desktop-only.
-            */
-            .hp-editorial-mobile-rail
-            .hp-editorial-panel:hover
-            .hp-editorial-base {
-              opacity: 1;
-              transform:
-                translateZ(0)
-                scale(1.015);
-            }
-
-            .hp-editorial-mobile-rail
-            .hp-editorial-panel:hover
-            .hp-editorial-hover {
-              opacity: 0;
-              transform:
-                translateZ(0)
-                scale(1.055);
-            }
+            /* Touch rails keep native scrolling; mobile Journey A/B imagery is
+               handled by FluidBackdrop's viewport-driven cross-fade. */
 
             /*
               Small right fade = visual hint that another card exists.
@@ -5690,6 +5674,94 @@ const Home = () => {
             .hp-gift-concierge-option { min-height:50px; font-size:10px; }
           }
 
+          /* ==================================================
+             V90 · ULTRA-SMOOTH FRAME PACING
+             Keep the premium motion, remove the layout/paint work that can
+             hitch while sticky sections enter the viewport.
+          ================================================== */
+
+          /* Sticky/full-screen story stacks must stay fully rendered.
+             content-visibility:auto can pop a sticky sheet in one frame late. */
+          .hp-home-v65 [data-home-section="journey"],
+          .hp-home-v65 [data-home-section="hamper-one"] {
+            content-visibility: visible !important;
+            contain-intrinsic-size: none !important;
+          }
+
+          .hp-home-v65 .hp-journey-story-sheet {
+            will-change: auto !important;
+          }
+
+          .hp-home-v65 .hp-story-image,
+          .hp-home-v65 .hp-fluid-image-base {
+            will-change: auto !important;
+          }
+
+          /* The golden guide used to repaint a full-height shadow on every scroll. */
+          .hp-home-golden-thread-path {
+            filter: none !important;
+          }
+
+          .hp-home-golden-thread-knot {
+            top: 0 !important;
+            transition: none !important;
+            will-change: transform;
+          }
+
+          /* Avoid a full-page backdrop-filter recomposite while the page is moving. */
+          .hamporium-home.is-scrolling .hp-gift-concierge-fab {
+            -webkit-backdrop-filter: none !important;
+            backdrop-filter: none !important;
+            background: rgba(16,12,8,.97);
+          }
+
+          /* Mobile/tablet: smooth image A/B discovery even without hover.
+             WebGL owns the blend when ready; these rules are a no-flash fallback. */
+          @media (hover:none), (pointer:coarse), (max-width:1023px) {
+            .hp-fluid-backdrop.has-hover-image:not(.is-fluid-ready) .hp-fluid-image-base,
+            .hp-fluid-backdrop.has-hover-image:not(.is-fluid-ready) .hp-fluid-image-hover {
+              transition: opacity 1.05s cubic-bezier(.22,1,.36,1), transform 1.25s cubic-bezier(.22,1,.36,1) !important;
+            }
+
+            .hp-fluid-backdrop.has-hover-image.is-mobile-alt:not(.is-fluid-ready) .hp-fluid-image-base {
+              opacity: 0 !important;
+              transform: translate3d(0,0,0) scale(1.018) !important;
+            }
+
+            .hp-fluid-backdrop.has-hover-image.is-mobile-alt:not(.is-fluid-ready) .hp-fluid-image-hover {
+              opacity: 1 !important;
+              transform: translate3d(0,0,0) scale(1.006) !important;
+            }
+          }
+
+          /* Kinetic headings stay cinematic but only animate compositor properties.
+             No letter-spacing/layout animation during scrolling. */
+          @keyframes hpKineticSectionIn {
+            0% { opacity:0; transform:translate3d(0,26px,0) scale(.985); }
+            68% { opacity:1; transform:translate3d(0,-2px,0) scale(1.002); }
+            100% { opacity:1; transform:translate3d(0,0,0) scale(1); }
+          }
+
+          @keyframes hpKineticFeatureIn {
+            0% { opacity:0; transform:translate3d(0,34px,0) scale(.978); }
+            70% { opacity:1; transform:translate3d(0,-2px,0) scale(1.002); }
+            100% { opacity:1; transform:translate3d(0,0,0) scale(1); }
+          }
+
+          .hp-home-v65 .hp-kinetic-heading.is-kinetic-visible[data-hp-kinetic-variant="feature"] {
+            animation-duration: 760ms !important;
+          }
+
+          .hp-home-v65 .hp-kinetic-heading.is-kinetic-visible[data-hp-kinetic-variant="section"] {
+            animation-duration: 760ms !important;
+          }
+
+          .hp-home-v65 .hp-kinetic-heading.is-kinetic-visible[data-hp-kinetic-variant="standard"],
+          .hp-home-v65 .hp-kinetic-heading.is-kinetic-visible[data-hp-kinetic-variant="sub"],
+          .hp-home-v65 .hp-kinetic-heading.is-kinetic-visible[data-hp-kinetic-variant="dialog"] {
+            animation-duration: 600ms !important;
+          }
+
           @media (prefers-reduced-motion:reduce) {
             .hp-home-golden-thread-knot,
             .hp-gift-concierge-fab,
@@ -6891,13 +6963,65 @@ const FluidBackdrop = ({
   const hoverMixTargetRef = useRef(0);
   const hoverMixCurrentRef = useRef(0);
   const lastFrameTimeRef = useRef(0);
+  const [gpuEnabled, setGpuEnabled] = useState(false);
+
+  // Compile the water shader only when this visual is close to the viewport.
+  // This avoids compiling every full-screen WebGL effect during the first page load.
+  useEffect(() => {
+    const host = layerRef.current?.parentElement;
+    if (!host || typeof window === "undefined") return undefined;
+
+    let idleId = 0;
+    let timerId = 0;
+    let observer;
+    let activated = false;
+
+    const activate = (immediate = false) => {
+      if (activated) return;
+      activated = true;
+      observer?.disconnect();
+
+      const commit = () => setGpuEnabled(true);
+      if (immediate) {
+        commit();
+      } else if ("requestIdleCallback" in window) {
+        idleId = window.requestIdleCallback(commit, { timeout: 420 });
+      } else {
+        timerId = window.setTimeout(commit, 60);
+      }
+    };
+
+    const handleIntent = () => activate(true);
+    host.addEventListener("pointerenter", handleIntent, { passive: true, once: true });
+    host.addEventListener("pointerdown", handleIntent, { passive: true, once: true });
+
+    if (window.IntersectionObserver) {
+      observer = new IntersectionObserver(
+        (entries) => {
+          if (entries.some((entry) => entry.isIntersecting)) activate(false);
+        },
+        { rootMargin: "180% 0px", threshold: 0 }
+      );
+      observer.observe(host);
+    } else {
+      activate(false);
+    }
+
+    return () => {
+      observer?.disconnect();
+      host.removeEventListener("pointerenter", handleIntent);
+      host.removeEventListener("pointerdown", handleIntent);
+      if (idleId && "cancelIdleCallback" in window) window.cancelIdleCallback(idleId);
+      if (timerId) window.clearTimeout(timerId);
+    };
+  }, []);
 
   useEffect(() => {
     const layer = layerRef.current;
     const canvas = canvasRef.current;
     const host = layer?.parentElement;
 
-    if (!layer || !canvas || !host || typeof window === "undefined") {
+    if (!layer || !canvas || !host || typeof window === "undefined" || !gpuEnabled) {
       return undefined;
     }
 
@@ -7219,14 +7343,14 @@ const FluidBackdrop = ({
 
       const width = Math.max(1, rect.width);
       const height = Math.max(1, rect.height);
-      const dpr = Math.min(window.devicePixelRatio || 1, coarsePointer ? 1 : 1.25);
+      const dpr = Math.min(window.devicePixelRatio || 1, coarsePointer ? 1 : 1.2);
       const quality = coarsePointer
-        ? 0.78
+        ? (width >= 800 ? 0.60 : 0.66)
         : width >= 1600
-          ? 0.72
+          ? 0.68
           : width >= 1100
-            ? 0.82
-            : 0.95;
+            ? 0.76
+            : 0.88;
       const nextWidth = Math.max(1, Math.round(width * dpr * quality));
       const nextHeight = Math.max(1, Math.round(height * dpr * quality));
 
@@ -7317,8 +7441,12 @@ const FluidBackdrop = ({
         if (destroyed) return;
         hoverReady = true;
         uploadTextureImage(hoverImageAsset, hoverTexture, gl.TEXTURE1, true);
-        if (activeRef.current) {
-          hoverMixTargetRef.current = coarsePointer ? 0 : 1;
+
+        if (coarsePointer && host.classList.contains("hp-journey-story-page")) {
+          hoverMixTargetRef.current = layer.classList.contains("is-mobile-alt") ? 1 : 0;
+          requestFrame();
+        } else if (activeRef.current) {
+          hoverMixTargetRef.current = 1;
           requestFrame();
         }
       };
@@ -7513,10 +7641,11 @@ const FluidBackdrop = ({
     const activateFluid = (event, first = false) => {
       resizeCanvas();
       activeRef.current = true;
-      // Desktop keeps the A/B hover image transition. On touch, the finger
-      // controls only the water distortion so vertical scrolling never causes
-      // an accidental image flash/swap.
-      hoverMixTargetRef.current = coarsePointer ? 0 : (hoverReady ? 1 : 0);
+      // Desktop follows pointer hover. On touch, preserve the automatic A/B
+      // journey cross-fade while the finger independently controls water motion.
+      if (!coarsePointer) {
+        hoverMixTargetRef.current = hoverReady ? 1 : 0;
+      }
       targetRef.current.amount = 1;
       startTimeRef.current = performance.now();
       lastFrameTimeRef.current = performance.now();
@@ -7544,7 +7673,7 @@ const FluidBackdrop = ({
 
     const handleLeave = () => {
       activeRef.current = false;
-      hoverMixTargetRef.current = 0;
+      if (!coarsePointer) hoverMixTargetRef.current = 0;
       targetRef.current.amount = 0;
       targetRef.current.velocityX *= 0.45;
       targetRef.current.velocityY *= 0.45;
@@ -7567,10 +7696,62 @@ const FluidBackdrop = ({
         return;
       }
 
-      if (activeRef.current || currentRef.current.amount > 0.01) {
+      if (
+        activeRef.current ||
+        currentRef.current.amount > 0.01 ||
+        Math.abs(hoverMixTargetRef.current - hoverMixCurrentRef.current) > 0.003
+      ) {
         requestFrame();
       }
     };
+
+    // Phones/tablets have no hover. For the three Journey pages, gently alternate
+    // between image A and B while that story is actually in view. This gives the
+    // same visual discovery as desktop without hijacking vertical touch scrolling.
+    const mobileAutoSwap = Boolean(
+      coarsePointer && hoverSrc && host.classList.contains("hp-journey-story-page")
+    );
+    let mobileSwapObserver;
+    let mobileSwapTimer = 0;
+    let mobileAltVisible = false;
+
+    const applyMobileAlt = (next) => {
+      mobileAltVisible = next;
+      layer.classList.toggle("is-mobile-alt", next);
+      hoverMixTargetRef.current = hoverReady && next ? 1 : 0;
+      requestFrame();
+    };
+
+    const stopMobileSwap = (reset = true) => {
+      if (mobileSwapTimer) window.clearTimeout(mobileSwapTimer);
+      mobileSwapTimer = 0;
+      if (reset) applyMobileAlt(false);
+    };
+
+    const queueMobileSwap = (delay = 1500) => {
+      if (!mobileAutoSwap) return;
+      if (mobileSwapTimer) window.clearTimeout(mobileSwapTimer);
+      mobileSwapTimer = window.setTimeout(() => {
+        applyMobileAlt(!mobileAltVisible);
+        queueMobileSwap(mobileAltVisible ? 3400 : 2800);
+      }, delay);
+    };
+
+    if (mobileAutoSwap && window.IntersectionObserver) {
+      mobileSwapObserver = new IntersectionObserver(
+        (entries) => {
+          const entry = entries[0];
+          const visible = Boolean(entry?.isIntersecting && entry.intersectionRatio >= 0.42);
+          if (visible) {
+            queueMobileSwap(mobileAltVisible ? 3000 : 1200);
+          } else {
+            stopMobileSwap(true);
+          }
+        },
+        { threshold: [0, 0.42, 0.7] }
+      );
+      mobileSwapObserver.observe(host);
+    }
 
     resizeCanvas();
 
@@ -7599,6 +7780,9 @@ const FluidBackdrop = ({
       host.removeEventListener("pointerup", handlePointerUp);
       host.removeEventListener("pointercancel", handlePointerUp);
       document.removeEventListener("visibilitychange", handleVisibility);
+      mobileSwapObserver?.disconnect();
+      if (mobileSwapTimer) window.clearTimeout(mobileSwapTimer);
+      layer.classList.remove("is-mobile-alt", "is-fluid-active", "is-fluid-ready");
       resizeObserver?.disconnect();
       if (!window.ResizeObserver) {
         window.removeEventListener("resize", resizeCanvas);
@@ -7613,7 +7797,7 @@ const FluidBackdrop = ({
       gl.deleteShader(vertexShader);
       gl.deleteShader(fragmentShader);
     };
-  }, [src, hoverSrc, strength]);
+  }, [src, hoverSrc, strength, gpuEnabled]);
 
   return (
     <div
@@ -7635,7 +7819,7 @@ const FluidBackdrop = ({
         <SmartImage
           src={hoverSrc}
           alt=""
-          loading="eager"
+          loading={loading === "eager" ? "eager" : "lazy"}
           fetchPriority="low"
           decoding={decoding}
           style={style}
@@ -10081,6 +10265,9 @@ const useHomeEnhancements = (homeRef, reducedMotion) => {
     const heroMotion = heroStage?.querySelector(".hp-hero-motion-layer");
     const heroDim = heroStage?.querySelector(".hp-hero-dim-layer");
     const heroLine = heroStage?.querySelector(".hp-hero-handoff-line");
+    const goldenThread = root.querySelector(".hp-home-golden-thread");
+    const goldenPath = root.querySelector(".hp-home-golden-thread-path");
+    const goldenKnot = root.querySelector(".hp-home-golden-thread-knot");
 
     let frame = 0;
     let pageTravel = 1;
@@ -10102,12 +10289,18 @@ const useHomeEnhancements = (homeRef, reducedMotion) => {
         progressFill.style.transform = `scaleX(${progress.toFixed(3)})`;
       }
 
-      root.style.setProperty("--hp-golden-progress", progress.toFixed(4));
-      root.style.setProperty("--hp-golden-y", `${(progress * 100).toFixed(2)}%`);
       const fade = progress > .91
         ? Math.max(.08, .72 - ((progress - .91) / .09) * .64)
         : .72;
-      root.style.setProperty("--hp-golden-fade", fade.toFixed(3));
+
+      // Update only the three fixed ribbon elements. Setting inherited custom
+      // properties on the Home root invalidated styles across the whole page.
+      if (goldenPath) goldenPath.style.strokeDashoffset = String(1 - progress);
+      if (goldenThread) goldenThread.style.opacity = fade.toFixed(3);
+      if (goldenKnot) {
+        const knotTravel = Math.max(0, window.innerHeight - 10);
+        goldenKnot.style.transform = `translate3d(-50%, ${(progress * knotTravel).toFixed(1)}px, 0) rotate(45deg)`;
+      }
 
       if (heroMotion && heroDim && heroLine) {
         if (y <= heroTravel * 1.12) {
@@ -10128,7 +10321,15 @@ const useHomeEnhancements = (homeRef, reducedMotion) => {
       }
     };
 
+    let scrollIdleTimer = 0;
     const schedule = () => {
+      if (!root.classList.contains("is-scrolling")) root.classList.add("is-scrolling");
+      if (scrollIdleTimer) window.clearTimeout(scrollIdleTimer);
+      scrollIdleTimer = window.setTimeout(() => {
+        root.classList.remove("is-scrolling");
+        scrollIdleTimer = 0;
+      }, 130);
+
       if (!frame && !document.hidden) {
         frame = window.requestAnimationFrame(paint);
       }
@@ -10307,9 +10508,11 @@ const useHomeEnhancements = (homeRef, reducedMotion) => {
       kineticRevealTimers.forEach((frameId) => window.cancelAnimationFrame(frameId));
       kineticRevealTimers.clear();
 
-      root.style.removeProperty("--hp-golden-progress");
-      root.style.removeProperty("--hp-golden-y");
-      root.style.removeProperty("--hp-golden-fade");
+      goldenPath?.style.removeProperty("stroke-dashoffset");
+      goldenThread?.style.removeProperty("opacity");
+      goldenKnot?.style.removeProperty("transform");
+      root.classList.remove("is-scrolling");
+      if (scrollIdleTimer) window.clearTimeout(scrollIdleTimer);
 
       kineticHeadingNodes.forEach((heading) => {
         heading.classList.remove("hp-kinetic-heading", "is-kinetic-visible");
