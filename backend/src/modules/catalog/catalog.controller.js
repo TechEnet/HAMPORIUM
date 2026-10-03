@@ -2227,6 +2227,267 @@ const logProductMasterMemory = (stage, filename = "") => {
   );
 };
 
+
+const loadExcelJS = async () => {
+  try {
+    const module = await import("exceljs");
+    return module.default || module;
+  } catch (error) {
+    const dependencyError = new Error(
+      "Excel streaming support is not installed. Run npm install exceljs@4.4.0 in the backend and redeploy."
+    );
+    dependencyError.statusCode = 500;
+    dependencyError.cause = error;
+    throw dependencyError;
+  }
+};
+
+const PRODUCT_MASTER_STREAM_SCAN_ROWS = 40;
+const PRODUCT_MASTER_MAX_TOTAL_STREAM_ROWS = 12000;
+
+const normalizeImportSheetName = (value = "") =>
+  normalizeMasterHeader(value).replace(/^\d+[a-z]?/, "");
+
+const PRODUCT_MASTER_RELEVANT_SHEET_ALIASES = [
+  ...PRODUCT_MASTER_SHEET_ALIASES,
+  ...HAMPER_MASTER_SHEET_ALIASES,
+  ...HAMPER_RECIPE_SHEET_ALIASES,
+  CONTAINER_SETUP_SHEET,
+  "Container Setup",
+  "Box Setup",
+  DECORATION_MASTER_SHEET,
+  "Decorations",
+];
+
+const isLikelyProductMasterImportSheet = (sheetName = "") => {
+  const normalized = normalizeImportSheetName(sheetName);
+
+  if (!normalized) return false;
+
+  if (
+    PRODUCT_MASTER_RELEVANT_SHEET_ALIASES.some(
+      (alias) => normalizeImportSheetName(alias) === normalized
+    )
+  ) {
+    return true;
+  }
+
+  return [
+    "productmaster",
+    "cataloguemaster",
+    "catalogmaster",
+    "hampermaster",
+    "hamperrecipe",
+    "hampercomposition",
+    "containersetup",
+    "boxsetup",
+    "decorationmaster",
+  ].some((token) => normalized.includes(token));
+};
+
+const excelStreamCellValue = (value) => {
+  if (value === undefined || value === null) return null;
+  if (value instanceof Date) return value;
+
+  if (typeof value !== "object") return value;
+
+  if (Object.prototype.hasOwnProperty.call(value, "result")) {
+    return excelStreamCellValue(value.result);
+  }
+
+  if (Array.isArray(value.richText)) {
+    return value.richText.map((part) => String(part?.text || "")).join("");
+  }
+
+  if (value.text !== undefined && value.text !== null) {
+    return String(value.text);
+  }
+
+  if (value.hyperlink) {
+    return String(value.hyperlink);
+  }
+
+  if (value.error) return null;
+
+  return String(value);
+};
+
+const excelStreamRowValues = (row) => {
+  const maxColumn = Math.min(Number(row?.cellCount || 0), 250);
+  const values = [];
+
+  for (let column = 1; column <= maxColumn; column += 1) {
+    values.push(excelStreamCellValue(row.getCell(column).value));
+  }
+
+  while (values.length > 0) {
+    const last = values[values.length - 1];
+    if (last !== null && last !== undefined && last !== "") break;
+    values.pop();
+  }
+
+  return values;
+};
+
+const looksLikeProductMasterHeader = (values = []) => {
+  const normalized = new Set(values.map(normalizeMasterHeader).filter(Boolean));
+  const skuAliases = [
+    "Product SKU (10 digits numeric — immutable)",
+    "Product SKU",
+    "SKU",
+  ].map(normalizeMasterHeader);
+  const nameAliases = ["Product Name", "Name"].map(normalizeMasterHeader);
+
+  return (
+    skuAliases.some((key) => normalized.has(key)) &&
+    nameAliases.some((key) => normalized.has(key))
+  );
+};
+
+const streamCompactProductMasterWorkbook = async (sourcePath, filename = "") => {
+  const compactPath = `${sourcePath}.catalog-${process.pid}-${Date.now()}.xlsx`;
+  const selectedSheets = [];
+  let totalRowsKept = 0;
+
+  logProductMasterMemory("stream:start", filename);
+
+  const ExcelJS = await loadExcelJS();
+  const workbookReader = new ExcelJS.stream.xlsx.WorkbookReader(sourcePath, {
+    entries: "ignore",
+    sharedStrings: "cache",
+    hyperlinks: "ignore",
+    styles: "ignore",
+    worksheets: "emit",
+  });
+
+  for await (const worksheetReader of workbookReader) {
+    const sheetName = String(worksheetReader?.name || "").trim();
+    if (!sheetName) continue;
+
+    let selected = isLikelyProductMasterImportSheet(sheetName);
+    const rows = [];
+    let seenRows = 0;
+
+    for await (const rowOrRows of worksheetReader) {
+      const batch =
+        Array.isArray(rowOrRows) &&
+        rowOrRows.length > 0 &&
+        rowOrRows[0]?.getCell
+          ? rowOrRows
+          : [rowOrRows];
+
+      for (const row of batch) {
+        if (!row?.getCell) continue;
+        seenRows += 1;
+
+        const values = excelStreamRowValues(row);
+
+        if (!selected && seenRows <= PRODUCT_MASTER_STREAM_SCAN_ROWS) {
+          if (looksLikeProductMasterHeader(values)) selected = true;
+        }
+
+        if (selected && seenRows <= PRODUCT_MASTER_MAX_PARSED_ROWS) {
+          rows.push(values);
+          totalRowsKept += 1;
+
+          if (totalRowsKept > PRODUCT_MASTER_MAX_TOTAL_STREAM_ROWS) {
+            const error = new Error(
+              `Workbook has too many catalogue rows to analyze safely. Limit is ${PRODUCT_MASTER_MAX_TOTAL_STREAM_ROWS} rows across Product Master-related sheets.`
+            );
+            error.statusCode = 413;
+            throw error;
+          }
+        }
+      }
+    }
+
+    if (selected && rows.length > 0) {
+      selectedSheets.push({ name: sheetName, rows });
+    }
+  }
+
+  if (selectedSheets.length === 0) {
+    const error = new Error(
+      'Unable to locate a Product Master-compatible sheet in this workbook.'
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const compactWorkbook = XLSX.utils.book_new();
+
+  for (const sheet of selectedSheets) {
+    const worksheet = XLSX.utils.aoa_to_sheet(sheet.rows, {
+      cellDates: true,
+    });
+    XLSX.utils.book_append_sheet(compactWorkbook, worksheet, sheet.name);
+    // Let V8 reclaim row arrays before the next stage when possible.
+    sheet.rows.length = 0;
+  }
+
+  XLSX.writeFile(compactWorkbook, compactPath, {
+    bookType: "xlsx",
+    compression: true,
+  });
+
+  compactWorkbook.SheetNames.length = 0;
+  for (const key of Object.keys(compactWorkbook.Sheets || {})) {
+    delete compactWorkbook.Sheets[key];
+  }
+  selectedSheets.length = 0;
+
+  console.info(
+    `[ProductMaster] stream:compact-ready (${filename || "workbook"}) | rows=${totalRowsKept}`
+  );
+  logProductMasterMemory("stream:compact-ready", filename);
+
+  return compactPath;
+};
+
+const analyzeUploadedProductMaster = async (
+  file,
+  { replaceMode = true } = {}
+) => {
+  const source = getProductMasterUploadSource(file);
+
+  if (!source) {
+    const error = new Error("Product Master Excel file is required");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const filename = file?.originalname || "";
+  const extension = String(filename).toLowerCase();
+
+  // ExcelJS's streaming reader is XLSX/XLSM only. Legacy .xls files keep the
+  // old SheetJS path and remain subject to the small upload limit.
+  if (
+    typeof source !== "string" ||
+    (!extension.endsWith(".xlsx") && !extension.endsWith(".xlsm"))
+  ) {
+    return analyzeProductMasterBuffer(source, filename, { replaceMode });
+  }
+
+  let compactPath = null;
+
+  try {
+    compactPath = await streamCompactProductMasterWorkbook(source, filename);
+    return await analyzeProductMasterBuffer(compactPath, filename, {
+      replaceMode,
+    });
+  } finally {
+    if (compactPath) {
+      try {
+        await import("node:fs/promises").then(({ unlink }) =>
+          unlink(compactPath).catch(() => {})
+        );
+      } catch {
+        // Best-effort temp cleanup only.
+      }
+    }
+  }
+};
+
 const readWorkbookSource = (source, options = {}) => {
   if (Buffer.isBuffer(source)) {
     return XLSX.read(source, {
@@ -5045,11 +5306,9 @@ export const previewProductMasterImport = asyncHandler(async (req, res) => {
     });
   }
 
-  const analysis = await analyzeProductMasterBuffer(
-    uploadSource,
-    req.file.originalname || "",
-    { replaceMode: true }
-  );
+  const analysis = await analyzeUploadedProductMaster(req.file, {
+    replaceMode: true,
+  });
 
   res.status(200).json({
     success: true,
@@ -5099,11 +5358,9 @@ export const completeProductMasterContainerReview = asyncHandler(
 
     const completion = parseContainerReviewCompletion(req.body.completion);
 
-    const analysis = await analyzeProductMasterBuffer(
-      uploadSource,
-      req.file.originalname || "",
-      { replaceMode: true }
-    );
+    const analysis = await analyzeUploadedProductMaster(req.file, {
+      replaceMode: true,
+    });
 
     const item = analysis.results.find(
       (result) =>
@@ -5392,11 +5649,9 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
     });
   }
 
-  const preflight = await analyzeProductMasterBuffer(
-    uploadSource,
-    req.file.originalname || "",
-    { replaceMode: true }
-  );
+  const preflight = await analyzeUploadedProductMaster(req.file, {
+    replaceMode: true,
+  });
 
   const blockingRows = preflight.results.filter(
     (item) =>
