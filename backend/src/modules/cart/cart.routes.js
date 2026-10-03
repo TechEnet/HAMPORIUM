@@ -8,6 +8,7 @@ import {
   addCartItem,
   addCustomHamper,
   updateCartItem,
+  updateCustomHamper,
   updateCustomHamperQuantity,
   removeCartItem,
   removeCustomHamper,
@@ -71,6 +72,7 @@ router.delete(
 );
 
 router.post("/custom-hampers", addCustomHamper);
+router.put("/custom-hampers/:cartItemId", updateCustomHamper);
 router.patch("/custom-hampers/:cartItemId", updateCustomHamperQuantity);
 router.delete("/custom-hampers/:cartItemId", removeCustomHamper);
 

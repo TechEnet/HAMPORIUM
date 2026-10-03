@@ -38,17 +38,20 @@ export const CartProvider = ({ children }) => {
   const refreshCart = useCallback(async () => {
     if (!user) {
       setCart(emptyCart);
-      return;
+      return emptyCart;
     }
 
     setCartLoading(true);
 
     try {
       const response = await api.get("/cart");
-      setCart(response.data.cart || emptyCart);
+      const nextCart = response.data.cart || emptyCart;
+      setCart(nextCart);
+      return nextCart;
     } catch (error) {
       console.error("Unable to load cart:", error);
       setCart(emptyCart);
+      return emptyCart;
     } finally {
       setCartLoading(false);
     }
@@ -102,6 +105,41 @@ export const CartProvider = ({ children }) => {
         channel,
         personalization,
         quantity,
+        analytics: buildAnalyticsPayload({
+          source,
+          pagePath:
+            pagePath || currentPagePath(),
+        }),
+        location,
+      }
+    );
+
+    setCart(response.data.cart);
+
+    return response.data.cart;
+  };
+
+  const updateCustomHamper = async (
+    cartItemId,
+    {
+      containerId,
+      items,
+      decorations = [],
+      channel = "",
+      personalization = null,
+      source = "custom_hamper_edit",
+      pagePath,
+      location = null,
+    }
+  ) => {
+    const response = await api.put(
+      `/cart/custom-hampers/${cartItemId}`,
+      {
+        containerId,
+        items,
+        decorations,
+        channel,
+        personalization,
         analytics: buildAnalyticsPayload({
           source,
           pagePath:
@@ -194,6 +232,7 @@ export const CartProvider = ({ children }) => {
         cartLoading,
         addToCart,
         addCustomHamper,
+        updateCustomHamper,
         updateQuantity,
         updateCustomHamperQuantity,
         removeFromCart,

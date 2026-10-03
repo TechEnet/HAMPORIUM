@@ -134,17 +134,22 @@ const personalizationLabel = (value, options) =>
 const CustomHamper = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { addCustomHamper } = useCart();
+  const { addCustomHamper, updateCustomHamper } = useCart();
   const { deliveryLocation } = useDeliveryLocation();
 
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const editCartItemId = searchParams.get("editCartItemId") || "";
+  const isEditingCartHamper = Boolean(editCartItemId);
   const requestedChannel = searchParams.get("channel") || "";
   const channel = CHANNELS.includes(requestedChannel)
     ? requestedChannel
     : "";
 
-  const requestedMode =
-    searchParams.get("mode") === "bulk" ? "bulk" : "personal";
+  const requestedMode = isEditingCartHamper
+    ? "personal"
+    : searchParams.get("mode") === "bulk"
+      ? "bulk"
+      : "personal";
 
   const defaultBulkPurpose = ["corporate", "wedding", "diwali"].includes(
     channel
@@ -181,6 +186,9 @@ const CustomHamper = () => {
   const [addingToCart, setAddingToCart] = useState(false);
   const [error, setError] = useState("");
   const [cartError, setCartError] = useState("");
+  const [editError, setEditError] = useState("");
+  const [editCartItem, setEditCartItem] = useState(null);
+  const [editLoading, setEditLoading] = useState(Boolean(editCartItemId));
 
   const [orderMode, setOrderMode] = useState(requestedMode);
   const [bulkQuantity, setBulkQuantity] = useState(25);
@@ -219,6 +227,90 @@ const CustomHamper = () => {
     media.addListener(update);
     return () => media.removeListener(update);
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!isEditingCartHamper) {
+      setEditCartItem(null);
+      setEditError("");
+      setEditLoading(false);
+      return undefined;
+    }
+
+    if (!user) {
+      setEditLoading(false);
+      navigate("/login");
+      return undefined;
+    }
+
+    const loadCartHamperForEditing = async () => {
+      setEditLoading(true);
+      setEditError("");
+
+      try {
+        const response = await api.get("/cart");
+        const item = (response.data?.cart?.items || []).find(
+          (cartItem) =>
+            cartItem.itemType === "custom_hamper" &&
+            String(cartItem.cartItemId) === String(editCartItemId)
+        );
+
+        if (!item) {
+          if (!cancelled) {
+            setEditCartItem(null);
+            setEditError(
+              "This custom hamper is no longer in your cart. Return to the cart and choose another hamper to edit."
+            );
+            setEditLoading(false);
+          }
+          return;
+        }
+
+        const savedChannel = item.customHamper?.channel || "";
+
+        if (
+          savedChannel &&
+          CHANNELS.includes(savedChannel) &&
+          savedChannel !== requestedChannel
+        ) {
+          const nextParams = new URLSearchParams(searchParams);
+          nextParams.set("channel", savedChannel);
+          nextParams.set("mode", "personal");
+          nextParams.set("editCartItemId", String(editCartItemId));
+          setSearchParams(nextParams, { replace: true });
+        }
+
+        if (!cancelled) {
+          setEditCartItem(item);
+        }
+      } catch (requestError) {
+        if (!cancelled) {
+          setEditCartItem(null);
+          setEditError(
+            requestError.response?.data?.message ||
+              requestError.message ||
+              "Unable to load this custom hamper from your cart"
+          );
+          setEditLoading(false);
+        }
+      }
+    };
+
+    loadCartHamperForEditing();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    editCartItemId,
+    isEditingCartHamper,
+    navigate,
+    requestedChannel,
+    searchParams,
+    setSearchParams,
+    user,
+  ]);
 
   const contentMap = useMemo(
     () =>
@@ -597,30 +689,157 @@ const CustomHamper = () => {
         setContentComponents(loadedContentComponents);
         setDecorativeComponents(loadedDecorativeComponents);
 
-        const mobileFirstChoice =
-          typeof window !== "undefined" &&
-          window.matchMedia("(max-width: 767px)").matches;
+        const editCustom =
+          isEditingCartHamper && editCartItem?.itemType === "custom_hamper"
+            ? editCartItem.customHamper || {}
+            : null;
 
-        setContainerId(mobileFirstChoice ? "" : loadedContainers[0]?._id || "");
-        setMobileStep(1);
-        setSelectedItems([]);
-        setSelectedDecorations([]);
-        setConfiguration(null);
-        setPersonalization(emptyPersonalization());
-        setPersonalizationError("");
-        setSelectionPending(false);
+        if (editCustom) {
+          const savedContainerId = String(
+            editCustom.container?._id ||
+              editCustom.containerId ||
+              editCustom.container ||
+              ""
+          );
+
+          const availableContentIds = new Set(
+            loadedContentComponents.map((component) => String(component._id))
+          );
+          const availableDecorationIds = new Set(
+            loadedDecorativeComponents.map((component) => String(component._id))
+          );
+
+          const savedItems = (editCustom.items || [])
+            .map((selection) => ({
+              componentId: String(
+                selection.component?._id ||
+                  selection.componentId ||
+                  selection.component ||
+                  ""
+              ),
+              quantity: Number(selection.quantity || 1),
+            }))
+            .filter(
+              (selection) =>
+                selection.componentId &&
+                Number.isInteger(selection.quantity) &&
+                selection.quantity > 0
+            );
+
+          const savedDecorations = (editCustom.decorations || [])
+            .map((selection) => ({
+              componentId: String(
+                selection.component?._id ||
+                  selection.componentId ||
+                  selection.component ||
+                  ""
+              ),
+              quantity: Number(selection.quantity || 1),
+            }))
+            .filter(
+              (selection) =>
+                selection.componentId &&
+                Number.isInteger(selection.quantity) &&
+                selection.quantity > 0
+            );
+
+          const nextItems = savedItems.filter((selection) =>
+            availableContentIds.has(selection.componentId)
+          );
+          const nextDecorations = savedDecorations.filter((selection) =>
+            availableDecorationIds.has(selection.componentId)
+          );
+
+          const removedGiftCount = savedItems.length - nextItems.length;
+          const removedDecorationCount =
+            savedDecorations.length - nextDecorations.length;
+
+          setContainerId(savedContainerId);
+          setMobileStep(nextItems.length ? 2 : 1);
+          setSelectedItems(nextItems);
+          setSelectedDecorations(nextDecorations);
+          setConfiguration(null);
+          setPersonalization(
+            editCustom.personalization?.enabled
+              ? {
+                  assets: (editCustom.personalization.assets || []).map(
+                    (asset) => ({
+                      ...asset,
+                      uploadProof: asset.uploadProof || "",
+                    })
+                  ),
+                  message: editCustom.personalization.message || "",
+                  instructions: editCustom.personalization.instructions || "",
+                }
+              : emptyPersonalization()
+          );
+          setPersonalizationError("");
+          setSelectionPending(false);
+          setOrderMode("personal");
+
+          if (removedGiftCount || removedDecorationCount) {
+            const removedParts = [];
+            if (removedGiftCount) {
+              removedParts.push(
+                `${removedGiftCount} unavailable gift${
+                  removedGiftCount === 1 ? "" : "s"
+                }`
+              );
+            }
+            if (removedDecorationCount) {
+              removedParts.push(
+                `${removedDecorationCount} unavailable finishing item${
+                  removedDecorationCount === 1 ? "" : "s"
+                }`
+              );
+            }
+
+            setCartError(
+              `${removedParts.join(
+                " and "
+              )} were removed from the editor because they are no longer selectable. Review the hamper and save your changes.`
+            );
+          } else {
+            setCartError("");
+          }
+
+          setEditLoading(false);
+        } else {
+          const mobileFirstChoice =
+            typeof window !== "undefined" &&
+            window.matchMedia("(max-width: 767px)").matches;
+
+          setContainerId(
+            mobileFirstChoice ? "" : loadedContainers[0]?._id || ""
+          );
+          setMobileStep(1);
+          setSelectedItems([]);
+          setSelectedDecorations([]);
+          setConfiguration(null);
+          setPersonalization(emptyPersonalization());
+          setPersonalizationError("");
+          setSelectionPending(false);
+
+          if (!isEditingCartHamper) {
+            setEditLoading(false);
+          }
+        }
       } catch (requestError) {
         setError(
           requestError.response?.data?.message ||
             "Unable to load custom hamper options"
         );
+
+        if (isEditingCartHamper && editCartItem) {
+          setEditLoading(false);
+        }
       } finally {
         setLoading(false);
       }
     };
 
     loadBuilderData();
-  }, [channel]);
+  }, [channel, editCartItem, isEditingCartHamper]);
 
   useEffect(() => {
     setOrderMode(requestedMode);
@@ -927,7 +1146,12 @@ const CustomHamper = () => {
     setPersonalizationError("");
 
     try {
-      if (user && asset.publicId) {
+      // Existing artwork loaded from a saved cart hamper has already been
+      // attached to the cart, so the storage delete endpoint correctly blocks
+      // deleting it at this stage. Remove it locally and let the backend clean
+      // up the detached file only after the edited hamper is saved. Newly
+      // uploaded artwork still has an uploadProof and can be deleted now.
+      if (user && asset.publicId && asset.uploadProof) {
         await api.delete("/cart/custom-hampers/personalization-assets", {
           data: {
             publicId: asset.publicId,
@@ -962,7 +1186,9 @@ const CustomHamper = () => {
       !configuration?.orderable
     ) {
       setCartError(
-        "Choose at least one hamper item and make sure the hamper is Ready before adding it to cart."
+        isEditingCartHamper
+          ? "Choose at least one hamper item and make sure the hamper is Ready before saving your changes."
+          : "Choose at least one hamper item and make sure the hamper is Ready before adding it to cart."
       );
       return;
     }
@@ -971,24 +1197,36 @@ const CustomHamper = () => {
     setCartError("");
 
     try {
-      await addCustomHamper({
+      const payload = {
         containerId,
         items: selectedItems,
         decorations: selectedDecorations,
         channel,
         personalization: personalizationPayload,
-        quantity: 1,
-        source: "custom_hamper",
+        source: isEditingCartHamper
+          ? "custom_hamper_edit"
+          : "custom_hamper",
         pagePath: `${window.location.pathname}${window.location.search}`,
         location: deliveryLocation,
-      });
+      };
+
+      if (isEditingCartHamper) {
+        await updateCustomHamper(editCartItemId, payload);
+      } else {
+        await addCustomHamper({
+          ...payload,
+          quantity: 1,
+        });
+      }
 
       navigate("/cart");
     } catch (requestError) {
       setCartError(
         requestError.response?.data?.message ||
           requestError.message ||
-          "Unable to add custom hamper to cart"
+          (isEditingCartHamper
+            ? "Unable to save custom hamper changes"
+            : "Unable to add custom hamper to cart")
       );
     } finally {
       setAddingToCart(false);
@@ -1072,7 +1310,7 @@ const CustomHamper = () => {
     }
   };
 
-  if (loading) {
+  if (loading || editLoading) {
     return <CustomHamperSkeleton />;
   }
 
@@ -1569,25 +1807,42 @@ const CustomHamper = () => {
                 style={{ fontFamily: DISPLAY_FONT }}
                 className="mt-3 max-w-[800px] text-[44px] font-semibold leading-[.88] tracking-[-.045em] text-[#FFF6E4] sm:text-[56px] lg:text-[68px]"
               >
-                Build a hamper,
-                <span className="block italic text-[#D9BB57]">beautifully.</span>
+                {isEditingCartHamper ? "Edit your hamper," : "Build a hamper,"}
+                <span className="block italic text-[#D9BB57]">
+                  {isEditingCartHamper ? "without starting over." : "beautifully."}
+                </span>
               </h1>
               <p className="mt-4 max-w-[640px] text-[11px] font-medium leading-5 text-white/48 sm:text-[12px] sm:leading-6">
-                Choose a box, add only what fits, finish it your way, then review the live hamper before checkout.
+                {isEditingCartHamper
+                  ? "Your saved box, gifts, finishing and personalisation are loaded below. Change anything you need, then save the same cart hamper."
+                  : "Choose a box, add only what fits, finish it your way, then review the live hamper before checkout."}
               </p>
             </div>
 
             <div className="lg:justify-self-end">
-              <p className="mb-2 text-[7px] font-black uppercase tracking-[0.16em] text-white/32">
-                How are you ordering?
-              </p>
-              <OrderModeChooser
-                mode={orderMode}
-                onChange={(nextMode) => {
-                  setOrderMode(nextMode);
-                  setCartError("");
-                }}
-              />
+              {isEditingCartHamper ? (
+                <div className="rounded-[18px] border border-[#D9BB57]/25 bg-white/[0.06] px-4 py-3.5 text-right">
+                  <p className="text-[8px] font-black uppercase tracking-[0.15em] text-[#D9BB57]">
+                    Editing cart hamper
+                  </p>
+                  <p className="mt-1 text-[10px] font-semibold leading-4 text-white/50">
+                    Saving updates this cart hamper instead of adding a new duplicate line.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <p className="mb-2 text-[7px] font-black uppercase tracking-[0.16em] text-white/32">
+                    How are you ordering?
+                  </p>
+                  <OrderModeChooser
+                    mode={orderMode}
+                    onChange={(nextMode) => {
+                      setOrderMode(nextMode);
+                      setCartError("");
+                    }}
+                  />
+                </>
+              )}
             </div>
           </div>
         </header>
@@ -1602,9 +1857,9 @@ const CustomHamper = () => {
           />
         </div>
 
-        {error && (
+        {(editError || error) && (
           <div className="mt-4 rounded-[16px] border border-red-200 bg-red-50 px-4 py-3 text-[11px] font-semibold text-red-700">
-            {error}
+            {editError || error}
           </div>
         )}
 
@@ -2041,6 +2296,7 @@ const CustomHamper = () => {
                     canAddToCart={canPrimaryAction}
                     addingToCart={primaryBusy}
                     user={user}
+                    isEditingCartHamper={isEditingCartHamper}
                     orderMode={orderMode}
                     bulkQuantity={Number(bulkQuantity || 0)}
                     onModeChange={(nextMode) => { setOrderMode(nextMode); setCartError(""); }}
@@ -2056,8 +2312,14 @@ const CustomHamper = () => {
               <V30Panel
                 number="05"
                 eyebrow="Final check"
-                title="Review your hamper"
-                meta={configuration?.orderable ? "Ready to add" : "Review required"}
+                title={isEditingCartHamper ? "Review your changes" : "Review your hamper"}
+                meta={
+                  configuration?.orderable
+                    ? isEditingCartHamper
+                      ? "Ready to save"
+                      : "Ready to add"
+                    : "Review required"
+                }
               >
                 <div className="grid gap-2 sm:grid-cols-4">
                   <V30ReviewStat label="Box" value={selectedContainer?.name || "Not selected"} />
@@ -2082,6 +2344,7 @@ const CustomHamper = () => {
                     canAddToCart={canPrimaryAction}
                     addingToCart={primaryBusy}
                     user={user}
+                    isEditingCartHamper={isEditingCartHamper}
                     orderMode={orderMode}
                     bulkQuantity={Number(bulkQuantity || 0)}
                     onModeChange={(nextMode) => { setOrderMode(nextMode); setCartError(""); }}
@@ -2089,7 +2352,7 @@ const CustomHamper = () => {
                   />
                 </div>
 
-                <V30StepActions backLabel="Personalise" onBack={() => moveMobileStep(4)} hint="Your live hamper summary is ready." />
+                <V30StepActions backLabel="Personalise" onBack={() => moveMobileStep(4)} hint={isEditingCartHamper ? "Review the changes, then save the same cart hamper from the summary." : "Your live hamper summary is ready."} />
               </V30Panel>
             )}
           </div>
@@ -2110,6 +2373,7 @@ const CustomHamper = () => {
               canAddToCart={canPrimaryAction}
               addingToCart={primaryBusy}
               user={user}
+              isEditingCartHamper={isEditingCartHamper}
               orderMode={orderMode}
               bulkQuantity={Number(bulkQuantity || 0)}
               onModeChange={(nextMode) => { setOrderMode(nextMode); setCartError(""); }}
@@ -3669,6 +3933,7 @@ const V7Studio = ({
   canAddToCart,
   addingToCart,
   user,
+  isEditingCartHamper = false,
   orderMode = "personal",
   bulkQuantity = 0,
   onAddToCart,
@@ -3810,14 +4075,20 @@ const V7Studio = ({
           {addingToCart
             ? orderMode === "bulk"
               ? "Submitting request…"
-              : "Adding…"
+              : isEditingCartHamper
+                ? "Saving changes…"
+                : "Adding…"
             : user
               ? orderMode === "bulk"
                 ? "Request quotation"
-                : "Add to cart"
+                : isEditingCartHamper
+                  ? "Save hamper changes"
+                  : "Add to cart"
               : orderMode === "bulk"
                 ? "Login to request quote"
-                : "Login to add"}
+                : isEditingCartHamper
+                  ? "Login to save changes"
+                  : "Login to add"}
           {!addingToCart && <span>→</span>}
         </button>
 
