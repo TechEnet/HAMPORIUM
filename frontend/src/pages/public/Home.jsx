@@ -2029,6 +2029,27 @@ const Home = () => {
           }
 
           /*
+            Keep the journey title block higher in the frame so the next
+            diagonal sheet does not cover the heading too early while scrolling.
+            Roughly 20% lift on desktop, slightly less on compact screens.
+          */
+          .hp-home-v65 .hp-journey-story-content {
+            bottom: 18svh;
+          }
+
+          @media (max-width: 1023px) {
+            .hp-home-v65 .hp-journey-story-content {
+              bottom: 15svh;
+            }
+          }
+
+          @media (max-width: 639px) {
+            .hp-home-v65 .hp-journey-story-content {
+              bottom: 13svh;
+            }
+          }
+
+          /*
             The visual sheet is the only clipped layer. Keeping clip-path off the
             sticky element makes Chrome/Edge/Safari much more stable during fast
             scroll and trackpad momentum.
@@ -4172,7 +4193,12 @@ const Home = () => {
 
           @media (hover: none), (pointer: coarse), (max-width: 767px) {
             .hp-fluid-canvas-wrap {
-              display: none !important;
+              display: block !important;
+              transform: translate3d(0,0,0);
+            }
+
+            .hp-fluid-canvas {
+              image-rendering: auto;
             }
           }
 
@@ -4927,6 +4953,193 @@ const Home = () => {
             }
           }
 
+          /* ==================================================
+             V80 · BULK STEPS · AUTO PREVIEW + TRUE 70/30 RAIL
+             Desktop opens with card 01 already presented like hover.
+             On touch/tablet the nearest card automatically owns the
+             same preview treatment while the next card stays visible.
+          ================================================== */
+
+          /* Desktop: card 01 is the default showcase until the user hovers another card. */
+          @media (min-width: 1024px) and (hover: hover) and (pointer: fine) {
+            [data-home-section="bulk"] .hp-bulk-rail:not(:hover)
+            > .hp-bulk-step-card:first-child {
+              border-color: rgba(212,175,55,.42) !important;
+              box-shadow: 0 26px 60px rgba(42,28,11,.18) !important;
+              transform: translateY(-3px) !important;
+            }
+
+            [data-home-section="bulk"] .hp-bulk-rail:not(:hover)
+            > .hp-bulk-step-card:first-child .hp-bulk-step-image {
+              clip-path: inset(0 0 0 0) !important;
+              -webkit-clip-path: inset(0 0 0 0) !important;
+              transform: scale(1) !important;
+            }
+
+            [data-home-section="bulk"] .hp-bulk-rail:not(:hover)
+            > .hp-bulk-step-card:first-child .hp-bulk-step-image-overlay {
+              background:
+                linear-gradient(
+                  90deg,
+                  rgba(10,9,8,.74) 0%,
+                  rgba(10,9,8,.60) 48%,
+                  rgba(10,9,8,.42) 100%
+                ) !important;
+            }
+
+            [data-home-section="bulk"] .hp-bulk-rail:not(:hover)
+            > .hp-bulk-step-card:first-child .hp-bulk-step-content {
+              width: min(78%, 390px) !important;
+            }
+
+            [data-home-section="bulk"] .hp-bulk-rail:not(:hover)
+            > .hp-bulk-step-card:first-child .hp-bulk-step-title {
+              color: #FFF8EC !important;
+              text-shadow: 0 10px 30px rgba(0,0,0,.42) !important;
+              transform: translateX(4px) !important;
+            }
+
+            [data-home-section="bulk"] .hp-bulk-rail:not(:hover)
+            > .hp-bulk-step-card:first-child .hp-bulk-step-visual-cue {
+              transform: translateY(-50%) translateX(5px) !important;
+              background: rgba(244,120,34,.86) !important;
+              border-color: rgba(255,255,255,.68) !important;
+            }
+          }
+
+          /* Tablet + mobile: 70% primary card + ~30% peek of the next card. */
+          @media (max-width: 1023px) {
+            [data-home-section="bulk"] .hp-bulk-flow {
+              overflow: hidden !important;
+            }
+
+            [data-home-section="bulk"] .hp-bulk-rail {
+              --hp-bulk-card-width: calc(70% - 6px) !important;
+              display: flex !important;
+              flex-flow: row nowrap !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              gap: 12px !important;
+              padding: 14px 0 18px !important;
+              scroll-padding-inline: 0 !important;
+              scroll-snap-type: x mandatory !important;
+              mask-image: none !important;
+              -webkit-mask-image: none !important;
+            }
+
+            [data-home-section="bulk"] .hp-bulk-rail
+            > .hp-bulk-step-card {
+              flex: 0 0 var(--hp-bulk-card-width) !important;
+              width: var(--hp-bulk-card-width) !important;
+              min-width: var(--hp-bulk-card-width) !important;
+              max-width: var(--hp-bulk-card-width) !important;
+              scroll-snap-align: start !important;
+              scroll-snap-stop: always;
+              transition:
+                border-color .52s cubic-bezier(.16,1,.3,1),
+                box-shadow .58s cubic-bezier(.16,1,.3,1),
+                transform .58s cubic-bezier(.16,1,.3,1),
+                opacity .45s ease !important;
+            }
+
+            /* The nearest card receives the desktop-hover presentation automatically. */
+            [data-home-section="bulk"] .hp-bulk-step-card.is-mobile-active {
+              border-color: rgba(212,175,55,.46) !important;
+              box-shadow: 0 22px 54px rgba(42,28,11,.18) !important;
+            }
+
+            [data-home-section="bulk"] .hp-bulk-step-card.is-mobile-active
+            .hp-bulk-step-image {
+              opacity: 1 !important;
+              clip-path: inset(0 0 0 0) !important;
+              -webkit-clip-path: inset(0 0 0 0) !important;
+              transform: scale(1) !important;
+            }
+
+            [data-home-section="bulk"] .hp-bulk-step-card.is-mobile-active
+            .hp-bulk-step-image-overlay {
+              background:
+                linear-gradient(
+                  90deg,
+                  rgba(10,9,8,.76) 0%,
+                  rgba(10,9,8,.60) 48%,
+                  rgba(10,9,8,.42) 100%
+                ) !important;
+            }
+
+            [data-home-section="bulk"] .hp-bulk-step-card.is-mobile-active
+            .hp-bulk-step-content {
+              width: min(78%, 390px) !important;
+            }
+
+            [data-home-section="bulk"] .hp-bulk-step-card.is-mobile-active
+            .hp-bulk-step-title {
+              color: #FFF8EC !important;
+              text-shadow: 0 10px 30px rgba(0,0,0,.44) !important;
+              transform: translateX(4px) !important;
+            }
+
+            [data-home-section="bulk"] .hp-bulk-step-card.is-mobile-active
+            .hp-bulk-step-visual-cue {
+              transform: translateY(-50%) translateX(5px) !important;
+              background: rgba(244,120,34,.90) !important;
+              border-color: rgba(255,255,255,.72) !important;
+            }
+
+            /* Touch focus must never leave an old card visually expanded after swiping. */
+            [data-home-section="bulk"] .hp-bulk-step-card:focus:not(.is-mobile-active),
+            [data-home-section="bulk"] .hp-bulk-step-card:focus-visible:not(.is-mobile-active) {
+              border-color: rgba(23,23,23,.09) !important;
+              box-shadow: none !important;
+            }
+
+            [data-home-section="bulk"] .hp-bulk-step-card:focus:not(.is-mobile-active)
+            .hp-bulk-step-image,
+            [data-home-section="bulk"] .hp-bulk-step-card:focus-visible:not(.is-mobile-active)
+            .hp-bulk-step-image {
+              clip-path: inset(0 0 0 56%) !important;
+              -webkit-clip-path: inset(0 0 0 56%) !important;
+              transform: scale(1.02) !important;
+            }
+
+            [data-home-section="bulk"] .hp-bulk-step-card:focus:not(.is-mobile-active)
+            .hp-bulk-step-image-overlay,
+            [data-home-section="bulk"] .hp-bulk-step-card:focus-visible:not(.is-mobile-active)
+            .hp-bulk-step-image-overlay {
+              background:
+                linear-gradient(
+                  90deg,
+                  rgba(243,238,230,.98) 0%,
+                  rgba(243,238,230,.88) 35%,
+                  rgba(243,238,230,.24) 72%,
+                  rgba(8,8,8,.08) 100%
+                ) !important;
+            }
+
+            [data-home-section="bulk"] .hp-bulk-step-card:focus:not(.is-mobile-active)
+            .hp-bulk-step-content,
+            [data-home-section="bulk"] .hp-bulk-step-card:focus-visible:not(.is-mobile-active)
+            .hp-bulk-step-content {
+              width: 56% !important;
+            }
+
+            [data-home-section="bulk"] .hp-bulk-step-card:focus:not(.is-mobile-active)
+            .hp-bulk-step-title,
+            [data-home-section="bulk"] .hp-bulk-step-card:focus-visible:not(.is-mobile-active)
+            .hp-bulk-step-title {
+              color: #171717 !important;
+              text-shadow: none !important;
+              transform: none !important;
+            }
+          }
+
+          @media (max-width: 639px) {
+            [data-home-section="bulk"] .hp-bulk-rail {
+              --hp-bulk-card-width: calc(70% - 5px) !important;
+              gap: 10px !important;
+            }
+          }
+
         `}
       </style>
 
@@ -5038,7 +5251,7 @@ const Home = () => {
                   </div>
                 )}
 
-                <div className="absolute inset-x-0 bottom-0 z-20 p-5 pb-9 sm:p-8 sm:pb-12 lg:p-14 lg:pb-16 xl:p-20 xl:pb-20">
+                <div className="hp-journey-story-content absolute inset-x-0 z-20 p-5 pb-9 sm:p-8 sm:pb-12 lg:p-14 lg:pb-16 xl:p-20 xl:pb-20">
                   <div className="max-w-[760px]">
                     <div className="mb-4 flex items-center gap-3 sm:mb-5">
                       <span className="h-[2px] w-12 bg-[#D4AF37] sm:w-16" />
@@ -5894,8 +6107,14 @@ const Home = () => {
                   <button
                     key={title}
                     type="button"
-                    aria-label={`${title}. Tap to preview image`}
-                    onClick={(event) => event.currentTarget.focus({ preventScroll: true })}
+                    aria-label={`Bulk gifting step: ${title}`}
+                    onClick={(event) => {
+                      if (window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
+                        event.currentTarget.focus({ preventScroll: true });
+                      } else {
+                        event.currentTarget.blur();
+                      }
+                    }}
                     className={`hp-bulk-step-card group relative flex min-h-[210px] items-center overflow-hidden border-0 bg-transparent p-6 text-left appearance-none lg:min-h-[210px] ${
                       index % 2 === 0 ? "lg:border-r lg:border-black/10" : ""
                     } ${
@@ -6109,7 +6328,9 @@ const FluidBackdrop = ({
       "(hover: none), (pointer: coarse)"
     ).matches;
 
-    if (reducedMotion || coarsePointer) return undefined;
+    // Touch devices keep the same GPU water shader. Reduced-motion remains
+    // the only hard opt-out so mobile users can interact with the wave too.
+    if (reducedMotion) return undefined;
 
     const gl = canvas.getContext("webgl", {
       alpha: true,
@@ -6418,8 +6639,14 @@ const FluidBackdrop = ({
 
       const width = Math.max(1, rect.width);
       const height = Math.max(1, rect.height);
-      const dpr = Math.min(window.devicePixelRatio || 1, 1.25);
-      const quality = width >= 1600 ? 0.72 : width >= 1100 ? 0.82 : 0.95;
+      const dpr = Math.min(window.devicePixelRatio || 1, coarsePointer ? 1 : 1.25);
+      const quality = coarsePointer
+        ? 0.78
+        : width >= 1600
+          ? 0.72
+          : width >= 1100
+            ? 0.82
+            : 0.95;
       const nextWidth = Math.max(1, Math.round(width * dpr * quality));
       const nextHeight = Math.max(1, Math.round(height * dpr * quality));
 
@@ -6511,7 +6738,7 @@ const FluidBackdrop = ({
         hoverReady = true;
         uploadTextureImage(hoverImageAsset, hoverTexture, gl.TEXTURE1, true);
         if (activeRef.current) {
-          hoverMixTargetRef.current = 1;
+          hoverMixTargetRef.current = coarsePointer ? 0 : 1;
           requestFrame();
         }
       };
@@ -6703,28 +6930,36 @@ const FluidBackdrop = ({
       requestFrame();
     };
 
-    const handleEnter = (event) => {
+    const activateFluid = (event, first = false) => {
       resizeCanvas();
       activeRef.current = true;
-      hoverMixTargetRef.current = hoverReady ? 1 : 0;
+      // Desktop keeps the A/B hover image transition. On touch, the finger
+      // controls only the water distortion so vertical scrolling never causes
+      // an accidental image flash/swap.
+      hoverMixTargetRef.current = coarsePointer ? 0 : (hoverReady ? 1 : 0);
       targetRef.current.amount = 1;
       startTimeRef.current = performance.now();
       lastFrameTimeRef.current = performance.now();
       layer.classList.add("is-fluid-active");
-      updatePointer(event, true);
+      updatePointer(event, first);
+    };
+
+    const handleEnter = (event) => {
+      activateFluid(event, true);
     };
 
     const handleMove = (event) => {
       if (!activeRef.current) {
-        resizeCanvas();
-        activeRef.current = true;
-        hoverMixTargetRef.current = hoverReady ? 1 : 0;
-        targetRef.current.amount = 1;
-        startTimeRef.current = performance.now();
-        lastFrameTimeRef.current = performance.now();
-        layer.classList.add("is-fluid-active");
+        activateFluid(event, true);
+        return;
       }
       updatePointer(event);
+    };
+
+    const handlePointerDown = (event) => {
+      if (event.pointerType === "touch" || coarsePointer) {
+        activateFluid(event, true);
+      }
     };
 
     const handleLeave = () => {
@@ -6735,6 +6970,12 @@ const FluidBackdrop = ({
       targetRef.current.velocityY *= 0.45;
       previousPointerRef.current = null;
       requestFrame();
+    };
+
+    const handlePointerUp = (event) => {
+      if (event.pointerType === "touch" || coarsePointer) {
+        handleLeave();
+      }
     };
 
     const handleVisibility = () => {
@@ -6763,6 +7004,9 @@ const FluidBackdrop = ({
     host.addEventListener("pointerenter", handleEnter, { passive: true });
     host.addEventListener("pointermove", handleMove, { passive: true });
     host.addEventListener("pointerleave", handleLeave, { passive: true });
+    host.addEventListener("pointerdown", handlePointerDown, { passive: true });
+    host.addEventListener("pointerup", handlePointerUp, { passive: true });
+    host.addEventListener("pointercancel", handlePointerUp, { passive: true });
     document.addEventListener("visibilitychange", handleVisibility);
 
     return () => {
@@ -6771,6 +7015,9 @@ const FluidBackdrop = ({
       host.removeEventListener("pointerenter", handleEnter);
       host.removeEventListener("pointermove", handleMove);
       host.removeEventListener("pointerleave", handleLeave);
+      host.removeEventListener("pointerdown", handlePointerDown);
+      host.removeEventListener("pointerup", handlePointerUp);
+      host.removeEventListener("pointercancel", handlePointerUp);
       document.removeEventListener("visibilitychange", handleVisibility);
       resizeObserver?.disconnect();
       if (!window.ResizeObserver) {
