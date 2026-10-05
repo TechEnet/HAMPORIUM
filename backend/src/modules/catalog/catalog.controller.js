@@ -2745,7 +2745,7 @@ const parseCatalogueSheetXml = (xml, sharedStrings, role, sheetName) => {
 
 const compactProductMasterFromZip = async (sourcePath, filename = "") => {
   logProductMasterMemory("zip-v7:start", filename);
-  console.info("[ProductMaster] parser=zip-direct-v7");
+  console.info("[ProductMaster] parser=zip-direct-v9-data-mapping");
 
   const archive = openXlsxZip(sourcePath);
 
@@ -3127,11 +3127,38 @@ const masterStatusActive = (row) => {
   return true;
 };
 
+const isMasterContainerRow = (row) => {
+  const productType = masterText(row, ["Product Type"]).toLowerCase();
+  const recordType = masterText(row, ["Record Type"]).toLowerCase();
+  const category = masterText(row, ["Category"]).toLowerCase();
+  const normalizedCategory = normalizeMasterHeader(category);
+
+  // Native catalogue files use Product Type = "Container".
+  if (productType.includes("container") || recordType.includes("container")) {
+    return true;
+  }
+
+  // The live procurement workbook classifies real boxes/baskets/trays under
+  // Category = "Packaging Containers" while Product Type contains values
+  // such as "Decorative baskets", "Hinged wooden boxes",
+  // "Medium rigid boxes" and "MDF trays". Treat that category as the
+  // authoritative container signal instead of importing those rows as generic
+  // packaging components.
+  if (
+    normalizedCategory === "packagingcontainers" ||
+    normalizedCategory.startsWith("packagingcontainer")
+  ) {
+    return true;
+  }
+
+  return false;
+};
+
 const getMasterRecordType = (row) => {
   const productType = masterText(row, ["Product Type"]).toLowerCase();
   const recordType = masterText(row, ["Record Type"]).toLowerCase();
 
-  if (productType.includes("container") || recordType.includes("container")) {
+  if (isMasterContainerRow(row)) {
     return "container";
   }
 
@@ -3215,6 +3242,42 @@ const getMasterComponentType = (row, { decoration = false } = {}) => {
 const setMasterField = (target, key, value) => {
   if (value === undefined || value === null || value === "") return;
   target[key] = value;
+};
+
+const normalizeCatalogImageUrl = (value) => {
+  const raw = String(value || "").trim();
+  if (!raw) return { url: "", warning: "" };
+
+  try {
+    const parsed = new URL(raw);
+    if (!["http:", "https:"].includes(parsed.protocol)) {
+      return {
+        url: "",
+        warning: "Image / Asset URL is not an http(s) URL, so it was skipped",
+      };
+    }
+
+    const hostname = parsed.hostname.toLowerCase();
+    const pathname = parsed.pathname.toLowerCase();
+
+    if (
+      hostname === "drive.google.com" &&
+      (pathname.includes("/drive/folders/") || pathname.includes("/folders/"))
+    ) {
+      return {
+        url: "",
+        warning:
+          "Image / Asset URL is a Google Drive folder link, not a direct image URL; image was skipped",
+      };
+    }
+
+    return { url: raw, warning: "" };
+  } catch {
+    return {
+      url: "",
+      warning: "Image / Asset URL is invalid, so it was skipped",
+    };
+  }
 };
 
 const validPositiveDimensions = (dimensions) =>
@@ -3871,9 +3934,13 @@ const buildComponentMasterPayload = (
       type !== "packaging" && common.hamperUse && common.isActive;
   }
 
-  const imageUrl = decorationMasterEntry?.imageUrl || common.imageUrl;
-  if (imageUrl) {
-    payload.images = [{ url: imageUrl, publicId: "", alt: common.name }];
+  const imageCandidate = decorationMasterEntry?.imageUrl || common.imageUrl;
+  const normalizedImage = normalizeCatalogImageUrl(imageCandidate);
+  if (normalizedImage.warning) warnings.push(normalizedImage.warning);
+  if (normalizedImage.url) {
+    payload.images = [
+      { url: normalizedImage.url, publicId: "", alt: common.name },
+    ];
   }
 
   if (common.sourceUpdatedAt) payload.source.sourceUpdatedAt = common.sourceUpdatedAt;
@@ -3925,6 +3992,7 @@ const buildComponentMasterPayload = (
 const buildContainerMasterPayload = (row, setupEntry = null) => {
   const errors = [];
   const review = [];
+  const warnings = [];
   const common = buildMasterCommonFields(row, errors);
 
   const maxSafeLoadKg = masterNumber(
@@ -4050,13 +4118,30 @@ const buildContainerMasterPayload = (row, setupEntry = null) => {
   payload.hamperUse = common.hamperUse;
   payload.channels = common.channels;
   payload.isActive = common.isActive;
-  payload.customerSelectable =
+
+  const requestedCustomerSelectable =
     common.isActive &&
     common.hamperUse !== false &&
     (setupEntry?.customerSelectable ?? true);
 
-  if (common.imageUrl) {
-    payload.images = [{ url: common.imageUrl, publicId: "", alt: common.name }];
+  // A box without a sell price must never leak into the public custom-builder
+  // as a zero-price container. Physical/capacity gaps remain REVIEW items and
+  // can be completed separately, but price comes from the source catalogue.
+  payload.customerSelectable =
+    requestedCustomerSelectable && hasPrice(common.sellingPrice);
+
+  if (requestedCustomerSelectable && !hasPrice(common.sellingPrice)) {
+    warnings.push(
+      "Container was recognized correctly but is hidden from the custom builder until Target Sell Price is supplied"
+    );
+  }
+
+  const normalizedImage = normalizeCatalogImageUrl(common.imageUrl);
+  if (normalizedImage.warning) warnings.push(normalizedImage.warning);
+  if (normalizedImage.url) {
+    payload.images = [
+      { url: normalizedImage.url, publicId: "", alt: common.name },
+    ];
   }
 
   if (common.sourceUpdatedAt) payload.source.sourceUpdatedAt = common.sourceUpdatedAt;
@@ -4101,7 +4186,7 @@ const buildContainerMasterPayload = (row, setupEntry = null) => {
     if (validationError) review.push(validationError);
   }
 
-  return { payload, errors, review };
+  return { payload, errors, review, warnings };
 };
 
 const comparableDateValue = (value) => {
@@ -4413,6 +4498,9 @@ const parseProcurementHamperMasterSheet = (workbook) => {
       "Wedding?": /wedding/i.test(`${vertical} ${occasion} ${recipient}`) ? "Yes" : "No",
       "Diwali?": /diwali/i.test(`${vertical} ${occasion} ${theme}`) ? "Yes" : "No",
       "HAMPER ONE?": /hamper one/i.test(`${vertical} ${occasion} ${theme}`) ? "Yes" : "No",
+      // In the live procurement workbook this is the selected gift box / basket
+      // for the hamper. Preserve it separately from internal recipe packaging.
+      "Container SKU": getMasterValue(row, ["Packaging SKU", "Container SKU", "Box SKU"]),
       "Last Updated Date & Time": getMasterValue(row, ["Last Updated", "Updated At"]),
     });
 
@@ -4558,18 +4646,82 @@ const buildReadyMadeMasterPayload = async (
     errors
   );
   const featured = masterBoolean(row, ["Featured?", "Is Featured"], false);
+  const normalizedImage = normalizeCatalogImageUrl(common.imageUrl);
+  if (normalizedImage.warning) warnings.push(normalizedImage.warning);
+
+  const explicitContainerSku = masterText(row, [
+    "Container SKU",
+    "Packaging SKU",
+    "Box SKU",
+  ]);
+
+  // Procurement recipes often label the gift box as generic "Packaging".
+  // Once Product Master classification tells us that SKU is a real Container,
+  // promote only that referenced line to container. Internal filler/wrap/etc.
+  // remains packaging. Hamper Master.Packaging SKU is also authoritative for
+  // the selected box even when the recipe omits a duplicate box line.
+  const effectiveCompositionEntries = compositionEntries.map((entry) => {
+    if (
+      getLookupRecord(context.sourceContainersBySku, entry.childSku) &&
+      ["packaging", "container"].includes(entry.role)
+    ) {
+      return { ...entry, role: "container" };
+    }
+    return entry;
+  });
+
+  if (explicitContainerSku) {
+    let matched = false;
+    for (let index = 0; index < effectiveCompositionEntries.length; index += 1) {
+      if (
+        normalizeExternalSkuKey(effectiveCompositionEntries[index].childSku) ===
+        normalizeExternalSkuKey(explicitContainerSku)
+      ) {
+        effectiveCompositionEntries[index] = {
+          ...effectiveCompositionEntries[index],
+          role: "container",
+        };
+        matched = true;
+      }
+    }
+
+    if (!matched) {
+      effectiveCompositionEntries.unshift({
+        rowNumber: null,
+        hamperSku: common.externalSku,
+        childSku: explicitContainerSku,
+        role: "container",
+        quantity: 1,
+        unit: "pc",
+        displayName: "",
+        sortOrder: 0,
+        isOptional: false,
+        specification: "",
+        notes: "Container selected in Hamper Master",
+        countsTowardBoxCapacity: false,
+      });
+    }
+  }
 
   if (!common.externalSku) errors.push("Product SKU is required");
   if (!common.name) errors.push("Product Name is required");
   if (!categoryName) errors.push("Website Category / Category is required for ready-made hampers");
   if (common.sellingPrice === null) errors.push("Target Sell Price is required for ready-made hampers");
 
-  const containerEntries = compositionEntries.filter((entry) => entry.role === "container");
-  const contentEntries = compositionEntries.filter((entry) => entry.role === "content");
-  const materialEntries = compositionEntries.filter((entry) => entry.role === "packaging");
-  const decorationEntries = compositionEntries.filter((entry) => entry.role === "decoration");
+  const containerEntries = effectiveCompositionEntries.filter(
+    (entry) => entry.role === "container"
+  );
+  const contentEntries = effectiveCompositionEntries.filter(
+    (entry) => entry.role === "content"
+  );
+  const materialEntries = effectiveCompositionEntries.filter(
+    (entry) => entry.role === "packaging"
+  );
+  const decorationEntries = effectiveCompositionEntries.filter(
+    (entry) => entry.role === "decoration"
+  );
 
-  if (compositionEntries.length === 0) {
+  if (effectiveCompositionEntries.length === 0) {
     review.push("No hamper recipe/composition rows were found for this ready-made hamper SKU");
   }
 
@@ -4734,8 +4886,8 @@ const buildReadyMadeMasterPayload = async (
     shortDescription: shortDescription || description.slice(0, 500),
     description,
     brand: common.brand || "HAMPORIUM",
-    images: common.imageUrl
-      ? [{ url: common.imageUrl, publicId: "", alt: common.name }]
+    images: normalizedImage.url
+      ? [{ url: normalizedImage.url, publicId: "", alt: common.name }]
       : [],
     tags: normalizeTags([
       "ready-made-hamper",
@@ -4776,8 +4928,8 @@ const buildReadyMadeMasterPayload = async (
       common.mrp !== null && Number(common.mrp) > Number(readyMadePricing.price)
         ? Number(common.mrp)
         : null,
-    images: common.imageUrl
-      ? [{ url: common.imageUrl, publicId: "", alt: common.name }]
+    images: normalizedImage.url
+      ? [{ url: normalizedImage.url, publicId: "", alt: common.name }]
       : [],
     container: containerEntries[0]?.childSku || null,
     hamperContents,
@@ -4875,7 +5027,7 @@ const analyzeProductMasterBuffer = async (
   { replaceMode = true, preselectedSheetNames = null } = {}
 ) => {
   logProductMasterMemory("analyze:start", filename);
-  console.info("[ProductMaster] parser=direct-cell-v4");
+  console.info("[ProductMaster] parser=direct-cell-v9-data-mapping");
 
   let sheetCatalog = null;
   let workbookProfile = null;
@@ -5499,7 +5651,7 @@ const analyzeProductMasterBuffer = async (
 
   return {
     filename,
-    parserVersion: "direct-cell-v4",
+    parserVersion: "zip-direct-v9-data-mapping",
     sheetName,
     productHeaderRow: productSheet.headerRow,
     workbookProfile,
@@ -6425,6 +6577,7 @@ export const getComponents = asyncHandler(async (req, res) => {
   const filter = {
     isActive: true,
     customerSelectable: true,
+    sellingPrice: { $gt: 0 },
     type: { $in: PUBLIC_COMPONENT_TYPES },
   };
 
@@ -6554,6 +6707,12 @@ export const getContainers = asyncHandler(async (req, res) => {
     isActive: true,
     customerSelectable: true,
     hamperUse: { $ne: false },
+    sellingPrice: { $gt: 0 },
+    "innerDimensions.length": { $gt: 0 },
+    "innerDimensions.width": { $gt: 0 },
+    "innerDimensions.height": { $gt: 0 },
+    "maxContentWeight.value": { $gt: 0 },
+    usableVolumePercent: { $gte: 1, $lte: 100 },
   };
 
   if (channel) {
