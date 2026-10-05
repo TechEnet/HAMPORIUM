@@ -76,7 +76,7 @@ const upload = multer({
 });
 
 /* =========================================================
-   PRODUCT MASTER EXCEL UPLOAD - DISK + SELECTIVE PARSE
+   PRODUCT MASTER EXCEL UPLOAD - DISK + STREAM-DIRECT PARSE
 ========================================================= */
 
 /*
@@ -87,7 +87,7 @@ const upload = multer({
  * instance over its memory limit.
  *
  * Store the upload on Render's ephemeral /tmp filesystem instead. The
- * controller parses only the Product Master related sheets, and this middleware
+ * controller streams only Product Master-related data into a tiny compact workbook, and this middleware
  * removes the temp file as soon as the response finishes/closes.
  */
 const productMasterTempDir = path.join(
