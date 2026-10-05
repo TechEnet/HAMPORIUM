@@ -1218,6 +1218,7 @@ const ExpandableCopy = ({ text }) => {
 const ProductGallery = ({ images, selectedImage, onSelect, onZoom, name }) => {
     const gestureRef = useRef(null);
     const lastSwipeRef = useRef(0);
+    const hoverLensRef = useRef(null);
     const index = Math.max(0, images.findIndex((image) => image.url === selectedImage));
     const step = (direction) => {
         if (images.length < 2)
@@ -1225,6 +1226,70 @@ const ProductGallery = ({ images, selectedImage, onSelect, onZoom, name }) => {
         const next = (index + direction + images.length) % images.length;
         onSelect(images[next].url);
     };
+
+    const hideInlineMagnifier = () => {
+        const lens = hoverLensRef.current;
+        if (!lens)
+            return;
+        lens.style.opacity = "0";
+        lens.style.visibility = "hidden";
+    };
+
+    const handleInlineMagnifier = (event) => {
+        if (!selectedImage || !window.matchMedia?.("(hover: hover) and (pointer: fine)").matches)
+            return;
+
+        const button = event.currentTarget;
+        const lens = hoverLensRef.current;
+        const image = button.querySelector(".lp-image-current") || button.querySelector(".lp-gallery-image");
+        if (!lens || !image?.naturalWidth || !image?.naturalHeight)
+            return;
+
+        const bounds = button.getBoundingClientRect();
+        if (!bounds.width || !bounds.height)
+            return;
+
+        const fitScale = Math.min(
+            bounds.width / image.naturalWidth,
+            bounds.height / image.naturalHeight
+        );
+        const renderedWidth = image.naturalWidth * fitScale;
+        const renderedHeight = image.naturalHeight * fitScale;
+        const imageLeft = (bounds.width - renderedWidth) / 2;
+        const imageTop = (bounds.height - renderedHeight) / 2;
+        const pointerX = event.clientX - bounds.left;
+        const pointerY = event.clientY - bounds.top;
+
+        if (
+            pointerX < imageLeft ||
+            pointerX > imageLeft + renderedWidth ||
+            pointerY < imageTop ||
+            pointerY > imageTop + renderedHeight
+        ) {
+            hideInlineMagnifier();
+            return;
+        }
+
+        const sourceX = pointerX - imageLeft;
+        const sourceY = pointerY - imageTop;
+        const lensSize = Math.max(145, Math.min(190, bounds.width * 0.22));
+        const zoom = 2.45;
+        const half = lensSize / 2;
+        const lensX = Math.max(half + 8, Math.min(bounds.width - half - 8, pointerX));
+        const lensY = Math.max(half + 8, Math.min(bounds.height - half - 8, pointerY));
+
+        lens.style.width = `${lensSize}px`;
+        lens.style.height = `${lensSize}px`;
+        lens.style.left = `${lensX}px`;
+        lens.style.top = `${lensY}px`;
+        lens.style.backgroundImage = `url("${String(selectedImage).replace(/"/g, "%22")}")`;
+        lens.style.backgroundRepeat = "no-repeat";
+        lens.style.backgroundSize = `${renderedWidth * zoom}px ${renderedHeight * zoom}px`;
+        lens.style.backgroundPosition = `${half - sourceX * zoom}px ${half - sourceY * zoom}px`;
+        lens.style.opacity = "1";
+        lens.style.visibility = "visible";
+    };
+
     return <>
     <div className="lp-gallery-head"><span className="lp-eyebrow">The HAMPORIUM edit</span><span className="lp-count">{images.length > 0 ? `${String(index + 1).padStart(2, "0")} / ${String(images.length).padStart(2, "0")}` : "Product gallery"}</span></div>
     <div className="lp-stage" role="group" aria-label="Product image gallery" onKeyDown={(event) => {
@@ -1239,7 +1304,16 @@ const ProductGallery = ({ images, selectedImage, onSelect, onZoom, name }) => {
                 step(1);
             }
         }}>
-      <button type="button" className="lp-gallery-open" aria-label={`Enlarge ${name} image`} disabled={!selectedImage} onTouchStart={(event) => { const touch = event.touches[0]; gestureRef.current = touch ? { x: touch.clientX, y: touch.clientY } : null; }} onTouchEnd={(event) => {
+      <button
+        type="button"
+        className="lp-gallery-open"
+        aria-label={`Enlarge ${name} image`}
+        disabled={!selectedImage}
+        onMouseMove={handleInlineMagnifier}
+        onMouseEnter={handleInlineMagnifier}
+        onMouseLeave={hideInlineMagnifier}
+        onTouchStart={(event) => { const touch = event.touches[0]; gestureRef.current = touch ? { x: touch.clientX, y: touch.clientY } : null; }}
+        onTouchEnd={(event) => {
             const start = gestureRef.current;
             const end = event.changedTouches[0];
             gestureRef.current = null;
@@ -1251,21 +1325,23 @@ const ProductGallery = ({ images, selectedImage, onSelect, onZoom, name }) => {
                 lastSwipeRef.current = Date.now();
                 step(dx < 0 ? 1 : -1);
             }
-        }} onClick={() => { if (Date.now() - lastSwipeRef.current > 500)
-        onZoom(selectedImage); }}>
+        }}
+        onClick={() => { if (Date.now() - lastSwipeRef.current > 500) onZoom(selectedImage); }}
+      >
         <div className="lp-stage-imagewrap"><GalleryImage src={selectedImage} alt={name}/></div>
+        {selectedImage && <span ref={hoverLensRef} className="lp-inline-magnifier" aria-hidden="true" />}
       </button>
       {images.length > 0 && <span className="lp-image-counter" aria-live="polite" aria-atomic="true">{index + 1} / {images.length}</span>}
       {images.length > 1 && <>
         <button type="button" aria-label="Previous product image" className="lp-round lp-gallery-prev" onClick={() => step(-1)}><DirectionalArrow direction="left"/></button>
         <button type="button" aria-label="Next product image" className="lp-round lp-gallery-next" onClick={() => step(1)}><DirectionalArrow /></button>
       </>}
-      {selectedImage && <button type="button" aria-label="Zoom product image" className="lp-round lp-zoom" onClick={() => onZoom(selectedImage)}><ZoomIcon /></button>}
+      {selectedImage && <button type="button" aria-label="Open full-screen product image" className="lp-round lp-zoom" onClick={() => onZoom(selectedImage)}><ZoomIcon /></button>}
     </div>
     {images.length > 1 && <div className="lp-thumbnails" aria-label="Choose an image">
-      {images.map((image, imageIndex) => <button key={image.url} type="button" className="lp-thumbnail" aria-label={`View product image ${imageIndex + 1}`} aria-pressed={selectedImage === image.url} onClick={() => onSelect(image.url)}><SafeImage src={image.url} alt={image.alt || `${name}, view ${imageIndex + 1}`}/></button>)}
+      {images.map((image, imageIndex) => <button key={image.url} type="button" className="lp-thumbnail" aria-label={`View product image ${imageIndex + 1}`} aria-pressed={selectedImage === image.url} onClick={() => { hideInlineMagnifier(); onSelect(image.url); }}><SafeImage src={image.url} alt={image.alt || `${name}, view ${imageIndex + 1}`}/></button>)}
     </div>}
-    <div className="lp-gallery-note"><span>{images.length > 1 ? "Explore every angle." : "A closer look, in every detail."}</span>{selectedImage && <button type="button" className="lp-text-button" onClick={() => onZoom(selectedImage)}>View full image <ZoomIcon /></button>}</div>
+    <div className="lp-gallery-note"><span className="lp-gallery-magnify-note"><ZoomIcon />Hover over the image to magnify details</span>{selectedImage && <button type="button" className="lp-text-button" onClick={() => onZoom(selectedImage)}>View full image <ZoomIcon /></button>}</div>
   </>;
 };
 /* Decode the requested image before crossfading; old requests cannot replace a newer selection. */
@@ -1312,21 +1388,32 @@ const GalleryImage = ({ src, alt }) => {
 const ProductLightbox = ({ src, images, title, onClose, onChange }) => {
     const dialogRef = useRef(null);
     const closeRef = useRef(null);
+    const [imageFailed, setImageFailed] = useState(false);
     const isOpen = Boolean(src);
+
+    useEffect(() => {
+        setImageFailed(false);
+    }, [src]);
+
     useEffect(() => {
         const dialog = dialogRef.current;
         if (!dialog || !isOpen)
             return undefined;
+
         const focusedBefore = document.activeElement;
         const previousOverflow = document.body.style.overflow;
         const previousPadding = document.body.style.paddingRight;
         const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+
         if (!dialog.open)
             dialog.showModal();
+
         document.body.style.overflow = "hidden";
         if (scrollbarWidth > 0)
             document.body.style.paddingRight = `${parseFloat(getComputedStyle(document.body).paddingRight || "0") + scrollbarWidth}px`;
+
         closeRef.current?.focus();
+
         return () => {
             if (dialog.open)
                 dialog.close();
@@ -1336,31 +1423,60 @@ const ProductLightbox = ({ src, images, title, onClose, onChange }) => {
                 focusedBefore.focus({ preventScroll: true });
         };
     }, [isOpen]);
+
     const index = Math.max(0, images.findIndex((image) => image.url === src));
-    const step = (direction) => { if (images.length > 1)
-        onChange(images[(index + direction + images.length) % images.length].url); };
-    return <dialog ref={dialogRef} className="lp-lightbox" aria-labelledby="lp-modal-title" onCancel={(event) => { event.preventDefault(); onClose(); }} onClick={(event) => {
-            if (event.target !== event.currentTarget)
-                return;
-            const box = event.currentTarget.getBoundingClientRect();
-            if (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom)
-                onClose();
-        }} onKeyDown={(event) => {
-            if (event.key === "ArrowLeft") {
-                event.preventDefault();
-                step(-1);
-            }
-            if (event.key === "ArrowRight") {
-                event.preventDefault();
-                step(1);
-            }
-        }}>
-    {isOpen && <div className="lp-modal-inner">
-      <div className="lp-modal-head"><h2 id="lp-modal-title" className="lp-modal-title">{title}</h2><button ref={closeRef} type="button" className="lp-round" aria-label="Close image preview" onClick={onClose}><CloseIcon /></button></div>
-      <SafeImage src={src} alt={title} className="lp-modal-image" loading="eager" largePlaceholder/>
-      {images.length > 1 && <div className="lp-modal-controls"><button type="button" className="lp-round" aria-label="Previous zoom image" onClick={() => step(-1)}><DirectionalArrow direction="left"/></button><span>{index + 1} / {images.length}</span><button type="button" className="lp-round" aria-label="Next zoom image" onClick={() => step(1)}><DirectionalArrow /></button></div>}
-    </div>}
-  </dialog>;
+    const step = (direction) => {
+        if (images.length < 2)
+            return;
+        onChange(images[(index + direction + images.length) % images.length].url);
+    };
+
+    return <dialog
+      ref={dialogRef}
+      className="lp-lightbox"
+      aria-labelledby="lp-modal-title"
+      onCancel={(event) => { event.preventDefault(); onClose(); }}
+      onKeyDown={(event) => {
+          if (event.key === "ArrowLeft") {
+              event.preventDefault();
+              step(-1);
+          }
+          if (event.key === "ArrowRight") {
+              event.preventDefault();
+              step(1);
+          }
+      }}
+    >
+      {isOpen && <div className="lp-modal-inner" onClick={(event) => {
+          if (event.target === event.currentTarget)
+              onClose();
+      }}>
+        <button ref={closeRef} type="button" className="lp-round lp-modal-close" aria-label="Close image preview" onClick={onClose}><CloseIcon /></button>
+
+        <div className="lp-modal-stage" onClick={(event) => event.stopPropagation()}>
+          <figure className="lp-modal-frame">
+            <div className="lp-modal-image-wrap">
+              {!imageFailed
+                ? <img src={src} alt={title} className="lp-modal-image" loading="eager" decoding="async" onError={() => setImageFailed(true)}/>
+                : <div className="lp-placeholder lp-modal-placeholder"><GiftIcon /><span>Image unavailable</span></div>}
+            </div>
+
+            <figcaption className="lp-modal-caption">
+              <div className="lp-modal-caption-copy">
+                <span className="lp-modal-kicker">Full image</span>
+                <h2 id="lp-modal-title" className="lp-modal-title">{title}</h2>
+              </div>
+              <span className="lp-modal-count">{images.length > 0 ? `${index + 1} / ${images.length}` : "Product image"}</span>
+            </figcaption>
+          </figure>
+
+          {images.length > 1 && <>
+            <button type="button" className="lp-round lp-modal-arrow lp-modal-arrow-left" aria-label="Previous image" onClick={() => step(-1)}><DirectionalArrow direction="left"/></button>
+            <button type="button" className="lp-round lp-modal-arrow lp-modal-arrow-right" aria-label="Next image" onClick={() => step(1)}><DirectionalArrow /></button>
+          </>}
+        </div>
+      </div>}
+    </dialog>;
 };
 const SafeImage = ({ src, alt = "", className = "", loading = "lazy", largePlaceholder = false }) => {
     const [failed, setFailed] = useState(false);
@@ -1476,6 +1592,10 @@ const PRODUCT_PAGE_CSS = `
 .hp-luxe-product .lp-stage { position: relative; overflow: hidden; width: 100%; height: clamp(320px,34vw,540px); background: #f0e7da; border-radius: 20px; isolation: isolate; box-shadow: 0 16px 40px -26px #6b4a2266; }
 .hp-luxe-product .lp-stage::after { content: ''; position: absolute; inset: 10px; border: 1px solid #ffffff70; border-radius: 12px; pointer-events: none; z-index: 3; }
 .hp-luxe-product .lp-gallery-open { position: absolute; inset: 0; display: block; width: 100%; height: 100%; border: 0; padding: 0; background: none; cursor: zoom-in; touch-action: pan-y pinch-zoom; }
+.hp-luxe-product .lp-inline-magnifier { position: absolute; z-index: 7; display: block; overflow: hidden; border: 2px solid #f1c978; border-radius: 50%; opacity: 0; visibility: hidden; transform: translate(-50%,-50%); pointer-events: none; background-color: #f4eadb; box-shadow: 0 18px 42px #3a25093d, 0 0 0 6px #fffaf2d9, inset 0 0 0 1px #ffffffaa; transition: opacity .14s ease, visibility .14s ease; will-change: left, top, background-position; }
+.hp-luxe-product .lp-inline-magnifier::after { content: ''; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 18px #2d1a081f; }
+.hp-luxe-product .lp-gallery-magnify-note { display: inline-flex; align-items: center; gap: 7px; }
+.hp-luxe-product .lp-gallery-magnify-note .lp-icon { width: 15px; height: 15px; color: #9a7440; }
 .hp-luxe-product .lp-gallery-image { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
 .hp-luxe-product .lp-image-current { animation: lpImageIn .55s ease-out; }
 .hp-luxe-product .lp-stage-imagewrap { position: absolute; inset: 0; transition: transform 1s var(--lp-ease); }
@@ -1623,23 +1743,93 @@ const PRODUCT_PAGE_CSS = `
 .hp-luxe-product .lp-spinner { animation: lpSpin .8s linear infinite; }
 
 /* Native dialog stays above transformed/overflow-hidden page containers. */
-.lp-lightbox { width: min(1100px,calc(100vw - 32px)); max-width: none; max-height: calc(100dvh - 32px); padding: 0; border: 1px solid #d6c5aa; border-radius: 16px; background: #fcf8ef; color: #30251b; box-shadow: 0 30px 100px #0005; font-family: 'Manrope',Arial,sans-serif; }
-.lp-lightbox::backdrop { background: #27221ecf; }
-.lp-lightbox[open] { animation: lpContentIn .25s ease-out; }
-.lp-lightbox .lp-modal-inner { display: flex; flex-direction: column; padding: 16px; }
-.lp-lightbox .lp-modal-head { display: flex; align-items: center; justify-content: space-between; gap: 15px; padding-bottom: 12px; }
-.lp-lightbox .lp-modal-title { margin: 0; font-size: 14px; font-weight: 700; }
-.lp-lightbox .lp-modal-image { display: block; max-width: 100%; width: 100%; height: min(68dvh,720px); object-fit: contain; }
-.lp-lightbox .lp-modal-controls { display: flex; align-items: center; justify-content: center; gap: 20px; padding-top: 12px; font-size: 12px; }
-.lp-lightbox .lp-placeholder { display: grid; place-items: center; height: 300px; }
+/* V3: image-sized full-screen viewer. The frame follows the image aspect ratio. */
+.lp-lightbox {
+  width: 100vw; height: 100dvh; max-width: none; max-height: none;
+  margin: 0; padding: 0; overflow: hidden; border: 0; border-radius: 0;
+  --lp-ease: cubic-bezier(.22,1,.36,1); background: transparent; color: #2f261e;
+  font-family: 'Manrope',Arial,sans-serif;
+}
+.lp-lightbox::backdrop {
+  background: rgba(24,20,16,.70);
+  backdrop-filter: blur(9px) saturate(.78) brightness(.78);
+}
+.lp-lightbox[open] { animation: lpLightboxIn .24s var(--lp-ease); }
+.lp-lightbox .lp-modal-inner {
+  position: relative; width: 100%; height: 100%; display: flex;
+  align-items: center; justify-content: center;
+  padding: clamp(24px,4vw,58px) clamp(58px,7vw,112px);
+}
+.lp-lightbox .lp-round {
+  border-color: #d7c3a5; background: #fffaf4f2; color: #4b3825;
+  box-shadow: 0 8px 26px #26180c26; backdrop-filter: blur(10px);
+}
+.lp-lightbox .lp-modal-close {
+  position: fixed; z-index: 20; top: 20px; right: 20px;
+  width: 48px; height: 48px;
+}
+.lp-lightbox .lp-modal-stage {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  width: fit-content; height: fit-content;
+  max-width: calc(100vw - 116px); max-height: calc(100dvh - 64px);
+}
+.lp-lightbox .lp-modal-frame {
+  position: relative; display: flex; flex-direction: column;
+  width: fit-content; height: fit-content; max-width: 100%; max-height: 100%;
+  margin: 0; padding: 10px;
+  overflow: hidden; border: 1px solid #eadbc8;
+  border-radius: 18px; background: #fffaf4f7;
+  box-shadow: 0 30px 90px #160d0759, 0 0 0 1px #ffffff73 inset;
+}
+.lp-lightbox .lp-modal-image-wrap {
+  display: flex; align-items: center; justify-content: center;
+  width: fit-content; height: fit-content; max-width: 100%; max-height: 100%;
+  overflow: hidden; border-radius: 12px; background: #ede2d2;
+}
+.lp-lightbox .lp-modal-image {
+  display: block; width: auto; height: auto;
+  max-width: min(88vw,1480px); max-height: calc(100dvh - 138px);
+  object-fit: contain; user-select: none; -webkit-user-drag: none;
+}
+.lp-lightbox .lp-modal-caption {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 22px; min-width: 0; padding: 10px 6px 2px;
+}
+.lp-lightbox .lp-modal-caption-copy { min-width: 0; }
+.lp-lightbox .lp-modal-kicker {
+  display: block; margin-bottom: 2px; color: #96703d;
+  font-size: 8px; font-weight: 800; letter-spacing: .17em; text-transform: uppercase;
+}
+.lp-lightbox .lp-modal-title {
+  margin: 0; overflow: hidden; color: #33281f; font-family: var(--lp-serif);
+  font-size: clamp(16px,1.3vw,21px); font-weight: 600; line-height: 1.05;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.lp-lightbox .lp-modal-count {
+  flex: 0 0 auto; min-width: 48px; padding: 6px 9px;
+  border: 1px solid #e2cfb3; border-radius: 999px;
+  background: #fffaf4; color: #7b5d34;
+  font-size: 9px; font-weight: 800; letter-spacing: .09em; text-align: center;
+}
+.lp-lightbox .lp-modal-arrow {
+  position: absolute; top: 50%; z-index: 12; width: 48px; height: 48px;
+  transform: translateY(-50%);
+}
+.lp-lightbox .lp-modal-arrow-left { left: -64px; }
+.lp-lightbox .lp-modal-arrow-right { right: -64px; }
+.lp-lightbox .lp-modal-placeholder {
+  width: min(720px,78vw); height: min(62dvh,600px);
+  border-radius: 12px; background: #f3eadf; color: #8b775f;
+}
 
+@keyframes lpLightboxIn { from { opacity: 0; transform: scale(.985); } to { opacity: 1; transform: scale(1); } }
 @keyframes lpImageIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes lpContentIn { from { opacity: .65; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes lpLineIn { from { transform: scaleX(.2); } to { transform: scaleX(1); } }
 @keyframes lpPulse { 50% { opacity: .55; } }
 @keyframes lpSpin { to { transform: rotate(360deg); } }
 @media (hover:hover) and (pointer:fine) {
-  .hp-luxe-product .lp-gallery-open:hover .lp-stage-imagewrap { transform: scale(1.025); }
+  .hp-luxe-product .lp-gallery-open:hover .lp-stage-imagewrap { transform: none; }
   .hp-luxe-product .lp-round:hover { background: #f7eddb; border-color: #b58a4e; }
   .hp-luxe-product .lp-thumbnail:hover { transform: translateY(-2px); border-color: #b18b56; }
   .hp-luxe-product .lp-button:not(:disabled):hover { transform: translateY(-2px); box-shadow: 0 10px 24px -16px #7e4a2166; }
@@ -1700,9 +1890,21 @@ const PRODUCT_PAGE_CSS = `
   .hp-luxe-product .lp-mobile-price small { font-size: 10px; display: block; color: #7d6d5b; }
   .hp-luxe-product .lp-mobile-price strong { font-size: 16px; letter-spacing: -.035em; overflow-wrap: anywhere; }
   .hp-luxe-product .lp-mobile-bar .lp-button { padding: 9px 7px; min-height: 47px; font-size: 12px; }
-  .lp-lightbox { width: calc(100vw - 18px); max-height: calc(100dvh - 22px); }
-  .lp-lightbox .lp-modal-title { font-size: 12px; }
-  .lp-lightbox .lp-modal-image { height: 60dvh; }
+  .hp-luxe-product .lp-inline-magnifier { display: none; }
+  .hp-luxe-product .lp-gallery-magnify-note { display: none; }
+  .lp-lightbox .lp-modal-inner { padding: 58px 10px 16px; }
+  .lp-lightbox .lp-modal-close { top: 10px; right: 10px; width: 42px; height: 42px; }
+  .lp-lightbox .lp-modal-stage { max-width: calc(100vw - 20px); max-height: calc(100dvh - 76px); }
+  .lp-lightbox .lp-modal-frame { max-width: calc(100vw - 20px); max-height: calc(100dvh - 76px); padding: 6px; border-radius: 14px; }
+  .lp-lightbox .lp-modal-image-wrap { border-radius: 9px; }
+  .lp-lightbox .lp-modal-image { max-width: calc(100vw - 32px); max-height: calc(100dvh - 132px); }
+  .lp-lightbox .lp-modal-caption { gap: 12px; padding: 8px 4px 1px; }
+  .lp-lightbox .lp-modal-kicker { display: none; }
+  .lp-lightbox .lp-modal-title { font-size: 15px; }
+  .lp-lightbox .lp-modal-arrow { width: 40px; height: 40px; top: 50%; bottom: auto; transform: translateY(-50%); }
+  .lp-lightbox .lp-modal-arrow-left { left: 10px; }
+  .lp-lightbox .lp-modal-arrow-right { right: 10px; }
+  .lp-lightbox .lp-modal-count { min-width: 43px; padding: 5px 7px; }
 }
 @media (max-width:360px) {
   .hp-luxe-product .lp-action-grid { gap: 7px; }
