@@ -122,26 +122,56 @@ const excelUpload = multer({
 });
 
 let activeProductMasterRequest = null;
+const PRODUCT_MASTER_REQUEST_MAX_MS = 2 * 60 * 1000;
 
 const productMasterRequestGuard = (req, res, next) => {
+  const now = Date.now();
+
+  // A browser/network reset can leave the origin request running briefly even
+  // though the client has already disconnected. Never keep a stale global lock
+  // forever. V7 parsing normally finishes in seconds, so two minutes is a very
+  // conservative dead-lock ceiling.
   if (activeProductMasterRequest) {
+    const ageMs = now - activeProductMasterRequest.startedAt;
+
+    if (ageMs >= PRODUCT_MASTER_REQUEST_MAX_MS) {
+      console.warn(
+        `[ProductMaster] releasing stale request lock after ${Math.round(ageMs / 1000)}s`
+      );
+      activeProductMasterRequest.cleanup?.("stale-timeout");
+    }
+  }
+
+  if (activeProductMasterRequest) {
+    const ageSeconds = Math.max(
+      1,
+      Math.round((now - activeProductMasterRequest.startedAt) / 1000)
+    );
+
     res.setHeader("Retry-After", "5");
     return res.status(429).json({
       success: false,
+      code: "PRODUCT_MASTER_BUSY",
       message:
-        "Another Product Master analyze/import is already running. Wait a few seconds and try again.",
+        `Another Product Master analyze/import is still running (${ageSeconds}s). ` +
+        "Do not re-upload repeatedly; wait for the current request to finish.",
     });
   }
 
   const token = Symbol("product-master-request");
-  activeProductMasterRequest = token;
   let finished = false;
+  let timeout = null;
 
-  const cleanup = () => {
+  const cleanup = (reason = "complete") => {
     if (finished) return;
     finished = true;
 
-    if (activeProductMasterRequest === token) {
+    if (timeout) {
+      clearTimeout(timeout);
+      timeout = null;
+    }
+
+    if (activeProductMasterRequest?.token === token) {
       activeProductMasterRequest = null;
     }
 
@@ -149,10 +179,26 @@ const productMasterRequestGuard = (req, res, next) => {
     if (tempPath) {
       fs.promises.unlink(tempPath).catch(() => {});
     }
+
+    console.info(`[ProductMaster] request-lock:released (${reason})`);
   };
 
-  res.once("finish", cleanup);
-  res.once("close", cleanup);
+  activeProductMasterRequest = {
+    token,
+    startedAt: now,
+    cleanup,
+  };
+
+  timeout = setTimeout(() => cleanup("hard-timeout"), PRODUCT_MASTER_REQUEST_MAX_MS);
+  timeout.unref?.();
+
+  // finish = normal JSON response
+  // close/error = socket/proxy disconnect
+  // aborted = browser stopped/reset the upload/request
+  res.once("finish", () => cleanup("finish"));
+  res.once("close", () => cleanup("close"));
+  res.once("error", () => cleanup("response-error"));
+  req.once("aborted", () => cleanup("request-aborted"));
 
   next();
 };

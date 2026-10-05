@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
-import { readFileSync } from "node:fs";
+import { closeSync, fstatSync, openSync, readFileSync, readSync } from "node:fs";
+import { inflateRawSync } from "node:zlib";
 import * as XLSXModule from "xlsx";
 
 import Product from "./product.model.js";
@@ -2235,479 +2236,611 @@ const logProductMasterMemory = (stage, filename = "") => {
 
 
 /*
- * STREAM-DIRECT V6 WORKBOOK STRATEGY
- * ----------------------------------
- * The live procurement workbook is a Google-Sheets-exported XLSX with many
- * large operational sheets and thousands of prefilled formula rows. Parsing
- * the original file with SheetJS can inflate memory enough for Render to reset
- * the connection. The earlier compact-stream attempt also copied formula-only
- * rows, which made the compact workbook much larger than necessary.
+ * ZIP-DIRECT V7 WORKBOOK STRATEGY
+ * --------------------------------
+ * The live procurement workbook is a Google-Sheets-exported XLSX with 31
+ * sheets and ~126 MB of uncompressed worksheet XML. Loading it with SheetJS or
+ * iterating every worksheet with ExcelJS can either spike Render memory or keep
+ * the HTTP request alive long enough for the edge connection to reset.
  *
- * V6 reads the ORIGINAL XLSX with ExcelJS's streaming reader, resolves cached
- * formula results, keeps only catalogue-related sheets, and drops rows that do
- * not contain real data. It then creates a tiny in-memory XLSX buffer and hands
- * that buffer to the existing importer. SheetJS never parses the 9 MB / 31-sheet
- * source workbook.
+ * V7 does not parse the original workbook with either library. It reads the
+ * XLSX ZIP central directory directly with Node fs/zlib, opens only the tiny
+ * workbook metadata + sharedStrings + catalogue sheets we actually need, drops
+ * prefilled/formula-only rows, creates a tiny compact XLSX in memory, and then
+ * reuses the existing importer against that compact workbook.
+ *
+ * No new npm package is required.
  */
-const loadExcelJS = async () => {
+const ZIP_LOCAL_FILE_SIGNATURE = 0x04034b50;
+const ZIP_CENTRAL_FILE_SIGNATURE = 0x02014b50;
+const ZIP_EOCD_SIGNATURE = 0x06054b50;
+const ZIP_MAX_EOCD_SEARCH = 65557;
+const PRODUCT_MASTER_ZIP_MAX_COLUMNS = 250;
+const PRODUCT_MASTER_ZIP_MAX_ROWS = 5000;
+const PRODUCT_MASTER_ZIP_EMPTY_STREAK_STOP = 250;
+
+const xmlDecode = (value = "") =>
+  String(value)
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) =>
+      String.fromCodePoint(Number.parseInt(hex, 16))
+    )
+    .replace(/&#(\d+);/g, (_, dec) =>
+      String.fromCodePoint(Number.parseInt(dec, 10))
+    )
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&");
+
+const xmlAttribute = (attributes = "", name = "") => {
+  const escaped = String(name).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = String(attributes).match(
+    new RegExp(`(?:^|\\s)${escaped}="([^"]*)"`, "i")
+  );
+  return match ? xmlDecode(match[1]) : "";
+};
+
+const readExactRange = (fd, offset, length) => {
+  const buffer = Buffer.allocUnsafe(length);
+  let cursor = 0;
+
+  while (cursor < length) {
+    const bytesRead = readSync(fd, buffer, cursor, length - cursor, offset + cursor);
+    if (!bytesRead) break;
+    cursor += bytesRead;
+  }
+
+  if (cursor !== length) {
+    const error = new Error("Unable to read the uploaded XLSX archive completely.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return buffer;
+};
+
+const openXlsxZip = (filePath) => {
+  const fd = openSync(filePath, "r");
+
   try {
-    const module = await import("exceljs");
-    return module.default || module;
+    const stat = fstatSync(fd);
+    const tailLength = Math.min(stat.size, ZIP_MAX_EOCD_SEARCH);
+    const tail = readExactRange(fd, stat.size - tailLength, tailLength);
+
+    let eocdOffsetInTail = -1;
+    for (let index = tail.length - 22; index >= 0; index -= 1) {
+      if (tail.readUInt32LE(index) === ZIP_EOCD_SIGNATURE) {
+        eocdOffsetInTail = index;
+        break;
+      }
+    }
+
+    if (eocdOffsetInTail < 0) {
+      const error = new Error("Uploaded file is not a valid XLSX ZIP archive.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const totalEntries = tail.readUInt16LE(eocdOffsetInTail + 10);
+    const centralSize = tail.readUInt32LE(eocdOffsetInTail + 12);
+    const centralOffset = tail.readUInt32LE(eocdOffsetInTail + 16);
+
+    const central = readExactRange(fd, centralOffset, centralSize);
+    const entries = new Map();
+    let cursor = 0;
+    let parsedEntries = 0;
+
+    while (
+      cursor + 46 <= central.length &&
+      parsedEntries < totalEntries &&
+      central.readUInt32LE(cursor) === ZIP_CENTRAL_FILE_SIGNATURE
+    ) {
+      const compressionMethod = central.readUInt16LE(cursor + 10);
+      const compressedSize = central.readUInt32LE(cursor + 20);
+      const uncompressedSize = central.readUInt32LE(cursor + 24);
+      const fileNameLength = central.readUInt16LE(cursor + 28);
+      const extraLength = central.readUInt16LE(cursor + 30);
+      const commentLength = central.readUInt16LE(cursor + 32);
+      const localHeaderOffset = central.readUInt32LE(cursor + 42);
+      const fileName = central
+        .subarray(cursor + 46, cursor + 46 + fileNameLength)
+        .toString("utf8")
+        .replace(/^\/+/, "");
+
+      entries.set(fileName, {
+        fileName,
+        compressionMethod,
+        compressedSize,
+        uncompressedSize,
+        localHeaderOffset,
+      });
+
+      cursor += 46 + fileNameLength + extraLength + commentLength;
+      parsedEntries += 1;
+    }
+
+    const readEntryBuffer = (entryName) => {
+      const normalizedName = String(entryName || "").replace(/^\/+/, "");
+      const entry = entries.get(normalizedName);
+      if (!entry) return null;
+
+      const localHeader = readExactRange(fd, entry.localHeaderOffset, 30);
+      if (localHeader.readUInt32LE(0) !== ZIP_LOCAL_FILE_SIGNATURE) {
+        const error = new Error(`Invalid XLSX ZIP entry: ${normalizedName}`);
+        error.statusCode = 400;
+        throw error;
+      }
+
+      const fileNameLength = localHeader.readUInt16LE(26);
+      const extraLength = localHeader.readUInt16LE(28);
+      const dataOffset = entry.localHeaderOffset + 30 + fileNameLength + extraLength;
+      const compressed = readExactRange(fd, dataOffset, entry.compressedSize);
+
+      if (entry.compressionMethod === 0) return compressed;
+      if (entry.compressionMethod === 8) return inflateRawSync(compressed);
+
+      const error = new Error(
+        `Unsupported XLSX compression method ${entry.compressionMethod}.`
+      );
+      error.statusCode = 400;
+      throw error;
+    };
+
+    return {
+      entries,
+      readText(entryName) {
+        const buffer = readEntryBuffer(entryName);
+        return buffer ? buffer.toString("utf8") : null;
+      },
+      close() {
+        closeSync(fd);
+      },
+    };
   } catch (error) {
-    const dependencyError = new Error(
-      "Excel streaming support is not installed. Run npm install exceljs@4.4.0 in the backend and redeploy."
-    );
-    dependencyError.statusCode = 500;
-    dependencyError.cause = error;
-    throw dependencyError;
+    closeSync(fd);
+    throw error;
   }
 };
 
-const PRODUCT_MASTER_STREAM_SCAN_ROWS = 40;
-const PRODUCT_MASTER_STREAM_MAX_COLUMNS = 250;
-const PRODUCT_MASTER_STREAM_MAX_SHEET_ROWS = 5000;
-const PRODUCT_MASTER_STREAM_MAX_TOTAL_ROWS = 12000;
-
-const normalizeImportSheetName = (value = "") =>
+const normalizeZipSheetName = (value = "") =>
   String(value || "")
     .trim()
     .toLowerCase()
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, "")
-    .replace(/^\d+[a-z]?/, "");
+    .replace(/^\d+/, "");
 
-const excelStreamCellValue = (value) => {
-  if (value === undefined || value === null) return null;
-  if (value instanceof Date) return value;
-  if (typeof value !== "object") return value;
+const normalizeZipHeader = (value = "") =>
+  String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "");
 
-  // ExcelJS formula cells are { formula, result }. Google-Sheets XLSX exports
-  // normally include cached results, which are the values the importer needs.
-  if (Object.prototype.hasOwnProperty.call(value, "result")) {
-    return excelStreamCellValue(value.result);
+const extractWorkbookSheetTargets = (workbookXml, relsXml) => {
+  const relationships = new Map();
+  const relationshipRegex = /<Relationship\b([^>]*)\/?\s*>/gi;
+  let relationshipMatch;
+
+  while ((relationshipMatch = relationshipRegex.exec(relsXml || ""))) {
+    const attributes = relationshipMatch[1] || "";
+    const id = xmlAttribute(attributes, "Id");
+    const target = xmlAttribute(attributes, "Target");
+    if (!id || !target) continue;
+
+    let normalizedTarget = target.replace(/\\/g, "/").replace(/^\/+/, "");
+    while (normalizedTarget.startsWith("../")) {
+      normalizedTarget = normalizedTarget.slice(3);
+    }
+    if (!normalizedTarget.startsWith("xl/")) {
+      normalizedTarget = `xl/${normalizedTarget}`;
+    }
+
+    relationships.set(id, normalizedTarget);
   }
 
-  if (Array.isArray(value.richText)) {
-    return value.richText.map((part) => String(part?.text || "")).join("");
+  const sheets = [];
+  const sheetRegex = /<sheet\b([^>]*)\/?\s*>/gi;
+  let sheetMatch;
+
+  while ((sheetMatch = sheetRegex.exec(workbookXml || ""))) {
+    const attributes = sheetMatch[1] || "";
+    const name = xmlAttribute(attributes, "name");
+    const relationshipId = xmlAttribute(attributes, "r:id");
+    const target = relationships.get(relationshipId);
+    if (!name || !target) continue;
+    sheets.push({ name, target });
   }
 
-  if (value.text !== undefined && value.text !== null) {
-    return String(value.text);
-  }
-
-  if (value.hyperlink) {
-    return value.text ? String(value.text) : String(value.hyperlink);
-  }
-
-  if (value.error) return null;
-  return null;
+  return sheets;
 };
 
-const excelStreamRowValues = (row) => {
-  const rawValues = Array.isArray(row?.values) ? row.values : [];
-  const upperBound = Math.min(
-    Math.max(Number(row?.cellCount || 0), rawValues.length - 1, 0),
-    PRODUCT_MASTER_STREAM_MAX_COLUMNS
-  );
-  const values = [];
-
-  for (let column = 1; column <= upperBound; column += 1) {
-    const raw = rawValues[column] !== undefined
-      ? rawValues[column]
-      : row?.getCell
-        ? row.getCell(column).value
-        : null;
-    values.push(excelStreamCellValue(raw));
-  }
-
-  while (values.length > 0) {
-    const last = values[values.length - 1];
-    if (last !== null && last !== undefined && String(last).trim() !== "") break;
-    values.pop();
-  }
-
-  return values;
-};
-
-const streamValuePresent = (value) =>
-  value !== null && value !== undefined && String(value).trim() !== "";
-
-const streamRowHasMeaningfulData = (values = []) =>
-  values.some(streamValuePresent);
-
-const streamHeaderSet = (values = []) =>
-  new Set(values.map((value) => normalizeMasterHeader(value)).filter(Boolean));
-
-const streamHeaderHasAny = (headers, aliases = []) =>
-  aliases.some((alias) => headers.has(normalizeMasterHeader(alias)));
-
-/*
- * IMPORTANT: do not trust worksheetReader.name.
- * ExcelJS 4.4 streaming can return Sheet1/Sheet2-style names (or no useful
- * name) for valid XLSX files depending on archive order / Node runtime.
- * Detect the catalogue sheet by its HEADER CONTENT instead. This makes the
- * import work for both the real procurement workbook and the dummy catalogue
- * even when streaming sheet names are wrong.
- */
-const detectStreamSheetRole = (values = []) => {
-  const headers = streamHeaderSet(values);
-  if (headers.size === 0) return null;
-
-  const hasHamperCode = streamHeaderHasAny(headers, [
-    "Hamper Code",
-    "Hamper SKU",
-    "Parent Hamper SKU",
-    "Ready Made Hamper SKU",
-  ]);
-  const hasHamperName = streamHeaderHasAny(headers, [
-    "Hamper Name",
-    "Name",
-  ]);
-  const hasProductSku = streamHeaderHasAny(headers, [
-    "Product SKU (10 digits numeric — immutable)",
-    "Product SKU",
-    "SKU",
-    "Item SKU",
-    "Child SKU",
-    "Component SKU",
-    "Container SKU",
-  ]);
-  const hasProductName = streamHeaderHasAny(headers, [
-    "Product Name",
-    "Name",
-    "Item Name",
-  ]);
-  const hasQty = streamHeaderHasAny(headers, ["Qty", "Quantity"]);
-  const hasRecipeRole = streamHeaderHasAny(headers, [
-    "Component Type",
-    "Role",
-    "Item Role",
-  ]);
-  const hasProductType = streamHeaderHasAny(headers, [
-    "Product Type",
-    "Record Type",
-    "Category",
-  ]);
-  const hasProductMasterIdentity = streamHeaderHasAny(headers, [
-    "Status",
-    "Brand Name",
-    "Category Code (3 digits)",
-    "Target Sell Price",
-    "Hamper Use",
-    "Product Priority",
-  ]);
-
-  // Recipe / BOM must be checked before Product Master because the real recipe
-  // also contains Product SKU + Product Name columns.
-  if (hasHamperCode && hasProductSku && (hasQty || hasRecipeRole)) {
-    return "hamper_recipe";
-  }
-
-  if (hasHamperCode && hasHamperName) {
-    return "hamper_master";
-  }
+const classifyZipSheet = (name = "") => {
+  const normalized = normalizeZipSheetName(name);
 
   if (
-    streamHeaderHasAny(headers, ["Container SKU"]) &&
-    streamHeaderHasAny(headers, ["Container Name"]) &&
-    streamHeaderHasAny(headers, [
-      "True Inner L cm",
-      "True Inner Length cm",
-      "Inner L cm",
-      "Max Content Weight kg",
-      "Max Safe Load kg",
-    ])
-  ) {
-    return "container_setup";
-  }
-
-  if (
-    streamHeaderHasAny(headers, ["Decoration SKU"]) &&
-    streamHeaderHasAny(headers, ["Decoration Name"]) &&
-    streamHeaderHasAny(headers, ["Decoration Type", "Customer Selectable?"])
-  ) {
-    return "decoration_master";
-  }
-
-  if (
-    hasProductSku &&
-    hasProductName &&
-    hasProductType &&
-    hasProductMasterIdentity &&
-    !hasHamperCode
+    normalized === "productmaster" ||
+    normalized === "products" ||
+    normalized === "cataloguemaster" ||
+    normalized === "catalogmaster"
   ) {
     return "product_master";
   }
 
+  if (
+    normalized === "hampermaster" ||
+    normalized === "curatedgiftmaster" ||
+    normalized === "hampercuratedgiftmaster"
+  ) {
+    return "hamper_master";
+  }
+
+  if (
+    normalized === "hamperrecipe" ||
+    normalized === "hamperbom" ||
+    normalized === "readymadecomposition" ||
+    normalized === "hampercomposition"
+  ) {
+    return "hamper_recipe";
+  }
+
+  if (
+    normalized === "hamporiumcontainersetup" ||
+    normalized === "containersetup" ||
+    normalized === "boxsetup"
+  ) {
+    return "container_setup";
+  }
+
+  if (normalized === "decorationmaster" || normalized === "decorations") {
+    return "decoration_master";
+  }
+
   return null;
 };
 
-const canonicalStreamSheetName = (role, observedName = "") => {
-  const normalizedObserved = normalizeImportSheetName(observedName);
-
+const canonicalZipSheetName = (role, originalName = "") => {
   if (role === "product_master") {
-    // Keep a trustworthy Product Master name when the stream supplied one;
-    // otherwise use the canonical name so downstream detection is deterministic.
-    if (normalizedObserved.includes("productmaster")) return observedName;
-    return PRODUCT_MASTER_SHEET;
+    return /^\s*\d+[a-z]?\s+product\s+master\s*$/i.test(originalName)
+      ? originalName
+      : PRODUCT_MASTER_SHEET;
   }
   if (role === "hamper_master") return PROCUREMENT_HAMPER_MASTER_SHEET;
-  if (role === "hamper_recipe") return PROCUREMENT_HAMPER_RECIPE_SHEET;
+  if (role === "hamper_recipe") {
+    return normalizeZipSheetName(originalName) === "hampercomposition"
+      ? HAMPER_COMPOSITION_SHEET
+      : PROCUREMENT_HAMPER_RECIPE_SHEET;
+  }
   if (role === "container_setup") return CONTAINER_SETUP_SHEET;
   if (role === "decoration_master") return DECORATION_MASTER_SHEET;
-  return observedName || "Sheet";
+  return originalName || "Sheet";
 };
 
-const getStreamRoleColumns = (role, values = []) => {
-  let primaryIndex = -1;
-  let secondaryIndex = -1;
+const parseSharedStringsXml = (xml = "") => {
+  if (!xml) return [];
+  const strings = [];
+  const sharedRegex = /<si\b[^>]*>([\s\S]*?)<\/si>/gi;
+  let match;
 
-  values.forEach((value, index) => {
-    const normalized = normalizeMasterHeader(value);
-    if (!normalized) return;
-
-    const matches = (aliases) =>
-      aliases.some((alias) => normalizeMasterHeader(alias) === normalized);
-
-    if (role === "product_master") {
-      if (
-        primaryIndex < 0 &&
-        matches(["Product SKU (10 digits numeric — immutable)", "Product SKU", "SKU"])
-      ) {
-        primaryIndex = index;
-      }
-      if (secondaryIndex < 0 && matches(["Product Name", "Name"])) {
-        secondaryIndex = index;
-      }
-    } else if (role === "hamper_master") {
-      if (primaryIndex < 0 && matches(["Hamper Code", "Hamper SKU", "Product SKU"])) {
-        primaryIndex = index;
-      }
-      if (secondaryIndex < 0 && matches(["Hamper Name", "Product Name", "Name"])) {
-        secondaryIndex = index;
-      }
-    } else if (role === "hamper_recipe") {
-      if (
-        primaryIndex < 0 &&
-        matches([
-          "Hamper Code",
-          "Hamper SKU",
-          "Parent Hamper SKU",
-          "Parent Product SKU",
-          "Ready Made Hamper SKU",
-        ])
-      ) {
-        primaryIndex = index;
-      }
-      if (
-        secondaryIndex < 0 &&
-        matches(["Product SKU", "Item SKU", "Child SKU", "Component SKU", "Container SKU"])
-      ) {
-        secondaryIndex = index;
-      }
-    } else if (role === "container_setup") {
-      if (primaryIndex < 0 && matches(["Container SKU"])) primaryIndex = index;
-      if (secondaryIndex < 0 && matches(["Container Name"])) secondaryIndex = index;
-    } else if (role === "decoration_master") {
-      if (primaryIndex < 0 && matches(["Decoration SKU"])) primaryIndex = index;
-      if (secondaryIndex < 0 && matches(["Decoration Name"])) secondaryIndex = index;
+  while ((match = sharedRegex.exec(xml))) {
+    const body = match[1] || "";
+    const pieces = [];
+    const textRegex = /<t\b[^>]*>([\s\S]*?)<\/t>/gi;
+    let textMatch;
+    while ((textMatch = textRegex.exec(body))) {
+      pieces.push(xmlDecode(textMatch[1] || ""));
     }
-  });
-
-  return { primaryIndex, secondaryIndex };
-};
-
-const isRealStreamRoleDataRow = (values, columns) => {
-  const primary =
-    columns.primaryIndex >= 0 ? values[columns.primaryIndex] : null;
-  const secondary =
-    columns.secondaryIndex >= 0 ? values[columns.secondaryIndex] : null;
-  return streamValuePresent(primary) || streamValuePresent(secondary);
-};
-
-const makeCompactSheetRows = (scanRows, headerRowNumber, dataRows) => {
-  const result = [];
-  const headerLimit = Math.max(1, Number(headerRowNumber || 1));
-
-  // Preserve original leading rows so the real workbook keeps headerRow=4.
-  for (let rowNumber = 1; rowNumber <= headerLimit; rowNumber += 1) {
-    result.push(scanRows.get(rowNumber) || []);
+    strings.push(pieces.join(""));
   }
 
-  for (const entry of dataRows) result.push(entry.values);
-  return result;
+  return strings;
 };
 
-const streamCompactProductMasterBuffer = async (sourcePath, filename = "") => {
-  logProductMasterMemory("stream-v6:start", filename);
-  console.info("[ProductMaster] parser=content-role-v6");
+const columnIndexFromCellReference = (reference = "") => {
+  const letters = String(reference).match(/^([A-Z]+)/i)?.[1]?.toUpperCase();
+  if (!letters) return -1;
 
-  const ExcelJS = await loadExcelJS();
-  const workbookReader = new ExcelJS.stream.xlsx.WorkbookReader(sourcePath, {
-    entries: "ignore",
-    sharedStrings: "cache",
-    hyperlinks: "ignore",
-    styles: "ignore",
-    worksheets: "emit",
-  });
+  let index = 0;
+  for (const character of letters) {
+    index = index * 26 + (character.charCodeAt(0) - 64);
+  }
+  return index - 1;
+};
 
-  const compactSheets = [];
-  const capturedRoles = new Set();
-  let totalRowsKept = 0;
-  let worksheetOrdinal = 0;
+const getCellXmlValue = (attributes, body, sharedStrings) => {
+  const type = xmlAttribute(attributes, "t").toLowerCase();
 
-  for await (const worksheetReader of workbookReader) {
-    worksheetOrdinal += 1;
+  if (type === "inlinestr") {
+    const pieces = [];
+    const textRegex = /<t\b[^>]*>([\s\S]*?)<\/t>/gi;
+    let textMatch;
+    while ((textMatch = textRegex.exec(body || ""))) {
+      pieces.push(xmlDecode(textMatch[1] || ""));
+    }
+    return pieces.join("");
+  }
 
-    // Never skip a worksheet merely because ExcelJS failed to resolve its name.
-    const observedName = String(worksheetReader?.name || "").trim();
-    const fallbackName = observedName || `Sheet${worksheetReader?.id || worksheetOrdinal}`;
+  const valueMatch = String(body || "").match(/<v\b[^>]*>([\s\S]*?)<\/v>/i);
+  const rawValue = valueMatch ? xmlDecode(valueMatch[1] || "") : "";
 
-    const scanRows = new Map();
-    const dataRows = [];
-    let headerRowNumber = null;
-    let role = null;
-    let roleColumns = { primaryIndex: -1, secondaryIndex: -1 };
-    let seenRows = 0;
+  if (type === "s") {
+    const sharedIndex = Number(rawValue);
+    return Number.isInteger(sharedIndex) ? sharedStrings[sharedIndex] ?? "" : "";
+  }
 
-    for await (const rowOrRows of worksheetReader) {
-      const batch =
-        Array.isArray(rowOrRows) && rowOrRows.length > 0 && rowOrRows[0]?.getCell
-          ? rowOrRows
-          : [rowOrRows];
+  if (type === "str") return rawValue;
+  if (type === "b") return rawValue === "1";
+  if (type === "e") return null;
+  if (rawValue === "") return null;
 
-      for (const row of batch) {
-        if (!row?.getCell) continue;
-        seenRows += 1;
-        if (seenRows > PRODUCT_MASTER_MAX_PARSED_ROWS) break;
+  const numeric = Number(rawValue);
+  return Number.isFinite(numeric) ? numeric : rawValue;
+};
 
-        const rowNumber = Number(row.number || seenRows);
-        const values = excelStreamRowValues(row);
+const zipValuePresent = (value) =>
+  value !== null && value !== undefined && String(value).trim() !== "";
 
-        if (rowNumber <= PRODUCT_MASTER_STREAM_SCAN_ROWS) {
-          scanRows.set(rowNumber, values);
+const rowHeaderIndex = (values, aliases) => {
+  const normalizedAliases = new Set(aliases.map(normalizeZipHeader));
+  return values.findIndex((value) => normalizedAliases.has(normalizeZipHeader(value)));
+};
 
-          if (!role) {
-            const detectedRole = detectStreamSheetRole(values);
-            if (detectedRole) {
-              role = detectedRole;
-              headerRowNumber = rowNumber;
-              roleColumns = getStreamRoleColumns(role, values);
+const detectHeaderForZipRole = (role, values = []) => {
+  const has = (aliases) => rowHeaderIndex(values, aliases) >= 0;
 
-              console.info(
-                `[ProductMaster] stream-v6:detected | id=${worksheetReader?.id || worksheetOrdinal} ` +
-                  `observed="${fallbackName}" role=${role} headerRow=${headerRowNumber}`
-              );
-              continue;
-            }
-          }
-        }
+  if (role === "product_master") {
+    return (
+      has(["Product SKU (10 digits numeric — immutable)", "Product SKU", "SKU"]) &&
+      has(["Product Name", "Name"]) &&
+      has(["Product Type", "Record Type", "Category"])
+    );
+  }
 
-        if (!role || !headerRowNumber || rowNumber <= headerRowNumber) continue;
-        if (!isRealStreamRoleDataRow(values, roleColumns)) continue;
+  if (role === "hamper_master") {
+    return has(["Hamper Code", "Hamper SKU", "Product SKU"]) && has(["Hamper Name", "Product Name", "Name"]);
+  }
 
-        dataRows.push({ rowNumber, values });
-        totalRowsKept += 1;
+  if (role === "hamper_recipe") {
+    return (
+      has(["Hamper Code", "Hamper SKU", "Parent Hamper SKU", "Parent Product SKU", "Ready Made Hamper SKU"]) &&
+      has(["Product SKU", "Item SKU", "Child SKU", "Component SKU", "Container SKU"])
+    );
+  }
 
-        if (dataRows.length > PRODUCT_MASTER_STREAM_MAX_SHEET_ROWS) {
-          const error = new Error(
-            `Catalogue sheet "${fallbackName}" has too many rows to analyze safely.`
-          );
-          error.statusCode = 413;
-          throw error;
-        }
+  if (role === "container_setup") {
+    return has(["Container SKU", "Product SKU", "SKU"]) && has(["Container Name", "Product Name", "Name"]);
+  }
 
-        if (totalRowsKept > PRODUCT_MASTER_STREAM_MAX_TOTAL_ROWS) {
-          const error = new Error(
-            `Workbook has too many catalogue rows to analyze safely. Limit is ${PRODUCT_MASTER_STREAM_MAX_TOTAL_ROWS} rows across catalogue sheets.`
-          );
-          error.statusCode = 413;
-          throw error;
-        }
-      }
+  if (role === "decoration_master") {
+    return has(["Decoration SKU", "Product SKU", "SKU"]) && has(["Decoration Name", "Product Name", "Name"]);
+  }
+
+  return false;
+};
+
+const getZipRoleKeyColumns = (role, headerValues = []) => {
+  if (role === "product_master") {
+    return [
+      rowHeaderIndex(headerValues, ["Product SKU (10 digits numeric — immutable)", "Product SKU", "SKU"]),
+      rowHeaderIndex(headerValues, ["Product Name", "Name"]),
+    ];
+  }
+  if (role === "hamper_master") {
+    return [
+      rowHeaderIndex(headerValues, ["Hamper Code", "Hamper SKU", "Product SKU"]),
+      rowHeaderIndex(headerValues, ["Hamper Name", "Product Name", "Name"]),
+    ];
+  }
+  if (role === "hamper_recipe") {
+    return [
+      rowHeaderIndex(headerValues, ["Hamper Code", "Hamper SKU", "Parent Hamper SKU", "Parent Product SKU", "Ready Made Hamper SKU"]),
+      rowHeaderIndex(headerValues, ["Product SKU", "Item SKU", "Child SKU", "Component SKU", "Container SKU"]),
+    ];
+  }
+  if (role === "container_setup") {
+    return [
+      rowHeaderIndex(headerValues, ["Container SKU", "Product SKU", "SKU"]),
+      rowHeaderIndex(headerValues, ["Container Name", "Product Name", "Name"]),
+    ];
+  }
+  if (role === "decoration_master") {
+    return [
+      rowHeaderIndex(headerValues, ["Decoration SKU", "Product SKU", "SKU"]),
+      rowHeaderIndex(headerValues, ["Decoration Name", "Product Name", "Name"]),
+    ];
+  }
+  return [-1, -1];
+};
+
+const parseCatalogueSheetXml = (xml, sharedStrings, role, sheetName) => {
+  const scannedRows = new Map();
+  const keptDataRows = [];
+  let headerRowNumber = null;
+  let headerValues = null;
+  let keyColumns = [-1, -1];
+  let seenData = false;
+  let emptyStreak = 0;
+  let sequentialRowNumber = 0;
+
+  const rowRegex = /<row\b([^>]*)>([\s\S]*?)<\/row>/gi;
+  let rowMatch;
+
+  while ((rowMatch = rowRegex.exec(xml || ""))) {
+    sequentialRowNumber += 1;
+    const rowAttributes = rowMatch[1] || "";
+    const rowNumber = Number(xmlAttribute(rowAttributes, "r")) || sequentialRowNumber;
+    if (rowNumber > PRODUCT_MASTER_ZIP_MAX_ROWS) break;
+
+    const values = [];
+    const cellRegex = /<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/gi;
+    let cellMatch;
+    let sequentialColumn = 0;
+
+    while ((cellMatch = cellRegex.exec(rowMatch[2] || ""))) {
+      const cellAttributes = cellMatch[1] || "";
+      const reference = xmlAttribute(cellAttributes, "r");
+      let columnIndex = columnIndexFromCellReference(reference);
+      if (columnIndex < 0) columnIndex = sequentialColumn;
+      sequentialColumn = columnIndex + 1;
+      if (columnIndex >= PRODUCT_MASTER_ZIP_MAX_COLUMNS) continue;
+      values[columnIndex] = getCellXmlValue(
+        cellAttributes,
+        cellMatch[2] || "",
+        sharedStrings
+      );
     }
 
-    if (!role || !headerRowNumber || capturedRoles.has(role)) continue;
+    while (values.length > 0 && !zipValuePresent(values[values.length - 1])) {
+      values.pop();
+    }
 
-    const compactRows = makeCompactSheetRows(
-      scanRows,
-      headerRowNumber,
-      dataRows
+    if (rowNumber <= 40) scannedRows.set(rowNumber, values);
+
+    if (!headerRowNumber && rowNumber <= 40 && detectHeaderForZipRole(role, values)) {
+      headerRowNumber = rowNumber;
+      headerValues = values;
+      keyColumns = getZipRoleKeyColumns(role, values);
+      continue;
+    }
+
+    if (!headerRowNumber || rowNumber <= headerRowNumber) continue;
+
+    const hasKeyValue = keyColumns.some(
+      (index) => index >= 0 && zipValuePresent(values[index])
     );
-    if (compactRows.length === 0) continue;
 
-    const outputName = canonicalStreamSheetName(role, fallbackName);
-    compactSheets.push({
-      role,
-      name: outputName,
-      observedName: fallbackName,
-      rows: compactRows,
+    if (hasKeyValue) {
+      keptDataRows.push({ rowNumber, values });
+      seenData = true;
+      emptyStreak = 0;
+    } else if (seenData) {
+      emptyStreak += 1;
+      if (emptyStreak >= PRODUCT_MASTER_ZIP_EMPTY_STREAK_STOP) break;
+    }
+  }
+
+  if (!headerRowNumber || !headerValues) {
+    const error = new Error(
+      `Catalogue sheet "${sheetName}" was found, but its expected header row could not be detected.`
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const compactRows = [];
+  for (let rowNumber = 1; rowNumber <= headerRowNumber; rowNumber += 1) {
+    compactRows.push(scannedRows.get(rowNumber) || []);
+  }
+  for (const entry of keptDataRows) compactRows.push(entry.values);
+
+  return {
+    headerRowNumber,
+    dataRows: keptDataRows.length,
+    compactRows,
+  };
+};
+
+const compactProductMasterFromZip = async (sourcePath, filename = "") => {
+  logProductMasterMemory("zip-v7:start", filename);
+  console.info("[ProductMaster] parser=zip-direct-v7");
+
+  const archive = openXlsxZip(sourcePath);
+
+  try {
+    const workbookXml = archive.readText("xl/workbook.xml");
+    const relsXml = archive.readText("xl/_rels/workbook.xml.rels");
+
+    if (!workbookXml || !relsXml) {
+      const error = new Error("Unable to read XLSX workbook metadata.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const sheetTargets = extractWorkbookSheetTargets(workbookXml, relsXml);
+    const selected = [];
+    const seenRoles = new Set();
+
+    for (const sheet of sheetTargets) {
+      const role = classifyZipSheet(sheet.name);
+      if (!role || seenRoles.has(role)) continue;
+      selected.push({ ...sheet, role });
+      seenRoles.add(role);
+    }
+
+    if (!selected.some((sheet) => sheet.role === "product_master")) {
+      const names = sheetTargets.map((sheet) => sheet.name).join(", ");
+      const error = new Error(
+        `Unable to locate a Product Master sheet. Workbook sheets: ${names || "none"}.`
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const sharedStringsXml = archive.readText("xl/sharedStrings.xml") || "";
+    const sharedStrings = parseSharedStringsXml(sharedStringsXml);
+    const compactWorkbook = XLSX.utils.book_new();
+    const selectedSheetNames = [];
+    let totalDataRows = 0;
+
+    for (const sheet of selected) {
+      const sheetXml = archive.readText(sheet.target);
+      if (!sheetXml) continue;
+
+      const parsed = parseCatalogueSheetXml(
+        sheetXml,
+        sharedStrings,
+        sheet.role,
+        sheet.name
+      );
+
+      if (sheet.role === "product_master" && parsed.dataRows === 0) {
+        const error = new Error(
+          `Product Master sheet "${sheet.name}" was found, but no usable Product Name/SKU rows were read.`
+        );
+        error.statusCode = 400;
+        throw error;
+      }
+
+      const outputName = canonicalZipSheetName(sheet.role, sheet.name);
+      const worksheet = XLSX.utils.aoa_to_sheet(parsed.compactRows, {
+        cellDates: false,
+      });
+      XLSX.utils.book_append_sheet(compactWorkbook, worksheet, outputName);
+      selectedSheetNames.push(outputName);
+      totalDataRows += parsed.dataRows;
+
+      console.info(
+        `[ProductMaster] zip-v7:sheet | role=${sheet.role} source="${sheet.name}" ` +
+          `output="${outputName}" headerRow=${parsed.headerRowNumber} dataRows=${parsed.dataRows}`
+      );
+
+      parsed.compactRows.length = 0;
+    }
+
+    sharedStrings.length = 0;
+
+    const compactBuffer = XLSX.write(compactWorkbook, {
+      type: "buffer",
+      bookType: "xlsx",
+      compression: true,
     });
-    capturedRoles.add(role);
+
+    releaseWorkbookSheets(compactWorkbook);
 
     console.info(
-      `[ProductMaster] stream-v6:sheet | role=${role} observed="${fallbackName}" ` +
-        `output="${outputName}" headerRow=${headerRowNumber} ` +
-        `dataRows=${dataRows.length} compactRows=${compactRows.length}`
+      `[ProductMaster] zip-v7:compact-ready (${filename || "workbook"}) | ` +
+        `dataRows=${totalDataRows} sheets=${selectedSheetNames.join(", ")} ` +
+        `sizeKB=${Math.round(compactBuffer.length / 1024)}`
     );
+    logProductMasterMemory("zip-v7:compact-ready", filename);
+
+    return { compactBuffer, selectedSheetNames };
+  } finally {
+    archive.close();
   }
-
-  const productSheet = compactSheets.find(
-    (sheet) => sheet.role === "product_master"
-  );
-
-  if (!productSheet) {
-    const observed = compactSheets
-      .map((sheet) => `${sheet.role}:${sheet.observedName}`)
-      .join(", ");
-    const error = new Error(
-      "Product Master data was not detected by header content. " +
-        "Expected a header containing Product SKU, Product Name and Product Type/Category. " +
-        (observed ? `Detected catalogue sheets: ${observed}.` : "No catalogue header signatures were detected.")
-    );
-    error.statusCode = 400;
-    throw error;
-  }
-
-  if (productSheet.rows.length <= 4) {
-    const error = new Error(
-      "Product Master header was detected, but no usable Product SKU/Product Name rows were read."
-    );
-    error.statusCode = 400;
-    throw error;
-  }
-
-  const compactWorkbook = XLSX.utils.book_new();
-  for (const sheet of compactSheets) {
-    const worksheet = XLSX.utils.aoa_to_sheet(sheet.rows, { cellDates: true });
-    XLSX.utils.book_append_sheet(compactWorkbook, worksheet, sheet.name);
-    sheet.rows.length = 0;
-  }
-
-  const selectedSheetNames = [...compactWorkbook.SheetNames];
-  const compactBuffer = XLSX.write(compactWorkbook, {
-    type: "buffer",
-    bookType: "xlsx",
-    compression: true,
-  });
-
-  if (compactWorkbook.Sheets) {
-    for (const key of Object.keys(compactWorkbook.Sheets)) {
-      delete compactWorkbook.Sheets[key];
-    }
-  }
-  compactWorkbook.SheetNames.length = 0;
-  compactSheets.length = 0;
-
-  console.info(
-    `[ProductMaster] stream-v6:compact-ready (${filename || "workbook"}) | ` +
-      `dataRows=${totalRowsKept} sheets=${selectedSheetNames.join(", ")} ` +
-      `sizeKB=${Math.round(compactBuffer.length / 1024)}`
-  );
-  logProductMasterMemory("stream-v6:compact-ready", filename);
-
-  return { compactBuffer, selectedSheetNames };
 };
 
 const analyzeUploadedProductMaster = async (
@@ -2725,21 +2858,19 @@ const analyzeUploadedProductMaster = async (
   const filename = file?.originalname || "";
   const extension = String(filename).toLowerCase();
 
-  // XLSX/XLSM files use the low-memory streaming path. Legacy .xls remains on
-  // the old SheetJS path because ExcelJS's streaming reader is OOXML-only.
   if (
     typeof source === "string" &&
     (extension.endsWith(".xlsx") || extension.endsWith(".xlsm"))
   ) {
     const { compactBuffer, selectedSheetNames } =
-      await streamCompactProductMasterBuffer(source, filename);
+      await compactProductMasterFromZip(source, filename);
 
     const analysis = await analyzeProductMasterBuffer(compactBuffer, filename, {
       replaceMode,
       preselectedSheetNames: selectedSheetNames,
     });
 
-    logProductMasterMemory("stream-v6:complete", filename);
+    logProductMasterMemory("zip-v7:complete", filename);
     return analysis;
   }
 
