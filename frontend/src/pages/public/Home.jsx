@@ -8402,7 +8402,24 @@ const HamperOneUnwrapExperience = () => {
         .hp-home-v65 .hp-hamper-one-visual {
           --hp-pull-progress: 0;
           --hp-pull-dir: 1;
-          overscroll-behavior: contain;
+
+          /*
+            V91.6 · NEVER TRAP PAGE SCROLL
+            This panel uses overflow:hidden for the unwrap artwork, which makes it
+            a scroll container in browsers. overscroll-behavior: contain could
+            therefore swallow wheel/touch scroll chaining while the pointer was
+            over the revealed Hamper One card. Keep vertical page scrolling native.
+          */
+          overscroll-behavior-x: auto !important;
+          overscroll-behavior-y: auto !important;
+          touch-action: pan-y pinch-zoom;
+        }
+
+        .hp-home-v65 .hp-hamper-one-visual-wrap,
+        .hp-home-v65 .hp-hamper-one-experience-lid,
+        .hp-home-v65 .hp-hamper-one-experience-cta {
+          overscroll-behavior-y: auto !important;
+          touch-action: pan-y pinch-zoom;
         }
 
         .hp-home-v65 .hp-hamper-one-seal {
