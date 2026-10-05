@@ -2031,6 +2031,121 @@ const Gifts = () => {
             }
           }
 
+
+          /* ==================================================
+             V4 · COMPACT MOBILE CARDS
+             Roughly 20% less vertical footprint while keeping
+             every text block readable and naturally wrapped.
+          ================================================== */
+          @media (max-width:639px) {
+            .hp-catalogue-gift {
+              padding:5px 5px 7px;
+            }
+
+            .hp-catalogue-gift-inner {
+              padding:3px;
+            }
+
+            /* Product image is the biggest vertical area, so reduce it
+               without touching card width or the existing colour variants. */
+            .hp-catalogue-gift-inner img {
+              max-height:94px !important;
+            }
+
+            /* Keep long names fully visible but more compact. */
+            .hp-catalogue-gift-inner h1,
+            .hp-catalogue-gift-inner h2,
+            .hp-catalogue-gift-inner h3,
+            .hp-catalogue-gift-inner h4 {
+              margin-top:0 !important;
+              margin-bottom:5px !important;
+              font-size:clamp(19px,4.7vw,23px) !important;
+              line-height:1 !important;
+              letter-spacing:-.018em !important;
+            }
+
+            .hp-catalogue-gift-inner h1 + p,
+            .hp-catalogue-gift-inner h2 + p,
+            .hp-catalogue-gift-inner h3 + p,
+            .hp-catalogue-gift-inner h4 + p {
+              margin-top:3px !important;
+              margin-bottom:6px !important;
+              font-size:10.5px !important;
+              line-height:1.3 !important;
+            }
+
+            .hp-catalogue-gift-inner p {
+              line-height:1.3 !important;
+            }
+
+            /* Tighten common ProductCard spacing utilities only inside
+               catalogue cards on phones; text still wraps normally. */
+            .hp-catalogue-gift-inner .mt-1 { margin-top:2px !important; }
+            .hp-catalogue-gift-inner .mt-2 { margin-top:4px !important; }
+            .hp-catalogue-gift-inner .mt-3 { margin-top:6px !important; }
+            .hp-catalogue-gift-inner .mt-4 { margin-top:8px !important; }
+            .hp-catalogue-gift-inner .mt-5 { margin-top:10px !important; }
+            .hp-catalogue-gift-inner .pt-3 { padding-top:6px !important; }
+            .hp-catalogue-gift-inner .pt-4 { padding-top:8px !important; }
+            .hp-catalogue-gift-inner .pb-3 { padding-bottom:6px !important; }
+            .hp-catalogue-gift-inner .pb-4 { padding-bottom:8px !important; }
+            .hp-catalogue-gift-inner .py-3 {
+              padding-top:6px !important;
+              padding-bottom:6px !important;
+            }
+            .hp-catalogue-gift-inner .py-4 {
+              padding-top:8px !important;
+              padding-bottom:8px !important;
+            }
+
+            /* V5 · remove the wasted vertical spacer between copy and pricing.
+               ProductCard uses flex/auto spacing so prices line up on desktop;
+               on narrow cards that creates a large empty block. Keep the
+               content natural-height on phones and place pricing right below
+               the description. */
+            .hp-catalogue-gift-inner .mt-auto {
+              margin-top:8px !important;
+            }
+
+            .hp-catalogue-gift-inner [class*="min-h-"] {
+              min-height:0 !important;
+            }
+
+            .hp-catalogue-gift-inner [class*="grow"],
+            .hp-catalogue-gift-inner [class~="flex-1"] {
+              flex-grow:0 !important;
+            }
+
+            /* Keep the separator/pricing block compact without crowding it. */
+            .hp-catalogue-gift-inner hr {
+              margin-top:8px !important;
+              margin-bottom:8px !important;
+            }
+          }
+
+          @media (max-width:380px) {
+            .hp-catalogue-gift-inner img {
+              max-height:88px !important;
+            }
+
+            .hp-catalogue-gift-inner h1,
+            .hp-catalogue-gift-inner h2,
+            .hp-catalogue-gift-inner h3,
+            .hp-catalogue-gift-inner h4 {
+              font-size:clamp(18px,5.1vw,21px) !important;
+              margin-bottom:4px !important;
+            }
+
+            .hp-catalogue-gift-inner h1 + p,
+            .hp-catalogue-gift-inner h2 + p,
+            .hp-catalogue-gift-inner h3 + p,
+            .hp-catalogue-gift-inner h4 + p {
+              font-size:10px !important;
+              line-height:1.28 !important;
+              margin-bottom:5px !important;
+            }
+          }
+
         `}
       </style>
 
