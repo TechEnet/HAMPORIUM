@@ -2234,319 +2234,31 @@ const logProductMasterMemory = (stage, filename = "") => {
 };
 
 
-const loadExcelJS = async () => {
-  try {
-    const module = await import("exceljs");
-    return module.default || module;
-  } catch (error) {
-    const dependencyError = new Error(
-      "Excel streaming support is not installed. Run npm install exceljs@4.4.0 in the backend and redeploy."
-    );
-    dependencyError.statusCode = 500;
-    dependencyError.cause = error;
-    throw dependencyError;
-  }
-};
+/*
+ * Reliable + memory-bounded workbook strategy
+ * -------------------------------------------
+ * The real procurement workbook is a Google-Sheets-exported XLSX with many
+ * large operational sheets. ExcelJS's streaming reader is not reliable for
+ * every exported workbook shape, and in this file it can surface the header
+ * while returning unusable/blank data rows.
+ *
+ * We therefore use SheetJS in two small passes:
+ *   1) metadata-only (`bookSheets`) to read sheet names;
+ *   2) parse ONLY the catalogue-related sheets via the `sheets` option.
+ *
+ * This avoids materialising all 31 sheets while preserving cached formula
+ * results and ordinary Product Name/SKU values exactly as stored in the XLSX.
+ */
+const getProductMasterSourceBuffer = (source) => {
+  if (Buffer.isBuffer(source)) return source;
 
-const PRODUCT_MASTER_STREAM_SCAN_ROWS = 40;
-const PRODUCT_MASTER_MAX_TOTAL_STREAM_ROWS = 12000;
-
-const normalizeImportSheetName = (value = "") =>
-  normalizeMasterHeader(value).replace(/^\d+[a-z]?/, "");
-
-const PRODUCT_MASTER_RELEVANT_SHEET_ALIASES = [
-  ...PRODUCT_MASTER_SHEET_ALIASES,
-  ...HAMPER_MASTER_SHEET_ALIASES,
-  ...HAMPER_RECIPE_SHEET_ALIASES,
-  CONTAINER_SETUP_SHEET,
-  "Container Setup",
-  "Box Setup",
-  DECORATION_MASTER_SHEET,
-  "Decorations",
-];
-
-const isLikelyProductMasterImportSheet = (sheetName = "") => {
-  const normalized = normalizeImportSheetName(sheetName);
-
-  if (!normalized) return false;
-
-  if (
-    PRODUCT_MASTER_RELEVANT_SHEET_ALIASES.some(
-      (alias) => normalizeImportSheetName(alias) === normalized
-    )
-  ) {
-    return true;
+  if (typeof source === "string" && source) {
+    return readFileSync(source);
   }
 
-  return [
-    "productmaster",
-    "cataloguemaster",
-    "catalogmaster",
-    "hampermaster",
-    "hamperrecipe",
-    "hampercomposition",
-    "containersetup",
-    "boxsetup",
-    "decorationmaster",
-  ].some((token) => normalized.includes(token));
-};
-
-const excelStreamCellValue = (value) => {
-  if (value === undefined || value === null) return null;
-  if (value instanceof Date) return value;
-
-  if (typeof value !== "object") return value;
-
-  /*
-   * ExcelJS returns formula cells as objects. Google-Sheets-exported XLSX
-   * files contain thousands of formula cells, many with an empty cached
-   * result. Never stringify those objects to "[object Object]" because that
-   * makes an otherwise empty row look populated and bloats the compact file.
-   */
-  if (
-    Object.prototype.hasOwnProperty.call(value, "formula") ||
-    Object.prototype.hasOwnProperty.call(value, "sharedFormula")
-  ) {
-    return Object.prototype.hasOwnProperty.call(value, "result")
-      ? excelStreamCellValue(value.result)
-      : null;
-  }
-
-  if (Object.prototype.hasOwnProperty.call(value, "result")) {
-    return excelStreamCellValue(value.result);
-  }
-
-  if (Array.isArray(value.richText)) {
-    return value.richText.map((part) => String(part?.text || "")).join("");
-  }
-
-  if (value.text !== undefined && value.text !== null) {
-    return String(value.text);
-  }
-
-  if (value.hyperlink) {
-    return String(value.hyperlink);
-  }
-
-  if (value.error) return null;
-
-  // Unknown ExcelJS object types should not turn blank rows into fake data.
-  return null;
-};
-
-const excelStreamRowValues = (row) => {
-  /*
-   * Do not rely only on row.cellCount. With ExcelJS's streaming reader some
-   * exported Google Sheets workbooks expose the populated cells through
-   * row.values while cellCount can be zero/incomplete. That was the cause of
-   * the compact Product Master having headers but no usable data rows.
-   */
-  const rowValues = Array.isArray(row?.values) ? row.values : [];
-  const detectedColumns = Math.max(
-    0,
-    rowValues.length > 0 ? rowValues.length - 1 : 0,
-    Number(row?.cellCount || 0)
-  );
-  const maxColumn = Math.min(detectedColumns, 250);
-  const values = [];
-
-  for (let column = 1; column <= maxColumn; column += 1) {
-    const directValue = rowValues[column];
-    const cellValue =
-      directValue !== undefined
-        ? directValue
-        : typeof row?.getCell === "function"
-          ? row.getCell(column).value
-          : null;
-
-    values.push(excelStreamCellValue(cellValue));
-  }
-
-  while (values.length > 0) {
-    const last = values[values.length - 1];
-    if (last !== null && last !== undefined && last !== "") break;
-    values.pop();
-  }
-
-  return values;
-};
-
-const streamRowHasMeaningfulValue = (values = []) =>
-  values.some((value) => {
-    if (value === null || value === undefined) return false;
-    if (typeof value === "string") return value.trim() !== "";
-    return true;
-  });
-
-const looksLikeProductMasterHeader = (values = []) => {
-  const normalized = new Set(values.map(normalizeMasterHeader).filter(Boolean));
-  const skuAliases = [
-    "Product SKU (10 digits numeric — immutable)",
-    "Product SKU",
-    "SKU",
-  ].map(normalizeMasterHeader);
-  const nameAliases = ["Product Name", "Name"].map(normalizeMasterHeader);
-
-  return (
-    skuAliases.some((key) => normalized.has(key)) &&
-    nameAliases.some((key) => normalized.has(key))
-  );
-};
-
-const streamCompactProductMasterWorkbook = async (sourcePath, filename = "") => {
-  const compactPath = `${sourcePath}.catalog-${process.pid}-${Date.now()}.xlsx`;
-  const selectedSheetNames = [];
-  let totalRowsKept = 0;
-
-  logProductMasterMemory("stream:start", filename);
-
-  const ExcelJS = await loadExcelJS();
-  const workbookReader = new ExcelJS.stream.xlsx.WorkbookReader(sourcePath, {
-    entries: "ignore",
-    sharedStrings: "cache",
-    hyperlinks: "ignore",
-    styles: "ignore",
-    worksheets: "emit",
-  });
-
-  const workbookWriter = new ExcelJS.stream.xlsx.WorkbookWriter({
-    filename: compactPath,
-    useStyles: false,
-    useSharedStrings: false,
-  });
-
-  try {
-    for await (const worksheetReader of workbookReader) {
-      const sheetName = String(worksheetReader?.name || "").trim();
-      if (!sheetName) continue;
-
-      let selected = isLikelyProductMasterImportSheet(sheetName);
-      let outputSheet = selected
-        ? workbookWriter.addWorksheet(sheetName)
-        : null;
-      const scanBuffer = [];
-      let seenRows = 0;
-      let keptRows = 0;
-
-      const writeRow = (values) => {
-        if (!outputSheet) return;
-        if (keptRows >= PRODUCT_MASTER_MAX_PARSED_ROWS) return;
-
-        outputSheet.addRow(values).commit();
-        keptRows += 1;
-        totalRowsKept += 1;
-
-        if (totalRowsKept > PRODUCT_MASTER_MAX_TOTAL_STREAM_ROWS) {
-          const error = new Error(
-            `Workbook has too many catalogue rows to analyze safely. Limit is ${PRODUCT_MASTER_MAX_TOTAL_STREAM_ROWS} rows across Product Master-related sheets.`
-          );
-          error.statusCode = 413;
-          throw error;
-        }
-      };
-
-      for await (const rowOrRows of worksheetReader) {
-        const batch =
-          Array.isArray(rowOrRows) &&
-          rowOrRows.length > 0 &&
-          rowOrRows[0]?.getCell
-            ? rowOrRows
-            : [rowOrRows];
-
-        for (const row of batch) {
-          if (!row?.getCell) continue;
-          seenRows += 1;
-
-          // Once an unrelated sheet has failed the small header scan, keep
-          // draining the stream without materializing/converting its cells.
-          if (!selected && seenRows > PRODUCT_MASTER_STREAM_SCAN_ROWS) {
-            continue;
-          }
-
-          const values = excelStreamRowValues(row);
-
-          if (!selected) {
-            if (seenRows <= PRODUCT_MASTER_STREAM_SCAN_ROWS) {
-              scanBuffer.push(values);
-
-              if (looksLikeProductMasterHeader(values)) {
-                selected = true;
-                outputSheet = workbookWriter.addWorksheet(sheetName);
-
-                for (const bufferedValues of scanBuffer) {
-                  writeRow(bufferedValues);
-                }
-
-                scanBuffer.length = 0;
-              }
-            }
-
-            // The current row is already in scanBuffer and gets flushed above
-            // if this sheet becomes selected, so do not write it twice.
-            continue;
-          }
-
-          /*
-           * Keep the first scan window exactly so titles/header rows survive.
-           * After that, drop rows whose cached/displayed values are completely
-           * empty. The real procurement workbook has formulas prefilled far
-           * below the 156 actual Product Master rows; copying those thousands
-           * of empty formula rows is unnecessary and was causing a large RAM
-           * spike.
-           */
-          if (
-            seenRows > PRODUCT_MASTER_STREAM_SCAN_ROWS &&
-            !streamRowHasMeaningfulValue(values)
-          ) {
-            continue;
-          }
-
-          writeRow(values);
-        }
-      }
-
-      scanBuffer.length = 0;
-
-      if (outputSheet) {
-        outputSheet.commit();
-        selectedSheetNames.push(sheetName);
-        console.info(
-          `[ProductMaster] stream:sheet (${sheetName}) | keptRows=${keptRows}`
-        );
-      }
-    }
-
-    if (selectedSheetNames.length === 0) {
-      const error = new Error(
-        'Unable to locate a Product Master-compatible sheet in this workbook.'
-      );
-      error.statusCode = 400;
-      throw error;
-    }
-
-    await workbookWriter.commit();
-  } catch (error) {
-    try {
-      await import("node:fs/promises").then(({ unlink }) =>
-        unlink(compactPath).catch(() => {})
-      );
-    } catch {
-      // Best-effort temp cleanup only.
-    }
-
-    throw error;
-  }
-
-  console.info(
-    `[ProductMaster] stream:compact-ready (${filename || "workbook"}) | rows=${totalRowsKept}`
-  );
-  logProductMasterMemory("stream:compact-ready", filename);
-
-  return {
-    path: compactPath,
-    sheetNames: selectedSheetNames,
-    totalRows: totalRowsKept,
-  };
+  const error = new Error("Product Master Excel file is required");
+  error.statusCode = 400;
+  throw error;
 };
 
 const analyzeUploadedProductMaster = async (
@@ -2562,38 +2274,24 @@ const analyzeUploadedProductMaster = async (
   }
 
   const filename = file?.originalname || "";
-  const extension = String(filename).toLowerCase();
+  logProductMasterMemory("selective:start", filename);
 
-  // ExcelJS's streaming reader is XLSX/XLSM only. Legacy .xls files keep the
-  // old SheetJS path and remain subject to the small upload limit.
-  if (
-    typeof source !== "string" ||
-    (!extension.endsWith(".xlsx") && !extension.endsWith(".xlsm"))
-  ) {
-    return analyzeProductMasterBuffer(source, filename, { replaceMode });
-  }
+  // multer stores XLSX uploads on /tmp. Reading the compressed source once
+  // costs only the uploaded file size (~single-digit MB for the real master),
+  // while SheetJS is instructed later to materialise only required sheets.
+  const sourceBuffer = getProductMasterSourceBuffer(source);
 
-  let compactPath = null;
+  console.info(
+    `[ProductMaster] selective:source-ready (${filename || "workbook"}) | ` +
+      `compressed=${Math.round(sourceBuffer.length / 1024 / 1024)}MB`
+  );
 
-  try {
-    const compact = await streamCompactProductMasterWorkbook(source, filename);
-    compactPath = compact.path;
+  const analysis = await analyzeProductMasterBuffer(sourceBuffer, filename, {
+    replaceMode,
+  });
 
-    return await analyzeProductMasterBuffer(compact.path, filename, {
-      replaceMode,
-      preselectedSheetNames: compact.sheetNames,
-    });
-  } finally {
-    if (compactPath) {
-      try {
-        await import("node:fs/promises").then(({ unlink }) =>
-          unlink(compactPath).catch(() => {})
-        );
-      } catch {
-        // Best-effort temp cleanup only.
-      }
-    }
-  }
+  logProductMasterMemory("selective:complete", filename);
+  return analysis;
 };
 
 const readWorkbookSource = (source, options = {}) => {
@@ -3127,19 +2825,32 @@ const rowContainsHeaderAlias = (values = [], aliases = []) => {
   return aliases.some((alias) => normalizedValues.has(normalizeMasterHeader(alias)));
 };
 
-const getWorksheetScanRange = (worksheet, maxScanRows = 30) => {
+const getWorksheetCellScalar = (worksheet, rowIndex, columnIndex) => {
+  if (!worksheet) return null;
+
+  const address = XLSX.utils.encode_cell({ r: rowIndex, c: columnIndex });
+  const cell = worksheet[address];
+  if (!cell) return null;
+
+  // Prefer the raw cached value. This works for normal text/number cells and
+  // for formula cells when the downloaded XLSX contains a cached result.
+  if (cell.v !== undefined && cell.v !== null) return cell.v;
+
+  // Defensive fallbacks for unusual workbook exports.
+  if (cell.w !== undefined && cell.w !== null) return cell.w;
+  if (cell.h !== undefined && cell.h !== null) return cell.h;
+
+  return null;
+};
+
+const getWorksheetDecodedRange = (worksheet) => {
   const ref = worksheet?.["!ref"];
-  if (!ref) return undefined;
+  if (!ref) return null;
 
   try {
-    const range = XLSX.utils.decode_range(ref);
-    range.e.r = Math.min(
-      range.e.r,
-      range.s.r + Math.max(1, Number(maxScanRows) || 30) - 1
-    );
-    return range;
+    return XLSX.utils.decode_range(ref);
   } catch {
-    return undefined;
+    return null;
   }
 };
 
@@ -3150,27 +2861,31 @@ const detectWorksheetHeaderRow = (
 ) => {
   if (!worksheet) return null;
 
-  /*
-   * Only materialize the first few rows needed for header detection. The old
-   * implementation converted the entire sheet to a matrix just to inspect the
-   * first 30-40 rows, temporarily duplicating large worksheets in memory.
-   */
-  const matrix = XLSX.utils.sheet_to_json(worksheet, {
-    header: 1,
-    defval: null,
-    raw: true,
-    blankrows: false,
-    range: getWorksheetScanRange(worksheet, maxScanRows),
-  });
+  const range = getWorksheetDecodedRange(worksheet);
+  if (!range) return null;
 
-  const scanLimit = Math.min(matrix.length, maxScanRows);
+  const firstRow = Math.max(0, range.s.r);
+  const lastRow = Math.min(
+    range.e.r,
+    firstRow + Math.max(1, Number(maxScanRows) || 30) - 1
+  );
 
-  for (let index = 0; index < scanLimit; index += 1) {
-    const values = matrix[index] || [];
+  for (let rowIndex = firstRow; rowIndex <= lastRow; rowIndex += 1) {
+    const normalizedValues = new Set();
+
+    for (let columnIndex = range.s.c; columnIndex <= range.e.c; columnIndex += 1) {
+      const value = getWorksheetCellScalar(worksheet, rowIndex, columnIndex);
+      const normalized = normalizeMasterHeader(value);
+      if (normalized) normalizedValues.add(normalized);
+    }
+
     const matches = requiredAliasGroups.every((aliases) =>
-      rowContainsHeaderAlias(values, aliases)
+      aliases.some((alias) =>
+        normalizedValues.has(normalizeMasterHeader(alias))
+      )
     );
-    if (matches) return index + 1; // Excel row number
+
+    if (matches) return rowIndex + 1; // Excel row number (1-based)
   }
 
   return null;
@@ -3187,6 +2902,13 @@ const normalizeMasterRowInPlace = (row = {}) => {
   return row;
 };
 
+/*
+ * IMPORTANT: do not use XLSX.utils.sheet_to_json() for the live procurement
+ * workbook. On the Render/SheetJS combination used by HAMPORIUM, header
+ * detection could succeed while sheet_to_json returned zero usable rows for
+ * the same sheet. Reading sparse worksheet cells directly is deterministic and
+ * preserves the cached values already present in the downloaded .xlsx.
+ */
 const readWorksheetObjects = (
   worksheet,
   { requiredAliasGroups = [], maxScanRows = 30, includeRow = null } = {}
@@ -3201,19 +2923,51 @@ const readWorksheetObjects = (
     return { headerRow: null, rows: [] };
   }
 
-  const rawRows = XLSX.utils.sheet_to_json(worksheet, {
-    defval: null,
-    raw: true,
-    range: headerRow - 1,
-  });
+  const range = getWorksheetDecodedRange(worksheet);
+  if (!range) return { headerRow, rows: [] };
+
+  const headerRowIndex = headerRow - 1;
+  const headers = new Map();
+
+  for (let columnIndex = range.s.c; columnIndex <= range.e.c; columnIndex += 1) {
+    const rawHeader = getWorksheetCellScalar(
+      worksheet,
+      headerRowIndex,
+      columnIndex
+    );
+    const normalizedHeader = normalizeMasterHeader(rawHeader);
+    if (normalizedHeader && !headers.has(columnIndex)) {
+      headers.set(columnIndex, normalizedHeader);
+    }
+  }
 
   const rows = [];
+  const lastRowIndex = Math.min(
+    range.e.r,
+    headerRowIndex + PRODUCT_MASTER_MAX_PARSED_ROWS
+  );
 
-  for (let index = 0; index < rawRows.length; index += 1) {
-    // Normalize the SheetJS row object in-place instead of keeping both a raw
-    // object and a cloned normalized object for every row.
-    const row = normalizeMasterRowInPlace(rawRows[index]);
-    const rowNumber = headerRow + 1 + index;
+  for (
+    let rowIndex = headerRowIndex + 1;
+    rowIndex <= lastRowIndex;
+    rowIndex += 1
+  ) {
+    const row = {};
+    let hasAnyValue = false;
+
+    for (const [columnIndex, normalizedHeader] of headers.entries()) {
+      const value = getWorksheetCellScalar(worksheet, rowIndex, columnIndex);
+
+      if (value !== undefined && value !== null && String(value).trim() !== "") {
+        hasAnyValue = true;
+      }
+
+      row[normalizedHeader] = value;
+    }
+
+    if (!hasAnyValue) continue;
+
+    const rowNumber = rowIndex + 1;
     if (includeRow && !includeRow(row, rowNumber)) continue;
     rows.push({ row, rowNumber });
   }
@@ -4538,6 +4292,7 @@ const analyzeProductMasterBuffer = async (
   { replaceMode = true, preselectedSheetNames = null } = {}
 ) => {
   logProductMasterMemory("analyze:start", filename);
+  console.info("[ProductMaster] parser=direct-cell-v4");
 
   let sheetCatalog = null;
   let workbookProfile = null;
@@ -4566,6 +4321,11 @@ const analyzeProductMasterBuffer = async (
       workbookProfile
     );
   }
+
+  console.info(
+    `[ProductMaster] selective:sheets (${filename || "workbook"}) | ` +
+      (selectedSheetNames.length ? selectedSheetNames.join(", ") : "none")
+  );
 
   const sheetName = workbookProfile.productSheetName;
 
@@ -4659,15 +4419,31 @@ const analyzeProductMasterBuffer = async (
 
   console.info(
     `[ProductMaster] parsed-product-sheet (${sheetName}) | ` +
+      `ref=${workbook.Sheets[sheetName]?.["!ref"] || "unknown"} ` +
       `headerRow=${productSheet.headerRow} dataRows=${productSheet.rows.length}`
   );
+
+  if (productSheet.rows.length > 0) {
+    const samples = productSheet.rows.slice(0, 3).map(({ row, rowNumber }) => ({
+      rowNumber,
+      sku: masterText(row, [
+        "Product SKU (10 digits numeric — immutable)",
+        "Product SKU",
+        "SKU",
+      ]),
+      name: masterText(row, ["Product Name", "Name"]),
+    }));
+    console.info(
+      `[ProductMaster] parsed-product-samples (${sheetName}) | ${JSON.stringify(samples)}`
+    );
+  }
 
   if (productSheet.rows.length === 0) {
     releaseWorkbookSheets(workbook);
     workbook = null;
 
     const error = new Error(
-      `Product Master sheet "${sheetName}" was found, but no usable Product Name/SKU rows were read. Re-download the workbook as .xlsx and try again.`
+      `Product Master sheet "${sheetName}" was found and its header was detected at row ${productSheet.headerRow}, but the backend could not read any Product Name/SKU data rows. Parser: direct-cell-v4.`
     );
     error.statusCode = 400;
     throw error;
@@ -5140,6 +4916,7 @@ const analyzeProductMasterBuffer = async (
 
   return {
     filename,
+    parserVersion: "direct-cell-v4",
     sheetName,
     productHeaderRow: productSheet.headerRow,
     workbookProfile,
