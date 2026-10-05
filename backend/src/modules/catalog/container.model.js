@@ -98,6 +98,17 @@ const sourceSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const hasPositiveDimensions = (value) =>
+  Boolean(
+    value &&
+      Number(value.length) > 0 &&
+      Number(value.width) > 0 &&
+      Number(value.height) > 0
+  );
+
+const hasPositiveWeightCapacity = (value) =>
+  Boolean(value && Number(value.value) > 0);
+
 const containerSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true, maxlength: 180 },
@@ -124,23 +135,44 @@ const containerSchema = new mongoose.Schema(
     productPriority: { type: Number, default: null, min: 0 },
 
     mrp: { type: Number, default: null, min: 0 },
-    // Pre-GST price from Product Master/manual admin.
+
+    // Pre-GST selling price from Product Master/manual admin.
     sellingPrice: { type: Number, default: null, min: 0 },
+
     latestUnitCost: { type: Number, default: null, min: 0 },
     actualLandedCost: { type: Number, default: null, min: 0 },
+
     // Container-level floor used by the central Promotion Margin Guard.
     minGrossMarginPercent: { type: Number, default: null, min: 0, max: 100 },
+
     taxEnabled: { type: Boolean, default: true },
     taxPercent: { type: Number, default: null, min: 0, max: 100 },
     hsnSac: { type: String, trim: true, default: "", maxlength: 40 },
+
     discount: { type: discountSchema, default: () => ({}) },
     pricingSource: { type: String, enum: SOURCE_TYPES, default: "manual" },
     taxSource: { type: String, enum: SOURCE_TYPES, default: "manual" },
     leadTimeDays: { type: Number, default: null, min: 0 },
 
+    // Outer dimensions remain required. Real procurement rows have these and
+    // they identify the physical container record.
     outerDimensions: { type: dimensionsSchema, required: true },
-    innerDimensions: { type: dimensionsSchema, required: true },
-    maxContentWeight: { type: weightCapacitySchema, required: true },
+
+    // IMPORTANT:
+    // These two fields are optional at database level so incomplete procurement
+    // containers can still be imported and referenced by ready-made hampers.
+    // Such rows MUST stay customerSelectable=false until capacity data is filled.
+    innerDimensions: {
+      type: dimensionsSchema,
+      required: false,
+      default: undefined,
+    },
+    maxContentWeight: {
+      type: weightCapacitySchema,
+      required: false,
+      default: undefined,
+    },
+
     usableVolumePercent: { type: Number, default: 85, min: 1, max: 100 },
     maxItems: { type: Number, default: 0, min: 0 },
 
@@ -181,6 +213,30 @@ containerSchema.path("discount.value").validate(function validateDiscountValue(v
   if (this.discount.type === "percentage") return Number(value) <= 100;
   return true;
 }, "Percentage discount cannot exceed 100");
+
+// Safety invariant for Custom Hamper:
+// Incomplete procurement containers are allowed in MongoDB, but they can never
+// be customer-selectable until true inner dimensions and max content weight are
+// available. This protects the physical-fit engine from guessed capacity data.
+containerSchema.pre("validate", function validateSelectableContainer(next) {
+  if (this.customerSelectable === true) {
+    if (!hasPositiveDimensions(this.innerDimensions)) {
+      this.invalidate(
+        "innerDimensions",
+        "Customer-selectable container requires true positive inner dimensions"
+      );
+    }
+
+    if (!hasPositiveWeightCapacity(this.maxContentWeight)) {
+      this.invalidate(
+        "maxContentWeight",
+        "Customer-selectable container requires a positive max content weight"
+      );
+    }
+  }
+
+  next();
+});
 
 containerSchema.index({ isActive: 1, customerSelectable: 1, sortOrder: 1, name: 1 });
 containerSchema.index({ "availability.status": 1, isActive: 1 });

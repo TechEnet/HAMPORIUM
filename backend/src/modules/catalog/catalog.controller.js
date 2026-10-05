@@ -3989,7 +3989,7 @@ const buildComponentMasterPayload = (
   return { payload, errors, review, warnings };
 };
 
-const buildContainerMasterPayload = (row, setupEntry = null) => {
+const buildContainerMasterPayload = (row, setupEntry = null, { allowIncompleteCapacity = false } = {}) => {
   const errors = [];
   const review = [];
   const warnings = [];
@@ -4146,26 +4146,41 @@ const buildContainerMasterPayload = (row, setupEntry = null) => {
 
   if (common.sourceUpdatedAt) payload.source.sourceUpdatedAt = common.sourceUpdatedAt;
 
+  const addCapacityIssue = (message) => {
+    if (allowIncompleteCapacity) {
+      warnings.push(message);
+      payload.customerSelectable = false;
+    } else {
+      review.push(message);
+    }
+  };
+
+  // Outer dimensions are still required even for procurement-only containers
+  // because they identify a real physical box record. Inner capacity fields are
+  // allowed to remain incomplete for procurement imports, but such containers
+  // are forced non-selectable so Custom Hamper can never use unsafe dimensions.
   if (!payload.outerDimensions) {
     review.push("Container requires Product Length, Width and Height for outer dimensions");
   }
   if (!payload.innerDimensions) {
-    review.push(
-      "Container requires true inner Length, Width and Height in Product Master or HAMPORIUM Container Setup"
+    addCapacityIssue(
+      "Container requires true inner Length, Width and Height before it can be used in Custom Hamper"
     );
   }
   if (!payload.maxContentWeight || Number(payload.maxContentWeight.value) <= 0) {
-    review.push("Container requires Max Content Weight / Max Safe Load kg");
+    addCapacityIssue(
+      "Container requires Max Content Weight / Max Safe Load kg before it can be used in Custom Hamper"
+    );
   }
   if (
     !Number.isFinite(Number(payload.usableVolumePercent)) ||
     Number(payload.usableVolumePercent) < 1 ||
     Number(payload.usableVolumePercent) > 100
   ) {
-    review.push("Container requires Usable Volume % between 1 and 100");
+    addCapacityIssue("Container requires Usable Volume % between 1 and 100");
   }
   if (!Number.isInteger(Number(payload.maxItems)) || Number(payload.maxItems) < 0) {
-    review.push("Container Max Content Items must be a non-negative whole number");
+    addCapacityIssue("Container Max Content Items must be a non-negative whole number");
   }
 
   if (
@@ -4744,21 +4759,34 @@ const buildReadyMadeMasterPayload = async (
       ? getLookupRecord(context.sourceContainersBySku, containerEntries[0].childSku)
       : null;
 
+  const addReadyMadeContainerIssue = (message) => {
+    if (requireContainer) review.push(message);
+    else warnings.push(message);
+  };
+
   if (containerEntries.length === 1 && !container) {
-    review.push(`Container SKU ${containerEntries[0].childSku} is not present in this Product Master or HAMPORIUM`);
+    addReadyMadeContainerIssue(
+      `Container SKU ${containerEntries[0].childSku} is not present in this Product Master or HAMPORIUM`
+    );
   } else if (container && container.isActive === false) {
     review.push(`Container ${container.name} is inactive`);
   } else if (container && !validPositiveDimensions(container.innerDimensions)) {
-    review.push(`Container ${container.name} requires completed true inner dimensions`);
+    addReadyMadeContainerIssue(
+      `Container ${container.name} still needs true inner dimensions for Custom Hamper; ready-made listing can continue`
+    );
   } else if (container && !validPositiveWeight(container.maxContentWeight)) {
-    review.push(`Container ${container.name} requires Max Content Weight / Max Safe Load`);
+    addReadyMadeContainerIssue(
+      `Container ${container.name} still needs Max Content Weight / Max Safe Load for Custom Hamper; ready-made listing can continue`
+    );
   } else if (
     container &&
     (!Number.isFinite(Number(container.usableVolumePercent)) ||
       Number(container.usableVolumePercent) < 1 ||
       Number(container.usableVolumePercent) > 100)
   ) {
-    review.push(`Container ${container.name} requires Usable Volume % between 1 and 100`);
+    addReadyMadeContainerIssue(
+      `Container ${container.name} still needs Usable Volume % between 1 and 100 for Custom Hamper; ready-made listing can continue`
+    );
   }
 
   const hamperContents = [];
@@ -4931,7 +4959,7 @@ const buildReadyMadeMasterPayload = async (
     images: normalizedImage.url
       ? [{ url: normalizedImage.url, publicId: "", alt: common.name }]
       : [],
-    container: containerEntries[0]?.childSku || null,
+    container: container ? containerEntries[0]?.childSku || null : null,
     hamperContents,
     internalMaterials,
     decorations,
@@ -5027,7 +5055,7 @@ const analyzeProductMasterBuffer = async (
   { replaceMode = true, preselectedSheetNames = null } = {}
 ) => {
   logProductMasterMemory("analyze:start", filename);
-  console.info("[ProductMaster] parser=direct-cell-v9-data-mapping");
+  console.info("[ProductMaster] parser=recovery-v10-partial-containers");
 
   let sheetCatalog = null;
   let workbookProfile = null;
@@ -5284,7 +5312,8 @@ const analyzeProductMasterBuffer = async (
       meta.recordType === "container"
         ? buildContainerMasterPayload(
             meta.row,
-            containerSetup.bySku.get(meta.externalSku) || null
+            containerSetup.bySku.get(meta.externalSku) || null,
+            { allowIncompleteCapacity: workbookProfile.allowPartialImport }
           )
         : buildComponentMasterPayload(meta.row, {
             decorationMasterEntry:
@@ -5744,72 +5773,26 @@ const parseContainerReviewCompletion = (raw) => {
 
 const replaceProductMasterCatalog = async () => {
   /*
-   * TESTING-PHASE HARD REPLACE
+   * SAFE CATALOGUE CORE REPLACE
    * -------------------------------------------------------
-   * The user is repeatedly importing different master files and expects the
-   * selected workbook to become the ONLY current catalogue. Older importer
-   * versions did not always tag every row consistently with
-   * source.type=product_master, so filtering only by source.type can leave
-   * stale products/components/containers behind.
-   *
-   * Therefore Confirm Import clears the current catalogue core first, while
-   * preserving users, orders, payments, partners, reviews, etc.
-   *
-   * Collections are intentionally preserved because the Product Master does
-   * not own collection definitions. Categories referenced by the catalogue
-   * being replaced are removed and recreated from the new workbook.
+   * Products/SKUs/Components/Containers are replaced by the selected workbook.
+   * Category and Collection documents are deliberately preserved during the
+   * destructive phase. New ready-made products reuse matching categories, and
+   * orphaned Product-Master categories are cleaned only after a successful
+   * import. This prevents navigation from going blank if a runtime row fails.
    */
 
-  const existingProducts = await Product.find({})
-    .select("_id category")
-    .lean();
-
-  const productCategoryIds = [
-    ...new Set(
-      existingProducts
-        .map((product) => String(product.category || ""))
-        .filter(isValidId)
-    ),
-  ];
-
-  const importedCategoryIds = await Category.find({
-    "source.type": "product_master",
-  })
-    .distinct("_id");
-
-  const candidateCategoryIds = [
-    ...new Set([
-      ...productCategoryIds,
-      ...importedCategoryIds.map(String),
-    ]),
-  ];
-
-  /*
-   * Delete child records first. We intentionally clear ALL catalogue rows in
-   * these four core collections during testing so an older untagged import
-   * cannot survive and appear beside the new workbook.
-   */
   const skuDelete = await SKU.deleteMany({});
-
   const productDelete = await Product.deleteMany({});
   const componentDelete = await Component.deleteMany({});
   const containerDelete = await Container.deleteMany({});
-
-  let deletedCategories = 0;
-
-  if (candidateCategoryIds.length) {
-    const result = await Category.deleteMany({
-      _id: { $in: candidateCategoryIds },
-    });
-    deletedCategories = result.deletedCount || 0;
-  }
 
   return {
     products: productDelete.deletedCount || 0,
     skus: skuDelete.deletedCount || 0,
     components: componentDelete.deletedCount || 0,
     containers: containerDelete.deletedCount || 0,
-    categories: deletedCategories,
+    categories: 0,
   };
 };
 
@@ -5827,7 +5810,7 @@ const buildImportedBaseLookup = async () => {
   return { componentsBySku, containersBySku };
 };
 
-const resolveReadyMadeReferences = (skuPayload, baseLookup) => {
+const resolveReadyMadeReferences = (skuPayload, baseLookup, { allowMissingContainer = false } = {}) => {
   const resolved = {
     ...skuPayload,
     hamperContents: [],
@@ -5838,9 +5821,14 @@ const resolveReadyMadeReferences = (skuPayload, baseLookup) => {
   if (skuPayload.container) {
     const container = getLookupRecord(baseLookup.containersBySku, skuPayload.container);
     if (!container) {
-      throw new Error(`Container SKU ${skuPayload.container} was not imported`);
+      if (allowMissingContainer) {
+        resolved.container = null;
+      } else {
+        throw new Error(`Container SKU ${skuPayload.container} was not imported`);
+      }
+    } else {
+      resolved.container = container._id;
     }
-    resolved.container = container._id;
   } else {
     resolved.container = null;
   }
@@ -5934,6 +5922,20 @@ const ensureImportedCategory = async (categoryName, importedAt) => {
   });
 
   return category;
+};
+
+const cleanupOrphanedProductMasterCategories = async () => {
+  const usedCategoryIds = (await Product.distinct("category"))
+    .map((value) => String(value || ""))
+    .filter(isValidId);
+
+  const filter = { "source.type": "product_master" };
+  if (usedCategoryIds.length > 0) {
+    filter._id = { $nin: usedCategoryIds };
+  }
+
+  const result = await Category.deleteMany(filter);
+  return result.deletedCount || 0;
 };
 
 /* =========================================================
@@ -6350,6 +6352,36 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
     });
   }
 
+  const sourceReadyMadeRows = preflight.results.filter(
+    (item) => item.recordType === "ready_made_hamper"
+  );
+  const importableActiveReadyMade = sourceReadyMadeRows.filter(
+    (item) =>
+      ["CREATE", "UPDATE"].includes(item.action) &&
+      item._payload?.product?.status === PRODUCT_STATUS.ACTIVE
+  );
+
+  if (
+    preflight.allowPartialImport &&
+    preflight.hamperMasterSheetName &&
+    sourceReadyMadeRows.length > 0 &&
+    importableActiveReadyMade.length === 0
+  ) {
+    return res.status(409).json({
+      success: false,
+      message:
+        "Import was not started because this workbook contains ready-made hampers but none are currently importable as active storefront products. Existing catalogue data is unchanged.",
+      importMode: "replace_product_master",
+      workbookProfile: preflight.workbookProfile,
+      allowPartialImport: preflight.allowPartialImport,
+      filename: preflight.filename,
+      sheetName: preflight.sheetName,
+      compositionErrors: preflight.compositionErrors,
+      summary: preflight.summary,
+      results: preflight.results.map(publicImportResult),
+    });
+  }
+
   /*
    * IMPORTANT: do not parse the workbook a second time after clearing the
    * catalogue. replaceMode analysis already uses an empty catalogue context,
@@ -6460,7 +6492,8 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
             lastSyncedAt: importedAt,
           },
         },
-        baseLookup
+        baseLookup,
+        { allowMissingContainer: analysis.allowPartialImport }
       );
 
       const product = await Product.create({
@@ -6514,11 +6547,17 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
       Container.countDocuments({}),
     ]);
 
+  let cleanedCategories = 0;
+  if (databaseProducts > 0) {
+    cleanedCategories = await cleanupOrphanedProductMasterCategories();
+  }
+
   const databaseState = {
     products: databaseProducts,
     skus: databaseSkus,
     components: databaseComponents,
     containers: databaseContainers,
+    cleanedCategories,
   };
 
   const importedCount = summary.created + summary.updated;
