@@ -218,7 +218,7 @@ containerSchema.path("discount.value").validate(function validateDiscountValue(v
 // Incomplete procurement containers are allowed in MongoDB, but they can never
 // be customer-selectable until true inner dimensions and max content weight are
 // available. This protects the physical-fit engine from guessed capacity data.
-containerSchema.pre("validate", function validateSelectableContainer(next) {
+containerSchema.pre("validate", function validateSelectableContainer() {
   if (this.customerSelectable === true) {
     if (!hasPositiveDimensions(this.innerDimensions)) {
       this.invalidate(
@@ -235,7 +235,6 @@ containerSchema.pre("validate", function validateSelectableContainer(next) {
     }
   }
 
-  next();
 });
 
 containerSchema.index({ isActive: 1, customerSelectable: 1, sortOrder: 1, name: 1 });
