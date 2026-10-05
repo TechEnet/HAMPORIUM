@@ -425,45 +425,47 @@ const CustomHamper = () => {
         .some((value) => String(value).toLowerCase().includes(query));
     });
 
-    if (!containerId || !configuration) {
-      return filtered;
-    }
+    // V11.1: Builder catalogue mode must never make imported Excel items
+    // disappear just because price, fit or customer-selectable data is pending.
+    // Ready/selected rows are sorted first; pending rows remain visible and are
+    // disabled by the cards below.
+    return [...filtered].sort((left, right) => {
+      const leftSelected = (selectedMap.get(left._id) || 0) > 0;
+      const rightSelected = (selectedMap.get(right._id) || 0) > 0;
 
-    return filtered
-      .filter((component) => {
-        const quantity = selectedMap.get(component._id) || 0;
+      if (leftSelected !== rightSelected) {
+        return leftSelected ? -1 : 1;
+      }
 
-        if (quantity > 0) return true;
+      const leftReady = left.builderStatus?.selectable !== false;
+      const rightReady = right.builderStatus?.selectable !== false;
 
-        const candidate = candidateMap.get(String(component._id));
-        const missingPrice =
-          component.sellingPrice === null ||
-          component.sellingPrice === undefined;
+      if (leftReady !== rightReady) {
+        return leftReady ? -1 : 1;
+      }
 
-        if (missingPrice) return false;
-        if (!candidate) return true;
+      if (configuration) {
+        const leftCandidate = candidateMap.get(String(left._id));
+        const rightCandidate = candidateMap.get(String(right._id));
+        const leftFits =
+          leftCandidate?.selectable !== false &&
+          Number(leftCandidate?.maxAdditionalQuantity || 0) > 0;
+        const rightFits =
+          rightCandidate?.selectable !== false &&
+          Number(rightCandidate?.maxAdditionalQuantity || 0) > 0;
 
-        return (
-          candidate.selectable !== false &&
-          Number(candidate.maxAdditionalQuantity || 0) > 0
-        );
-      })
-      .sort((left, right) => {
-        const leftSelected = (selectedMap.get(left._id) || 0) > 0;
-        const rightSelected = (selectedMap.get(right._id) || 0) > 0;
-
-        if (leftSelected !== rightSelected) {
-          return leftSelected ? -1 : 1;
+        if (leftFits !== rightFits) {
+          return leftFits ? -1 : 1;
         }
+      }
 
-        return 0;
-      });
+      return String(left.name || "").localeCompare(String(right.name || ""));
+    });
   }, [
     contentComponents,
     search,
     categoryFilter,
     subcategoryFilter,
-    containerId,
     configuration,
     selectedMap,
     candidateMap,
@@ -656,12 +658,22 @@ const CustomHamper = () => {
       setError("");
 
       try {
-        const containerSuffix = channel
-          ? `?channel=${encodeURIComponent(channel)}`
-          : "";
+        // V11.1: ask the backend for the complete imported builder catalogue.
+        // Normal storefront endpoints stay strict; only Custom Hamper uses this
+        // broader visibility mode.
+        const containerParams = new URLSearchParams({
+          builderCatalog: "1",
+        });
+
+        if (channel) {
+          containerParams.set("channel", channel);
+        }
 
         const buildComponentUrl = (hamperRole) => {
-          const params = new URLSearchParams({ hamperRole });
+          const params = new URLSearchParams({
+            hamperRole,
+            builderCatalog: "1",
+          });
 
           if (channel) {
             params.set("channel", channel);
@@ -675,7 +687,7 @@ const CustomHamper = () => {
           contentResponse,
           decorationResponse,
         ] = await Promise.all([
-          api.get(`/catalog/containers${containerSuffix}`),
+          api.get(`/catalog/containers?${containerParams.toString()}`),
           api.get(buildComponentUrl("content")),
           api.get(buildComponentUrl("decoration")),
         ]);
@@ -870,6 +882,29 @@ const CustomHamper = () => {
       return;
     }
 
+    // Imported procurement boxes can be real catalogue boxes while still
+    // missing custom-builder capacity/price data. Keep such a box selectable
+    // for preview/browsing, but do not call the strict orderability validator.
+    if (selectedContainer?.builderStatus?.selectable === false) {
+      const reasons = Array.isArray(selectedContainer.builderStatus?.reasons)
+        ? selectedContainer.builderStatus.reasons
+        : [];
+
+      setConfiguration({
+        orderable: false,
+        message: reasons.length
+          ? `Box data pending: ${reasons.join(", ")}`
+          : "This box is visible from Product Master but is not order-ready yet.",
+        capacity: null,
+        pricing: null,
+        candidates: [],
+      });
+      setError("");
+      setValidating(false);
+      setSelectionPending(false);
+      return;
+    }
+
     let cancelled = false;
 
     const timer = window.setTimeout(async () => {
@@ -915,6 +950,7 @@ const CustomHamper = () => {
     };
   }, [
     containerId,
+    selectedContainer,
     selectedItems,
     selectedDecorations,
     contentComponents,
@@ -983,6 +1019,7 @@ const CustomHamper = () => {
     const candidate = candidateMap.get(String(component._id));
 
     if (selectionPending || validating || !configuration) return;
+    if (component.builderStatus?.selectable === false) return;
 
     if (
       component.sellingPrice === null ||
@@ -1023,6 +1060,8 @@ const CustomHamper = () => {
 
   const incrementDecoration = (component) => {
     const currentQuantity = decorationMap.get(component._id) || 0;
+
+    if (component.builderStatus?.selectable === false) return;
 
     if (
       component.sellingPrice === null ||
@@ -1366,8 +1405,9 @@ const CustomHamper = () => {
     }
   };
 
-  const canContinueFromBox =
-    Boolean(containerId) && !validating && Boolean(configuration);
+  // A data-pending imported box may still be selected to browse the Excel
+  // gift catalogue. Order/cart actions remain blocked by configuration.orderable.
+  const canContinueFromBox = Boolean(containerId) && !validating;
 
   const canContinueFromProducts =
     selectedItemCount > 0 && !validating && !selectionPending;
@@ -1989,7 +2029,7 @@ const CustomHamper = () => {
                 <div className="mt-3 flex items-center justify-between gap-3 text-[8px] font-bold text-black/32">
                   <span className="flex items-center gap-2">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                    Only items that still fit are shown
+                    All imported catalogue items are shown · pending data is marked
                   </span>
                   {(validating || selectionPending) && (
                     <span className="shrink-0 text-[#8A6815]">Checking fit…</span>
@@ -2007,8 +2047,10 @@ const CustomHamper = () => {
                       const quantity = selectedMap.get(component._id) || 0;
                       const candidate = candidateMap.get(String(component._id));
                       const missingPrice = component.sellingPrice === null || component.sellingPrice === undefined;
+                      const builderBlocked = component.builderStatus?.selectable === false;
                       const cannotAddMore = Boolean(
-                        !candidate ||
+                        builderBlocked ||
+                          !candidate ||
                           candidate.selectable === false ||
                           Number(candidate.maxAdditionalQuantity || 0) <= 0
                       );
@@ -2019,7 +2061,7 @@ const CustomHamper = () => {
                           component={component}
                           quantity={quantity}
                           selected={quantity > 0}
-                          locked={missingPrice || cannotAddMore}
+                          locked={missingPrice || builderBlocked || cannotAddMore}
                           checking={validating || selectionPending}
                           fitLeft={Number(candidate?.maxAdditionalQuantity || 0)}
                           onMinus={() => decrementItem(component)}
@@ -2819,6 +2861,10 @@ const V11ContainerDetailsModal = ({
   const hasPrice =
     container.sellingPrice !== null &&
     container.sellingPrice !== undefined;
+  const builderReady = container.builderStatus?.selectable !== false;
+  const builderReasons = Array.isArray(container.builderStatus?.reasons)
+    ? container.builderStatus.reasons
+    : [];
 
   const hasMrp =
     hasPrice &&
@@ -2953,6 +2999,19 @@ const V11ContainerDetailsModal = ({
                   ))}
                 </div>
 
+                {!builderReady && (
+                  <div className="mt-5 rounded-[16px] border border-amber-200 bg-amber-50 px-4 py-3">
+                    <p className="text-[9px] font-black uppercase tracking-[0.1em] text-amber-700">
+                      Data pending for Custom Hamper
+                    </p>
+                    <p className="mt-1.5 text-[10px] font-semibold leading-5 text-amber-800/80">
+                      {builderReasons.length
+                        ? builderReasons.join(" · ")
+                        : "This imported box is visible for review, but required builder data is incomplete."}
+                    </p>
+                  </div>
+                )}
+
                 {container.description && (
                   <div className="mt-5 rounded-[16px] bg-[#FAF8F5] p-4">
                     <p className="text-[9px] font-black uppercase tracking-[0.1em] text-black/32">
@@ -2989,7 +3048,13 @@ const V11ContainerDetailsModal = ({
                     : "bg-[#F47822] text-white hover:bg-[#171717]"
                 }`}
               >
-                {active ? "✓ Selected box" : "Select this box"}
+                {active
+                  ? builderReady
+                    ? "✓ Selected box"
+                    : "✓ Previewing box"
+                  : builderReady
+                    ? "Select this box"
+                    : "Preview this box"}
               </button>
             </div>
           </div>
@@ -3091,6 +3156,10 @@ const V7ContainerCard = ({ container, active, onClick }) => {
   const hasPrice =
     container.sellingPrice !== null &&
     container.sellingPrice !== undefined;
+  const builderReady = container.builderStatus?.selectable !== false;
+  const builderReasons = Array.isArray(container.builderStatus?.reasons)
+    ? container.builderStatus.reasons
+    : [];
 
   const handleCardClick = (event) => {
     if (
@@ -3121,6 +3190,15 @@ const V7ContainerCard = ({ container, active, onClick }) => {
             />
           ) : (
             <NoImage />
+          )}
+
+          {!builderReady && (
+            <span
+              className="absolute left-2.5 top-2.5 max-w-[78%] truncate rounded-full border border-amber-200 bg-amber-50/95 px-2.5 py-1 text-[7px] font-black text-amber-700 shadow-sm backdrop-blur-sm"
+              title={builderReasons.join(", ")}
+            >
+              Data pending: {builderReasons[0] || "builder setup incomplete"}
+            </span>
           )}
 
           {active && (
@@ -3186,8 +3264,12 @@ const V7ContainerCard = ({ container, active, onClick }) => {
               }`}
             >
               {active
-                ? "✓ Selected"
-                : "Select box"}
+                ? builderReady
+                  ? "✓ Selected"
+                  : "✓ Preview"
+                : builderReady
+                  ? "Select box"
+                  : "Preview box"}
             </button>
           </div>
         </div>
@@ -3330,6 +3412,10 @@ const V10ProductDetailsModal = ({
   const missingPrice =
     component.sellingPrice === null ||
     component.sellingPrice === undefined;
+  const builderBlocked = component.builderStatus?.selectable === false;
+  const builderReasons = Array.isArray(component.builderStatus?.reasons)
+    ? component.builderStatus.reasons
+    : [];
 
   const hasMrp =
     !missingPrice &&
@@ -3489,6 +3575,19 @@ const V10ProductDetailsModal = ({
                   ))}
                 </div>
 
+                {builderBlocked && (
+                  <div className="mt-5 rounded-[16px] border border-amber-200 bg-amber-50 px-4 py-3">
+                    <p className="text-[9px] font-black uppercase tracking-[0.1em] text-amber-700">
+                      Data pending for Custom Hamper
+                    </p>
+                    <p className="mt-1.5 text-[10px] font-semibold leading-5 text-amber-800/80">
+                      {builderReasons.length
+                        ? builderReasons.join(" · ")
+                        : "This imported item is visible for review, but required builder data is incomplete."}
+                    </p>
+                  </div>
+                )}
+
                 {component.description && (
                   <div className="mt-5 rounded-[16px] bg-[#FAF8F5] p-4">
                     <p className="text-[9px] font-black uppercase tracking-[0.1em] text-black/32">
@@ -3594,9 +3693,13 @@ const V7ProductCard = ({
   const missingPrice =
     component.sellingPrice === null ||
     component.sellingPrice === undefined;
+  const builderBlocked = component.builderStatus?.selectable === false;
+  const builderReasons = Array.isArray(component.builderStatus?.reasons)
+    ? component.builderStatus.reasons
+    : [];
 
   const cannotIncrease =
-    checking || missingPrice || locked || quantity >= 99;
+    checking || missingPrice || builderBlocked || locked || quantity >= 99;
 
   const hasMrp =
     !missingPrice &&
@@ -3649,6 +3752,15 @@ const V7ProductCard = ({
           <p className="line-clamp-2 min-h-[34px] text-[11px] font-extrabold leading-[1.35] text-[#171717] sm:min-h-[40px] sm:text-[13px] sm:leading-[1.45]">
             {component.name}
           </p>
+
+          {builderBlocked && (
+            <p
+              className="mt-1.5 line-clamp-2 min-h-[24px] text-[7px] font-bold leading-3 text-amber-700"
+              title={builderReasons.join(", ")}
+            >
+              Data pending: {builderReasons[0] || "custom-builder setup incomplete"}
+            </p>
+          )}
 
           <div className="mt-1 flex min-h-[22px] flex-wrap items-baseline gap-x-1.5 gap-y-0.5 sm:mt-1.5 sm:min-h-[24px]">
             <span className="text-[14px] font-black text-[#171717] sm:text-[16px]">
@@ -3759,8 +3871,12 @@ const V7DecorationCard = ({
   const missingPrice =
     component.sellingPrice === null ||
     component.sellingPrice === undefined;
+  const builderBlocked = component.builderStatus?.selectable === false;
+  const builderReasons = Array.isArray(component.builderStatus?.reasons)
+    ? component.builderStatus.reasons
+    : [];
 
-  const cannotIncrease = missingPrice || quantity >= 99;
+  const cannotIncrease = missingPrice || builderBlocked || quantity >= 99;
 
   const handleCardClick = (event) => {
     if (event.target.closest("button")) return;
@@ -3807,6 +3923,15 @@ const V7DecorationCard = ({
           <p className="line-clamp-2 min-h-[30px] text-[10px] font-extrabold leading-[1.35] text-[#171717] sm:min-h-0 sm:truncate sm:text-[11px]">
             {component.name}
           </p>
+
+          {builderBlocked && (
+            <p
+              className="mt-1.5 line-clamp-2 text-[7px] font-bold leading-3 text-amber-700"
+              title={builderReasons.join(", ")}
+            >
+              Data pending: {builderReasons[0] || "custom-builder setup incomplete"}
+            </p>
+          )}
 
           <div className="mt-1 flex items-center justify-between gap-2">
             <p className="text-[10px] font-black text-[#9B7616] sm:text-[11px]">

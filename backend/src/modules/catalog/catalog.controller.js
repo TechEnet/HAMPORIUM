@@ -6600,6 +6600,108 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
    PUBLIC COMPONENTS / CONTAINERS
 ========================================================= */
 
+const isBuilderCatalogRequest = (value) =>
+  ["1", "true", "yes", "builder"].includes(
+    String(value || "").trim().toLowerCase()
+  );
+
+const hasPositiveBuilderDimensions = (dimensions) =>
+  Boolean(
+    dimensions &&
+      Number(dimensions.length) > 0 &&
+      Number(dimensions.width) > 0 &&
+      Number(dimensions.height) > 0
+  );
+
+const hasPositiveBuilderWeight = (weight) =>
+  Boolean(weight && Number(weight.value) > 0);
+
+const buildComponentBuilderStatus = (component, { channel = "" } = {}) => {
+  const reasons = [];
+  const isDecoration = (component.hamperRole || "content") === "decoration";
+
+  if (component.isActive === false) {
+    reasons.push("Inactive in catalogue");
+  }
+
+  if (!isDecoration && component.hamperUse === false) {
+    reasons.push("Not enabled for custom hampers");
+  }
+
+  if (component.customerSelectable === false) {
+    reasons.push("Not enabled for customer selection");
+  }
+
+  if (!(Number(component.sellingPrice) > 0)) {
+    reasons.push("Selling price missing");
+  }
+
+  if (!isDecoration && !hasPositiveBuilderDimensions(component.dimensions)) {
+    reasons.push("Product dimensions incomplete");
+  }
+
+  if (!isDecoration && !hasPositiveBuilderWeight(component.weight)) {
+    reasons.push("Product weight missing");
+  }
+
+  if (channel && component.channels?.[channel] !== true) {
+    reasons.push(`Not enabled for ${channel} channel`);
+  }
+
+  return {
+    visible: true,
+    selectable: reasons.length === 0,
+    reasons: [...new Set(reasons)],
+  };
+};
+
+const buildContainerBuilderStatus = (container, { channel = "" } = {}) => {
+  const reasons = [];
+
+  if (container.isActive === false) {
+    reasons.push("Inactive in catalogue");
+  }
+
+  if (container.hamperUse === false) {
+    reasons.push("Not enabled for custom hampers");
+  }
+
+  if (container.customerSelectable === false) {
+    reasons.push("Not enabled for customer selection");
+  }
+
+  if (!(Number(container.sellingPrice) > 0)) {
+    reasons.push("Selling price missing");
+  }
+
+  if (!hasPositiveBuilderDimensions(container.innerDimensions)) {
+    reasons.push("True inner dimensions missing");
+  }
+
+  if (!hasPositiveBuilderWeight(container.maxContentWeight)) {
+    reasons.push("Maximum content weight missing");
+  }
+
+  const usableVolumePercent = Number(container.usableVolumePercent);
+  if (
+    !Number.isFinite(usableVolumePercent) ||
+    usableVolumePercent < 1 ||
+    usableVolumePercent > 100
+  ) {
+    reasons.push("Usable volume percent missing or invalid");
+  }
+
+  if (channel && container.channels?.[channel] !== true) {
+    reasons.push(`Not enabled for ${channel} channel`);
+  }
+
+  return {
+    visible: true,
+    selectable: reasons.length === 0,
+    reasons: [...new Set(reasons)],
+  };
+};
+
 export const getComponents = asyncHandler(async (req, res) => {
   disableCatalogCaching(res);
 
@@ -6611,14 +6713,23 @@ export const getComponents = asyncHandler(async (req, res) => {
     segment,
     channel,
     hamperRole,
+    builderCatalog,
   } = req.query;
+
+  const includeBuilderCatalogue = isBuilderCatalogRequest(builderCatalog);
 
   const filter = {
     isActive: true,
-    customerSelectable: true,
-    sellingPrice: { $gt: 0 },
     type: { $in: PUBLIC_COMPONENT_TYPES },
   };
+
+  // Normal storefront APIs stay strict. The custom-builder catalogue mode is
+  // intentionally broader so every imported Excel item can be shown with a
+  // readiness reason instead of disappearing from the UI.
+  if (!includeBuilderCatalogue) {
+    filter.customerSelectable = true;
+    filter.sellingPrice = { $gt: 0 };
+  }
 
   if (type) {
     if (!PUBLIC_COMPONENT_TYPES.includes(type)) {
@@ -6631,12 +6742,6 @@ export const getComponents = asyncHandler(async (req, res) => {
     filter.type = type;
   }
 
-  /*
-   * CustomHamper loads /catalog/components without a hamperRole query and
-   * separates content vs decoration on the frontend. The default response
-   * therefore needs to include both selectable gift content and selectable
-   * decorations.
-   */
   if (hamperRole) {
     if (!HAMPER_ROLES.includes(hamperRole)) {
       return res.status(400).json({
@@ -6648,36 +6753,50 @@ export const getComponents = asyncHandler(async (req, res) => {
     if (hamperRole === "decoration") {
       filter.hamperRole = "decoration";
     } else {
-      filter.hamperUse = { $ne: false };
-      filter.$and = [
-        {
-          $or: [
-            { hamperRole: "content" },
-            { hamperRole: { $exists: false } },
-            { hamperRole: null },
-          ],
-        },
-      ];
+      const contentRoleFilter = {
+        $or: [
+          { hamperRole: "content" },
+          { hamperRole: { $exists: false } },
+          { hamperRole: null },
+        ],
+      };
+
+      if (includeBuilderCatalogue) {
+        filter.$and = [contentRoleFilter];
+      } else {
+        filter.hamperUse = { $ne: false };
+        filter.$and = [contentRoleFilter];
+      }
     }
   } else {
     filter.$and = [
       {
         $or: [
           { hamperRole: "decoration" },
-          {
-            hamperUse: { $ne: false },
-            $or: [
-              { hamperRole: "content" },
-              { hamperRole: { $exists: false } },
-              { hamperRole: null },
-            ],
-          },
+          includeBuilderCatalogue
+            ? {
+                $or: [
+                  { hamperRole: "content" },
+                  { hamperRole: { $exists: false } },
+                  { hamperRole: null },
+                ],
+              }
+            : {
+                hamperUse: { $ne: false },
+                $or: [
+                  { hamperRole: "content" },
+                  { hamperRole: { $exists: false } },
+                  { hamperRole: null },
+                ],
+              },
         ],
       },
     ];
   }
 
-  if (channel) {
+  // In builder catalogue mode we do not hide rows merely because a channel
+  // flag is missing. The row is returned with a builderStatus reason instead.
+  if (channel && !includeBuilderCatalogue) {
     if (!CHANNEL_KEYS.includes(channel)) {
       return res.status(400).json({
         success: false,
@@ -6686,6 +6805,11 @@ export const getComponents = asyncHandler(async (req, res) => {
     }
 
     filter[`channels.${channel}`] = true;
+  } else if (channel && !CHANNEL_KEYS.includes(channel)) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid channel",
+    });
   }
 
   if (category?.trim()) filter.category = category.trim();
@@ -6708,57 +6832,85 @@ export const getComponents = asyncHandler(async (req, res) => {
 
   const components = await Component.find(filter)
     .select(
-      "name code type hamperRole decorationType countsTowardBoxCapacity brand description images skuBarcode sizePack uom piecesPerUom sourceProductType taxonomyBaseId categoryCode category subcategory segment productPriority mrp sellingPrice taxEnabled taxPercent hsnSac discount dimensions weight fragile dietary expiryTracked shelfLifeDays expiryDate personalizable personalizationMethod hamperUse channels availability.status availability.availableQuantity availability.unit availability.nextAvailableDate"
+      "name code type hamperRole decorationType countsTowardBoxCapacity brand description images skuBarcode sizePack uom piecesPerUom sourceProductType taxonomyBaseId categoryCode category subcategory segment productPriority mrp sellingPrice taxEnabled taxPercent hsnSac discount dimensions weight fragile dietary expiryTracked shelfLifeDays expiryDate personalizable personalizationMethod hamperUse channels availability.status availability.availableQuantity availability.unit availability.nextAvailableDate customerSelectable isActive source.type source.externalSku"
     )
     .sort({ productPriority: 1, name: 1 })
     .lean();
 
   const publicComponents = components.map((component) => {
-    const pricing = calculateCatalogPricing({
-      baseSellingPrice: component.sellingPrice ?? 0,
-      taxPercent: component.taxPercent ?? 0,
-      taxEnabled: component.taxEnabled !== false,
-      discount: component.discount || {},
-    });
+    const hasSellingPrice = Number(component.sellingPrice) > 0;
+    const pricing = hasSellingPrice
+      ? calculateCatalogPricing({
+          baseSellingPrice: component.sellingPrice,
+          taxPercent: component.taxPercent ?? 0,
+          taxEnabled: component.taxEnabled !== false,
+          discount: component.discount || {},
+        })
+      : null;
 
     return {
       ...component,
-      baseSellingPrice: pricing.baseSellingPrice,
-      sellingPrice: pricing.price,
-      discountAmount: pricing.discountAmount,
-      taxablePrice: pricing.taxableValue,
-      taxAmount: pricing.taxAmount,
+      baseSellingPrice: pricing?.baseSellingPrice ?? null,
+      sellingPrice: pricing?.price ?? null,
+      discountAmount: pricing?.discountAmount ?? 0,
+      taxablePrice: pricing?.taxableValue ?? null,
+      taxAmount: pricing?.taxAmount ?? 0,
       taxIncluded: true,
+      ...(includeBuilderCatalogue
+        ? {
+            builderStatus: buildComponentBuilderStatus(component, {
+              channel,
+            }),
+          }
+        : {}),
     };
   });
 
   return res.status(200).json({
     success: true,
     count: publicComponents.length,
+    builderCatalog: includeBuilderCatalogue,
     components: publicComponents,
   });
 });
 
 export const getContainers = asyncHandler(async (req, res) => {
   disableCatalogCaching(res);
-  const { search, category, subcategory, segment, channel } = req.query;
+
+  const {
+    search,
+    category,
+    subcategory,
+    segment,
+    channel,
+    builderCatalog,
+  } = req.query;
+
+  const includeBuilderCatalogue = isBuilderCatalogRequest(builderCatalog);
+
   const filter = {
     isActive: true,
-    customerSelectable: true,
-    hamperUse: { $ne: false },
-    sellingPrice: { $gt: 0 },
-    "innerDimensions.length": { $gt: 0 },
-    "innerDimensions.width": { $gt: 0 },
-    "innerDimensions.height": { $gt: 0 },
-    "maxContentWeight.value": { $gt: 0 },
-    usableVolumePercent: { $gte: 1, $lte: 100 },
   };
+
+  if (!includeBuilderCatalogue) {
+    filter.customerSelectable = true;
+    filter.hamperUse = { $ne: false };
+    filter.sellingPrice = { $gt: 0 };
+    filter["innerDimensions.length"] = { $gt: 0 };
+    filter["innerDimensions.width"] = { $gt: 0 };
+    filter["innerDimensions.height"] = { $gt: 0 };
+    filter["maxContentWeight.value"] = { $gt: 0 };
+    filter.usableVolumePercent = { $gte: 1, $lte: 100 };
+  }
 
   if (channel) {
     if (!CHANNEL_KEYS.includes(channel)) {
       return res.status(400).json({ success: false, message: "Invalid channel" });
     }
-    filter[`channels.${channel}`] = true;
+
+    if (!includeBuilderCatalogue) {
+      filter[`channels.${channel}`] = true;
+    }
   }
 
   if (category?.trim()) filter.category = category.trim();
@@ -6771,37 +6923,54 @@ export const getContainers = asyncHandler(async (req, res) => {
       { name: { $regex: safeSearch, $options: "i" } },
       { code: { $regex: safeSearch, $options: "i" } },
       { material: { $regex: safeSearch, $options: "i" } },
+      { sourceProductType: { $regex: safeSearch, $options: "i" } },
+      { category: { $regex: safeSearch, $options: "i" } },
+      { subcategory: { $regex: safeSearch, $options: "i" } },
     ];
   }
 
   const containers = await Container.find(filter)
     .select(
-      "name code material description images skuBarcode sourceProductType taxonomyBaseId categoryCode category subcategory segment productPriority mrp sellingPrice taxEnabled taxPercent hsnSac discount outerDimensions innerDimensions maxContentWeight usableVolumePercent maxItems productionLeadTime defaultCourierDays hamperUse channels availability.status availability.nextAvailableDate sortOrder"
+      "name code material description images skuBarcode sourceProductType taxonomyBaseId categoryCode category subcategory segment productPriority mrp sellingPrice taxEnabled taxPercent hsnSac discount outerDimensions innerDimensions maxContentWeight usableVolumePercent maxItems productionLeadTime defaultCourierDays hamperUse channels availability.status availability.nextAvailableDate sortOrder customerSelectable isActive source.type source.externalSku"
     )
     .sort({ sortOrder: 1, productPriority: 1, name: 1 })
     .lean();
 
-  res.status(200).json({
-    success: true,
-    containers: containers.map((container) => {
-      const pricing = calculateCatalogPricing({
-        baseSellingPrice: container.sellingPrice ?? 0,
-        taxPercent: container.taxPercent ?? 0,
-        taxEnabled: container.taxEnabled !== false,
-        discount: container.discount || {},
-      });
+  const result = containers.map((container) => {
+    const hasSellingPrice = Number(container.sellingPrice) > 0;
+    const pricing = hasSellingPrice
+      ? calculateCatalogPricing({
+          baseSellingPrice: container.sellingPrice,
+          taxPercent: container.taxPercent ?? 0,
+          taxEnabled: container.taxEnabled !== false,
+          discount: container.discount || {},
+        })
+      : null;
 
-      return {
-        ...container,
-        baseSellingPrice: pricing.baseSellingPrice,
-        sellingPrice: pricing.price,
-        discountAmount: pricing.discountAmount,
-        taxablePrice: pricing.taxableValue,
-        taxAmount: pricing.taxAmount,
-        taxIncluded: true,
-        capacity: calculateContainerCapacity(container),
-      };
-    }),
+    return {
+      ...container,
+      baseSellingPrice: pricing?.baseSellingPrice ?? null,
+      sellingPrice: pricing?.price ?? null,
+      discountAmount: pricing?.discountAmount ?? 0,
+      taxablePrice: pricing?.taxableValue ?? null,
+      taxAmount: pricing?.taxAmount ?? 0,
+      taxIncluded: true,
+      capacity: calculateContainerCapacity(container),
+      ...(includeBuilderCatalogue
+        ? {
+            builderStatus: buildContainerBuilderStatus(container, {
+              channel,
+            }),
+          }
+        : {}),
+    };
+  });
+
+  return res.status(200).json({
+    success: true,
+    builderCatalog: includeBuilderCatalogue,
+    count: result.length,
+    containers: result,
   });
 });
 
