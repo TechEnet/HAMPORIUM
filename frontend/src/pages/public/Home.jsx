@@ -2191,7 +2191,10 @@ const Home = () => {
 
           .hp-journey-story-sheet {
             transform: translate3d(0,0,0);
-            will-change: clip-path, transform;
+            /* The diagonal clip is static. Promoting clip-path itself caused
+               extra compositor work while the sticky pages handed off. */
+            will-change: transform;
+            contain: paint;
           }
 
           .hp-journey-story-page .hp-story-kicker,
@@ -3706,6 +3709,81 @@ const Home = () => {
             will-change: auto; transition: opacity .8s ease, transform 1.2s var(--hp-motion-ease);
           }
           .hp-home-v65 .hp-journey-hover:not([data-loaded="true"]) { opacity: 0 !important; }
+
+          /* ==================================================
+             V91.4 · JOURNEY IMAGE SMOOTHNESS
+             The "How Do You Want To Gift Today?" pages use a decoded
+             two-layer crossfade. No water/refraction, no filter animation,
+             and no abrupt image swap while the alternate image is loading.
+          ================================================== */
+          .hp-home-v65 [data-home-section="journey"] .hp-fluid-backdrop {
+            contain: paint;
+            transform: translate3d(0,0,0);
+          }
+
+          .hp-home-v65 [data-home-section="journey"] .hp-fluid-image {
+            opacity: 1;
+            transform: translate3d(0,0,0) scale(1.012);
+            transform-origin: center center;
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+            will-change: opacity, transform;
+            transition:
+              opacity 1.08s cubic-bezier(.22,1,.36,1),
+              transform 1.48s cubic-bezier(.22,1,.36,1) !important;
+          }
+
+          .hp-home-v65 [data-home-section="journey"] .hp-fluid-image-hover {
+            opacity: 0;
+            transform: translate3d(0,0,0) scale(1.035);
+          }
+
+          /* Never start a blend until the second image is fully decoded. */
+          .hp-home-v65 [data-home-section="journey"]
+          .hp-fluid-backdrop.has-hover-image:not(.is-hover-ready) .hp-fluid-image-base {
+            opacity: 1 !important;
+          }
+
+          .hp-home-v65 [data-home-section="journey"]
+          .hp-fluid-backdrop.has-hover-image:not(.is-hover-ready) .hp-fluid-image-hover {
+            opacity: 0 !important;
+          }
+
+          @media (hover:hover) and (pointer:fine) {
+            .hp-home-v65 [data-home-section="journey"]
+            .hp-fluid-host:hover .hp-fluid-backdrop.has-hover-image.is-hover-ready .hp-fluid-image-base {
+              opacity: 0;
+              transform: translate3d(0,0,0) scale(1.026);
+            }
+
+            .hp-home-v65 [data-home-section="journey"]
+            .hp-fluid-host:hover .hp-fluid-backdrop.has-hover-image.is-hover-ready .hp-fluid-image-hover {
+              opacity: 1;
+              transform: translate3d(0,0,0) scale(1.012);
+            }
+          }
+
+          @media (max-width:1023px), (hover:none), (pointer:coarse) {
+            .hp-home-v65 [data-home-section="journey"]
+            .hp-fluid-backdrop.has-hover-image.is-hover-ready.is-mobile-alt .hp-fluid-image-base {
+              opacity: 0;
+              transform: translate3d(0,0,0) scale(1.024);
+            }
+
+            .hp-home-v65 [data-home-section="journey"]
+            .hp-fluid-backdrop.has-hover-image.is-hover-ready.is-mobile-alt .hp-fluid-image-hover {
+              opacity: 1;
+              transform: translate3d(0,0,0) scale(1.012);
+            }
+          }
+
+          @media (prefers-reduced-motion:reduce) {
+            .hp-home-v65 [data-home-section="journey"] .hp-fluid-image {
+              transition: none !important;
+              transform: translate3d(0,0,0) scale(1.001) !important;
+            }
+          }
+
           .hp-home-v65 .hp-gift-product-window img { will-change: auto; filter: none !important; }
           .hp-home-v65 .hp-editorial-base, .hp-home-v65 .hp-editorial-hover { will-change: auto; }
           .hp-home-v65 .hp-offscreen *, .hp-home-v65 [data-page-hidden="true"] * {
@@ -4355,6 +4433,58 @@ const Home = () => {
 
           .hp-home-v65 .hp-bestseller-title { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; overflow-wrap:anywhere; }
           .hp-quick-copy h2 { overflow-wrap:anywhere; }
+
+          /* V91.5 · BESTSELLER CARDS: H SEAL ONLY
+             Keep the premium H seal on every card. Decorative ribbon, bow,
+             corner flourishes and sparkles are intentionally disabled. */
+          .hp-home-v65 .hp-gift-seal-only {
+            z-index: 6;
+            bottom: 154px;
+            overflow: visible;
+            border-radius: 19px 19px 13px 13px;
+          }
+          .hp-home-v65 .hp-gift-seal-only .hp-wrap-ribbon,
+          .hp-home-v65 .hp-gift-seal-only .hp-wrap-bow,
+          .hp-home-v65 .hp-gift-seal-only .hp-gift-corner,
+          .hp-home-v65 .hp-gift-seal-only .hp-gift-sparkle {
+            display: none !important;
+          }
+          .hp-home-v65 .hp-gift-seal-only .hp-wrap-seal {
+            display: flex !important;
+            top: 18px !important;
+            right: 18px !important;
+            left: auto !important;
+            width: 46px !important;
+            height: 46px !important;
+            align-items: center;
+            justify-content: center;
+            border-radius: 999px;
+          }
+          @media (max-width: 639px) {
+            .hp-home-v65 .hp-gift-seal-only { bottom: 147px; }
+            .hp-home-v65 .hp-gift-seal-only .hp-wrap-seal {
+              top: 14px !important;
+              right: 14px !important;
+              width: 42px !important;
+              height: 42px !important;
+            }
+          }
+
+          /* ==================================================
+             WATER EFFECT REMOVED · V91.2
+             Keep class names for layout compatibility, but disable every
+             WebGL/canvas/refraction layer. Only clean image crossfade remains.
+          ================================================== */
+          .hp-home-v65 .hp-fluid-canvas-wrap,
+          .hp-home-v65 .hp-fluid-canvas {
+            display: none !important;
+            opacity: 0 !important;
+            visibility: hidden !important;
+          }
+
+          .hp-home-v65 .hp-fluid-backdrop.hp-fluid-static {
+            isolation: isolate;
+          }
 
           /* ==================================================
              V76 · WAVE WATER FLUID SHADER
@@ -6922,9 +7052,10 @@ const SmartImage = ({ src, alt = "", className = "", loading = "lazy", fetchPrio
 
 
 // ======================================================
-// POINTER FLUID BACKDROP
-// A lightweight local refraction lens for selected desktop backgrounds.
-// It listens on its parent, so text/buttons above the image stay clickable.
+// STATIC / CROSSFADE BACKDROP
+// Water/refraction/WebGL effect intentionally removed.
+// Keeps the same images and optional hover/mobile alternate image,
+// but only uses a clean opacity crossfade with zero distortion.
 // ======================================================
 
 const FluidBackdrop = ({
@@ -6936,873 +7067,123 @@ const FluidBackdrop = ({
   fetchPriority,
   decoding = "async",
   style,
-  strength = 16,
 }) => {
   const layerRef = useRef(null);
-  const canvasRef = useRef(null);
-  const frameRef = useRef(0);
-  const rectRef = useRef(null);
-  const activeRef = useRef(false);
-  const readyRef = useRef(false);
-  const startTimeRef = useRef(0);
-  const previousPointerRef = useRef(null);
-  const targetRef = useRef({
-    x: 0.5,
-    y: 0.5,
-    velocityX: 0,
-    velocityY: 0,
-    amount: 0,
-  });
-  const currentRef = useRef({
-    x: 0.5,
-    y: 0.5,
-    velocityX: 0,
-    velocityY: 0,
-    amount: 0,
-  });
-  const hoverMixTargetRef = useRef(0);
-  const hoverMixCurrentRef = useRef(0);
-  const lastFrameTimeRef = useRef(0);
-  const [gpuEnabled, setGpuEnabled] = useState(false);
+  const [mobileAlt, setMobileAlt] = useState(false);
+  const [hoverReady, setHoverReady] = useState(!hoverSrc);
 
-  // Compile the water shader only when this visual is close to the viewport.
-  // This avoids compiling every full-screen WebGL effect during the first page load.
+  /* Preload + decode the alternate image before any visual blend begins.
+     This prevents the first hover/viewport swap from flashing or hitching. */
   useEffect(() => {
-    const host = layerRef.current?.parentElement;
-    if (!host || typeof window === "undefined") return undefined;
+    if (!hoverSrc || typeof window === "undefined") {
+      setHoverReady(!hoverSrc);
+      return undefined;
+    }
 
-    let idleId = 0;
-    let timerId = 0;
-    let observer;
-    let activated = false;
+    let active = true;
+    const preload = new Image();
 
-    const activate = (immediate = false) => {
-      if (activated) return;
-      activated = true;
-      observer?.disconnect();
-
-      const commit = () => setGpuEnabled(true);
-      if (immediate) {
-        commit();
-      } else if ("requestIdleCallback" in window) {
-        idleId = window.requestIdleCallback(commit, { timeout: 420 });
-      } else {
-        timerId = window.setTimeout(commit, 60);
+    const markReady = async () => {
+      try {
+        if (typeof preload.decode === "function") await preload.decode();
+      } catch {
+        /* The image is already loaded; decoding support varies by browser. */
       }
+
+      if (active) setHoverReady(true);
     };
 
-    const handleIntent = () => activate(true);
-    host.addEventListener("pointerenter", handleIntent, { passive: true, once: true });
-    host.addEventListener("pointerdown", handleIntent, { passive: true, once: true });
+    setHoverReady(false);
+    preload.onload = markReady;
+    preload.onerror = () => {
+      if (active) setHoverReady(false);
+    };
+    preload.src = hoverSrc;
 
-    if (window.IntersectionObserver) {
-      observer = new IntersectionObserver(
-        (entries) => {
-          if (entries.some((entry) => entry.isIntersecting)) activate(false);
-        },
-        { rootMargin: "180% 0px", threshold: 0 }
-      );
-      observer.observe(host);
-    } else {
-      activate(false);
-    }
+    if (preload.complete && preload.naturalWidth > 0) markReady();
 
     return () => {
-      observer?.disconnect();
-      host.removeEventListener("pointerenter", handleIntent);
-      host.removeEventListener("pointerdown", handleIntent);
-      if (idleId && "cancelIdleCallback" in window) window.cancelIdleCallback(idleId);
-      if (timerId) window.clearTimeout(timerId);
+      active = false;
+      preload.onload = null;
+      preload.onerror = null;
     };
-  }, []);
+  }, [hoverSrc]);
 
   useEffect(() => {
-    const layer = layerRef.current;
-    const canvas = canvasRef.current;
-    const host = layer?.parentElement;
-
-    if (!layer || !canvas || !host || typeof window === "undefined" || !gpuEnabled) {
+    if (!hoverSrc || typeof window === "undefined") {
+      setMobileAlt(false);
       return undefined;
     }
 
-    const reducedMotion = window.matchMedia?.(
-      "(prefers-reduced-motion: reduce)"
-    ).matches;
-    const coarsePointer = window.matchMedia?.(
-      "(hover: none), (pointer: coarse)"
-    ).matches;
+    const host = layerRef.current?.parentElement;
+    if (!host) return undefined;
 
-    // Touch devices keep the same GPU water shader. Reduced-motion remains
-    // the only hard opt-out so mobile users can interact with the wave too.
-    if (reducedMotion) return undefined;
+    const mobileQuery = window.matchMedia?.(
+      "(hover: none), (pointer: coarse), (max-width: 1023px)"
+    );
 
-    const gl = canvas.getContext("webgl", {
-      alpha: true,
-      antialias: false,
-      depth: false,
-      stencil: false,
-      premultipliedAlpha: false,
-      preserveDrawingBuffer: false,
-      powerPreference: "high-performance",
-    });
-
-    if (!gl) return undefined;
-
-    const vertexSource = `
-      attribute vec2 a_position;
-
-      void main() {
-        gl_Position = vec4(a_position, 0.0, 1.0);
-      }
-    `;
-
-    const fragmentSource = `
-      precision highp float;
-
-      uniform sampler2D u_texture;
-      uniform sampler2D u_hoverTexture;
-      uniform vec2 u_resolution;
-      uniform vec2 u_imageResolution;
-      uniform vec2 u_hoverImageResolution;
-      uniform vec2 u_mouse;
-      uniform vec2 u_velocity;
-      uniform vec2 u_objectPosition;
-      uniform float u_time;
-      uniform float u_amount;
-      uniform float u_strength;
-      uniform float u_hoverMix;
-
-      vec2 coverUvFor(vec2 uv, vec2 imageResolution) {
-        float screenAspect = u_resolution.x / max(u_resolution.y, 1.0);
-        float imageAspect = imageResolution.x / max(imageResolution.y, 1.0);
-        vec2 scale = vec2(1.0);
-        vec2 offset = vec2(0.0);
-
-        if (screenAspect > imageAspect) {
-          scale.y = imageAspect / screenAspect;
-          offset.y = (1.0 - u_objectPosition.y) * (1.0 - scale.y);
-        } else {
-          scale.x = screenAspect / imageAspect;
-          offset.x = u_objectPosition.x * (1.0 - scale.x);
-        }
-
-        return uv * scale + offset;
-      }
-
-      vec4 blendedTexture(vec2 uv) {
-        vec4 baseSample = texture2D(
-          u_texture,
-          coverUvFor(uv, u_imageResolution)
-        );
-        vec4 hoverSample = texture2D(
-          u_hoverTexture,
-          coverUvFor(uv, u_hoverImageResolution)
-        );
-        return mix(baseSample, hoverSample, u_hoverMix);
-      }
-
-      void main() {
-        vec2 uv = gl_FragCoord.xy / u_resolution;
-        float aspect = u_resolution.x / max(u_resolution.y, 1.0);
-
-        vec2 delta = uv - u_mouse;
-        float x = delta.x * aspect;
-        float y = delta.y;
-
-        /*
-          A flowing wave band instead of radial distance. The cursor becomes
-          the origin of a soft horizontal water sheet that bends and trails.
-        */
-        float velocityTilt = clamp(
-          u_velocity.y * 0.075 - u_velocity.x * 0.035,
-          -0.10,
-          0.10
-        );
-
-        float wavePath =
-          y - velocityTilt * x
-          + sin(x * 9.0 - u_time * 1.55) * 0.018
-          + sin(x * 17.0 + u_time * 1.10) * 0.008;
-
-        float bandDistance = abs(wavePath);
-        float verticalEnvelope = 1.0 - smoothstep(0.035, 0.255, bandDistance);
-        float horizontalEnvelope = 1.0 - smoothstep(0.14, 0.92, abs(x));
-        float envelope = verticalEnvelope * horizontalEnvelope;
-        envelope = envelope * envelope * (3.0 - 2.0 * envelope);
-
-        /* Parallel travelling crests create a water-sheet / wake feel. */
-        float phaseA = x * 33.0 - u_time * 7.4 + y * 7.0;
-        float phaseB = x * 57.0 + u_time * 4.2 - y * 11.0 + 1.35;
-        float phaseC = x * 18.0 - u_time * 2.45
-          + sin(y * 24.0 + u_time * 1.2) * 1.4;
-
-        float waveA = sin(phaseA);
-        float waveB = sin(phaseB);
-        float waveC = sin(phaseC);
-
-        float strength = u_strength * u_amount;
-        vec2 distortion = vec2(0.0);
-
-        /* Most displacement is perpendicular to the crest, like surface water. */
-        distortion.y += (
-          waveA * 0.0110
-          + waveB * 0.0042
-          + waveC * 0.0028
-        ) * envelope * strength;
-
-        /* A smaller sideways shear stops the movement looking like a flat sine strip. */
-        distortion.x += (
-          cos(phaseA) * 0.0038
-          + cos(phaseB) * 0.0018
-        ) * envelope * strength / max(aspect, 0.7);
-
-        /* Hand momentum pushes the whole wave sheet in the drag direction. */
-        distortion += u_velocity * vec2(0.0075, 0.0115) * envelope * strength;
-
-        /* Soft trailing wake below/above the main crest, still non-circular. */
-        float wakeEnvelope =
-          (1.0 - smoothstep(0.08, 0.34, abs(y)))
-          * (1.0 - smoothstep(0.20, 0.86, abs(x)));
-        float wake = sin(y * 74.0 - u_time * 5.4 + x * 12.0);
-        distortion.y += wake * 0.0026 * wakeEnvelope * strength;
-
-        vec2 displacedUv = clamp(uv + distortion, 0.001, 0.999);
-
-        vec4 mainSample = blendedTexture(displacedUv);
-
-        /* Subtle refraction along the wave crests. */
-        vec2 chromaOffset = distortion * 0.13;
-        vec4 redSample = blendedTexture(
-          clamp(displacedUv + chromaOffset, 0.001, 0.999)
-        );
-        vec4 blueSample = blendedTexture(
-          clamp(displacedUv - chromaOffset, 0.001, 0.999)
-        );
-
-        vec3 refracted = vec3(
-          redSample.r,
-          mainSample.g,
-          blueSample.b
-        );
-
-        float chromaMix = envelope * u_amount * 0.105;
-        vec3 color = mix(mainSample.rgb, refracted, chromaMix);
-
-        /* Long highlights run with the crest instead of drawing a circular ring. */
-        float caustic = (
-          waveA * 0.58
-          + waveB * 0.27
-          + wake * 0.15
-        ) * envelope * u_amount * 0.016;
-        color += caustic;
-
-        gl_FragColor = vec4(color, mainSample.a);
-      }
-    `;
-
-    const compileShader = (type, source) => {
-      const shader = gl.createShader(type);
-      gl.shaderSource(shader, source);
-      gl.compileShader(shader);
-
-      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-        gl.deleteShader(shader);
-        return null;
-      }
-
-      return shader;
-    };
-
-    const vertexShader = compileShader(gl.VERTEX_SHADER, vertexSource);
-    const fragmentShader = compileShader(gl.FRAGMENT_SHADER, fragmentSource);
-
-    if (!vertexShader || !fragmentShader) return undefined;
-
-    const program = gl.createProgram();
-    gl.attachShader(program, vertexShader);
-    gl.attachShader(program, fragmentShader);
-    gl.linkProgram(program);
-
-    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-      gl.deleteProgram(program);
-      gl.deleteShader(vertexShader);
-      gl.deleteShader(fragmentShader);
+    if (!mobileQuery?.matches || typeof IntersectionObserver === "undefined") {
+      setMobileAlt(false);
       return undefined;
     }
 
-    gl.useProgram(program);
+    let timerId = 0;
+    let visible = false;
 
-    const positionBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-    gl.bufferData(
-      gl.ARRAY_BUFFER,
-      new Float32Array([
-        -1, -1,
-         1, -1,
-        -1,  1,
-        -1,  1,
-         1, -1,
-         1,  1,
-      ]),
-      gl.STATIC_DRAW
-    );
-
-    const positionLocation = gl.getAttribLocation(program, "a_position");
-    gl.enableVertexAttribArray(positionLocation);
-    gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
-
-    const uniforms = {
-      texture: gl.getUniformLocation(program, "u_texture"),
-      hoverTexture: gl.getUniformLocation(program, "u_hoverTexture"),
-      resolution: gl.getUniformLocation(program, "u_resolution"),
-      imageResolution: gl.getUniformLocation(program, "u_imageResolution"),
-      hoverImageResolution: gl.getUniformLocation(program, "u_hoverImageResolution"),
-      mouse: gl.getUniformLocation(program, "u_mouse"),
-      velocity: gl.getUniformLocation(program, "u_velocity"),
-      objectPosition: gl.getUniformLocation(program, "u_objectPosition"),
-      time: gl.getUniformLocation(program, "u_time"),
-      amount: gl.getUniformLocation(program, "u_amount"),
-      strength: gl.getUniformLocation(program, "u_strength"),
-      hoverMix: gl.getUniformLocation(program, "u_hoverMix"),
-    };
-
-    const configureTexture = (unit) => {
-      const texture = gl.createTexture();
-      gl.activeTexture(unit);
-      gl.bindTexture(gl.TEXTURE_2D, texture);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-      // Keep every sampler complete before the real image finishes decoding.
-      // This prevents a one-frame black flash on fast hover entry.
-      gl.texImage2D(
-        gl.TEXTURE_2D,
-        0,
-        gl.RGBA,
-        1,
-        1,
-        0,
-        gl.RGBA,
-        gl.UNSIGNED_BYTE,
-        new Uint8Array([0, 0, 0, 255])
-      );
-      return texture;
-    };
-
-    const texture = configureTexture(gl.TEXTURE0);
-    const hoverTexture = configureTexture(gl.TEXTURE1);
-    gl.uniform1i(uniforms.texture, 0);
-    gl.uniform1i(uniforms.hoverTexture, 1);
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-
-    let imageWidth = 1;
-    let imageHeight = 1;
-    let hoverImageWidth = 1;
-    let hoverImageHeight = 1;
-    let objectPosition = [0.5, 0.5];
-    let resizeObserver;
-    let destroyed = false;
-
-    const parsePositionPart = (value, axis) => {
-      const normalized = String(value || "").trim().toLowerCase();
-      if (!normalized) return 0.5;
-      if (normalized === "center") return 0.5;
-      if (axis === "x" && normalized === "left") return 0;
-      if (axis === "x" && normalized === "right") return 1;
-      if (axis === "y" && normalized === "top") return 0;
-      if (axis === "y" && normalized === "bottom") return 1;
-      if (normalized.endsWith("%")) {
-        const parsed = Number.parseFloat(normalized);
-        return Number.isFinite(parsed)
-          ? Math.max(0, Math.min(1, parsed / 100))
-          : 0.5;
-      }
-      return 0.5;
-    };
-
-    const readObjectPosition = () => {
-      const baseImage = layer.querySelector(".hp-fluid-image-base");
-      if (!baseImage) return;
-
-      const computed = window.getComputedStyle(baseImage);
-      const raw = computed.objectPosition || "50% 50%";
-      const parts = raw.split(/\s+/).filter(Boolean);
-      const xPart = parts[0] || "50%";
-      const yPart = parts[1] || "50%";
-
-      objectPosition = [
-        parsePositionPart(xPart, "x"),
-        parsePositionPart(yPart, "y"),
-      ];
-    };
-
-    const resizeCanvas = () => {
-      const rect = host.getBoundingClientRect();
-      rectRef.current = rect;
-
-      const width = Math.max(1, rect.width);
-      const height = Math.max(1, rect.height);
-      const dpr = Math.min(window.devicePixelRatio || 1, coarsePointer ? 1 : 1.2);
-      const quality = coarsePointer
-        ? (width >= 800 ? 0.60 : 0.66)
-        : width >= 1600
-          ? 0.68
-          : width >= 1100
-            ? 0.76
-            : 0.88;
-      const nextWidth = Math.max(1, Math.round(width * dpr * quality));
-      const nextHeight = Math.max(1, Math.round(height * dpr * quality));
-
-      if (canvas.width !== nextWidth || canvas.height !== nextHeight) {
-        canvas.width = nextWidth;
-        canvas.height = nextHeight;
-        gl.viewport(0, 0, nextWidth, nextHeight);
-      }
-
-      readObjectPosition();
-    };
-
-    let baseReady = false;
-    let hoverReady = false;
-
-    const uploadTextureImage = (asset, targetTexture, textureUnit, isHover = false) => {
-      if (!asset || destroyed) return;
-
-      const width = Math.max(1, asset.naturalWidth || asset.width || 1);
-      const height = Math.max(1, asset.naturalHeight || asset.height || 1);
-
-      if (isHover) {
-        hoverImageWidth = width;
-        hoverImageHeight = height;
-      } else {
-        imageWidth = width;
-        imageHeight = height;
-      }
-
-      gl.activeTexture(textureUnit);
-      gl.bindTexture(gl.TEXTURE_2D, targetTexture);
-      gl.texImage2D(
-        gl.TEXTURE_2D,
-        0,
-        gl.RGBA,
-        gl.RGBA,
-        gl.UNSIGNED_BYTE,
-        asset
-      );
-
-      readyRef.current = baseReady;
-      resizeCanvas();
-      requestFrame();
-    };
-
-    const baseImageAsset = new Image();
-    if (/^https?:/i.test(String(src || ""))) {
-      baseImageAsset.crossOrigin = "anonymous";
-    }
-    baseImageAsset.decoding = "async";
-    baseImageAsset.onload = () => {
-      if (destroyed) return;
-      baseReady = true;
-      uploadTextureImage(baseImageAsset, texture, gl.TEXTURE0, false);
-
-      // If no alternate image exists, mirror the base texture so the shader
-      // can use one code path without any flash or incomplete texture state.
-      if (!hoverImageAsset) {
-        hoverReady = true;
-        uploadTextureImage(baseImageAsset, hoverTexture, gl.TEXTURE1, true);
-      }
-
-      /*
-        Keep the DOM image underneath until WebGL has actually painted at least
-        one valid frame. The second rAF avoids exposing an empty/old canvas on
-        fast pointer entry, which was the most obvious source of the flick.
-      */
-      requestFrame();
-      window.requestAnimationFrame(() => {
-        window.requestAnimationFrame(() => {
-          if (!destroyed && baseReady) {
-            layer.classList.add("is-fluid-ready");
-          }
-        });
-      });
-    };
-    baseImageAsset.onerror = () => {
-      readyRef.current = false;
-    };
-
-    const hoverImageAsset = hoverSrc ? new Image() : null;
-    if (hoverImageAsset) {
-      if (/^https?:/i.test(String(hoverSrc || ""))) {
-        hoverImageAsset.crossOrigin = "anonymous";
-      }
-      hoverImageAsset.decoding = "async";
-      hoverImageAsset.onload = () => {
-        if (destroyed) return;
-        hoverReady = true;
-        uploadTextureImage(hoverImageAsset, hoverTexture, gl.TEXTURE1, true);
-
-        if (coarsePointer && host.classList.contains("hp-journey-story-page")) {
-          hoverMixTargetRef.current = layer.classList.contains("is-mobile-alt") ? 1 : 0;
-          requestFrame();
-        } else if (activeRef.current) {
-          hoverMixTargetRef.current = 1;
-          requestFrame();
-        }
-      };
-      hoverImageAsset.onerror = () => {
-        hoverReady = false;
-        hoverMixTargetRef.current = 0;
-      };
-      hoverImageAsset.src = hoverSrc;
-    }
-
-    baseImageAsset.src = src;
-
-    const draw = (timestamp) => {
-      frameRef.current = 0;
-
-      if (document.hidden || destroyed) return;
-
-      const target = targetRef.current;
-      const current = currentRef.current;
-
-      /*
-        Frame-rate independent interpolation.
-        The previous per-frame percentages completed much faster on a 120 Hz
-        display than on 60 Hz, so the A/B image transition could look like a
-        sudden flash. These exponential rates are based on elapsed seconds, so
-        the timing is identical on 60 / 90 / 120 / 144 Hz screens.
-      */
-      const previousFrameTime = lastFrameTimeRef.current || timestamp;
-      const deltaSeconds = Math.min(
-        0.05,
-        Math.max(1 / 240, (timestamp - previousFrameTime) / 1000)
-      );
-      lastFrameTimeRef.current = timestamp;
-
-      const approach = (value, destination, rate) => {
-        const factor = 1 - Math.exp(-rate * deltaSeconds);
-        return value + (destination - value) * factor;
-      };
-
-      const pointerRate = activeRef.current ? 11.5 : 7.2;
-      const velocityRate = activeRef.current ? 10.0 : 6.2;
-      const amountRate = activeRef.current ? 8.0 : 5.2;
-      // ~1 second premium cross-fade, independent of monitor refresh rate.
-      const imageBlendRate = activeRef.current ? 3.25 : 3.05;
-
-      current.x = approach(current.x, target.x, pointerRate);
-      current.y = approach(current.y, target.y, pointerRate);
-      current.velocityX = approach(
-        current.velocityX,
-        target.velocityX,
-        velocityRate
-      );
-      current.velocityY = approach(
-        current.velocityY,
-        target.velocityY,
-        velocityRate
-      );
-      current.amount = approach(current.amount, target.amount, amountRate);
-      hoverMixCurrentRef.current = approach(
-        hoverMixCurrentRef.current,
-        hoverMixTargetRef.current,
-        imageBlendRate
-      );
-
-      const velocityDecayX = Math.exp(-9.0 * deltaSeconds);
-      const velocityDecayY = Math.exp(-10.5 * deltaSeconds);
-      target.velocityX *= velocityDecayX;
-      target.velocityY *= velocityDecayY;
-
-
-      if (readyRef.current) {
-        gl.useProgram(program);
-        gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, texture);
-        gl.activeTexture(gl.TEXTURE1);
-        gl.bindTexture(gl.TEXTURE_2D, hoverTexture);
-
-        gl.uniform2f(uniforms.resolution, canvas.width, canvas.height);
-        gl.uniform2f(uniforms.imageResolution, imageWidth, imageHeight);
-        gl.uniform2f(
-          uniforms.hoverImageResolution,
-          hoverImageWidth,
-          hoverImageHeight
-        );
-        gl.uniform2f(uniforms.mouse, current.x, current.y);
-        gl.uniform2f(
-          uniforms.velocity,
-          current.velocityX,
-          current.velocityY
-        );
-        gl.uniform2f(
-          uniforms.objectPosition,
-          objectPosition[0],
-          objectPosition[1]
-        );
-        gl.uniform1f(
-          uniforms.time,
-          (timestamp - startTimeRef.current) / 1000
-        );
-        gl.uniform1f(uniforms.amount, current.amount);
-        gl.uniform1f(
-          uniforms.strength,
-          Math.max(0.7, Math.min(1.7, Number(strength || 16) / 16))
-        );
-        const rawHoverMix = hoverReady
-          ? Math.max(0, Math.min(1, hoverMixCurrentRef.current))
-          : 0;
-        const smoothHoverMix =
-          rawHoverMix * rawHoverMix * (3 - 2 * rawHoverMix);
-
-        gl.uniform1f(
-          uniforms.hoverMix,
-          smoothHoverMix
-        );
-
-        gl.drawArrays(gl.TRIANGLES, 0, 6);
-      }
-
-      const stillMoving =
-        activeRef.current ||
-        current.amount > 0.012 ||
-        Math.abs(current.velocityX) > 0.002 ||
-        Math.abs(current.velocityY) > 0.002 ||
-        Math.abs(target.x - current.x) > 0.001 ||
-        Math.abs(target.y - current.y) > 0.001 ||
-        Math.abs(hoverMixTargetRef.current - hoverMixCurrentRef.current) > 0.003;
-
-      if (
-        !activeRef.current &&
-        current.amount <= 0.02 &&
-        hoverMixCurrentRef.current <= 0.015
-      ) {
-        layer.classList.remove("is-fluid-active");
-      }
-
-      if (stillMoving) {
-        frameRef.current = window.requestAnimationFrame(draw);
+    const clearTimer = () => {
+      if (timerId) {
+        window.clearTimeout(timerId);
+        timerId = 0;
       }
     };
 
-    const requestFrame = () => {
-      if (!frameRef.current && !document.hidden) {
-        frameRef.current = window.requestAnimationFrame(draw);
-      }
-    };
-
-    const updatePointer = (event, first = false) => {
-      const rect = rectRef.current;
-      if (!rect || rect.width <= 0 || rect.height <= 0) return;
-
-      const x = Math.max(
-        0,
-        Math.min(1, (event.clientX - rect.left) / rect.width)
-      );
-      const y = Math.max(
-        0,
-        Math.min(1, 1 - (event.clientY - rect.top) / rect.height)
-      );
-
-      const previous = previousPointerRef.current;
-      const dx = previous ? event.clientX - previous.x : 0;
-      const dy = previous ? event.clientY - previous.y : 0;
-
-      previousPointerRef.current = {
-        x: event.clientX,
-        y: event.clientY,
-      };
-
-      targetRef.current.x = x;
-      targetRef.current.y = y;
-      targetRef.current.velocityX = Math.max(
-        -1,
-        Math.min(1, dx / 34)
-      );
-      targetRef.current.velocityY = Math.max(
-        -1,
-        Math.min(1, -dy / 34)
-      );
-      targetRef.current.amount = 1;
-
-      if (first) {
-        currentRef.current.x = x;
-        currentRef.current.y = y;
-        currentRef.current.velocityX = 0;
-        currentRef.current.velocityY = 0;
-        currentRef.current.amount = 0.22;
-      }
-
-      requestFrame();
-    };
-
-    const activateFluid = (event, first = false) => {
-      resizeCanvas();
-      activeRef.current = true;
-      // Desktop follows pointer hover. On touch, preserve the automatic A/B
-      // journey cross-fade while the finger independently controls water motion.
-      if (!coarsePointer) {
-        hoverMixTargetRef.current = hoverReady ? 1 : 0;
-      }
-      targetRef.current.amount = 1;
-      startTimeRef.current = performance.now();
-      lastFrameTimeRef.current = performance.now();
-      layer.classList.add("is-fluid-active");
-      updatePointer(event, first);
-    };
-
-    const handleEnter = (event) => {
-      activateFluid(event, true);
-    };
-
-    const handleMove = (event) => {
-      if (!activeRef.current) {
-        activateFluid(event, true);
-        return;
-      }
-      updatePointer(event);
-    };
-
-    const handlePointerDown = (event) => {
-      if (event.pointerType === "touch" || coarsePointer) {
-        activateFluid(event, true);
-      }
-    };
-
-    const handleLeave = () => {
-      activeRef.current = false;
-      if (!coarsePointer) hoverMixTargetRef.current = 0;
-      targetRef.current.amount = 0;
-      targetRef.current.velocityX *= 0.45;
-      targetRef.current.velocityY *= 0.45;
-      previousPointerRef.current = null;
-      requestFrame();
-    };
-
-    const handlePointerUp = (event) => {
-      if (event.pointerType === "touch" || coarsePointer) {
-        handleLeave();
-      }
-    };
-
-    const handleVisibility = () => {
-      if (document.hidden) {
-        if (frameRef.current) {
-          window.cancelAnimationFrame(frameRef.current);
-          frameRef.current = 0;
-        }
-        return;
-      }
-
-      if (
-        activeRef.current ||
-        currentRef.current.amount > 0.01 ||
-        Math.abs(hoverMixTargetRef.current - hoverMixCurrentRef.current) > 0.003
-      ) {
-        requestFrame();
-      }
-    };
-
-    // Phones/tablets have no hover. For the three Journey pages, gently alternate
-    // between image A and B while that story is actually in view. This gives the
-    // same visual discovery as desktop without hijacking vertical touch scrolling.
-    const mobileAutoSwap = Boolean(
-      coarsePointer && hoverSrc && host.classList.contains("hp-journey-story-page")
-    );
-    let mobileSwapObserver;
-    let mobileSwapTimer = 0;
-    let mobileAltVisible = false;
-
-    const applyMobileAlt = (next) => {
-      mobileAltVisible = next;
-      layer.classList.toggle("is-mobile-alt", next);
-      hoverMixTargetRef.current = hoverReady && next ? 1 : 0;
-      requestFrame();
-    };
-
-    const stopMobileSwap = (reset = true) => {
-      if (mobileSwapTimer) window.clearTimeout(mobileSwapTimer);
-      mobileSwapTimer = 0;
-      if (reset) applyMobileAlt(false);
-    };
-
-    const queueMobileSwap = (delay = 1500) => {
-      if (!mobileAutoSwap) return;
-      if (mobileSwapTimer) window.clearTimeout(mobileSwapTimer);
-      mobileSwapTimer = window.setTimeout(() => {
-        applyMobileAlt(!mobileAltVisible);
-        queueMobileSwap(mobileAltVisible ? 3400 : 2800);
+    const scheduleSwap = (delay = 4200) => {
+      clearTimer();
+      if (!visible) return;
+      timerId = window.setTimeout(() => {
+        setMobileAlt((current) => !current);
+        scheduleSwap(4800);
       }, delay);
     };
 
-    if (mobileAutoSwap && window.IntersectionObserver) {
-      mobileSwapObserver = new IntersectionObserver(
-        (entries) => {
-          const entry = entries[0];
-          const visible = Boolean(entry?.isIntersecting && entry.intersectionRatio >= 0.42);
-          if (visible) {
-            queueMobileSwap(mobileAltVisible ? 3000 : 1200);
-          } else {
-            stopMobileSwap(true);
-          }
-        },
-        { threshold: [0, 0.42, 0.7] }
-      );
-      mobileSwapObserver.observe(host);
-    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        visible = Boolean(entry?.isIntersecting && entry.intersectionRatio >= 0.38);
 
-    resizeCanvas();
+        if (visible) {
+          scheduleSwap(2600);
+        } else {
+          clearTimer();
+          setMobileAlt(false);
+        }
+      },
+      { threshold: [0, 0.38, 0.7] }
+    );
 
-    if (window.ResizeObserver) {
-      resizeObserver = new ResizeObserver(resizeCanvas);
-      resizeObserver.observe(host);
-    } else {
-      window.addEventListener("resize", resizeCanvas, { passive: true });
-    }
-
-    host.addEventListener("pointerenter", handleEnter, { passive: true });
-    host.addEventListener("pointermove", handleMove, { passive: true });
-    host.addEventListener("pointerleave", handleLeave, { passive: true });
-    host.addEventListener("pointerdown", handlePointerDown, { passive: true });
-    host.addEventListener("pointerup", handlePointerUp, { passive: true });
-    host.addEventListener("pointercancel", handlePointerUp, { passive: true });
-    document.addEventListener("visibilitychange", handleVisibility);
+    observer.observe(host);
 
     return () => {
-      destroyed = true;
-      readyRef.current = false;
-      host.removeEventListener("pointerenter", handleEnter);
-      host.removeEventListener("pointermove", handleMove);
-      host.removeEventListener("pointerleave", handleLeave);
-      host.removeEventListener("pointerdown", handlePointerDown);
-      host.removeEventListener("pointerup", handlePointerUp);
-      host.removeEventListener("pointercancel", handlePointerUp);
-      document.removeEventListener("visibilitychange", handleVisibility);
-      mobileSwapObserver?.disconnect();
-      if (mobileSwapTimer) window.clearTimeout(mobileSwapTimer);
-      layer.classList.remove("is-mobile-alt", "is-fluid-active", "is-fluid-ready");
-      resizeObserver?.disconnect();
-      if (!window.ResizeObserver) {
-        window.removeEventListener("resize", resizeCanvas);
-      }
-      if (frameRef.current) {
-        window.cancelAnimationFrame(frameRef.current);
-      }
-      gl.deleteTexture(texture);
-      gl.deleteTexture(hoverTexture);
-      gl.deleteBuffer(positionBuffer);
-      gl.deleteProgram(program);
-      gl.deleteShader(vertexShader);
-      gl.deleteShader(fragmentShader);
+      visible = false;
+      clearTimer();
+      observer.disconnect();
     };
-  }, [src, hoverSrc, strength, gpuEnabled]);
+  }, [hoverSrc]);
+
+  const imageStyle = {
+    ...(style || {}),
+    transition:
+      "opacity .82s cubic-bezier(.22,1,.36,1), transform 1.1s cubic-bezier(.22,1,.36,1)",
+  };
 
   return (
     <div
       ref={layerRef}
-      className={`hp-fluid-backdrop ${hoverSrc ? "has-hover-image" : ""}`}
+      className={`hp-fluid-backdrop hp-fluid-static ${
+        hoverSrc ? "has-hover-image" : ""
+      } ${hoverReady ? "is-hover-ready" : ""} ${
+        mobileAlt ? "is-mobile-alt" : ""
+      }`}
       aria-hidden={alt ? undefined : true}
     >
       <SmartImage
@@ -7811,7 +7192,7 @@ const FluidBackdrop = ({
         loading={loading}
         fetchPriority={fetchPriority}
         decoding={decoding}
-        style={style}
+        style={imageStyle}
         className={`hp-fluid-image hp-fluid-image-base ${imageClassName}`}
       />
 
@@ -7819,25 +7200,16 @@ const FluidBackdrop = ({
         <SmartImage
           src={hoverSrc}
           alt=""
-          loading={loading === "eager" ? "eager" : "lazy"}
-          fetchPriority="low"
+          loading="eager"
+          fetchPriority={fetchPriority === "high" ? "high" : "auto"}
           decoding={decoding}
-          style={style}
+          style={imageStyle}
           className={`hp-fluid-image hp-fluid-image-hover ${imageClassName}`}
         />
       )}
-
-      <div className="hp-fluid-canvas-wrap" aria-hidden="true">
-        <canvas
-          ref={canvasRef}
-          className={`hp-fluid-canvas ${imageClassName}`}
-          style={style}
-        />
-      </div>
     </div>
   );
 };
-
 
 
 const HAMPER_ONE_EXPERIENCE_FEATURES = [
@@ -8128,22 +7500,14 @@ const HamperOneUnwrapExperience = () => {
   }, [commitPullFrame, isRepacking, opened, pullDirection]);
 
   const pullStatus = tapNudge
-    ? "Slide it — don’t tap"
+    ? "Hold the H and slide"
     : isPulling
       ? pullProgress < .40
         ? "Keep sliding"
         : pullProgress < .68
           ? "Ribbon releasing"
           : "Almost open"
-      : "Slide to unwrap";
-
-  const pullSubcopy = isPulling
-    ? pullProgress >= .68
-      ? "Keep going to release"
-      : "Left or right"
-    : tapNudge
-      ? "Drag the clasp left or right"
-      : "Drag the gold clasp";
+      : "Drag H clasp to unwrap";
 
   const releaseProgress = Math.max(0, Math.min(1, (pullProgress - .08) / .92));
   const ribbonRelease = Math.max(0, Math.min(1, (pullProgress - .04) / .96));
@@ -9632,6 +8996,142 @@ const HamperOneUnwrapExperience = () => {
             inset 0 -8px 16px rgba(91,52,6,.20) !important;
         }
 
+        /* V91 · FIRST-VISIT UNWRAP COACH
+           Make the gesture unmistakable without changing the premium gift-box interaction. */
+        @keyframes hpHamperCoachAttention {
+          0%, 100% {
+            transform: translateY(0) scale(1);
+            box-shadow: 0 9px 24px rgba(0,0,0,.26), 0 0 0 0 rgba(240,201,99,0);
+          }
+          50% {
+            transform: translateY(-2px) scale(1.025);
+            box-shadow: 0 12px 30px rgba(0,0,0,.30), 0 0 0 7px rgba(240,201,99,.07);
+          }
+        }
+
+        @keyframes hpHamperCoachGesture {
+          0%, 100% { transform: translateX(0) scaleX(1); opacity: .78; }
+          25% { transform: translateX(-5px) scaleX(1.12); opacity: 1; }
+          50% { transform: translateX(0) scaleX(1.22); opacity: 1; }
+          75% { transform: translateX(5px) scaleX(1.12); opacity: 1; }
+        }
+
+        @keyframes hpHamperCoachTrackDemo {
+          0%, 8%, 92%, 100% { left: 50%; opacity: .22; }
+          28% { left: 10%; opacity: .95; }
+          50% { left: 50%; opacity: .72; }
+          72% { left: 90%; opacity: .95; }
+        }
+
+        .hp-home-v65 .hp-hamper-pull-coach {
+          top: calc(50% + 68px);
+          width: min(88%, 340px);
+        }
+
+        .hp-home-v65 .hp-hamper-pull-coach-main {
+          min-height: 40px;
+          gap: 10px;
+          padding: 0 17px;
+          border: 1px solid rgba(250,219,126,.52);
+          background: rgba(11,8,4,.86);
+          color: #FFE38C;
+          box-shadow: 0 9px 24px rgba(0,0,0,.26), inset 0 1px 0 rgba(255,255,255,.07);
+          font-size: 13px;
+          font-weight: 900;
+          letter-spacing: .12em;
+          animation: hpHamperCoachAttention 2.2s ease-in-out infinite;
+        }
+
+        .hp-home-v65 .hp-hamper-pull-coach-gesture {
+          min-width: 24px;
+          color: #FFF1AF;
+          font-size: 19px;
+          animation: hpHamperCoachGesture 1.55s ease-in-out infinite;
+        }
+
+        .hp-home-v65 .hp-hamper-pull-coach-sub {
+          margin-top: 7px;
+          color: rgba(255,248,226,.82);
+          font-size: 9px;
+          font-weight: 700;
+          letter-spacing: .055em;
+        }
+
+        .hp-home-v65 .hp-hamper-pull-coach-track {
+          position: relative;
+          width: 156px;
+          height: 3px;
+          margin-top: 9px;
+          overflow: visible;
+          background: rgba(255,242,193,.19);
+        }
+
+        .hp-home-v65 .hp-hamper-pull-coach-track::after {
+          content: "";
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: 8px;
+          height: 8px;
+          border-radius: 999px;
+          background: #F6D66F;
+          box-shadow: 0 0 0 4px rgba(246,214,111,.10), 0 0 15px rgba(246,214,111,.58);
+          transform: translate(-50%,-50%);
+          animation: hpHamperCoachTrackDemo 2.35s ease-in-out infinite;
+        }
+
+        .hp-home-v65 .hp-hamper-one-visual.is-pulling .hp-hamper-pull-coach-main,
+        .hp-home-v65 .hp-hamper-one-visual.is-tap-nudge .hp-hamper-pull-coach-main {
+          animation: none;
+        }
+
+        .hp-home-v65 .hp-hamper-one-visual.is-pulling .hp-hamper-pull-coach-gesture,
+        .hp-home-v65 .hp-hamper-one-visual.is-tap-nudge .hp-hamper-pull-coach-gesture,
+        .hp-home-v65 .hp-hamper-one-visual.is-pulling .hp-hamper-pull-coach-track::after,
+        .hp-home-v65 .hp-hamper-one-visual.is-tap-nudge .hp-hamper-pull-coach-track::after {
+          animation: none;
+        }
+
+        /* Stronger automatic physical hint: the clasp visibly demonstrates the direction. */
+        @keyframes hpHamperClaspIdleHintV91 {
+          0%, 54%, 100% { transform: translate(-50%,-50%) translateX(0) rotate(0deg); }
+          62% { transform: translate(-50%,-50%) translateX(15px) rotate(2deg); }
+          70% { transform: translate(-50%,-50%) translateX(-15px) rotate(-2deg); }
+          78% { transform: translate(-50%,-50%) translateX(7px) rotate(1deg); }
+          86% { transform: translate(-50%,-50%) translateX(0) rotate(0deg); }
+        }
+
+        .hp-home-v65 .hp-hamper-one-section:not(.is-unwrapped)
+        .hp-hamper-one-visual:not(.is-pulling):not(.is-tap-nudge)
+        .hp-hamper-one-seal {
+          animation: hpHamperClaspIdleHintV91 4.4s .9s ease-in-out infinite !important;
+        }
+
+        @media (max-width: 639px) {
+          .hp-home-v65 .hp-hamper-pull-coach {
+            top: calc(50% + 61px);
+            width: min(92%, 286px);
+          }
+          .hp-home-v65 .hp-hamper-pull-coach-main {
+            min-height: 36px;
+            padding: 0 13px;
+            font-size: 11px;
+            letter-spacing: .10em;
+          }
+          .hp-home-v65 .hp-hamper-pull-coach-gesture { font-size: 17px; }
+          .hp-home-v65 .hp-hamper-pull-coach-sub { font-size: 8px; }
+          .hp-home-v65 .hp-hamper-pull-coach-track { width: 132px; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .hp-home-v65 .hp-hamper-pull-coach-main,
+          .hp-home-v65 .hp-hamper-pull-coach-gesture,
+          .hp-home-v65 .hp-hamper-pull-coach-track::after,
+          .hp-home-v65 .hp-hamper-one-section:not(.is-unwrapped) .hp-hamper-one-seal {
+            animation: none !important;
+          }
+        }
+
         /* Repack stays playful but quiet after the premium reveal. */
         .hp-home-v65 .hp-hamper-repack {
           top: 14px;
@@ -9885,8 +9385,6 @@ const HamperOneUnwrapExperience = () => {
                     <span className="hp-hamper-pull-coach-gesture" aria-hidden="true">↔</span>
                     <span>{pullStatus}</span>
                   </span>
-                  <span className="hp-hamper-pull-coach-sub">{pullSubcopy}</span>
-                  <span className="hp-hamper-pull-coach-track" aria-hidden="true"><span /></span>
                 </div>
 
                 <button
@@ -10040,29 +9538,8 @@ const LovedProductCard = ({ product, index = 0, promotion }) => {
     <article className={`hp-bestseller-card hp-gift-variant-${index % 5} group`}>
       <PromotionProductBadge promotion={promotion} />
 
-      <div className="hp-gift-wrap-layer" aria-hidden="true">
-        <span className="hp-wrap-ribbon hp-wrap-ribbon-v" />
-        <span className="hp-wrap-ribbon hp-wrap-ribbon-h" />
-        <span className="hp-wrap-ribbon hp-wrap-ribbon-diagonal" />
-
-        <span className="hp-wrap-bow">
-          <span className="hp-wrap-bow-loop hp-wrap-bow-loop-left" />
-          <span className="hp-wrap-bow-loop hp-wrap-bow-loop-right" />
-          <span className="hp-wrap-bow-knot" />
-          <span className="hp-wrap-bow-tail hp-wrap-bow-tail-left" />
-          <span className="hp-wrap-bow-tail hp-wrap-bow-tail-right" />
-        </span>
-
+      <div className="hp-gift-wrap-layer hp-gift-seal-only" aria-hidden="true">
         <span className="hp-wrap-seal">H</span>
-
-        <span className="hp-gift-corner hp-gift-corner-tl" />
-        <span className="hp-gift-corner hp-gift-corner-tr" />
-        <span className="hp-gift-corner hp-gift-corner-bl" />
-        <span className="hp-gift-corner hp-gift-corner-br" />
-
-        <span className="hp-gift-sparkle hp-gift-sparkle-a">✦</span>
-        <span className="hp-gift-sparkle hp-gift-sparkle-b">◆</span>
-        <span className="hp-gift-sparkle hp-gift-sparkle-c">✦</span>
       </div>
 
       <SignatureLink to={destination} className="hp-gift-package" aria-label={`View ${product.name}`}>
@@ -10603,9 +10080,25 @@ const CinematicHero = ({ onIntroComplete }) => {
 
   const tryPlay = useCallback(() => {
     const video = videoRef.current;
-    if (!video || !allowVideo || failed || manualPauseRef.current || document.hidden || !insideRef.current) return;
-    const promise = video.play();
-    promise?.catch(() => { setPaused(true); finish(); });
+    if (
+      !video ||
+      !allowVideo ||
+      failed ||
+      manualPauseRef.current ||
+      document.hidden ||
+      !insideRef.current
+    ) {
+      return;
+    }
+
+    const playResult = video.play();
+
+    if (playResult && typeof playResult.catch === "function") {
+      playResult.catch(() => {
+        setPaused(true);
+        finish();
+      });
+    }
   }, [allowVideo, failed, finish]);
   useEffect(() => {
     if (!ready) return undefined;
