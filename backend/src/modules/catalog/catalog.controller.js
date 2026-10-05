@@ -2235,7 +2235,7 @@ const logProductMasterMemory = (stage, filename = "") => {
 
 
 /*
- * STREAM-DIRECT V5 WORKBOOK STRATEGY
+ * STREAM-DIRECT V6 WORKBOOK STRATEGY
  * ----------------------------------
  * The live procurement workbook is a Google-Sheets-exported XLSX with many
  * large operational sheets and thousands of prefilled formula rows. Parsing
@@ -2243,7 +2243,7 @@ const logProductMasterMemory = (stage, filename = "") => {
  * the connection. The earlier compact-stream attempt also copied formula-only
  * rows, which made the compact workbook much larger than necessary.
  *
- * V5 reads the ORIGINAL XLSX with ExcelJS's streaming reader, resolves cached
+ * V6 reads the ORIGINAL XLSX with ExcelJS's streaming reader, resolves cached
  * formula results, keeps only catalogue-related sheets, and drops rows that do
  * not contain real data. It then creates a tiny in-memory XLSX buffer and hands
  * that buffer to the existing importer. SheetJS never parses the 9 MB / 31-sheet
@@ -2277,50 +2277,13 @@ const normalizeImportSheetName = (value = "") =>
     .replace(/[^a-z0-9]+/g, "")
     .replace(/^\d+[a-z]?/, "");
 
-const PRODUCT_MASTER_STREAM_SHEET_ALIASES = [
-  ...PRODUCT_MASTER_SHEET_ALIASES,
-  ...HAMPER_MASTER_SHEET_ALIASES,
-  ...HAMPER_RECIPE_SHEET_ALIASES,
-  HAMPER_COMPOSITION_SHEET,
-  CONTAINER_SETUP_SHEET,
-  "Container Setup",
-  "Box Setup",
-  DECORATION_MASTER_SHEET,
-  "Decorations",
-];
-
-const isLikelyProductMasterImportSheet = (sheetName = "") => {
-  const normalized = normalizeImportSheetName(sheetName);
-  if (!normalized) return false;
-
-  if (
-    PRODUCT_MASTER_STREAM_SHEET_ALIASES.some(
-      (alias) => normalizeImportSheetName(alias) === normalized
-    )
-  ) {
-    return true;
-  }
-
-  return [
-    "productmaster",
-    "cataloguemaster",
-    "catalogmaster",
-    "hampermaster",
-    "hamperrecipe",
-    "hampercomposition",
-    "containersetup",
-    "boxsetup",
-    "decorationmaster",
-  ].some((token) => normalized.includes(token));
-};
-
 const excelStreamCellValue = (value) => {
   if (value === undefined || value === null) return null;
   if (value instanceof Date) return value;
   if (typeof value !== "object") return value;
 
-  // ExcelJS formula cells are { formula, result }. The downloaded Google Sheet
-  // contains cached results, which are exactly what the importer needs.
+  // ExcelJS formula cells are { formula, result }. Google-Sheets XLSX exports
+  // normally include cached results, which are the values the importer needs.
   if (Object.prototype.hasOwnProperty.call(value, "result")) {
     return excelStreamCellValue(value.result);
   }
@@ -2373,68 +2336,201 @@ const streamValuePresent = (value) =>
 const streamRowHasMeaningfulData = (values = []) =>
   values.some(streamValuePresent);
 
-const looksLikeProductMasterHeader = (values = []) => {
-  const normalized = new Set(
-    values.map((value) => normalizeMasterHeader(value)).filter(Boolean)
-  );
+const streamHeaderSet = (values = []) =>
+  new Set(values.map((value) => normalizeMasterHeader(value)).filter(Boolean));
 
-  const skuAliases = [
+const streamHeaderHasAny = (headers, aliases = []) =>
+  aliases.some((alias) => headers.has(normalizeMasterHeader(alias)));
+
+/*
+ * IMPORTANT: do not trust worksheetReader.name.
+ * ExcelJS 4.4 streaming can return Sheet1/Sheet2-style names (or no useful
+ * name) for valid XLSX files depending on archive order / Node runtime.
+ * Detect the catalogue sheet by its HEADER CONTENT instead. This makes the
+ * import work for both the real procurement workbook and the dummy catalogue
+ * even when streaming sheet names are wrong.
+ */
+const detectStreamSheetRole = (values = []) => {
+  const headers = streamHeaderSet(values);
+  if (headers.size === 0) return null;
+
+  const hasHamperCode = streamHeaderHasAny(headers, [
+    "Hamper Code",
+    "Hamper SKU",
+    "Parent Hamper SKU",
+    "Ready Made Hamper SKU",
+  ]);
+  const hasHamperName = streamHeaderHasAny(headers, [
+    "Hamper Name",
+    "Name",
+  ]);
+  const hasProductSku = streamHeaderHasAny(headers, [
     "Product SKU (10 digits numeric — immutable)",
     "Product SKU",
     "SKU",
-  ].map(normalizeMasterHeader);
-  const nameAliases = ["Product Name", "Name"].map(normalizeMasterHeader);
+    "Item SKU",
+    "Child SKU",
+    "Component SKU",
+    "Container SKU",
+  ]);
+  const hasProductName = streamHeaderHasAny(headers, [
+    "Product Name",
+    "Name",
+    "Item Name",
+  ]);
+  const hasQty = streamHeaderHasAny(headers, ["Qty", "Quantity"]);
+  const hasRecipeRole = streamHeaderHasAny(headers, [
+    "Component Type",
+    "Role",
+    "Item Role",
+  ]);
+  const hasProductType = streamHeaderHasAny(headers, [
+    "Product Type",
+    "Record Type",
+    "Category",
+  ]);
+  const hasProductMasterIdentity = streamHeaderHasAny(headers, [
+    "Status",
+    "Brand Name",
+    "Category Code (3 digits)",
+    "Target Sell Price",
+    "Hamper Use",
+    "Product Priority",
+  ]);
 
-  return (
-    skuAliases.some((key) => normalized.has(key)) &&
-    nameAliases.some((key) => normalized.has(key))
-  );
+  // Recipe / BOM must be checked before Product Master because the real recipe
+  // also contains Product SKU + Product Name columns.
+  if (hasHamperCode && hasProductSku && (hasQty || hasRecipeRole)) {
+    return "hamper_recipe";
+  }
+
+  if (hasHamperCode && hasHamperName) {
+    return "hamper_master";
+  }
+
+  if (
+    streamHeaderHasAny(headers, ["Container SKU"]) &&
+    streamHeaderHasAny(headers, ["Container Name"]) &&
+    streamHeaderHasAny(headers, [
+      "True Inner L cm",
+      "True Inner Length cm",
+      "Inner L cm",
+      "Max Content Weight kg",
+      "Max Safe Load kg",
+    ])
+  ) {
+    return "container_setup";
+  }
+
+  if (
+    streamHeaderHasAny(headers, ["Decoration SKU"]) &&
+    streamHeaderHasAny(headers, ["Decoration Name"]) &&
+    streamHeaderHasAny(headers, ["Decoration Type", "Customer Selectable?"])
+  ) {
+    return "decoration_master";
+  }
+
+  if (
+    hasProductSku &&
+    hasProductName &&
+    hasProductType &&
+    hasProductMasterIdentity &&
+    !hasHamperCode
+  ) {
+    return "product_master";
+  }
+
+  return null;
 };
 
-const getStreamProductColumns = (values = []) => {
-  let skuIndex = -1;
-  let nameIndex = -1;
+const canonicalStreamSheetName = (role, observedName = "") => {
+  const normalizedObserved = normalizeImportSheetName(observedName);
+
+  if (role === "product_master") {
+    // Keep a trustworthy Product Master name when the stream supplied one;
+    // otherwise use the canonical name so downstream detection is deterministic.
+    if (normalizedObserved.includes("productmaster")) return observedName;
+    return PRODUCT_MASTER_SHEET;
+  }
+  if (role === "hamper_master") return PROCUREMENT_HAMPER_MASTER_SHEET;
+  if (role === "hamper_recipe") return PROCUREMENT_HAMPER_RECIPE_SHEET;
+  if (role === "container_setup") return CONTAINER_SETUP_SHEET;
+  if (role === "decoration_master") return DECORATION_MASTER_SHEET;
+  return observedName || "Sheet";
+};
+
+const getStreamRoleColumns = (role, values = []) => {
+  let primaryIndex = -1;
+  let secondaryIndex = -1;
 
   values.forEach((value, index) => {
     const normalized = normalizeMasterHeader(value);
     if (!normalized) return;
 
-    if (
-      skuIndex < 0 &&
-      [
-        "Product SKU (10 digits numeric — immutable)",
-        "Product SKU",
-        "SKU",
-      ].some((alias) => normalizeMasterHeader(alias) === normalized)
-    ) {
-      skuIndex = index;
-    }
+    const matches = (aliases) =>
+      aliases.some((alias) => normalizeMasterHeader(alias) === normalized);
 
-    if (
-      nameIndex < 0 &&
-      ["Product Name", "Name"].some(
-        (alias) => normalizeMasterHeader(alias) === normalized
-      )
-    ) {
-      nameIndex = index;
+    if (role === "product_master") {
+      if (
+        primaryIndex < 0 &&
+        matches(["Product SKU (10 digits numeric — immutable)", "Product SKU", "SKU"])
+      ) {
+        primaryIndex = index;
+      }
+      if (secondaryIndex < 0 && matches(["Product Name", "Name"])) {
+        secondaryIndex = index;
+      }
+    } else if (role === "hamper_master") {
+      if (primaryIndex < 0 && matches(["Hamper Code", "Hamper SKU", "Product SKU"])) {
+        primaryIndex = index;
+      }
+      if (secondaryIndex < 0 && matches(["Hamper Name", "Product Name", "Name"])) {
+        secondaryIndex = index;
+      }
+    } else if (role === "hamper_recipe") {
+      if (
+        primaryIndex < 0 &&
+        matches([
+          "Hamper Code",
+          "Hamper SKU",
+          "Parent Hamper SKU",
+          "Parent Product SKU",
+          "Ready Made Hamper SKU",
+        ])
+      ) {
+        primaryIndex = index;
+      }
+      if (
+        secondaryIndex < 0 &&
+        matches(["Product SKU", "Item SKU", "Child SKU", "Component SKU", "Container SKU"])
+      ) {
+        secondaryIndex = index;
+      }
+    } else if (role === "container_setup") {
+      if (primaryIndex < 0 && matches(["Container SKU"])) primaryIndex = index;
+      if (secondaryIndex < 0 && matches(["Container Name"])) secondaryIndex = index;
+    } else if (role === "decoration_master") {
+      if (primaryIndex < 0 && matches(["Decoration SKU"])) primaryIndex = index;
+      if (secondaryIndex < 0 && matches(["Decoration Name"])) secondaryIndex = index;
     }
   });
 
-  return { skuIndex, nameIndex };
+  return { primaryIndex, secondaryIndex };
 };
 
-const isRealStreamProductDataRow = (values, columns) => {
-  const name = columns.nameIndex >= 0 ? values[columns.nameIndex] : null;
-  const sku = columns.skuIndex >= 0 ? values[columns.skuIndex] : null;
-  return streamValuePresent(name) || streamValuePresent(sku);
+const isRealStreamRoleDataRow = (values, columns) => {
+  const primary =
+    columns.primaryIndex >= 0 ? values[columns.primaryIndex] : null;
+  const secondary =
+    columns.secondaryIndex >= 0 ? values[columns.secondaryIndex] : null;
+  return streamValuePresent(primary) || streamValuePresent(secondary);
 };
 
 const makeCompactSheetRows = (scanRows, headerRowNumber, dataRows) => {
   const result = [];
   const headerLimit = Math.max(1, Number(headerRowNumber || 1));
 
-  // Preserve the original leading rows so headerRow=4 in the real workbook
-  // remains headerRow=4 in logs/review messages.
+  // Preserve original leading rows so the real workbook keeps headerRow=4.
   for (let rowNumber = 1; rowNumber <= headerLimit; rowNumber += 1) {
     result.push(scanRows.get(rowNumber) || []);
   }
@@ -2444,7 +2540,8 @@ const makeCompactSheetRows = (scanRows, headerRowNumber, dataRows) => {
 };
 
 const streamCompactProductMasterBuffer = async (sourcePath, filename = "") => {
-  logProductMasterMemory("stream-v5:start", filename);
+  logProductMasterMemory("stream-v6:start", filename);
+  console.info("[ProductMaster] parser=content-role-v6");
 
   const ExcelJS = await loadExcelJS();
   const workbookReader = new ExcelJS.stream.xlsx.WorkbookReader(sourcePath, {
@@ -2456,18 +2553,22 @@ const streamCompactProductMasterBuffer = async (sourcePath, filename = "") => {
   });
 
   const compactSheets = [];
+  const capturedRoles = new Set();
   let totalRowsKept = 0;
+  let worksheetOrdinal = 0;
 
   for await (const worksheetReader of workbookReader) {
-    const sheetName = String(worksheetReader?.name || "").trim();
-    if (!sheetName) continue;
+    worksheetOrdinal += 1;
 
-    let selected = isLikelyProductMasterImportSheet(sheetName);
-    let isProductSheet = normalizeImportSheetName(sheetName).includes("productmaster");
+    // Never skip a worksheet merely because ExcelJS failed to resolve its name.
+    const observedName = String(worksheetReader?.name || "").trim();
+    const fallbackName = observedName || `Sheet${worksheetReader?.id || worksheetOrdinal}`;
+
     const scanRows = new Map();
     const dataRows = [];
     let headerRowNumber = null;
-    let productColumns = { skuIndex: -1, nameIndex: -1 };
+    let role = null;
+    let roleColumns = { primaryIndex: -1, secondaryIndex: -1 };
     let seenRows = 0;
 
     for await (const rowOrRows of worksheetReader) {
@@ -2487,33 +2588,31 @@ const streamCompactProductMasterBuffer = async (sourcePath, filename = "") => {
         if (rowNumber <= PRODUCT_MASTER_STREAM_SCAN_ROWS) {
           scanRows.set(rowNumber, values);
 
-          if (looksLikeProductMasterHeader(values)) {
-            selected = true;
-            isProductSheet = true;
-            headerRowNumber = rowNumber;
-            productColumns = getStreamProductColumns(values);
-            continue;
+          if (!role) {
+            const detectedRole = detectStreamSheetRole(values);
+            if (detectedRole) {
+              role = detectedRole;
+              headerRowNumber = rowNumber;
+              roleColumns = getStreamRoleColumns(role, values);
+
+              console.info(
+                `[ProductMaster] stream-v6:detected | id=${worksheetReader?.id || worksheetOrdinal} ` +
+                  `observed="${fallbackName}" role=${role} headerRow=${headerRowNumber}`
+              );
+              continue;
+            }
           }
         }
 
-        if (!selected) continue;
-
-        if (isProductSheet && headerRowNumber) {
-          if (rowNumber <= headerRowNumber) continue;
-          if (!isRealStreamProductDataRow(values, productColumns)) continue;
-        } else {
-          // For helper/recipe sheets retain only rows containing cached/text
-          // values. Formula-only prefilled blank rows are intentionally dropped.
-          if (!streamRowHasMeaningfulData(values)) continue;
-          if (rowNumber <= PRODUCT_MASTER_STREAM_SCAN_ROWS) continue;
-        }
+        if (!role || !headerRowNumber || rowNumber <= headerRowNumber) continue;
+        if (!isRealStreamRoleDataRow(values, roleColumns)) continue;
 
         dataRows.push({ rowNumber, values });
         totalRowsKept += 1;
 
         if (dataRows.length > PRODUCT_MASTER_STREAM_MAX_SHEET_ROWS) {
           const error = new Error(
-            `Sheet "${sheetName}" has too many catalogue rows to analyze safely.`
+            `Catalogue sheet "${fallbackName}" has too many rows to analyze safely.`
           );
           error.statusCode = 413;
           throw error;
@@ -2529,38 +2628,51 @@ const streamCompactProductMasterBuffer = async (sourcePath, filename = "") => {
       }
     }
 
-    if (!selected) continue;
+    if (!role || !headerRowNumber || capturedRoles.has(role)) continue;
 
-    // For named helper sheets, keep their meaningful scan rows as well. Product
-    // Master uses a special compact layout preserving rows 1..headerRow.
-    let compactRows;
-    if (isProductSheet && headerRowNumber) {
-      compactRows = makeCompactSheetRows(scanRows, headerRowNumber, dataRows);
-    } else {
-      compactRows = [];
-      for (let rowNumber = 1; rowNumber <= PRODUCT_MASTER_STREAM_SCAN_ROWS; rowNumber += 1) {
-        const values = scanRows.get(rowNumber);
-        if (values && streamRowHasMeaningfulData(values)) compactRows.push(values);
-      }
-      for (const entry of dataRows) compactRows.push(entry.values);
-    }
+    const compactRows = makeCompactSheetRows(
+      scanRows,
+      headerRowNumber,
+      dataRows
+    );
+    if (compactRows.length === 0) continue;
 
-    if (compactRows.length > 0) {
-      compactSheets.push({ name: sheetName, rows: compactRows });
-      console.info(
-        `[ProductMaster] stream-v5:sheet (${sheetName}) | ` +
-          `headerRow=${headerRowNumber || "n/a"} dataRows=${dataRows.length} compactRows=${compactRows.length}`
-      );
-    }
+    const outputName = canonicalStreamSheetName(role, fallbackName);
+    compactSheets.push({
+      role,
+      name: outputName,
+      observedName: fallbackName,
+      rows: compactRows,
+    });
+    capturedRoles.add(role);
+
+    console.info(
+      `[ProductMaster] stream-v6:sheet | role=${role} observed="${fallbackName}" ` +
+        `output="${outputName}" headerRow=${headerRowNumber} ` +
+        `dataRows=${dataRows.length} compactRows=${compactRows.length}`
+    );
   }
 
-  const productSheet = compactSheets.find((sheet) =>
-    normalizeImportSheetName(sheet.name).includes("productmaster")
+  const productSheet = compactSheets.find(
+    (sheet) => sheet.role === "product_master"
   );
 
   if (!productSheet) {
+    const observed = compactSheets
+      .map((sheet) => `${sheet.role}:${sheet.observedName}`)
+      .join(", ");
     const error = new Error(
-      'Unable to locate a Product Master sheet. Supported examples: "Product Master" and "02 Product Master".'
+      "Product Master data was not detected by header content. " +
+        "Expected a header containing Product SKU, Product Name and Product Type/Category. " +
+        (observed ? `Detected catalogue sheets: ${observed}.` : "No catalogue header signatures were detected.")
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (productSheet.rows.length <= 4) {
+    const error = new Error(
+      "Product Master header was detected, but no usable Product SKU/Product Name rows were read."
     );
     error.statusCode = 400;
     throw error;
@@ -2589,10 +2701,11 @@ const streamCompactProductMasterBuffer = async (sourcePath, filename = "") => {
   compactSheets.length = 0;
 
   console.info(
-    `[ProductMaster] stream-v5:compact-ready (${filename || "workbook"}) | ` +
-      `dataRows=${totalRowsKept} sizeKB=${Math.round(compactBuffer.length / 1024)}`
+    `[ProductMaster] stream-v6:compact-ready (${filename || "workbook"}) | ` +
+      `dataRows=${totalRowsKept} sheets=${selectedSheetNames.join(", ")} ` +
+      `sizeKB=${Math.round(compactBuffer.length / 1024)}`
   );
-  logProductMasterMemory("stream-v5:compact-ready", filename);
+  logProductMasterMemory("stream-v6:compact-ready", filename);
 
   return { compactBuffer, selectedSheetNames };
 };
@@ -2626,7 +2739,7 @@ const analyzeUploadedProductMaster = async (
       preselectedSheetNames: selectedSheetNames,
     });
 
-    logProductMasterMemory("stream-v5:complete", filename);
+    logProductMasterMemory("stream-v6:complete", filename);
     return analysis;
   }
 
