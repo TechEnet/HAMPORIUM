@@ -734,7 +734,7 @@ const Gifts = () => {
         {`
           /* ==================================================
              HAMPORIUM · DESIGNER GIFT-WRAP CATALOGUE CARDS
-             Whole catalogue card reads like a premium wrapped gift.
+             Premium catalogue card keeps its existing colour treatment and bow; outer pipe bands are removed.
              ProductCard itself remains untouched, so its existing
              navigation, analytics, reviews and price logic are preserved.
           ================================================== */
@@ -887,52 +887,7 @@ const Gifts = () => {
               inset 0 1px 0 rgba(255,255,255,.96);
           }
 
-          /* Satin bands sit on the OUTER package, not on product image */
-          .hp-catalogue-wrap-ribbon-v,
-          .hp-catalogue-wrap-ribbon-h {
-            position: absolute;
-            z-index: 2;
-            pointer-events: none;
-            display: block;
-            border: 1px solid rgba(255,239,180,.28);
-            background:
-              linear-gradient(
-                90deg,
-                #81520D 0%,
-                #C79330 22%,
-                #F0D57E 49%,
-                #C28B27 76%,
-                #754809 100%
-              );
-            box-shadow:
-              inset 0 1px 0 rgba(255,255,255,.30),
-              0 4px 12px rgba(55,35,6,.14);
-            opacity: .88;
-          }
-
-          .hp-catalogue-wrap-ribbon-v {
-            top: 0;
-            bottom: 0;
-            left: 26px;
-            width: 8px;
-          }
-
-          .hp-catalogue-wrap-ribbon-h {
-            left: 0;
-            right: 0;
-            top: 26px;
-            height: 8px;
-            background:
-              linear-gradient(
-                180deg,
-                #81520D 0%,
-                #C79330 22%,
-                #F0D57E 49%,
-                #C28B27 76%,
-                #754809 100%
-              );
-          }
-
+          /* Existing couture bow retained; outer pipe/ribbon bands removed. */
           /* Small couture bow at package corner */
           .hp-catalogue-bow {
             position: absolute;
@@ -1112,16 +1067,6 @@ const Gifts = () => {
             .hp-catalogue-gift-inner {
               border-radius: 15px;
               padding: 8px;
-            }
-
-            .hp-catalogue-wrap-ribbon-v {
-              left: 20px;
-              width: 7px;
-            }
-
-            .hp-catalogue-wrap-ribbon-h {
-              top: 20px;
-              height: 7px;
             }
 
             .hp-catalogue-bow {
@@ -1882,16 +1827,6 @@ const Gifts = () => {
               -webkit-backdrop-filter:none;
             }
 
-            .hp-catalogue-wrap-ribbon-v {
-              left:12px;
-              width:4px;
-            }
-
-            .hp-catalogue-wrap-ribbon-h {
-              top:12px;
-              height:4px;
-            }
-
             .hp-catalogue-bow {
               top:4px;
               left:4px;
@@ -1932,14 +1867,116 @@ const Gifts = () => {
               bottom:5px;
             }
 
+            /* Mobile readability: never enlarge the child beyond the card.
+               The previous 113.64% + zoom trick pushed ProductCard text
+               outside the inner panel and clipped it on the sides. */
             .hp-catalogue-gift-inner > * {
+              width:100%;
+              max-width:100%;
               min-width:0;
-              max-width:none;
-              width:113.64%;
-              zoom:.88;
+              zoom:1;
+            }
+
+            .hp-catalogue-gift-inner,
+            .hp-catalogue-gift-inner * {
+              box-sizing:border-box;
+            }
+
+            .hp-catalogue-gift-inner a,
+            .hp-catalogue-gift-inner article,
+            .hp-catalogue-gift-inner div {
+              min-width:0;
+              max-width:100%;
+            }
+
+            /* ==================================================
+               V3 · MOBILE CARD TYPOGRAPHY / NO OVERLAP
+               ProductCard uses line-clamp utilities internally.
+               On narrow cards, changing only overflow made the hidden
+               3rd line visible while the clamp still reserved 2 lines,
+               which caused the title to sit on top of the description.
+               Remove the clamp itself and let the content take natural height.
+            ================================================== */
+            .hp-catalogue-gift-inner h1,
+            .hp-catalogue-gift-inner h2,
+            .hp-catalogue-gift-inner h3,
+            .hp-catalogue-gift-inner h4,
+            .hp-catalogue-gift-inner p {
+              max-width:100%;
+              white-space:normal !important;
+              overflow-wrap:anywhere;
+              word-break:normal;
+            }
+
+            .hp-catalogue-gift-inner .truncate,
+            .hp-catalogue-gift-inner [class*="line-clamp"] {
+              white-space:normal !important;
+              overflow:visible !important;
+              text-overflow:clip !important;
+              display:block !important;
+              -webkit-box-orient:initial !important;
+              -webkit-line-clamp:unset !important;
+              line-clamp:unset !important;
+              max-height:none !important;
+              height:auto !important;
+            }
+
+            /* Let heading rows grow naturally even if ProductCard reserves
+               a desktop title slot internally. */
+            .hp-catalogue-gift-inner h1,
+            .hp-catalogue-gift-inner h2,
+            .hp-catalogue-gift-inner h3,
+            .hp-catalogue-gift-inner h4 {
+              display:block !important;
+              height:auto !important;
+              min-height:0 !important;
+              max-height:none !important;
+              overflow:visible !important;
+              margin-bottom:8px !important;
+              font-size:clamp(22px,5.2vw,28px) !important;
+              font-weight:700 !important;
+              line-height:1.02 !important;
+              letter-spacing:-.022em !important;
+              text-wrap:balance;
+            }
+
+            .hp-catalogue-gift-inner :is(div,a):has(> h1),
+            .hp-catalogue-gift-inner :is(div,a):has(> h2),
+            .hp-catalogue-gift-inner :is(div,a):has(> h3),
+            .hp-catalogue-gift-inner :is(div,a):has(> h4) {
+              height:auto !important;
+              min-height:0 !important;
+              max-height:none !important;
+              overflow:visible !important;
+            }
+
+            /* Description/body copy gets its own breathing room below title. */
+            .hp-catalogue-gift-inner h1 + p,
+            .hp-catalogue-gift-inner h2 + p,
+            .hp-catalogue-gift-inner h3 + p,
+            .hp-catalogue-gift-inner h4 + p {
+              position:static !important;
+              margin-top:6px !important;
+              margin-bottom:10px !important;
+              font-size:12px !important;
+              font-weight:500 !important;
+              line-height:1.45 !important;
+              color:rgba(23,23,23,.56) !important;
+            }
+
+            /* Improve legibility without changing the existing card palette. */
+            .hp-catalogue-gift-inner {
+              -webkit-font-smoothing:antialiased;
+              text-rendering:optimizeLegibility;
+            }
+
+            .hp-catalogue-gift-inner p {
+              line-height:1.45;
             }
 
             .hp-catalogue-gift-inner img {
+              width:100%;
+              max-width:100%;
               max-height:118px;
               object-fit:cover;
             }
@@ -1957,8 +1994,31 @@ const Gifts = () => {
             }
 
             .hp-catalogue-gift-inner > * {
-              width:117.65%;
-              zoom:.85;
+              width:100%;
+              max-width:100%;
+              min-width:0;
+              zoom:1;
+            }
+
+            .hp-catalogue-gift-inner h1,
+            .hp-catalogue-gift-inner h2,
+            .hp-catalogue-gift-inner h3,
+            .hp-catalogue-gift-inner h4 {
+              font-size:clamp(20px,5.8vw,23px) !important;
+              line-height:1.04 !important;
+              margin-bottom:7px !important;
+            }
+
+            .hp-catalogue-gift-inner h1 + p,
+            .hp-catalogue-gift-inner h2 + p,
+            .hp-catalogue-gift-inner h3 + p,
+            .hp-catalogue-gift-inner h4 + p {
+              font-size:11px !important;
+              line-height:1.4 !important;
+            }
+
+            .hp-catalogue-gift-inner p {
+              line-height:1.45;
             }
 
             .hp-catalogue-gift-inner img {
@@ -2170,16 +2230,6 @@ const Gifts = () => {
                           }
                           className={`hp-catalogue-gift hp-catalogue-gift--${wrapVariant}`}
                         >
-                          <span
-                            className="hp-catalogue-wrap-ribbon-v"
-                            aria-hidden="true"
-                          />
-
-                          <span
-                            className="hp-catalogue-wrap-ribbon-h"
-                            aria-hidden="true"
-                          />
-
                           <span
                             className="hp-catalogue-bow"
                             aria-hidden="true"
@@ -2777,9 +2827,6 @@ const ActiveFilters = ({
 
 const ProductSkeleton = () => (
   <div className="relative overflow-hidden rounded-[26px] border border-[#D7BE8A]/35 bg-gradient-to-br from-[#FFF9EF] to-[#E9DCC7] p-3 shadow-[0_18px_42px_rgba(38,28,16,.08)]">
-    <span className="absolute left-6 top-0 bottom-0 w-2 bg-[#D4AF37]/25" />
-    <span className="absolute left-0 right-0 top-6 h-2 bg-[#D4AF37]/25" />
-
     <div className="relative z-10 overflow-hidden rounded-[18px] border border-white/70 bg-white/75 p-2">
       <div className="aspect-[16/10] animate-pulse rounded-[14px] bg-black/[0.07]" />
 
