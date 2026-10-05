@@ -121,87 +121,106 @@ const excelUpload = multer({
   },
 });
 
-let activeProductMasterRequest = null;
-const PRODUCT_MASTER_REQUEST_MAX_MS = 2 * 60 * 1000;
+let activeProductMasterOperation = null;
+const PRODUCT_MASTER_OPERATION_MAX_MS = 3 * 60 * 1000;
 
-const productMasterRequestGuard = (req, res, next) => {
+/*
+ * V8 concurrency guard
+ * --------------------
+ * The old V7 guard kept the lock until the HTTP response emitted `finish` / `close`.
+ * On Render/proxy connections that lifecycle can lag behind the controller work,
+ * so a perfectly valid Analyze -> Confirm sequence could hit a false 429.
+ *
+ * V8 owns the lock around the controller promise itself. The lock is released in
+ * `finally` as soon as preview/import processing returns (or errors), before the
+ * browser can start the next step. A stale-timeout remains only as a safety net.
+ */
+const releaseStaleProductMasterOperation = (now = Date.now()) => {
+  if (!activeProductMasterOperation) return;
+
+  const ageMs = now - activeProductMasterOperation.startedAt;
+  if (ageMs < PRODUCT_MASTER_OPERATION_MAX_MS) return;
+
+  console.warn(
+    `[ProductMaster] operation-lock:stale-release ` +
+      `type=${activeProductMasterOperation.type} age=${Math.round(ageMs / 1000)}s`
+  );
+
+  activeProductMasterOperation = null;
+};
+
+const runProductMasterExclusive = (type, handler) => async (req, res, next) => {
   const now = Date.now();
+  releaseStaleProductMasterOperation(now);
 
-  // A browser/network reset can leave the origin request running briefly even
-  // though the client has already disconnected. Never keep a stale global lock
-  // forever. V7 parsing normally finishes in seconds, so two minutes is a very
-  // conservative dead-lock ceiling.
-  if (activeProductMasterRequest) {
-    const ageMs = now - activeProductMasterRequest.startedAt;
-
-    if (ageMs >= PRODUCT_MASTER_REQUEST_MAX_MS) {
-      console.warn(
-        `[ProductMaster] releasing stale request lock after ${Math.round(ageMs / 1000)}s`
-      );
-      activeProductMasterRequest.cleanup?.("stale-timeout");
-    }
-  }
-
-  if (activeProductMasterRequest) {
+  if (activeProductMasterOperation) {
     const ageSeconds = Math.max(
       1,
-      Math.round((now - activeProductMasterRequest.startedAt) / 1000)
+      Math.round((now - activeProductMasterOperation.startedAt) / 1000)
     );
 
-    res.setHeader("Retry-After", "5");
+    res.setHeader("Retry-After", "2");
     return res.status(429).json({
       success: false,
       code: "PRODUCT_MASTER_BUSY",
       message:
-        `Another Product Master analyze/import is still running (${ageSeconds}s). ` +
-        "Do not re-upload repeatedly; wait for the current request to finish.",
+        `Another Product Master ${activeProductMasterOperation.type} is genuinely still running ` +
+        `(${ageSeconds}s). Wait for it to finish and retry.`,
     });
   }
 
-  const token = Symbol("product-master-request");
-  let finished = false;
-  let timeout = null;
+  const token = Symbol(`product-master-${type}`);
+  activeProductMasterOperation = {
+    token,
+    type,
+    startedAt: now,
+  };
 
-  const cleanup = (reason = "complete") => {
-    if (finished) return;
-    finished = true;
+  console.info(`[ProductMaster] operation-lock:acquired (${type})`);
 
-    if (timeout) {
-      clearTimeout(timeout);
-      timeout = null;
+  try {
+    // asyncHandler returns the controller promise. Awaiting it means the lock is
+    // tied to actual processing, not to Render's socket/response lifecycle.
+    return await handler(req, res, next);
+  } finally {
+    if (activeProductMasterOperation?.token === token) {
+      activeProductMasterOperation = null;
+      console.info(`[ProductMaster] operation-lock:released (${type})`);
     }
+  }
+};
 
-    if (activeProductMasterRequest?.token === token) {
-      activeProductMasterRequest = null;
-    }
+const cleanupProductMasterUpload = (req, res, next) => {
+  let cleaned = false;
+
+  const cleanup = () => {
+    if (cleaned) return;
+    cleaned = true;
 
     const tempPath = req.file?.path;
-    if (tempPath) {
-      fs.promises.unlink(tempPath).catch(() => {});
-    }
+    if (!tempPath) return;
 
-    console.info(`[ProductMaster] request-lock:released (${reason})`);
+    fs.promises.unlink(tempPath).catch((error) => {
+      if (error?.code !== "ENOENT") {
+        console.warn(
+          `[ProductMaster] temp upload cleanup failed: ${error?.message || error}`
+        );
+      }
+    });
   };
 
-  activeProductMasterRequest = {
-    token,
-    startedAt: now,
-    cleanup,
-  };
-
-  timeout = setTimeout(() => cleanup("hard-timeout"), PRODUCT_MASTER_REQUEST_MAX_MS);
-  timeout.unref?.();
-
-  // finish = normal JSON response
-  // close/error = socket/proxy disconnect
-  // aborted = browser stopped/reset the upload/request
-  res.once("finish", () => cleanup("finish"));
-  res.once("close", () => cleanup("close"));
-  res.once("error", () => cleanup("response-error"));
-  req.once("aborted", () => cleanup("request-aborted"));
+  // File cleanup is independent from the concurrency lock. It is safe to wait
+  // for response/socket completion here because stale cleanup cannot block the
+  // next Analyze/Confirm operation.
+  res.once("finish", cleanup);
+  res.once("close", cleanup);
+  res.once("error", cleanup);
+  req.once("aborted", cleanup);
 
   next();
 };
+
+console.info("[ProductMaster] route-lock=handler-finally-v8");
 
 /* =========================================================
    PUBLIC
@@ -234,23 +253,23 @@ router.delete("/admin/upload-image", deleteCatalogImage);
 
 router.post(
   "/admin/import/product-master/preview",
-  productMasterRequestGuard,
   excelUpload.single("file"),
-  previewProductMasterImport
+  cleanupProductMasterUpload,
+  runProductMasterExclusive("analyze", previewProductMasterImport)
 );
 
 router.post(
   "/admin/import/product-master/confirm",
-  productMasterRequestGuard,
   excelUpload.single("file"),
-  confirmProductMasterImport
+  cleanupProductMasterUpload,
+  runProductMasterExclusive("import", confirmProductMasterImport)
 );
 
 router.post(
   "/admin/import/product-master/complete-container",
-  productMasterRequestGuard,
   excelUpload.single("file"),
-  completeProductMasterContainerReview
+  cleanupProductMasterUpload,
+  runProductMasterExclusive("container-review", completeProductMasterContainerReview)
 );
 
 /* =========================================================
