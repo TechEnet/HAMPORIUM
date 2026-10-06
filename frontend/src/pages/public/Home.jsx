@@ -1,4 +1,5 @@
 import {
+  memo,
   useCallback,
   useEffect,
   useMemo,
@@ -44,6 +45,13 @@ import bestsellerCelebrationLuxury from "../../assets/images/bestseller_celebrat
 
 const DISPLAY_FONT =
   "'Cormorant Garamond', 'Playfair Display', Georgia, serif";
+
+const HOME_PRICE_FORMATTER = new Intl.NumberFormat("en-IN", {
+  style: "currency",
+  currency: "INR",
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 2,
+});
 
 // ======================================================
 // IMAGES
@@ -529,7 +537,9 @@ const Home = () => {
   useEffect(() => () => window.clearTimeout(giftRevealTimerRef.current), []);
 
   // Real query parameters, not an invented recommendation endpoint.
-  const handleFindGift = () => {
+  // Keep this callback stable so the floating concierge and other heavy sections
+  // do not re-render just because unrelated Home state changed.
+  const handleFindGift = useCallback(() => {
     if (giftNavigatingRef.current) return;
     const occasion = GIFT_OCCASIONS.find((item) => item.id === giftOccasion);
     const budget = GIFT_BUDGETS.find((item) => item.id === giftBudget);
@@ -548,7 +558,11 @@ const Home = () => {
       giftNavigatingRef.current = false;
       setGiftRevealActive(false);
     }, reducedMotion ? 80 : 760);
-  };
+  }, [giftBudget, giftOccasion, navigate, reducedMotion]);
+
+  const handleCatalogueRetry = useCallback(() => {
+    setCatalogueAttempt((attempt) => attempt + 1);
+  }, []);
 
   const activeGiftOccasion = GIFT_OCCASIONS.find((item) => item.id === giftOccasion) || GIFT_OCCASIONS[0];
   const activeBudgetIndex = Math.max(0, GIFT_BUDGETS.findIndex((item) => item.id === giftBudget));
@@ -5892,6 +5906,27 @@ const Home = () => {
             animation-duration: 600ms !important;
           }
 
+          /* V79 · while the document is actively scrolling, pause decorative
+             infinite loops so the compositor can spend its frame budget on scroll. */
+          .hamporium-home.is-scrolling .hp-ambient-float,
+          .hamporium-home.is-scrolling .hp-soft-spin,
+          .hamporium-home.is-scrolling .hp-badge-pulse,
+          .hamporium-home.is-scrolling .hp-why-bg,
+          .hamporium-home.is-scrolling .hp-why-glow,
+          .hamporium-home.is-scrolling .hp-why-status-dot,
+          .hamporium-home.is-scrolling .hp-why-signature-line,
+          .hamporium-home.is-scrolling .hp-hamper-one-wrap-design::after,
+          .hamporium-home.is-scrolling .hp-hamper-pull-coach-main,
+          .hamporium-home.is-scrolling .hp-hamper-pull-coach-gesture,
+          .hamporium-home.is-scrolling .hp-hamper-pull-coach-track::after {
+            animation-play-state: paused !important;
+          }
+
+          .hp-home-v65 .hp-bestseller-card,
+          .hp-home-v65 .hp-bulk-step-card {
+            contain: layout paint style;
+          }
+
           @media (prefers-reduced-motion:reduce) {
             .hp-home-golden-thread-knot,
             .hp-gift-concierge-fab,
@@ -5929,7 +5964,7 @@ const Home = () => {
           <span className="hp-home-golden-thread-knot" />
         </div>
 
-        <CinematicHero onIntroComplete={finishCinematicIntro} />
+        <MemoCinematicHero onIntroComplete={finishCinematicIntro} />
 
         <PromotionAnnouncement
           promotions={websitePromotions}
@@ -6068,7 +6103,7 @@ const Home = () => {
           ))}
         </section>
 
-        <FloatingGiftConcierge
+        <MemoFloatingGiftConcierge
           giftOccasion={giftOccasion}
           setGiftOccasion={setGiftOccasion}
           giftBudget={giftBudget}
@@ -6170,7 +6205,7 @@ const Home = () => {
                           : ""
                       }`}
                     >
-                      <SmartImage
+                      <MemoSmartImage
                         src={
                           occasion.image
                         }
@@ -6367,7 +6402,7 @@ const Home = () => {
                           : ""
                       }`}
                     >
-                      <SmartImage
+                      <MemoSmartImage
                         src={
                           occasion.image
                         }
@@ -6480,7 +6515,7 @@ const Home = () => {
                             : ""
                         } relative min-h-[410px] overflow-hidden rounded-t-[999px] rounded-b-[26px] border border-[#D4AF37]/30 bg-black/34`}
                       >
-                        <SmartImage
+                        <MemoSmartImage
                           src={
                             occasion.image
                           }
@@ -6675,12 +6710,12 @@ const Home = () => {
               </div>
             </Reveal>
 
-            <BestsellerCollection
+            <MemoBestsellerCollection
               products={lovedProducts}
               promotions={websitePromotions}
               loading={loading}
               error={catalogueError}
-              onRetry={() => setCatalogueAttempt((attempt) => attempt + 1)}
+              onRetry={handleCatalogueRetry}
             />
           </div>
         </section>
@@ -6689,7 +6724,7 @@ const Home = () => {
             HAMPER ONE · SIGNATURE UNWRAP EXPERIENCE
         =================================================== */}
 
-        <HamperOneUnwrapExperience />
+        <MemoHamperOneUnwrapExperience />
 
         {/* ==================================================
             HAMPORIUM BRAND STORY · TEMPORARILY DISABLED
@@ -6904,7 +6939,7 @@ const Home = () => {
                     }`}
                   >
                     <div className="hp-bulk-step-image absolute inset-0">
-                      <SmartImage
+                      <MemoSmartImage
                         src={image}
                         alt=""
                         className="h-full w-full object-cover object-center"
@@ -7070,12 +7105,41 @@ const FluidBackdrop = ({
 }) => {
   const layerRef = useRef(null);
   const [mobileAlt, setMobileAlt] = useState(false);
+  const [hoverRequested, setHoverRequested] = useState(!hoverSrc);
   const [hoverReady, setHoverReady] = useState(!hoverSrc);
 
-  /* Preload + decode the alternate image before any visual blend begins.
-     This prevents the first hover/viewport swap from flashing or hitching. */
+  // Alternate editorial images are deliberately NOT fetched on initial page load.
+  // They begin loading only when their section is close to the viewport, preventing
+  // below-the-fold hover assets from competing with the hero, fonts and catalogue.
   useEffect(() => {
     if (!hoverSrc || typeof window === "undefined") {
+      setHoverRequested(!hoverSrc);
+      return undefined;
+    }
+
+    const node = layerRef.current;
+    if (!node || typeof IntersectionObserver === "undefined") {
+      setHoverRequested(true);
+      return undefined;
+    }
+
+    setHoverRequested(false);
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry?.isIntersecting) return;
+        setHoverRequested(true);
+        observer.disconnect();
+      },
+      { rootMargin: "900px 0px", threshold: 0.01 }
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [hoverSrc]);
+
+  /* Preload + decode the alternate image before any visual blend begins. */
+  useEffect(() => {
+    if (!hoverSrc || !hoverRequested || typeof window === "undefined") {
       setHoverReady(!hoverSrc);
       return undefined;
     }
@@ -7087,13 +7151,14 @@ const FluidBackdrop = ({
       try {
         if (typeof preload.decode === "function") await preload.decode();
       } catch {
-        /* The image is already loaded; decoding support varies by browser. */
+        /* Decoding support varies by browser; loaded pixels are still usable. */
       }
 
       if (active) setHoverReady(true);
     };
 
     setHoverReady(false);
+    preload.decoding = "async";
     preload.onload = markReady;
     preload.onerror = () => {
       if (active) setHoverReady(false);
@@ -7107,10 +7172,10 @@ const FluidBackdrop = ({
       preload.onload = null;
       preload.onerror = null;
     };
-  }, [hoverSrc]);
+  }, [hoverRequested, hoverSrc]);
 
   useEffect(() => {
-    if (!hoverSrc || typeof window === "undefined") {
+    if (!hoverSrc || !hoverReady || typeof window === "undefined") {
       setMobileAlt(false);
       return undefined;
     }
@@ -7168,7 +7233,7 @@ const FluidBackdrop = ({
       clearTimer();
       observer.disconnect();
     };
-  }, [hoverSrc]);
+  }, [hoverReady, hoverSrc]);
 
   const imageStyle = {
     ...(style || {}),
@@ -7186,7 +7251,7 @@ const FluidBackdrop = ({
       }`}
       aria-hidden={alt ? undefined : true}
     >
-      <SmartImage
+      <MemoSmartImage
         src={src}
         alt={alt}
         loading={loading}
@@ -7196,8 +7261,8 @@ const FluidBackdrop = ({
         className={`hp-fluid-image hp-fluid-image-base ${imageClassName}`}
       />
 
-      {hoverSrc && (
-        <SmartImage
+      {hoverSrc && hoverRequested && (
+        <MemoSmartImage
           src={hoverSrc}
           alt=""
           loading="eager"
@@ -7265,9 +7330,7 @@ const HamperOneExperienceIcon = ({ type }) => {
 
 const HamperOneUnwrapExperience = () => {
   const [opened, setOpened] = useState(false);
-  const [pullProgress, setPullProgress] = useState(0);
-  const [pullDirection, setPullDirection] = useState(1);
-  const [pullX, setPullX] = useState(0);
+  const [pullStage, setPullStage] = useState(0);
   const [isPulling, setIsPulling] = useState(false);
   const [isRepacking, setIsRepacking] = useState(false);
   const [tapNudge, setTapNudge] = useState(false);
@@ -7286,6 +7349,8 @@ const HamperOneUnwrapExperience = () => {
   });
   const pullFrameRef = useRef(null);
   const pendingPullRef = useRef({ progress: 0, direction: 1, x: 0 });
+  const lastPullDirectionRef = useRef(1);
+  const pullStageRef = useRef(0);
   const suppressSealClickRef = useRef(false);
   const tapNudgeTimerRef = useRef(null);
 
@@ -7296,10 +7361,59 @@ const HamperOneUnwrapExperience = () => {
 
     pullFrameRef.current = window.requestAnimationFrame(() => {
       pullFrameRef.current = null;
+
       const next = pendingPullRef.current;
-      setPullProgress(next.progress);
-      setPullDirection(next.direction);
-      setPullX(next.x);
+      const p = Math.max(0, Math.min(1, Number(next.progress) || 0));
+      const dir = Number(next.direction) < 0 ? -1 : 1;
+      const px = Number(next.x) || 0;
+      const releaseProgress = Math.max(0, Math.min(1, (p - .08) / .92));
+      const ribbonRelease = Math.max(0, Math.min(1, (p - .04) / .96));
+      const curtainTravel = releaseProgress * 48;
+      const ribbonScale = Math.max(.12, 1 - ribbonRelease * .88);
+      const ribbonOpacity = Math.max(.16, 1 - ribbonRelease * .74);
+      const verticalRibbonOpacity = Math.max(.10, 1 - ribbonRelease * .86);
+      const node = visualRef.current;
+
+      lastPullDirectionRef.current = dir;
+
+      if (node) {
+        const style = node.style;
+        style.setProperty("--hp-pull-progress", p.toFixed(4));
+        style.setProperty("--hp-pull-x", `${px.toFixed(1)}px`);
+        style.setProperty("--hp-pull-dir", String(dir));
+        style.setProperty("--hp-ribbon-release", ribbonRelease.toFixed(4));
+        style.setProperty("--hp-curtain-travel", `${curtainTravel.toFixed(2)}%`);
+        style.setProperty("--hp-reveal-filter", `brightness(${(.76 + p * .27).toFixed(3)}) saturate(${(1 + p * .11).toFixed(3)})`);
+        style.setProperty("--hp-reveal-transform", `scale(${(1.038 - p * .034).toFixed(4)})`);
+        style.setProperty("--hp-poster-opacity", String(Math.max(.14, 1 - p * .86)));
+        style.setProperty("--hp-poster-transform", `scale(${(1 - p * .010).toFixed(4)})`);
+        style.setProperty("--hp-wrap-opacity", String(Math.max(.18, 1 - p * .82)));
+        style.setProperty("--hp-wrap-transform", `translateX(${(-dir * p * 12).toFixed(1)}px) scale(${(1 - p * .018).toFixed(4)}) rotate(${(-dir * p * .55).toFixed(2)}deg)`);
+        style.setProperty("--hp-curtain-left-transform", `translateX(-${curtainTravel.toFixed(2)}%) rotate(${(-dir * releaseProgress * .22).toFixed(2)}deg)`);
+        style.setProperty("--hp-curtain-right-transform", `translateX(${curtainTravel.toFixed(2)}%) rotate(${(-dir * releaseProgress * .22).toFixed(2)}deg)`);
+        style.setProperty("--hp-ribbon-h-left-transform", `translateY(-50%) scaleX(${ribbonScale.toFixed(3)}) translateX(${(-releaseProgress * 5).toFixed(2)}%)`);
+        style.setProperty("--hp-ribbon-h-right-transform", `translateY(-50%) scaleX(${ribbonScale.toFixed(3)}) translateX(${(releaseProgress * 5).toFixed(2)}%)`);
+        style.setProperty("--hp-ribbon-h-opacity", String(ribbonOpacity));
+        style.setProperty("--hp-ribbon-v-top-transform", `translateX(-50%) translateY(-${(ribbonRelease * 108).toFixed(2)}%) rotate(${(-dir * ribbonRelease * 3.8).toFixed(2)}deg)`);
+        style.setProperty("--hp-ribbon-v-bottom-transform", `translateX(-50%) translateY(${(ribbonRelease * 108).toFixed(2)}%) rotate(${(dir * ribbonRelease * 3.8).toFixed(2)}deg)`);
+        style.setProperty("--hp-ribbon-v-opacity", String(verticalRibbonOpacity));
+        style.setProperty("--hp-tail-width", `${Math.max(0, Math.abs(px)).toFixed(1)}px`);
+        style.setProperty("--hp-tail-opacity", String(Math.min(.92, p * 1.34)));
+        style.setProperty("--hp-tail-transform", dir > 0
+          ? `translateY(-50%) rotate(${(p * 2.2).toFixed(2)}deg)`
+          : `translate(-100%,-50%) rotate(${(-p * 2.2).toFixed(2)}deg)`);
+        style.setProperty("--hp-aura-transform", `translate(-50%,-50%) translateX(${(px * .16).toFixed(1)}px) scale(${(1 + p * .28).toFixed(3)})`);
+        style.setProperty("--hp-aura-opacity", String(Math.max(.10, .72 - p * .58)));
+        style.setProperty("--hp-seal-transform", `translate(-50%,-50%) translateX(${px.toFixed(1)}px) rotate(${(dir * p * 132).toFixed(1)}deg) scale(${(1 - p * .08).toFixed(3)})`);
+      }
+
+      // Only update React when the coaching copy crosses a meaningful threshold.
+      // The physical drag itself stays entirely on the compositor.
+      const nextStage = p < .40 ? 0 : p < .68 ? 1 : 2;
+      if (pullStageRef.current !== nextStage) {
+        pullStageRef.current = nextStage;
+        setPullStage(nextStage);
+      }
     });
   }, []);
 
@@ -7348,13 +7462,13 @@ const HamperOneUnwrapExperience = () => {
       startY: event.clientY,
       moved: false,
       intent: null,
-      direction: pullDirection || 1,
+      direction: lastPullDirectionRef.current || 1,
       maxTravel,
       progress: 0,
       x: 0,
     };
 
-    commitPullFrame(0, pullDirection || 1, 0);
+    commitPullFrame(0, lastPullDirectionRef.current || 1, 0);
     setIsPulling(false);
   };
 
@@ -7462,7 +7576,7 @@ const HamperOneUnwrapExperience = () => {
 
     const width = visualRef.current?.getBoundingClientRect?.().width || 620;
     const maxTravel = Math.max(104, Math.min(286, width * (width < 520 ? .31 : .30)));
-    const direction = pullDirection || 1;
+    const direction = lastPullDirectionRef.current || 1;
 
     pullRef.current = {
       active: false,
@@ -7497,22 +7611,17 @@ const HamperOneUnwrapExperience = () => {
       setIsRepacking(false);
       suppressSealClickRef.current = false;
     }, 1180);
-  }, [commitPullFrame, isRepacking, opened, pullDirection]);
+  }, [commitPullFrame, isRepacking, opened]);
 
   const pullStatus = tapNudge
     ? "Hold the H and slide"
     : isPulling
-      ? pullProgress < .40
+      ? pullStage === 0
         ? "Keep sliding"
-        : pullProgress < .68
+        : pullStage === 1
           ? "Ribbon releasing"
           : "Almost open"
       : "Drag H clasp to unwrap";
-
-  const releaseProgress = Math.max(0, Math.min(1, (pullProgress - .08) / .92));
-  const ribbonRelease = Math.max(0, Math.min(1, (pullProgress - .04) / .96));
-  const curtainTravel = releaseProgress * 48;
-  const ribbonRetract = ribbonRelease * 88;
 
   return (
     <section
@@ -8402,6 +8511,26 @@ const HamperOneUnwrapExperience = () => {
         .hp-home-v65 .hp-hamper-one-visual {
           --hp-pull-progress: 0;
           --hp-pull-dir: 1;
+          --hp-reveal-filter: brightness(.76) saturate(1);
+          --hp-reveal-transform: scale(1.038);
+          --hp-poster-opacity: 1;
+          --hp-poster-transform: scale(1);
+          --hp-wrap-opacity: 1;
+          --hp-wrap-transform: translateX(0) scale(1) rotate(0deg);
+          --hp-curtain-left-transform: translateX(0) rotate(0deg);
+          --hp-curtain-right-transform: translateX(0) rotate(0deg);
+          --hp-ribbon-h-left-transform: translateY(-50%) scaleX(1) translateX(0);
+          --hp-ribbon-h-right-transform: translateY(-50%) scaleX(1) translateX(0);
+          --hp-ribbon-h-opacity: 1;
+          --hp-ribbon-v-top-transform: translateX(-50%) translateY(0) rotate(0deg);
+          --hp-ribbon-v-bottom-transform: translateX(-50%) translateY(0) rotate(0deg);
+          --hp-ribbon-v-opacity: 1;
+          --hp-tail-width: 0px;
+          --hp-tail-opacity: 0;
+          --hp-tail-transform: translateY(-50%) rotate(0deg);
+          --hp-aura-transform: translate(-50%,-50%) translateX(0) scale(1);
+          --hp-aura-opacity: .72;
+          --hp-seal-transform: translate(-50%,-50%) translateX(0) rotate(0deg) scale(1);
 
           /*
             V91.6 · NEVER TRAP PAGE SCROLL
@@ -8476,6 +8605,55 @@ const HamperOneUnwrapExperience = () => {
 
         .hp-home-v65 .hp-hamper-one-section.is-unwrapped .hp-hamper-pull-guide {
           opacity: 0;
+        }
+
+        /* V79 · drag-frame rendering stays in CSS/compositor variables.
+           Pointer movement no longer forces the full Hamper One React tree to reconcile. */
+        .hp-home-v65 .hp-hamper-one-section:not(.is-unwrapped) .hp-hamper-one-reveal-image {
+          filter: var(--hp-reveal-filter);
+          transform: var(--hp-reveal-transform);
+        }
+        .hp-home-v65 .hp-hamper-one-section:not(.is-unwrapped) .hp-hamper-one-poster-cover {
+          opacity: var(--hp-poster-opacity);
+          transform: var(--hp-poster-transform);
+        }
+        .hp-home-v65 .hp-hamper-one-section:not(.is-unwrapped) .hp-hamper-one-wrap-design {
+          opacity: var(--hp-wrap-opacity);
+          transform: var(--hp-wrap-transform);
+        }
+        .hp-home-v65 .hp-hamper-one-section:not(.is-unwrapped) .hp-unbox-curtain-left {
+          transform: var(--hp-curtain-left-transform);
+        }
+        .hp-home-v65 .hp-hamper-one-section:not(.is-unwrapped) .hp-unbox-curtain-right {
+          transform: var(--hp-curtain-right-transform);
+        }
+        .hp-home-v65 .hp-hamper-one-section:not(.is-unwrapped) .hp-unbox-ribbon-h-left {
+          transform: var(--hp-ribbon-h-left-transform);
+          opacity: var(--hp-ribbon-h-opacity);
+        }
+        .hp-home-v65 .hp-hamper-one-section:not(.is-unwrapped) .hp-unbox-ribbon-h-right {
+          transform: var(--hp-ribbon-h-right-transform);
+          opacity: var(--hp-ribbon-h-opacity);
+        }
+        .hp-home-v65 .hp-hamper-one-section:not(.is-unwrapped) .hp-unbox-ribbon-v-top {
+          transform: var(--hp-ribbon-v-top-transform);
+          opacity: var(--hp-ribbon-v-opacity);
+        }
+        .hp-home-v65 .hp-hamper-one-section:not(.is-unwrapped) .hp-unbox-ribbon-v-bottom {
+          transform: var(--hp-ribbon-v-bottom-transform);
+          opacity: var(--hp-ribbon-v-opacity);
+        }
+        .hp-home-v65 .hp-hamper-one-section:not(.is-unwrapped) .hp-hamper-loose-ribbon-tail {
+          width: var(--hp-tail-width);
+          opacity: var(--hp-tail-opacity);
+          transform: var(--hp-tail-transform);
+        }
+        .hp-home-v65 .hp-hamper-one-section:not(.is-unwrapped) .hp-hamper-pull-aura {
+          opacity: var(--hp-aura-opacity);
+          transform: var(--hp-aura-transform);
+        }
+        .hp-home-v65 .hp-hamper-one-section:not(.is-unwrapped) .hp-hamper-one-seal {
+          transform: var(--hp-seal-transform);
         }
 
         /* Horizontal ribbon is split at the knot so it visibly unthreads. */
@@ -9267,25 +9445,21 @@ const HamperOneUnwrapExperience = () => {
                   isPulling ? "is-pulling" : ""
                 } ${tapNudge ? "is-tap-nudge" : ""}`}
                 style={{
-                  "--hp-pull-progress": pullProgress,
-                  "--hp-pull-x": `${pullX}px`,
-                  "--hp-pull-dir": pullDirection,
-                  "--hp-ribbon-release": ribbonRelease,
-                  "--hp-curtain-travel": `${curtainTravel}%`,
+                  "--hp-pull-progress": 0,
+                  "--hp-pull-x": "0px",
+                  "--hp-pull-dir": 1,
+                  "--hp-ribbon-release": 0,
+                  "--hp-curtain-travel": "0%",
                 }}
               >
-                <SmartImage
+                <MemoSmartImage
                   src={hamperOneLuxury}
                   alt="HAMPER ONE revealed"
                   loading="lazy"
-                  className={`absolute inset-0 h-full w-full object-cover object-[60%_center] transition duration-[1200ms] ease-[cubic-bezier(.16,1,.3,1)] ${
+                  className={`hp-hamper-one-reveal-image absolute inset-0 h-full w-full object-cover object-[60%_center] transition duration-[1200ms] ease-[cubic-bezier(.16,1,.3,1)] ${
                     opened ? "scale-100 brightness-[1.03] saturate-[1.08]" : "scale-[1.035]"
                   }`}
-                  style={!opened ? {
-                    filter: `brightness(${(.76 + pullProgress * .27).toFixed(3)}) saturate(${(1 + pullProgress * .11).toFixed(3)})`,
-                    transform: `scale(${(1.038 - pullProgress * .034).toFixed(4)})`,
-                  } : undefined}
-                />
+                 />
 
                 <div className="absolute inset-0 bg-gradient-to-t from-black/64 via-transparent to-black/20" />
                 <div className="absolute inset-0 ring-1 ring-inset ring-white/8" />
@@ -9332,15 +9506,11 @@ const HamperOneUnwrapExperience = () => {
 
                 {/* Poster cover */}
                 <div
-                  className={`absolute inset-0 z-40 transition duration-[900ms] ${
+                  className={`hp-hamper-one-poster-cover absolute inset-0 z-40 transition duration-[900ms] ${
                     opened ? "pointer-events-none opacity-0" : "opacity-100"
                   }`}
-                  style={!opened ? {
-                    opacity: Math.max(.14, 1 - pullProgress * .86),
-                    transform: `scale(${(1 - pullProgress * .010).toFixed(4)})`,
-                  } : undefined}
-                >
-                  <SmartImage
+                 >
+                  <MemoSmartImage
                     src={bestsellerExecutiveLuxury}
                     alt="Wrapped HAMPER ONE poster"
                     loading="lazy"
@@ -9354,11 +9524,7 @@ const HamperOneUnwrapExperience = () => {
                     className={`hp-hamper-one-wrap-design pointer-events-none absolute transition duration-700 ${
                       opened ? "opacity-0" : "opacity-100"
                     }`}
-                    style={!opened ? {
-                      opacity: Math.max(.18, 1 - pullProgress * .82),
-                      transform: `translateX(${(-pullDirection * pullProgress * 12).toFixed(1)}px) scale(${(1 - pullProgress * .018).toFixed(4)}) rotate(${(-pullDirection * pullProgress * .55).toFixed(2)}deg)`,
-                    } : undefined}
-                    aria-hidden="true"
+                     aria-hidden="true"
                   >
                     <span className="hp-hamper-one-wrap-motif" />
                     <span className="hp-hamper-one-wrap-corner hp-hamper-one-wrap-corner-tl" />
@@ -9377,25 +9543,18 @@ const HamperOneUnwrapExperience = () => {
                   className={`hp-unbox-curtain hp-unbox-curtain-left absolute inset-y-0 left-0 z-50 w-1/2 border-r border-[#D4AF37]/16 transition-transform duration-[1050ms] ease-[cubic-bezier(.16,1,.3,1)] ${
                     opened ? "-translate-x-[104%]" : "translate-x-0"
                   }`}
-                  style={!opened ? {
-                    transform: `translateX(-${curtainTravel.toFixed(2)}%) rotate(${(-pullDirection * releaseProgress * .22).toFixed(2)}deg)`,
-                  } : undefined}
-                />
+                 />
 
                 <div
                   className={`hp-unbox-curtain hp-unbox-curtain-right absolute inset-y-0 right-0 z-50 w-1/2 border-l border-[#D4AF37]/16 transition-transform duration-[1050ms] ease-[cubic-bezier(.16,1,.3,1)] ${
                     opened ? "translate-x-[104%]" : "translate-x-0"
                   }`}
-                  style={!opened ? {
-                    transform: `translateX(${curtainTravel.toFixed(2)}%) rotate(${(-pullDirection * releaseProgress * .22).toFixed(2)}deg)`,
-                  } : undefined}
-                />
+                 />
 
                 {/* Clear but compact interaction coaching. It reacts to the pull instead of adding permanent copy to the wrap. */}
                 <div
                   id="hp-hamper-pull-help"
                   className="hp-hamper-pull-coach"
-                  style={{ "--hp-pull-progress": pullProgress }}
                   aria-live="polite"
                 >
                   <span className="hp-hamper-pull-coach-main">
@@ -9421,61 +9580,34 @@ const HamperOneUnwrapExperience = () => {
                 <div
                   className="hp-unbox-ribbon hp-unbox-ribbon-h hp-unbox-ribbon-h-left"
                   aria-hidden="true"
-                  style={!opened ? {
-                    transform: `translateY(-50%) scaleX(${(1 - ribbonRetract / 100).toFixed(3)}) translateX(${(-releaseProgress * 5).toFixed(2)}%)`,
-                    opacity: Math.max(.16, 1 - ribbonRelease * .74),
-                  } : undefined}
-                />
+                 />
                 <div
                   className="hp-unbox-ribbon hp-unbox-ribbon-h hp-unbox-ribbon-h-right"
                   aria-hidden="true"
-                  style={!opened ? {
-                    transform: `translateY(-50%) scaleX(${(1 - ribbonRetract / 100).toFixed(3)}) translateX(${(releaseProgress * 5).toFixed(2)}%)`,
-                    opacity: Math.max(.16, 1 - ribbonRelease * .74),
-                  } : undefined}
-                />
+                 />
 
                 {/* Vertical ribbon is genuinely untied: upper and lower halves release away from the knot. */}
                 <div
                   className="hp-unbox-ribbon hp-unbox-ribbon-v hp-unbox-ribbon-v-top"
                   aria-hidden="true"
-                  style={!opened ? {
-                    transform: `translateX(-50%) translateY(-${(ribbonRelease * 108).toFixed(2)}%) rotate(${(-pullDirection * ribbonRelease * 3.8).toFixed(2)}deg)`,
-                    opacity: Math.max(.10, 1 - ribbonRelease * .86),
-                  } : undefined}
-                />
+                 />
                 <div
                   className="hp-unbox-ribbon hp-unbox-ribbon-v hp-unbox-ribbon-v-bottom"
                   aria-hidden="true"
-                  style={!opened ? {
-                    transform: `translateX(-50%) translateY(${(ribbonRelease * 108).toFixed(2)}%) rotate(${(pullDirection * ribbonRelease * 3.8).toFixed(2)}deg)`,
-                    opacity: Math.max(.10, 1 - ribbonRelease * .86),
-                  } : undefined}
-                />
+                 />
 
                 {/* Loose satin tail visibly follows the dragged seal, so the pull feels physical. */}
                 <span
                   className="hp-unbox-ribbon hp-hamper-loose-ribbon-tail"
                   aria-hidden="true"
-                  style={!opened ? {
-                    width: `${Math.max(0, Math.abs(pullX)).toFixed(1)}px`,
-                    opacity: Math.min(.92, pullProgress * 1.34),
-                    transform: pullDirection > 0
-                      ? `translateY(-50%) rotate(${(pullProgress * 2.2).toFixed(2)}deg)`
-                      : `translate(-100%,-50%) rotate(${(-pullProgress * 2.2).toFixed(2)}deg)`,
-                  } : undefined}
-                />
+                 />
 
                 <span
                   aria-hidden="true"
                   className={`hp-hamper-pull-aura pointer-events-none absolute left-1/2 top-1/2 z-[76] h-[132px] w-[132px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#F4D36A]/18 bg-[#D4AF37]/5 transition-all duration-700 sm:h-[146px] sm:w-[146px] ${
                     opened ? "scale-50 opacity-0" : "scale-100 opacity-100"
                   }`}
-                  style={!opened ? {
-                    transform: `translate(-50%,-50%) translateX(${(pullX * .16).toFixed(1)}px) scale(${(1 + pullProgress * .28).toFixed(3)})`,
-                    opacity: Math.max(.10, .72 - pullProgress * .58),
-                  } : undefined}
-                />
+                 />
 
                 <span className="hp-hamper-pull-release-glow" aria-hidden="true" />
 
@@ -9493,10 +9625,7 @@ const HamperOneUnwrapExperience = () => {
                       ? "pointer-events-none scale-50 rotate-[28deg] opacity-0"
                       : "scale-100 rotate-0 opacity-100"
                   }`}
-                  style={!opened ? {
-                    transform: `translate(-50%,-50%) translateX(${pullX.toFixed(1)}px) rotate(${(pullDirection * pullProgress * 132).toFixed(1)}deg) scale(${(1 - pullProgress * .08).toFixed(3)})`,
-                  } : undefined}
-                >
+                 >
                   <span className="hp-hamper-knot-wing hp-hamper-knot-wing-left" aria-hidden="true" />
                   <span className="hp-hamper-knot-wing hp-hamper-knot-wing-right" aria-hidden="true" />
                   <span className="hp-hamper-clasp-grip hp-hamper-clasp-grip-left" aria-hidden="true" />
@@ -9561,7 +9690,7 @@ const LovedProductCard = ({ product, index = 0, promotion }) => {
 
       <SignatureLink to={destination} className="hp-gift-package" aria-label={`View ${product.name}`}>
         <div className="hp-gift-product-window">
-          <SmartImage
+          <MemoSmartImage
             src={product.image}
             alt={product.name}
             className="absolute inset-0 h-full w-full object-cover object-center"
@@ -9731,9 +9860,8 @@ const BulkIcon = () => (
 // ======================================================
 // SIGNATURE MOTION: LOCAL HELPERS (no animation dependency)
 // ======================================================
-const formatHomePrice = (value) => new Intl.NumberFormat("en-IN", {
-  style: "currency", currency: "INR", minimumFractionDigits: 0, maximumFractionDigits: 2,
-}).format(Number(value));
+const formatHomePrice = (value) =>
+  HOME_PRICE_FORMATTER.format(Number(value));
 
 const useMediaPreference = (query) => {
   const [matches, setMatches] = useState(() => typeof window !== "undefined" && window.matchMedia(query).matches);
@@ -9816,17 +9944,21 @@ const useHomeEnhancements = (homeRef, reducedMotion) => {
     };
 
     let scrollIdleTimer = 0;
-    const schedule = () => {
+
+    const schedulePaint = () => {
+      if (!frame && !document.hidden) {
+        frame = window.requestAnimationFrame(paint);
+      }
+    };
+
+    const scheduleScroll = () => {
       if (!root.classList.contains("is-scrolling")) root.classList.add("is-scrolling");
       if (scrollIdleTimer) window.clearTimeout(scrollIdleTimer);
       scrollIdleTimer = window.setTimeout(() => {
         root.classList.remove("is-scrolling");
         scrollIdleTimer = 0;
       }, 130);
-
-      if (!frame && !document.hidden) {
-        frame = window.requestAnimationFrame(paint);
-      }
+      schedulePaint();
     };
 
     const measure = () => {
@@ -9836,7 +9968,7 @@ const useHomeEnhancements = (homeRef, reducedMotion) => {
         (heroStage?.offsetHeight || window.innerHeight) * 0.88
       );
       lastScrollY = -1;
-      schedule();
+      schedulePaint();
     };
 
     const visibility = () => {
@@ -9848,7 +9980,7 @@ const useHomeEnhancements = (homeRef, reducedMotion) => {
     if (heroStage) resize?.observe(heroStage);
     resize?.observe(root);
 
-    window.addEventListener("scroll", schedule, { passive: true });
+    window.addEventListener("scroll", scheduleScroll, { passive: true });
     window.addEventListener("resize", measure, { passive: true });
     document.addEventListener("visibilitychange", visibility);
     measure();
@@ -10016,7 +10148,7 @@ const useHomeEnhancements = (homeRef, reducedMotion) => {
       });
 
       window.cancelAnimationFrame(frame);
-      window.removeEventListener("scroll", schedule);
+      window.removeEventListener("scroll", scheduleScroll);
       window.removeEventListener("resize", measure);
       document.removeEventListener("visibilitychange", visibility);
       [...sections, ...stories].forEach((node) => node.classList.remove("hp-offscreen"));
@@ -10200,27 +10332,47 @@ const InteractiveRail = ({ id, label, className = "", controlsClass = "", childr
     frame.current = 0;
     const node = ref.current;
     if (!node) return;
+
     const items = Array.from(node.children);
-    const rect = node.getBoundingClientRect();
-    const visible = items.map((item, index) => {
-      const r = item.getBoundingClientRect();
-      return Math.max(0, Math.min(r.right, rect.right) - Math.max(r.left, rect.left)) / Math.max(1, r.width) > 0.6 ? index : -1;
-    }).filter((index) => index >= 0);
-    const next = { start: visible.length ? visible[0] + 1 : 1, end: visible.length ? visible.at(-1) + 1 : 1,
-      total: items.length, prev: node.scrollLeft > 3, next: node.scrollWidth - node.clientWidth - node.scrollLeft > 3 };
-    setRange((old) => Object.keys(next).every((key) => old[key] === next[key]) ? old : next);
-    const center = rect.left + rect.width / 2;
+    const viewportLeft = node.scrollLeft;
+    const viewportRight = viewportLeft + node.clientWidth;
+    const viewportCenter = viewportLeft + node.clientWidth / 2;
+
+    // Read all layout geometry first. Keeping reads and writes in separate phases
+    // prevents forced synchronous layout while a rail is moving.
+    const geometry = items.map((item, index) => {
+      const width = Math.max(1, item.offsetWidth);
+      const left = item.offsetLeft;
+      const right = left + width;
+      const visibleWidth = Math.max(0, Math.min(right, viewportRight) - Math.max(left, viewportLeft));
+      const visibleRatio = visibleWidth / width;
+      const center = left + width / 2;
+      return { item, index, width, center, visibleRatio };
+    });
+
+    const visible = geometry
+      .filter((entry) => entry.visibleRatio > .6)
+      .map((entry) => entry.index);
+
+    const next = {
+      start: visible.length ? visible[0] + 1 : 1,
+      end: visible.length ? visible.at(-1) + 1 : 1,
+      total: items.length,
+      prev: node.scrollLeft > 3,
+      next: node.scrollWidth - node.clientWidth - node.scrollLeft > 3,
+    };
+
+    setRange((old) =>
+      Object.keys(next).every((key) => old[key] === next[key]) ? old : next
+    );
+
     const isJourneyRail =
       node.classList.contains("hp-journey-grid") && window.innerWidth <= 1023;
 
-    // Use the rail's REAL client width instead of 100vw for mobile geometry.
-    // This prevents scrollbar / browser-chrome width differences from making the
-    // left and right previews look uneven.
     if (isJourneyRail) {
       const railWidth = Math.max(1, node.clientWidth);
-      const cardWidth = railWidth * 0.74;
+      const cardWidth = railWidth * .74;
       const sideSpace = Math.max(0, (railWidth - cardWidth) / 2);
-
       node.style.setProperty("--hp-journey-card-width", `${cardWidth.toFixed(2)}px`);
       node.style.setProperty("--hp-journey-side-space", `${sideSpace.toFixed(2)}px`);
       node.style.setProperty("--hp-journey-gap", "14px");
@@ -10231,55 +10383,59 @@ const InteractiveRail = ({ id, label, className = "", controlsClass = "", childr
     }
 
     let nearest = null;
-    let distance = Infinity;
+    let nearestDistance = Infinity;
+    const writes = [];
 
-    items.forEach((item) => {
-      /*
-        IMPORTANT: calculate focus from the unscaled flex-box geometry.
-        getBoundingClientRect() already includes the visual scale, which caused a
-        feedback loop where the left/right gaps could look slightly different.
-      */
-      const baseWidth = Math.max(1, item.offsetWidth);
-      const layoutLeft = rect.left + item.offsetLeft - node.scrollLeft;
-      const itemCenter = layoutLeft + baseWidth / 2;
-      const d = Math.abs(itemCenter - center);
-
-      if (d < distance) {
+    geometry.forEach(({ item, width, center }) => {
+      const distance = Math.abs(center - viewportCenter);
+      if (distance < nearestDistance) {
         nearest = item;
-        distance = d;
+        nearestDistance = distance;
       }
 
-      // Mobile journey cards continuously grow as they approach the viewport center.
-      // Center card = 1.00, neighboring/off-center cards = down to 0.62.
-      if (isJourneyRail) {
-        const travel = Math.max(baseWidth * 0.96, rect.width * 0.58);
-        const progress = Math.max(0, Math.min(1, 1 - d / travel));
-        const eased = 1 - Math.pow(1 - progress, 2);
-        const scale = 0.62 + 0.38 * eased;
-        const opacity = 0.50 + 0.50 * eased;
+      if (!isJourneyRail) {
+        writes.push({ item, active: false });
+        return;
+      }
 
-        // Anchor the inner edge of each side card. With one shared gap variable,
-        // previous -> active and active -> next now keep the same visual spacing.
-        const origin =
-          itemCenter > center + 2
-            ? "left center"
-            : itemCenter < center - 2
-              ? "right center"
-              : "center center";
+      const travel = Math.max(width * .96, node.clientWidth * .58);
+      const progress = Math.max(0, Math.min(1, 1 - distance / travel));
+      const eased = 1 - Math.pow(1 - progress, 2);
+      const scale = .62 + .38 * eased;
+      const opacity = .50 + .50 * eased;
+      const origin =
+        center > viewportCenter + 2
+          ? "left center"
+          : center < viewportCenter - 2
+            ? "right center"
+            : "center center";
 
-        item.style.setProperty("--hp-journey-scroll-scale", scale.toFixed(4));
-        item.style.setProperty("--hp-journey-scroll-opacity", opacity.toFixed(4));
-        item.style.setProperty("--hp-journey-scale-origin", origin);
-        item.style.setProperty("--hp-journey-z", String(Math.max(1, Math.round(eased * 10))));
+      writes.push({
+        item,
+        active: true,
+        scale: scale.toFixed(4),
+        opacity: opacity.toFixed(4),
+        origin,
+        z: String(Math.max(1, Math.round(eased * 10))),
+      });
+    });
+
+    // DOM writes happen only after every geometry read above is complete.
+    writes.forEach((entry) => {
+      const { item } = entry;
+      if (entry.active) {
+        item.style.setProperty("--hp-journey-scroll-scale", entry.scale);
+        item.style.setProperty("--hp-journey-scroll-opacity", entry.opacity);
+        item.style.setProperty("--hp-journey-scale-origin", entry.origin);
+        item.style.setProperty("--hp-journey-z", entry.z);
       } else {
         item.style.removeProperty("--hp-journey-scroll-scale");
         item.style.removeProperty("--hp-journey-scroll-opacity");
         item.style.removeProperty("--hp-journey-scale-origin");
         item.style.removeProperty("--hp-journey-z");
       }
+      item.classList.toggle("is-mobile-active", item === nearest);
     });
-
-    items.forEach((item) => item.classList.toggle("is-mobile-active", item === nearest));
   }, []);
   const schedule = useCallback(() => { if (!frame.current) frame.current = requestAnimationFrame(measure); }, [measure]);
   useEffect(() => {
@@ -10297,7 +10453,7 @@ const InteractiveRail = ({ id, label, className = "", controlsClass = "", childr
     if (!node) return;
     const gap = parseFloat(getComputedStyle(node).columnGap) || 0;
     const child = node.firstElementChild;
-    const stride = (child?.getBoundingClientRect().width || node.clientWidth) + gap;
+    const stride = (child?.offsetWidth || node.clientWidth) + gap;
     const target = direction === "start" ? 0 : direction === "end" ? node.scrollWidth : node.scrollLeft + direction * stride;
     node.scrollTo({ left: target, behavior: reducedMotion ? "auto" : "smooth" });
   };
@@ -10334,31 +10490,51 @@ const FloatingGiftConcierge = ({
   const [step, setStep] = useState(0);
   const [recipient, setRecipient] = useState("special");
   const [visible, setVisible] = useState(false);
+  const visibilitySentinelRef = useRef(null);
 
   useEffect(() => {
-    let frame = 0;
-    const update = () => {
-      frame = 0;
-      const journey = document.querySelector('[data-home-section="journey"]');
-      const finale = document.querySelector('[data-home-section="finale"]');
-      if (!journey) return;
+    const sentinel = visibilitySentinelRef.current;
+    const finale = document.querySelector('[data-home-section="finale"]');
 
-      const journeyRect = journey.getBoundingClientRect();
-      const finaleRect = finale?.getBoundingClientRect();
-      const passedJourney = journeyRect.bottom < window.innerHeight * .82;
-      const nearFinale = finaleRect ? finaleRect.top < window.innerHeight * .72 : false;
-      setVisible(passedJourney && !nearFinale);
+    if (!sentinel || typeof IntersectionObserver === "undefined") {
+      return undefined;
+    }
+
+    const state = { passedJourney: false, nearFinale: false };
+    const sync = () => {
+      const next = state.passedJourney && !state.nearFinale;
+      setVisible((current) => (current === next ? current : next));
     };
-    const schedule = () => {
-      if (!frame) frame = window.requestAnimationFrame(update);
-    };
-    window.addEventListener("scroll", schedule, { passive: true });
-    window.addEventListener("resize", schedule, { passive: true });
-    update();
+
+    // The sentinel sits immediately after the Journey section. Crossing the
+    // top 82% viewport line matches the old scroll math without a scroll listener.
+    const startObserver = new IntersectionObserver(
+      ([entry]) => {
+        const boundary = entry?.rootBounds?.bottom ?? window.innerHeight * .82;
+        state.passedJourney = Boolean(entry && entry.boundingClientRect.top < boundary);
+        sync();
+      },
+      { rootMargin: "0px 0px -18% 0px", threshold: 0 }
+    );
+
+    startObserver.observe(sentinel);
+
+    const finaleObserver = finale
+      ? new IntersectionObserver(
+          ([entry]) => {
+            const boundary = entry?.rootBounds?.bottom ?? window.innerHeight * .72;
+            state.nearFinale = Boolean(entry && entry.boundingClientRect.top < boundary);
+            sync();
+          },
+          { rootMargin: "0px 0px -28% 0px", threshold: 0 }
+        )
+      : null;
+
+    finaleObserver?.observe(finale);
+
     return () => {
-      if (frame) window.cancelAnimationFrame(frame);
-      window.removeEventListener("scroll", schedule);
-      window.removeEventListener("resize", schedule);
+      startObserver.disconnect();
+      finaleObserver?.disconnect();
     };
   }, []);
 
@@ -10394,6 +10570,7 @@ const FloatingGiftConcierge = ({
 
   return (
     <>
+      <span ref={visibilitySentinelRef} className="block h-px w-px" aria-hidden="true" />
       <button
         type="button"
         className={`hp-gift-concierge-fab ${visible || open ? "is-visible" : ""}`}
@@ -10545,7 +10722,7 @@ const HomeQuickLook = ({ product, onClose }) => {
     }}>
     <button type="button" autoFocus className="hp-quick-close" aria-label="Close product preview" onClick={onClose}><HomeControlIcon type="close" /></button>
     <div className="hp-quick-layout">
-      <div className="hp-quick-photo"><SmartImage src={product.detailImage || product.image} alt={product.name} loading="eager" className="h-full w-full object-contain" /></div>
+      <div className="hp-quick-photo"><MemoSmartImage src={product.detailImage || product.image} alt={product.name} loading="eager" className="h-full w-full object-contain" /></div>
       <div className="hp-quick-copy">
         <p className="hp-quick-eyebrow">HAMPORIUM / QUICK LOOK</p>
         <h2 id="hp-quick-title">{product.name}</h2>
@@ -10569,5 +10746,11 @@ const HomeControlIcon = ({ type }) => (
     {type === "eye" && <><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z" /><circle cx="12" cy="12" r="3" /></>}
   </svg>
 );
+
+const MemoCinematicHero = memo(CinematicHero);
+const MemoHamperOneUnwrapExperience = memo(HamperOneUnwrapExperience);
+const MemoFloatingGiftConcierge = memo(FloatingGiftConcierge);
+const MemoBestsellerCollection = memo(BestsellerCollection);
+const MemoSmartImage = memo(SmartImage);
 
 export default Home;
