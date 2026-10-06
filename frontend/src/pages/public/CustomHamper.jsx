@@ -7,6 +7,10 @@ import { useAuth } from "../../context/AuthContext.jsx";
 import { useCart } from "../../context/CartContext.jsx";
 import { useDeliveryLocation } from "../../context/LocationContext.jsx";
 import formatCurrency from "../../utils/formatCurrency.js";
+import {
+  runHamporiumRouteTransition,
+  runHamporiumUiTransition,
+} from "../../components/HamporiumRouteTransition.jsx";
 
 const DISPLAY_FONT =
   "'Cormorant Garamond', 'Playfair Display', Georgia, serif";
@@ -133,6 +137,8 @@ const personalizationLabel = (value, options) =>
 
 const CustomHamper = () => {
   const navigate = useNavigate();
+  const navigateWithRibbon = (to) =>
+    runHamporiumRouteTransition(to, navigate);
   const { user } = useAuth();
   const { addCustomHamper, updateCustomHamper } = useCart();
   const { deliveryLocation } = useDeliveryLocation();
@@ -241,7 +247,7 @@ const CustomHamper = () => {
 
     if (!user) {
       setEditLoading(false);
-      navigate("/login");
+      navigateWithRibbon("/login");
       return undefined;
     }
 
@@ -645,6 +651,31 @@ const CustomHamper = () => {
     contentComponents,
     candidateMap,
     selectedMap,
+  ]);
+
+
+  // UI fill is intentionally normalized to 100% when the selected box has
+  // reached its practical packing limit. This keeps the visual state honest:
+  // the lid closes only when the customer sees 100% filled.
+  const displayFillPercent = useMemo(() => {
+    const raw = Math.min(100, Math.max(0, Number(fillPercent || 0)));
+    const practicallyFull = Boolean(
+      selectedItemCount > 0 &&
+        configuration &&
+        !validating &&
+        !selectionPending &&
+        canIncreaseAnyItem === false
+    );
+
+    if (practicallyFull || raw >= 99.95) return 100;
+    return Math.min(99, Math.round(raw));
+  }, [
+    fillPercent,
+    selectedItemCount,
+    configuration,
+    validating,
+    selectionPending,
+    canIncreaseAnyItem,
   ]);
 
   const personalizationPayload = useMemo(() => {
@@ -1278,7 +1309,7 @@ const CustomHamper = () => {
 
   const handleAddToCart = async () => {
     if (!user) {
-      navigate("/login");
+      navigateWithRibbon("/login");
       return;
     }
 
@@ -1326,7 +1357,7 @@ const CustomHamper = () => {
 
       setDeliveryJourney("shipping");
       await new Promise((resolve) => window.setTimeout(resolve, 1600));
-      navigate("/cart");
+      navigateWithRibbon("/cart");
     } catch (requestError) {
       setDeliveryJourney("idle");
       setCartError(
@@ -1343,7 +1374,7 @@ const CustomHamper = () => {
 
   const handleRequestQuotation = async () => {
     if (!user) {
-      navigate("/login");
+      navigateWithRibbon("/login");
       return;
     }
 
@@ -1406,7 +1437,7 @@ const CustomHamper = () => {
         throw new Error("RFQ was created but its ID was not returned.");
       }
 
-      navigate(`/account/corporate/rfqs/${rfqId}`);
+      navigateWithRibbon(`/account/corporate/rfqs/${rfqId}`);
     } catch (requestError) {
       setCartError(
         requestError.response?.data?.message ||
@@ -1461,17 +1492,22 @@ const CustomHamper = () => {
 
   const moveMobileStep = (nextStep) => {
     const safeStep = Math.min(5, Math.max(1, Number(nextStep) || 1));
-    setMobileStep(safeStep);
-    setCartError("");
 
-    if (typeof window !== "undefined") {
-      window.requestAnimationFrame(() => {
-        mobileFlowRef.current?.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
+    if (safeStep === mobileStep) return;
+
+    runHamporiumUiTransition(() => {
+      setMobileStep(safeStep);
+      setCartError("");
+
+      if (typeof window !== "undefined") {
+        window.requestAnimationFrame(() => {
+          mobileFlowRef.current?.scrollIntoView({
+            behavior: "auto",
+            block: "start",
+          });
         });
-      });
-    }
+      }
+    });
   };
 
   // A data-pending imported box may still be selected to browse the Excel
@@ -1483,7 +1519,7 @@ const CustomHamper = () => {
 
   return (
     <main
-      className="min-h-screen bg-[#F6F1E9] pb-16 pt-[84px] text-[#171717] sm:pt-[92px]"
+      className="hamporium-mobile-builder min-h-screen bg-[#FAF8F4] pb-14 pt-[84px] text-[14px] text-[#171717] sm:pt-[92px] sm:text-[14px]"
       style={{ fontFamily: "'Manrope', Arial, sans-serif" }}
     >
       <style>{`
@@ -2617,6 +2653,48 @@ const CustomHamper = () => {
         .v30-details > summary::-webkit-details-marker { display: none; }
         .v30-details[open] .v30-details-arrow { transform: rotate(45deg); }
 
+        @keyframes v60MobileGiftDrop {
+          0% {
+            opacity: 0;
+            transform: translate(-50%, -180px) rotate(calc(var(--v20-rotate) - 12deg)) scale(.62);
+            filter: blur(2px);
+          }
+          58% {
+            opacity: 1;
+            transform: translate(-50%, -36%) rotate(calc(var(--v20-rotate) + 3deg)) scale(var(--v20-scale));
+            filter: blur(0);
+          }
+          78% {
+            transform: translate(-50%, -58%) rotate(calc(var(--v20-rotate) - 1deg)) scale(var(--v20-scale));
+          }
+          100% {
+            opacity: 1;
+            transform: translate(-50%, -50%) rotate(var(--v20-rotate)) scale(var(--v20-scale));
+            filter: blur(0);
+          }
+        }
+
+        @keyframes v61MobileGiftDrop {
+          0% {
+            opacity: 0;
+            transform: translate(-50%, -112px) rotate(calc(var(--v20-rotate) - 10deg)) scale(.64);
+            filter: blur(1.5px);
+          }
+          54% {
+            opacity: 1;
+            transform: translate(-50%, -34%) rotate(calc(var(--v20-rotate) + 3deg)) scale(var(--v20-scale));
+            filter: blur(0);
+          }
+          78% {
+            transform: translate(-50%, -59%) rotate(calc(var(--v20-rotate) - 1deg)) scale(var(--v20-scale));
+          }
+          100% {
+            opacity: 1;
+            transform: translate(-50%, -50%) rotate(var(--v20-rotate)) scale(var(--v20-scale));
+            filter: blur(0);
+          }
+        }
+
         @media (max-width: 767px) {
           /* Keep the live packing box visible while the gift catalogue scrolls. */
           .v30-panel-mobile-sticky-safe { overflow: visible !important; }
@@ -2685,12 +2763,95 @@ const CustomHamper = () => {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 8px;
+            gap: 10px;
             border-top: 1px solid rgba(0,0,0,.05);
-            padding: 6px 9px;
+            padding: 9px 11px;
           }
 
-          .v30-mobile-sticky-actions { position: sticky; bottom: max(10px, env(safe-area-inset-bottom)); z-index: 35; }
+          /* V63 · MOBILE LIVE DOCK — more room for the actual box, no title/status row */
+          /* V62: sticky at the real viewport top. While the site header is visible
+             it simply sits in normal flow; after the header scrolls away this dock
+             occupies that freed space instead of leaving a blank strip. */
+          .v30-mobile-live {
+            top: 0;
+            z-index: 88;
+            margin: 0 0 8px;
+            padding: 5px;
+            border: 1px solid rgba(23,23,23,.065);
+            border-radius: 14px;
+            background: rgba(255,253,249,.992);
+            box-shadow: 0 8px 22px rgba(42,29,14,.09);
+          }
+
+          .v30-mobile-live .v60-live-stage {
+            min-height: 150px !important;
+            border-radius: 11px;
+            border-color: rgba(212,175,55,.11);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,.98), 0 6px 16px rgba(39,27,14,.04);
+          }
+
+          .v30-mobile-live .v60-box-world {
+            bottom: -4px !important;
+            height: 156px !important;
+            width: 91% !important;
+            max-width: 420px !important;
+          }
+
+          .v30-mobile-live .v60-packing-note {
+            top: 3px !important;
+            max-width: 72%;
+            padding: 3px 7px;
+            font-size: 9px;
+            line-height: 1.1;
+          }
+
+          /* Compact mode owns the stats, so the long capacity rail is hidden here. */
+          .v30-mobile-live .v60-capacity-line {
+            display: none !important;
+          }
+
+          .v30-mobile-live .v20-pack-item.is-entering {
+            animation-name: v61MobileGiftDrop;
+            animation-duration: .68s;
+            animation-timing-function: cubic-bezier(.18,.82,.2,1.06);
+          }
+
+          .v61-mobile-mini-stats {
+            display: grid;
+            grid-template-columns: .7fr .8fr 1.2fr;
+            align-items: center;
+            min-height: 32px;
+            margin-top: 4px;
+            overflow: hidden;
+            border: 1px solid rgba(0,0,0,.05);
+            border-radius: 10px;
+            background: #FAF8F4;
+          }
+
+          .v61-mobile-mini-stat {
+            min-width: 0;
+            padding: 4px 8px;
+          }
+
+          .v61-mobile-mini-stat + .v61-mobile-mini-stat {
+            border-left: 1px solid rgba(0,0,0,.06);
+          }
+
+          /* Let products own the screen. Step actions stay in document flow
+             instead of floating over the product cards on mobile. */
+          .v30-mobile-sticky-actions {
+            position: static;
+            z-index: auto;
+            margin-inline: 0;
+            padding: 0;
+            background: transparent;
+          }
+
+          .hamporium-mobile-builder input,
+          .hamporium-mobile-builder select,
+          .hamporium-mobile-builder textarea {
+            font-size: 16px !important;
+          }
         }
 
         @keyframes v30StepInMobile {
@@ -2978,21 +3139,19 @@ const CustomHamper = () => {
       <section className="mx-auto w-full max-w-[1920px] px-3 sm:px-5 lg:px-6 xl:px-7 2xl:px-8">
         <div
           ref={mobileFlowRef}
-          className="v38-builder-head mb-3 flex scroll-mt-[108px] flex-col gap-3 border-b border-black/[0.07] pb-3 sm:mb-4 sm:flex-row sm:items-center sm:justify-between sm:gap-5"
+          className="mb-2 grid scroll-mt-[76px] grid-cols-1 gap-2 sm:mb-4 sm:scroll-mt-[108px] sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center sm:gap-3"
         >
           <h1
             style={{ fontFamily: DISPLAY_FONT }}
-            className="flex flex-wrap items-baseline gap-x-1.5 text-[30px] font-semibold leading-[.9] tracking-[-.045em] text-[#171717] sm:text-[34px] lg:text-[38px] xl:text-[42px]"
+            className="min-w-0 text-[28px] font-semibold leading-[.96] tracking-[-.04em] text-[#171717] sm:col-start-1 sm:text-[34px] lg:text-[38px]"
           >
-            <span>Build your</span>
-            <span className="italic text-[#B58A22]">hamper</span>
-            <span className="mb-1 ml-0.5 inline-block h-[6px] w-[6px] rounded-full bg-[#F47822] sm:h-[7px] sm:w-[7px]" aria-hidden="true" />
+            Build your hamper
           </h1>
 
-          <div className="shrink-0">
+          <div className="justify-self-start sm:col-start-2 sm:row-start-1 sm:justify-self-center">
             {isEditingCartHamper ? (
-              <span className="inline-flex h-10 items-center rounded-full border border-[#D4AF37]/25 bg-[#FFF9E9] px-4 text-[8px] font-black uppercase tracking-[0.1em] text-[#8A6815]">
-                Editing cart hamper
+              <span className="inline-flex h-9 items-center rounded-full border border-black/[0.08] bg-white px-3 text-[11px] font-bold text-black/55">
+                Editing hamper
               </span>
             ) : (
               <OrderModeChooser
@@ -3004,6 +3163,8 @@ const CustomHamper = () => {
               />
             )}
           </div>
+
+          <div aria-hidden="true" className="hidden sm:block sm:col-start-3 sm:row-start-1" />
         </div>
 
         <V30Progress
@@ -3020,7 +3181,7 @@ const CustomHamper = () => {
           </div>
         )}
 
-        <div className="mt-4 grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_410px] xl:items-start 2xl:grid-cols-[minmax(0,1fr)_460px] 2xl:gap-6">
+        <div className="mt-2 grid min-w-0 gap-5 sm:mt-4 xl:grid-cols-[minmax(0,1fr)_410px] xl:items-start 2xl:grid-cols-[minmax(0,1fr)_460px] 2xl:gap-6">
           <div className="min-w-0">
             {mobileStep === 1 && (
               <V30Panel
@@ -3032,13 +3193,9 @@ const CustomHamper = () => {
                 {containers.length === 0 ? (
                   <V7Empty>No custom hamper boxes are available right now.</V7Empty>
                 ) : (
-                  <V15ContainerCarousel>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
                     {containers.map((container) => (
-                      <div
-                        key={container._id}
-                        data-hamper-box-slide="true"
-                        className="w-[84%] shrink-0 snap-start sm:w-[calc((100%-1rem)/2)] lg:w-[calc((100%-2rem)/3)]"
-                      >
+                      <div key={container._id} className="min-w-0">
                         <V7ContainerCard
                           container={container}
                           active={container._id === containerId}
@@ -3050,11 +3207,15 @@ const CustomHamper = () => {
                             setConfiguration(null);
                             setSelectionPending(false);
                             setCartError("");
+
+                            // Box selection is the end of step 1. Move straight
+                            // into gifts behind the HAMPORIUM ribbon transition.
+                            moveMobileStep(2);
                           }}
                         />
                       </div>
                     ))}
-                  </V15ContainerCarousel>
+                  </div>
                 )}
 
                 <V30StepActions
@@ -3073,127 +3234,90 @@ const CustomHamper = () => {
                 title="Add your gifts"
                 meta={selectedItemCount ? `${selectedItemCount} selected` : "Choose your favourites"}
               >
-                <MobileLiveHamperStatus
+                <V30MobileLivePreview
                   selectedContainer={selectedContainer}
+                  previewItems={previewItems}
+                  previewDecorations={previewDecorations}
                   selectedItemCount={selectedItemCount}
-                  fillPercent={fillPercent}
+                  selectedDecorationCount={selectedDecorationCount}
+                  fillPercent={displayFillPercent}
                   configuration={configuration}
+                  canIncreaseAnyItem={canIncreaseAnyItem}
                   validating={validating || selectionPending}
+                  journeyState={deliveryJourney}
                 />
 
-                <div className="relative">
-                  <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-base text-black/24">⌕</span>
-                  <input
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Search gifts"
-                    className="h-11 w-full rounded-full border border-black/[0.08] bg-[#FAF8F4] pl-11 pr-4 text-[12px] font-semibold outline-none transition focus:border-[#F47822] focus:bg-white focus:ring-4 focus:ring-[#F47822]/8"
-                  />
-                </div>
-
-                {/* TYPE FILTER · horizontal scroll like the existing gift rails */}
-                <div className="mt-3">
-                  <div className="flex items-center justify-between gap-3 px-0.5">
-                    <p className="text-[8px] font-black uppercase tracking-[0.12em] text-black/30">
-                      Type
-                    </p>
-                    <p className="max-w-[55%] truncate text-[8px] font-bold text-[#9A7316]">
-                      {subcategoryFilter || "All types"}
-                    </p>
+                <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
+                  <div className="relative w-full shrink-0 sm:w-[220px] lg:w-[250px] xl:w-[230px] 2xl:w-[260px]">
+                    <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[14px] text-black/24">⌕</span>
+                    <input
+                      value={search}
+                      onChange={(event) => setSearch(event.target.value)}
+                      placeholder="Search gifts"
+                      className="h-11 w-full rounded-full border border-black/[0.07] bg-white pl-10 pr-4 text-[16px] font-semibold text-[#171717] outline-none transition placeholder:text-black/35 focus:border-[#F47822]/55 focus:ring-4 focus:ring-[#F47822]/[0.06] sm:h-10 sm:text-[13px]"
+                    />
                   </div>
 
-                  <div className="v30-scrollbar-none mt-2 flex gap-2 overflow-x-auto pb-1 [scroll-snap-type:x_proximity]">
-                    <button
-                      type="button"
-                      onClick={() => setSubcategoryFilter("")}
-                      className={`shrink-0 snap-start rounded-full border px-3.5 py-2 text-[10px] font-black transition ${
-                        !subcategoryFilter
-                          ? "border-[#F47822] bg-[#FFF4EC] text-[#D85E0F] shadow-[0_5px_16px_rgba(244,120,34,.10)]"
-                          : "border-black/[0.08] bg-white text-black/42 hover:border-[#F47822]/35 hover:text-[#D85E0F]"
-                      }`}
-                    >
-                      All types
-                    </button>
-
-                    {subcategories.map((subcategory) => (
+                  <div className="v30-scrollbar-none min-w-0 flex-1 overflow-x-auto">
+                    <div className="flex w-max items-center gap-2 pr-1">
                       <button
-                        key={subcategory}
                         type="button"
-                        onClick={() => setSubcategoryFilter(subcategory)}
-                        className={`shrink-0 snap-start rounded-full border px-3.5 py-2 text-[10px] font-black transition ${
-                          subcategoryFilter === subcategory
-                            ? "border-[#F47822] bg-[#FFF4EC] text-[#D85E0F] shadow-[0_5px_16px_rgba(244,120,34,.10)]"
-                            : "border-black/[0.08] bg-white text-black/42 hover:border-[#F47822]/35 hover:text-[#D85E0F]"
+                        onClick={() => {
+                          setCategoryFilter("");
+                          setSubcategoryFilter("");
+                        }}
+                        className={`shrink-0 rounded-full border px-3.5 py-2.5 text-[13px] font-extrabold transition sm:py-2 sm:text-[12px] ${
+                          !categoryFilter && !subcategoryFilter
+                            ? "border-[#171717] bg-[#171717] text-white"
+                            : "border-black/[0.08] bg-white text-black/55 hover:border-black/20 hover:text-[#171717]"
                         }`}
                       >
-                        {subcategory}
+                        All
                       </button>
-                    ))}
-                  </div>
-                </div>
 
-                <div className="v30-scrollbar-none mt-3 flex gap-2 overflow-x-auto pb-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCategoryFilter("");
-                      setSubcategoryFilter("");
-                    }}
-                    className={`shrink-0 rounded-full border px-3.5 py-2 text-[10px] font-black transition ${
-                      !categoryFilter
-                        ? "border-[#171717] bg-[#171717] text-white"
-                        : "border-black/[0.08] bg-white text-black/42 hover:border-[#D4AF37]/45 hover:text-[#8A6815]"
-                    }`}
-                  >
-                    All gifts
-                  </button>
+                      {categories.slice(0, 8).map((category) => (
+                        <button
+                          key={`category-${category}`}
+                          type="button"
+                          onClick={() => {
+                            setCategoryFilter(category);
+                            setSubcategoryFilter("");
+                          }}
+                          className={`shrink-0 rounded-full border px-3.5 py-2.5 text-[13px] font-extrabold transition sm:py-2 sm:text-[12px] ${
+                            categoryFilter === category && !subcategoryFilter
+                              ? "border-[#171717] bg-[#171717] text-white"
+                              : "border-black/[0.08] bg-white text-black/55 hover:border-black/20 hover:text-[#171717]"
+                          }`}
+                        >
+                          {category}
+                        </button>
+                      ))}
 
-                  {categories.slice(0, 8).map((category) => (
-                    <button
-                      key={category}
-                      type="button"
-                      onClick={() => {
-                        setCategoryFilter(category);
-                        setSubcategoryFilter("");
-                      }}
-                      className={`shrink-0 rounded-full border px-3.5 py-2 text-[10px] font-black transition ${
-                        categoryFilter === category
-                          ? "border-[#D4AF37] bg-[#FFF7D9] text-[#7B5D13]"
-                          : "border-black/[0.08] bg-white text-black/42 hover:border-[#D4AF37]/45 hover:text-[#8A6815]"
-                      }`}
-                    >
-                      {category}
-                    </button>
-                  ))}
-                </div>
-
-                {selectedContainer &&
-                  contentComponents.some(
-                    (component) =>
-                      component.recommendation?.source === "container"
-                  ) && (
-                    <div className="mt-3 flex items-center gap-2 rounded-[12px] border border-[#D4AF37]/18 bg-[#FFF9E9] px-3 py-2.5 text-[9px] font-bold text-[#7A5B12]">
-                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#D4AF37]/15 text-[11px]">
-                        ★
-                      </span>
-                      <span className="min-w-0">
-                        Recommended for <strong>{selectedContainer.name}</strong> from completed customer purchases.
-                      </span>
+                      {subcategories.map((subcategory) => (
+                        <button
+                          key={`subcategory-${subcategory}`}
+                          type="button"
+                          onClick={() => setSubcategoryFilter(subcategory)}
+                          className={`shrink-0 rounded-full border px-3.5 py-2.5 text-[13px] font-extrabold transition sm:py-2 sm:text-[12px] ${
+                            subcategoryFilter === subcategory
+                              ? "border-[#F47822] bg-[#FFF4EC] text-[#D85E0F]"
+                              : "border-black/[0.08] bg-white text-black/55 hover:border-[#F47822]/35 hover:text-[#D85E0F]"
+                          }`}
+                        >
+                          {subcategory}
+                        </button>
+                      ))}
                     </div>
-                  )}
-
-                {(validating || selectionPending) && (
-                  <div className="mt-3 flex justify-end text-[10px] font-bold text-[#8A6815]">
-                    Checking fit…
                   </div>
-                )}
+                </div>
+
 
                 {visibleComponents.length === 0 ? (
                   <V7Empty>This box has reached its practical limit. Remove an item or choose a larger box.</V7Empty>
                 ) : (
                   <div
                     data-hamper-products-grid="true"
-                    className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-3.5 lg:grid-cols-4 2xl:grid-cols-5"
+                    className="mt-3 grid grid-cols-2 gap-2.5 sm:mt-4 sm:grid-cols-3 sm:gap-3.5 lg:grid-cols-4 2xl:grid-cols-5"
                   >
                     {paginatedComponents.map((component) => {
                       const quantity = selectedMap.get(component._id) || 0;
@@ -3274,7 +3398,7 @@ const CustomHamper = () => {
                 ) : (
                   <div
                     data-hamper-decorations-grid="true"
-                    className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-3.5 lg:grid-cols-4 2xl:grid-cols-5"
+                    className="mt-3 grid grid-cols-2 gap-2.5 sm:mt-4 sm:grid-cols-3 sm:gap-3.5 lg:grid-cols-4 2xl:grid-cols-5"
                   >
                     {paginatedDecorations.map((component) => (
                       <V7DecorationCard
@@ -3323,8 +3447,7 @@ const CustomHamper = () => {
                   <details className="v30-details group rounded-[18px] border border-black/[0.07] bg-[#FBF9F5]" open={personalization.assets.length > 0}>
                     <summary className="flex cursor-pointer items-center justify-between gap-4 px-4 py-4 sm:px-5">
                       <div className="min-w-0">
-                        <p className="text-[9px] font-black uppercase tracking-[0.12em] text-[#9A7316]">01 · Artwork / logo</p>
-                        <p className="mt-1 text-[11px] font-semibold text-black/42">Upload only if you want branding or a custom design.</p>
+                        <p className="text-[11px] font-black text-[#171717]">Artwork / logo</p>
                       </div>
                       <span className="v30-details-arrow flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-black/[0.08] bg-white text-[18px] leading-none text-black/40 transition-transform duration-300">+</span>
                     </summary>
@@ -3332,13 +3455,13 @@ const CustomHamper = () => {
                     <div className="border-t border-black/[0.06] px-4 pb-5 pt-4 sm:px-5">
                       <div className="grid gap-3 sm:grid-cols-2">
                         <label>
-                          <span className="mb-1.5 block text-[8px] font-black uppercase tracking-[0.08em] text-black/32">Artwork type</span>
+                          <span className="mb-1.5 block text-[12px] font-black uppercase tracking-[0.08em] text-black/32">Artwork type</span>
                           <select value={assetType} onChange={(event) => setAssetType(event.target.value)} className="h-11 w-full rounded-xl border border-black/[0.08] bg-white px-3 text-[11px] font-bold outline-none focus:border-[#D4AF37]">
                             {PERSONALIZATION_ASSET_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                           </select>
                         </label>
                         <label>
-                          <span className="mb-1.5 block text-[8px] font-black uppercase tracking-[0.08em] text-black/32">Placement</span>
+                          <span className="mb-1.5 block text-[12px] font-black uppercase tracking-[0.08em] text-black/32">Placement</span>
                           <select value={assetPlacement} onChange={(event) => setAssetPlacement(event.target.value)} className="h-11 w-full rounded-xl border border-black/[0.08] bg-white px-3 text-[11px] font-bold outline-none focus:border-[#D4AF37]">
                             {PERSONALIZATION_PLACEMENT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                           </select>
@@ -3355,17 +3478,17 @@ const CustomHamper = () => {
 
                       <div className="mt-3 flex flex-wrap items-center gap-3">
                         {user ? (
-                          <label className={`inline-flex h-11 cursor-pointer items-center justify-center rounded-xl px-4 text-[9px] font-black uppercase tracking-[0.08em] text-white transition ${uploadingAsset || personalization.assets.length >= 4 ? "pointer-events-none bg-black/25" : "bg-[#171717] hover:bg-[#9A7316]"}`}>
+                          <label className={`inline-flex h-11 cursor-pointer items-center justify-center rounded-xl px-4 text-[11px] font-black uppercase tracking-[0.08em] text-white transition ${uploadingAsset || personalization.assets.length >= 4 ? "pointer-events-none bg-black/25" : "bg-[#171717] hover:bg-[#9A7316]"}`}>
                             {uploadingAsset ? "Uploading…" : "Upload image"}
                             <input type="file" accept="image/jpeg,image/png,image/webp,image/avif" disabled={uploadingAsset || personalization.assets.length >= 4} onChange={handlePersonalizationUpload} className="hidden" />
                           </label>
                         ) : (
-                          <button type="button" onClick={() => navigate("/login")} className="h-11 rounded-xl bg-[#171717] px-4 text-[9px] font-black uppercase tracking-[0.08em] text-white">Login to upload</button>
+                          <button type="button" onClick={() => navigateWithRibbon("/login")} className="h-11 rounded-xl bg-[#171717] px-4 text-[11px] font-black uppercase tracking-[0.08em] text-white">Login to upload</button>
                         )}
-                        <span className="text-[9px] font-semibold text-black/30">{personalization.assets.length}/4 images · max 5 MB</span>
+                        <span className="text-[11px] font-semibold text-black/30">{personalization.assets.length}/4 images · max 5 MB</span>
                       </div>
 
-                      {personalizationError && <p className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-[9px] font-semibold text-red-700">{personalizationError}</p>}
+                      {personalizationError && <p className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-[11px] font-semibold text-red-700">{personalizationError}</p>}
 
                       {personalization.assets.length > 0 && (
                         <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -3374,8 +3497,8 @@ const CustomHamper = () => {
                               <div className="flex gap-3">
                                 <img src={asset.url} alt={asset.fileName || "Personalization artwork"} className="h-16 w-16 shrink-0 rounded-lg bg-[#F6F2EC] object-contain p-1" />
                                 <div className="min-w-0 flex-1">
-                                  <p className="truncate text-[10px] font-black">{asset.fileName || personalizationLabel(asset.type, PERSONALIZATION_ASSET_OPTIONS)}</p>
-                                  <select value={asset.placement || "top_lid"} onChange={(event) => updatePersonalizationAsset(index, "placement", event.target.value)} className="mt-2 h-8 w-full rounded-lg border border-black/[0.07] bg-[#FAF8F5] px-2 text-[9px] font-bold outline-none">
+                                  <p className="truncate text-[12px] font-black">{asset.fileName || personalizationLabel(asset.type, PERSONALIZATION_ASSET_OPTIONS)}</p>
+                                  <select value={asset.placement || "top_lid"} onChange={(event) => updatePersonalizationAsset(index, "placement", event.target.value)} className="mt-2 h-8 w-full rounded-lg border border-black/[0.07] bg-[#FAF8F5] px-2 text-[11px] font-bold outline-none">
                                     {PERSONALIZATION_PLACEMENT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                                   </select>
                                   <input
@@ -3383,10 +3506,10 @@ const CustomHamper = () => {
                                     maxLength={500}
                                     onChange={(event) => updatePersonalizationAsset(index, "notes", event.target.value)}
                                     placeholder="Placement details"
-                                    className="mt-2 h-8 w-full rounded-lg border border-black/[0.07] bg-[#FAF8F5] px-2 text-[9px] font-semibold outline-none"
+                                    className="mt-2 h-8 w-full rounded-lg border border-black/[0.07] bg-[#FAF8F5] px-2 text-[11px] font-semibold outline-none"
                                   />
                                 </div>
-                                <button type="button" onClick={() => removePersonalizationAsset(index)} className="h-8 shrink-0 rounded-lg bg-red-50 px-2 text-[8px] font-black text-red-600">Remove</button>
+                                <button type="button" onClick={() => removePersonalizationAsset(index)} className="h-8 shrink-0 rounded-lg bg-red-50 px-2 text-[12px] font-black text-red-600">Remove</button>
                               </div>
                             </div>
                           ))}
@@ -3398,28 +3521,26 @@ const CustomHamper = () => {
                   <details className="v30-details group rounded-[18px] border border-black/[0.07] bg-[#FBF9F5]" open={Boolean(personalization.message)}>
                     <summary className="flex cursor-pointer items-center justify-between gap-4 px-4 py-4 sm:px-5">
                       <div>
-                        <p className="text-[9px] font-black uppercase tracking-[0.12em] text-[#9A7316]">02 · Gift message</p>
-                        <p className="mt-1 text-[11px] font-semibold text-black/42">A short note to go inside the hamper.</p>
+                        <p className="text-[11px] font-black text-[#171717]">Gift message</p>
                       </div>
                       <span className="v30-details-arrow flex h-8 w-8 items-center justify-center rounded-full border border-black/[0.08] bg-white text-[18px] text-black/40 transition-transform duration-300">+</span>
                     </summary>
                     <div className="border-t border-black/[0.06] px-4 pb-5 pt-4 sm:px-5">
                       <textarea rows="3" maxLength={500} value={personalization.message} onChange={(event) => setPersonalization((current) => ({ ...current, message: event.target.value }))} placeholder="e.g. Happy Anniversary, A & R" className="w-full resize-none rounded-xl border border-black/[0.08] bg-white p-3 text-[11px] font-semibold leading-5 outline-none focus:border-[#D4AF37]" />
-                      <span className="mt-1 block text-right text-[8px] font-bold text-black/24">{personalization.message.length}/500</span>
+                      <span className="mt-1 block text-right text-[12px] font-bold text-black/24">{personalization.message.length}/500</span>
                     </div>
                   </details>
 
                   <details className="v30-details group rounded-[18px] border border-black/[0.07] bg-[#FBF9F5]" open={Boolean(personalization.instructions)}>
                     <summary className="flex cursor-pointer items-center justify-between gap-4 px-4 py-4 sm:px-5">
                       <div>
-                        <p className="text-[9px] font-black uppercase tracking-[0.12em] text-[#9A7316]">03 · Packing notes</p>
-                        <p className="mt-1 text-[11px] font-semibold text-black/42">Tell us any important styling preference.</p>
+                        <p className="text-[11px] font-black text-[#171717]">Packing notes</p>
                       </div>
                       <span className="v30-details-arrow flex h-8 w-8 items-center justify-center rounded-full border border-black/[0.08] bg-white text-[18px] text-black/40 transition-transform duration-300">+</span>
                     </summary>
                     <div className="border-t border-black/[0.06] px-4 pb-5 pt-4 sm:px-5">
                       <textarea rows="4" maxLength={1500} value={personalization.instructions} onChange={(event) => setPersonalization((current) => ({ ...current, instructions: event.target.value }))} placeholder="e.g. ivory ribbon, small logo, no plastic wrap" className="w-full resize-none rounded-xl border border-black/[0.08] bg-white p-3 text-[11px] font-semibold leading-5 outline-none focus:border-[#D4AF37]" />
-                      <span className="mt-1 block text-right text-[8px] font-bold text-black/24">{personalization.instructions.length}/1500</span>
+                      <span className="mt-1 block text-right text-[12px] font-bold text-black/24">{personalization.instructions.length}/1500</span>
                     </div>
                   </details>
                 </div>
@@ -3484,7 +3605,7 @@ const CustomHamper = () => {
                     previewDecorations={previewDecorations}
                     selectedItemCount={selectedItemCount}
                     selectedDecorationCount={selectedDecorationCount}
-                    fillPercent={fillPercent}
+                    fillPercent={displayFillPercent}
                     configuration={configuration}
                     personalization={personalizationPayload}
                     canIncreaseAnyItem={canIncreaseAnyItem}
@@ -3522,7 +3643,7 @@ const CustomHamper = () => {
                 <div className="grid gap-2 sm:grid-cols-4">
                   <V30ReviewStat label="Box" value={selectedContainer?.name || "Not selected"} />
                   <V30ReviewStat label="Gifts" value={String(selectedItemCount)} />
-                  <V30ReviewStat label="Gift fill" value={`${Math.round(fillPercent)}%`} />
+                  <V30ReviewStat label="Gift fill" value={`${Math.round(displayFillPercent)}%`} />
                   <V30ReviewStat label="Personalisation" value={personalizationPayload ? "Added" : "None"} />
                 </div>
 
@@ -3533,7 +3654,7 @@ const CustomHamper = () => {
                     previewDecorations={previewDecorations}
                     selectedItemCount={selectedItemCount}
                     selectedDecorationCount={selectedDecorationCount}
-                    fillPercent={fillPercent}
+                    fillPercent={displayFillPercent}
                     configuration={configuration}
                     personalization={personalizationPayload}
                     canIncreaseAnyItem={canIncreaseAnyItem}
@@ -3556,29 +3677,39 @@ const CustomHamper = () => {
             )}
           </div>
 
-          <aside className="v31-studio-compact hidden xl:sticky xl:top-[96px] xl:block">
-            <V7Studio
-              selectedContainer={selectedContainer}
-              previewItems={previewItems}
-              previewDecorations={previewDecorations}
-              selectedItemCount={selectedItemCount}
-              selectedDecorationCount={selectedDecorationCount}
-              fillPercent={fillPercent}
-              configuration={configuration}
-              personalization={personalizationPayload}
-              canIncreaseAnyItem={canIncreaseAnyItem}
-              validating={validating || selectionPending}
-              cartError={cartError}
-              canAddToCart={canPrimaryAction}
-              addingToCart={primaryBusy}
-              deliveryJourney={deliveryJourney}
-              user={user}
-              isEditingCartHamper={isEditingCartHamper}
-              orderMode={orderMode}
-              bulkQuantity={Number(bulkQuantity || 0)}
-              onModeChange={(nextMode) => { setOrderMode(nextMode); setCartError(""); }}
-              onAddToCart={orderMode === "bulk" ? handleRequestQuotation : handleAddToCart}
-            />
+          <aside className="hidden xl:block xl:w-[410px] 2xl:w-[460px]" aria-label="Live hamper preview">
+            <div
+              className="v31-studio-compact v30-scrollbar-none fixed top-[88px] z-30 max-h-[calc(100vh-104px)] w-[410px] overflow-y-auto overscroll-contain pr-1 2xl:w-[460px]"
+              style={{
+                right: "max(1.75rem, calc((100vw - 1920px) / 2 + 1.75rem))",
+              }}
+            >
+              <V7Studio
+                selectedContainer={selectedContainer}
+                previewItems={previewItems}
+                previewDecorations={previewDecorations}
+                selectedItemCount={selectedItemCount}
+                selectedDecorationCount={selectedDecorationCount}
+                fillPercent={displayFillPercent}
+                configuration={configuration}
+                personalization={personalizationPayload}
+                canIncreaseAnyItem={canIncreaseAnyItem}
+                validating={validating || selectionPending}
+                cartError={cartError}
+                canAddToCart={canPrimaryAction}
+                addingToCart={primaryBusy}
+                deliveryJourney={deliveryJourney}
+                user={user}
+                isEditingCartHamper={isEditingCartHamper}
+                orderMode={orderMode}
+                bulkQuantity={Number(bulkQuantity || 0)}
+                onModeChange={(nextMode) => {
+                  setOrderMode(nextMode);
+                  setCartError("");
+                }}
+                onAddToCart={orderMode === "bulk" ? handleRequestQuotation : handleAddToCart}
+              />
+            </div>
           </aside>
         </div>
       </section>
@@ -3594,17 +3725,20 @@ const V30Progress = ({
   onStepChange,
 }) => {
   const steps = [
-    [1, "Box"],
-    [2, "Gifts"],
-    [3, "Finish"],
+    [1, "Choose box"],
+    [2, "Add gifts"],
+    [3, "Finishing"],
     [4, "Personalise"],
-    [5, orderMode === "bulk" ? "Quote" : "Review"],
+    [5, orderMode === "bulk" ? "Get quote" : "Review"],
   ];
 
   const maxReachable = !canContinueFromBox ? 1 : !canContinueFromProducts ? 2 : 5;
 
   return (
-    <nav className="v38-progress-dock" aria-label="Hamper builder progress">
+    <nav
+      className="mb-3 flex flex-wrap items-center gap-2 py-0.5 sm:mb-5 sm:py-1"
+      aria-label="Hamper builder progress"
+    >
       {steps.map(([number, label]) => {
         const active = step === number;
         const complete = step > number;
@@ -3617,14 +3751,22 @@ const V30Progress = ({
             disabled={disabled}
             onClick={() => onStepChange(number)}
             aria-current={active ? "step" : undefined}
-            aria-label={`${String(number).padStart(2, "0")} ${label}${complete ? ", completed" : active ? ", current step" : ""}`}
-            title={label}
-            className={`v38-progress-step ${active ? "is-active" : ""} ${complete ? "is-complete" : ""}`}
+            aria-label={`${number}. ${label}${complete ? ", completed" : active ? ", current step" : ""}`}
+            title={`${number}. ${label}`}
+            className={`group/step flex h-8 w-8 items-center overflow-hidden rounded-full border transition-[width,border-color,background-color,color,box-shadow] duration-300 ease-out hover:w-[124px] focus-visible:w-[124px] focus-visible:outline-none sm:h-9 sm:w-9 sm:hover:w-[132px] sm:focus-visible:w-[132px] ${
+              active
+                ? "border-[#171717] bg-[#171717] text-white shadow-[0_5px_16px_rgba(0,0,0,.10)]"
+                : complete
+                  ? "border-[#D4AF37]/35 bg-[#FFF8DE] text-[#8A6815]"
+                  : "border-black/[0.08] bg-white text-black/45 hover:border-black/15 hover:text-[#171717]"
+            } disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:w-8 sm:disabled:hover:w-9`}
           >
-            <span className="v38-progress-dot">
-              {complete ? "✓" : String(number).padStart(2, "0")}
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center text-[10px] font-black sm:h-9 sm:w-9 sm:text-[11px]">
+              {complete ? "✓" : number}
             </span>
-            <span className="v38-progress-label">{label}</span>
+            <span className="pointer-events-none mr-3 whitespace-nowrap text-[11px] font-extrabold opacity-0 transition-opacity duration-200 group-hover/step:opacity-100 group-focus-visible/step:opacity-100">
+              {label}
+            </span>
           </button>
         );
       })}
@@ -3632,52 +3774,30 @@ const V30Progress = ({
   );
 };
 
-const V34GiftWorkspace = ({ number, eyebrow, title, meta, children }) => (
+const V34GiftWorkspace = ({ title, children }) => (
   <section className="v34-gift-workspace min-w-0">
-    <div className="mb-4 flex items-end justify-between gap-4 border-b border-black/[0.07] pb-3 sm:mb-5 sm:pb-4">
-      <div className="flex min-w-0 items-center gap-3">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#D4AF37]/28 bg-[#FFF9E9] text-[9px] font-black text-[#8A6815] sm:h-9 sm:w-9">
-          {number}
-        </span>
-        <div className="min-w-0">
-          <p className="text-[9px] font-black uppercase tracking-[0.12em] text-[#9A7316] sm:text-[10px]">{eyebrow}</p>
-          <h2 style={{ fontFamily: DISPLAY_FONT }} className="mt-0.5 text-[31px] font-semibold leading-none tracking-[-.035em] text-[#171717] sm:text-[39px]">{title}</h2>
-        </div>
-      </div>
-      {meta && <span className="hidden shrink-0 text-[11px] font-bold text-black/42 sm:block">{meta}</span>}
+    <div className="mb-3 sm:mb-5">
+      <h2
+        style={{ fontFamily: DISPLAY_FONT }}
+        className="text-[25px] font-semibold leading-[1.02] tracking-[-.03em] text-[#171717] sm:text-[32px]"
+      >
+        {title}
+      </h2>
     </div>
     <div>{children}</div>
   </section>
 );
 
-const V30Panel = ({ number, eyebrow, title, meta, children }) => (
+const V30Panel = ({ title, children }) => (
   <section className="v30-panel-mobile-sticky-safe v30-step-in min-w-0">
-    <div className="mb-4 flex items-end justify-between gap-4 border-b border-black/[0.07] pb-3 sm:mb-5 sm:pb-4">
-      <div className="flex min-w-0 items-center gap-3">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#D4AF37]/28 bg-[#FFF9E9] text-[9px] font-black text-[#8A6815] sm:h-9 sm:w-9">
-          {number}
-        </span>
-
-        <div className="min-w-0">
-          <p className="text-[9px] font-black uppercase tracking-[0.12em] text-[#9A7316] sm:text-[10px]">
-            {eyebrow}
-          </p>
-          <h2
-            style={{ fontFamily: DISPLAY_FONT }}
-            className="mt-0.5 text-[31px] font-semibold leading-none tracking-[-.035em] text-[#171717] sm:text-[39px]"
-          >
-            {title}
-          </h2>
-        </div>
-      </div>
-
-      {meta && (
-        <span className="hidden max-w-[42%] truncate text-[11px] font-bold text-black/42 sm:block">
-          {meta}
-        </span>
-      )}
+    <div className="mb-3 sm:mb-5">
+      <h2
+        style={{ fontFamily: DISPLAY_FONT }}
+        className="text-[25px] font-semibold leading-[1.02] tracking-[-.03em] text-[#171717] sm:text-[32px]"
+      >
+        {title}
+      </h2>
     </div>
-
     <div>{children}</div>
   </section>
 );
@@ -3688,16 +3808,31 @@ const V30StepActions = ({
   nextDisabled = false,
   onBack,
   onNext,
-  hint = "",
 }) => (
-  <div className="v30-mobile-sticky-actions mt-6 border-t border-black/[0.07] bg-[#F6F1E9]/94 pt-3 backdrop-blur-xl sm:flex sm:items-center sm:justify-between sm:gap-4">
-    {hint && <p className="mb-2 px-1 text-[10px] font-semibold leading-4 text-black/45 sm:mb-0 sm:max-w-[50%] sm:text-[11px]">{hint}</p>}
-    <div className={`grid gap-2 sm:ml-auto ${onBack && nextLabel ? "grid-cols-[88px_minmax(0,1fr)] sm:grid-cols-[100px_170px]" : "grid-cols-1 sm:w-auto"}`}>
+  <div className="v30-mobile-sticky-actions mt-5 pt-1">
+    <div className={`grid gap-2 sm:ml-auto sm:w-fit ${
+      onBack && nextLabel
+        ? "grid-cols-[88px_minmax(0,1fr)] sm:grid-cols-[100px_170px]"
+        : "grid-cols-1"
+    }`}>
       {onBack && (
-        <button type="button" onClick={onBack} className="h-11 rounded-xl border border-black/[0.08] bg-[#FAF8F4] px-3 text-[10px] font-black text-black/55 sm:text-[11px] transition hover:bg-white hover:text-[#171717] active:scale-[.98]">← {backLabel}</button>
+        <button
+          type="button"
+          onClick={onBack}
+          className="h-11 rounded-xl border border-black/[0.08] bg-white px-3 text-[13px] font-black text-black/55 transition hover:border-black/20 hover:text-[#171717] active:scale-[.98] sm:text-[11px]"
+        >
+          ← {backLabel}
+        </button>
       )}
       {nextLabel && (
-        <button type="button" disabled={nextDisabled} onClick={onNext} className="h-11 rounded-xl bg-[#171717] px-4 text-[10px] font-black uppercase tracking-[0.05em] text-white sm:text-[11px] shadow-[0_9px_24px_rgba(23,23,23,.13)] transition hover:bg-[#9A7316] active:scale-[.99] disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/25 disabled:shadow-none">{nextLabel} →</button>
+        <button
+          type="button"
+          disabled={nextDisabled}
+          onClick={onNext}
+          className="h-11 rounded-xl bg-[#171717] px-4 text-[13px] font-black text-white transition hover:bg-[#9A7316] active:scale-[.99] disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/25 sm:text-[11px]"
+        >
+          {nextLabel} →
+        </button>
       )}
     </div>
   </div>
@@ -3712,69 +3847,52 @@ const V30MobileLivePreview = (props) => {
     null;
 
   return (
-    <div className="v30-mobile-live md:hidden">
-      <V7OpenTop3D {...props} />
+    <section className="v30-mobile-live md:hidden" aria-label="Live hamper preview">
+      <V7OpenTop3D {...props} compact />
 
-      <div className="v30-mobile-live-summary">
-        <div className="v30-mobile-live-summary-grid">
-          <div className="v30-mobile-live-summary-cell">
-            <p className="text-[9px] font-black uppercase tracking-[0.07em] text-black/40">Gifts</p>
-            <p className="mt-1 text-[17px] font-black leading-none text-[#171717]">{giftCount}</p>
-          </div>
-
-          <div className="v30-mobile-live-summary-cell">
-            <p className="text-[9px] font-black uppercase tracking-[0.07em] text-black/40">Filled</p>
-            <p className="mt-1 text-[17px] font-black leading-none text-[#171717]">{roundedFill}%</p>
-          </div>
-
-          <div className="v30-mobile-live-summary-cell text-right">
-            <p className="text-[9px] font-black uppercase tracking-[0.07em] text-black/40">Total</p>
-            <p
-              style={{ fontFamily: DISPLAY_FONT }}
-              className="mt-0.5 truncate text-[20px] font-semibold leading-none text-[#F47822]"
-            >
-              {liveTotal === null || liveTotal === undefined
-                ? "—"
-                : formatCurrency(liveTotal)}
-            </p>
-          </div>
+      <div className="v61-mobile-mini-stats">
+        <div className="v61-mobile-mini-stat">
+          <p className="text-[10px] font-bold uppercase tracking-[0.05em] text-black/38">Gifts</p>
+          <p className="mt-0.5 text-[15px] font-black leading-none text-[#171717]">{giftCount}</p>
         </div>
 
-        <div className="v30-mobile-live-box-row">
-          <div className="min-w-0">
-            <p className="text-[8.5px] font-black uppercase tracking-[0.07em] text-black/38">Selected box</p>
-            <p className="mt-0.5 truncate text-[11px] font-black text-[#171717]">
-              {props.selectedContainer?.name || "Choose a hamper box"}
-            </p>
-          </div>
+        <div className="v61-mobile-mini-stat">
+          <p className="text-[10px] font-bold uppercase tracking-[0.05em] text-black/38">Filled</p>
+          <p className="mt-0.5 text-[15px] font-black leading-none text-[#171717]">{roundedFill}%</p>
+        </div>
 
-          {Number(props.selectedDecorationCount || 0) > 0 && (
-            <span className="shrink-0 rounded-full bg-[#FFF8DE] px-2 py-1 text-[9px] font-black text-[#8A6815]">
-              +{props.selectedDecorationCount} finishing
-            </span>
-          )}
+        <div className="v61-mobile-mini-stat text-right">
+          <p className="text-[10px] font-bold uppercase tracking-[0.05em] text-black/38">Total</p>
+          <p
+            style={{ fontFamily: DISPLAY_FONT }}
+            className="mt-0.5 truncate text-[18px] font-semibold leading-none text-[#F47822]"
+          >
+            {liveTotal === null || liveTotal === undefined
+              ? "—"
+              : formatCurrency(liveTotal)}
+          </p>
         </div>
       </div>
-    </div>
+    </section>
   );
 };
 
 const V30ReviewStat = ({ label, value }) => (
-  <div className="min-w-0 rounded-[14px] border border-black/[0.06] bg-[#FAF8F4] px-3 py-3.5">
-    <p className="text-[7px] font-black uppercase tracking-[0.1em] text-black/28">{label}</p>
+  <div className="min-w-0 border-b border-black/[0.06] px-1 py-3">
+    <p className="text-[12px] font-bold text-black/35">{label}</p>
     <p className="mt-1 truncate text-[11px] font-black text-[#171717]" title={value}>{value}</p>
   </div>
 );
 
 const OrderModeChooser = ({ mode, onChange }) => (
-  <div className="inline-grid w-full grid-cols-2 rounded-[13px] border border-white/10 bg-white/[0.055] p-1 sm:w-[360px]">
+  <div className="inline-grid w-[286px] max-w-full grid-cols-2 rounded-xl border border-black/[0.07] bg-white p-1 sm:w-[260px]">
     <button
       type="button"
       onClick={() => onChange("personal")}
-      className={`h-10 rounded-[9px] px-4 text-[10px] font-black uppercase tracking-[0.05em] transition ${
+      className={`h-9 rounded-lg px-4 text-[12px] font-black transition ${
         mode === "personal"
-          ? "bg-[#F7EFD9] text-[#171717] shadow-[0_8px_22px_rgba(0,0,0,.16)]"
-          : "text-white/45 hover:text-white"
+          ? "bg-[#171717] text-white"
+          : "text-black/40 hover:text-[#171717]"
       }`}
     >
       Personal
@@ -3782,10 +3900,10 @@ const OrderModeChooser = ({ mode, onChange }) => (
     <button
       type="button"
       onClick={() => onChange("bulk")}
-      className={`h-10 rounded-[9px] px-4 text-[10px] font-black uppercase tracking-[0.05em] transition ${
+      className={`h-9 rounded-lg px-4 text-[12px] font-black transition ${
         mode === "bulk"
-          ? "bg-[#D4AF37] text-[#171717] shadow-[0_8px_22px_rgba(0,0,0,.16)]"
-          : "text-white/45 hover:text-white"
+          ? "bg-[#171717] text-white"
+          : "text-black/40 hover:text-[#171717]"
       }`}
     >
       Bulk / Event
@@ -3806,14 +3924,14 @@ const MobileBuilderProgress = ({ step, orderMode }) => {
     <div className="rounded-[16px] border border-black/[0.07] bg-white px-3.5 py-3 shadow-[0_8px_24px_rgba(41,29,15,.04)]">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <span className="text-[10px] font-black uppercase tracking-[0.11em] text-[#F47822]">
+          <span className="text-[12px] font-black uppercase tracking-[0.11em] text-[#F47822]">
             Step {String(step).padStart(2, "0")} / 05
           </span>
           <p className="mt-0.5 truncate text-[11px] font-black text-[#171717]">
             {labels[step - 1]}
           </p>
         </div>
-        <span className="shrink-0 rounded-full bg-[#F7F1E7] px-2.5 py-1 text-[7.5px] font-black uppercase tracking-[0.07em] text-[#8A6815]">
+        <span className="shrink-0 rounded-full bg-[#F7F1E7] px-2.5 py-1 text-[12px] font-black uppercase tracking-[0.07em] text-[#8A6815]">
           {orderMode === "bulk" ? "Bulk / Event" : "Personal"}
         </span>
       </div>
@@ -3843,7 +3961,7 @@ const MobileStepActions = ({
   <div className="md:hidden">
     <div className="rounded-[18px] border border-black/[0.07] bg-white p-3.5 shadow-[0_10px_28px_rgba(40,27,13,.045)]">
       {hint && (
-        <p className="mb-3 text-[10px] font-semibold leading-4 text-black/40">
+        <p className="mb-3 text-[12px] font-semibold leading-4 text-black/40">
           {hint}
         </p>
       )}
@@ -3853,7 +3971,7 @@ const MobileStepActions = ({
           <button
             type="button"
             onClick={onBack}
-            className="flex h-12 items-center justify-center gap-1.5 rounded-xl border border-black/[0.09] bg-[#FAF8F5] px-3 text-[10px] font-black text-black/52 transition active:scale-[.98]"
+            className="flex h-12 items-center justify-center gap-1.5 rounded-xl border border-black/[0.09] bg-[#FAF8F5] px-3 text-[12px] font-black text-black/52 transition active:scale-[.98]"
           >
             ← {backLabel}
           </button>
@@ -3863,7 +3981,7 @@ const MobileStepActions = ({
           type="button"
           disabled={nextDisabled}
           onClick={onNext}
-          className="flex h-12 min-w-0 items-center justify-center gap-2 rounded-xl bg-[#171717] px-4 text-center text-[10px] font-black uppercase tracking-[0.055em] text-white shadow-[0_10px_24px_rgba(23,23,23,.14)] transition active:scale-[.99] disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/25 disabled:shadow-none"
+          className="flex h-12 min-w-0 items-center justify-center gap-2 rounded-xl bg-[#171717] px-4 text-center text-[12px] font-black uppercase tracking-[0.055em] text-white shadow-[0_10px_24px_rgba(23,23,23,.14)] transition active:scale-[.99] disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/25 disabled:shadow-none"
         >
           <span className="truncate">{nextLabel}</span>
           <span aria-hidden="true">→</span>
@@ -3874,92 +3992,31 @@ const MobileStepActions = ({
 );
 
 const MobileLiveHamperStatus = ({
-  selectedContainer,
   selectedItemCount,
   fillPercent,
   configuration,
-  validating,
+  selectedContainer,
 }) => {
   const roundedFill = Math.round(Number(fillPercent || 0));
-  const remaining = Math.max(0, 100 - roundedFill);
   const liveTotal =
     configuration?.pricing?.total ??
     selectedContainer?.sellingPrice ??
     null;
 
   return (
-    <div className="sticky top-[76px] z-30 -mx-1 mb-4 md:hidden">
-      <div className="overflow-hidden rounded-[18px] border border-[#F47822]/16 bg-[#FFFDF9]/95 shadow-[0_12px_32px_rgba(47,31,13,.10)] backdrop-blur-xl">
-        <div className="flex items-center justify-between gap-3 border-b border-black/[0.055] px-3.5 py-2.5">
-          <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-[0.11em] text-[#F47822]">
-              Live hamper status
-            </p>
-            <p className="mt-0.5 truncate text-[11px] font-black text-[#171717]">
-              {selectedContainer?.name || "Selected hamper box"}
-            </p>
-          </div>
-
-          <span
-            className={`shrink-0 rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.07em] ${
-              validating
-                ? "bg-black/[0.06] text-black/42"
-                : "bg-emerald-50 text-emerald-700"
-            }`}
-          >
-            {validating ? "Updating…" : "Live"}
-          </span>
-        </div>
-
-        <div className="grid grid-cols-[.8fr_.72fr_1.28fr] divide-x divide-black/[0.055]">
-          <div className="px-3 py-2.5">
-            <p className="text-[7px] font-black uppercase tracking-[0.08em] text-black/28">
-              Box filled
-            </p>
-            <p className="mt-1 text-[17px] font-black leading-none text-[#171717]">
-              {roundedFill}%
-            </p>
-            <p className="mt-1 text-[9px] font-bold text-black/40">
-              {remaining}% space left
-            </p>
-          </div>
-
-          <div className="px-3 py-2.5">
-            <p className="text-[7px] font-black uppercase tracking-[0.08em] text-black/28">
-              Gifts
-            </p>
-            <p className="mt-1 text-[17px] font-black leading-none text-[#171717]">
-              {selectedItemCount}
-            </p>
-            <p className="mt-1 text-[9px] font-bold text-black/40">
-              selected
-            </p>
-          </div>
-
-          <div className="min-w-0 px-3 py-2.5 text-right">
-            <p className="text-[7px] font-black uppercase tracking-[0.08em] text-black/28">
-              Hamper total
-            </p>
-            <p
-              style={{ fontFamily: DISPLAY_FONT }}
-              className="mt-0.5 truncate text-[20px] font-semibold leading-none text-[#F47822]"
-            >
-              {liveTotal === null || liveTotal === undefined
-                ? "—"
-                : formatCurrency(liveTotal)}
-            </p>
-            <p className="mt-1 text-[9px] font-bold text-black/40">
-              updates as you add
-            </p>
-          </div>
-        </div>
-
-        <div className="h-1.5 bg-black/[0.05]">
-          <div
-            className="h-full rounded-r-full bg-gradient-to-r from-[#F47822] to-[#D4AF37] transition-[width] duration-500"
-            style={{ width: `${Math.min(100, Math.max(0, roundedFill))}%` }}
-          />
-        </div>
+    <div className="mb-3 grid grid-cols-3 divide-x divide-black/[0.06] rounded-[14px] border border-black/[0.06] bg-white md:hidden">
+      <div className="px-3 py-2.5">
+        <span className="text-[11px] font-black text-[#171717]">{selectedItemCount}</span>
+        <span className="ml-1 text-[11px] font-semibold text-black/35">gifts</span>
+      </div>
+      <div className="px-3 py-2.5 text-center">
+        <span className="text-[11px] font-black text-[#171717]">{roundedFill}%</span>
+        <span className="ml-1 text-[11px] font-semibold text-black/35">full</span>
+      </div>
+      <div className="min-w-0 px-3 py-2.5 text-right">
+        <span className="truncate text-[11px] font-black text-[#F47822]">
+          {liveTotal === null || liveTotal === undefined ? "—" : formatCurrency(liveTotal)}
+        </span>
       </div>
     </div>
   );
@@ -3967,7 +4024,7 @@ const MobileLiveHamperStatus = ({
 
 const BulkField = ({ label, children }) => (
   <label className="block">
-    <span className="mb-1.5 block text-[9px] font-black uppercase tracking-[0.08em] text-black/35">
+    <span className="mb-1.5 block text-[11px] font-black uppercase tracking-[0.08em] text-black/35">
       {label}
     </span>
     {children}
@@ -3979,7 +4036,7 @@ const V7Section = ({ number, title, meta, gold = false, children }) => (
     <div className="flex items-center justify-between gap-4 pb-5 sm:pb-6">
       <div className="flex min-w-0 items-center gap-3.5">
         <span
-          className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[10px] font-black ${
+          className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[12px] font-black ${
             gold
               ? "bg-[#9B7616] text-white"
               : "bg-[#9A6E32] text-white"
@@ -3997,14 +4054,14 @@ const V7Section = ({ number, title, meta, gold = false, children }) => (
             {title}
           </h2>
           {meta && (
-            <p className="mt-1 truncate text-[9px] font-semibold text-black/34 sm:hidden">
+            <p className="mt-1 truncate text-[11px] font-semibold text-black/34 sm:hidden">
               {meta}
             </p>
           )}
         </div>
       </div>
 
-      <span className="hidden shrink-0 text-[9px] font-black uppercase tracking-[0.1em] text-black/26 sm:block">
+      <span className="hidden shrink-0 text-[11px] font-black uppercase tracking-[0.1em] text-black/26 sm:block">
         {meta}
       </span>
     </div>
@@ -4097,7 +4154,7 @@ const V11ContainerDetailsModal = ({
             <div className="min-w-0">
               <div className="flex items-center gap-2.5">
                 <span className="h-2 w-2 rounded-full bg-[#F47822]" />
-                <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#F47822]">
+                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#F47822]">
                   Box details
                 </p>
               </div>
@@ -4139,7 +4196,7 @@ const V11ContainerDetailsModal = ({
 
                 <div className="mt-5 flex items-end justify-between gap-4">
                   <div>
-                    <p className="text-[9px] font-black uppercase tracking-[0.11em] text-black/30">
+                    <p className="text-[11px] font-black uppercase tracking-[0.11em] text-black/30">
                       Box price
                     </p>
                     <div className="mt-1 flex flex-wrap items-baseline gap-2">
@@ -4157,7 +4214,7 @@ const V11ContainerDetailsModal = ({
                   </div>
 
                   {active && (
-                    <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[9px] font-black text-emerald-700">
+                    <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] font-black text-emerald-700">
                       ✓ Selected
                     </span>
                   )}
@@ -4166,10 +4223,10 @@ const V11ContainerDetailsModal = ({
 
               <div className="p-5 sm:p-6 lg:p-7">
                 <div className="flex items-center justify-between gap-4">
-                  <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#9A7316]">
+                  <p className="text-[12px] font-black uppercase tracking-[0.13em] text-[#9A7316]">
                     Box information
                   </p>
-                  <span className="text-[9px] font-semibold text-black/28">
+                  <span className="text-[11px] font-semibold text-black/28">
                     All available catalogue data
                   </span>
                 </div>
@@ -4186,10 +4243,10 @@ const V11ContainerDetailsModal = ({
 
                 {!builderReady && (
                   <div className="mt-5 rounded-[16px] border border-amber-200 bg-amber-50 px-4 py-3">
-                    <p className="text-[9px] font-black uppercase tracking-[0.1em] text-amber-700">
+                    <p className="text-[11px] font-black uppercase tracking-[0.1em] text-amber-700">
                       Data pending for Custom Hamper
                     </p>
-                    <p className="mt-1.5 text-[10px] font-semibold leading-5 text-amber-800/80">
+                    <p className="mt-1.5 text-[12px] font-semibold leading-5 text-amber-800/80">
                       {builderReasons.length
                         ? builderReasons.join(" · ")
                         : "This imported box is visible for review, but required builder data is incomplete."}
@@ -4199,7 +4256,7 @@ const V11ContainerDetailsModal = ({
 
                 {container.description && (
                   <div className="mt-5 rounded-[16px] bg-[#FAF8F5] p-4">
-                    <p className="text-[9px] font-black uppercase tracking-[0.1em] text-black/32">
+                    <p className="text-[11px] font-black uppercase tracking-[0.1em] text-black/32">
                       About this box
                     </p>
                     <p className="mt-2 text-[11px] font-semibold leading-5 text-black/52">
@@ -4227,7 +4284,7 @@ const V11ContainerDetailsModal = ({
                   if (!active) onSelect();
                   onClose();
                 }}
-                className={`h-11 rounded-[11px] px-6 text-[10px] font-black transition ${
+                className={`h-11 rounded-[11px] px-6 text-[12px] font-black transition ${
                   active
                     ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
                     : "bg-[#F47822] text-white hover:bg-[#171717]"
@@ -4246,91 +4303,6 @@ const V11ContainerDetailsModal = ({
         </div>
       </div>
     </DetailModalPortal>
-  );
-};
-
-const V15ContainerCarousel = ({ children }) => {
-  const railRef = useRef(null);
-
-  const scrollRail = (direction) => {
-    const rail = railRef.current;
-    if (!rail) return;
-
-    const firstSlide =
-      rail.querySelector(
-        "[data-hamper-box-slide='true']"
-      );
-
-    const slideWidth =
-      firstSlide?.getBoundingClientRect()
-        ?.width || 260;
-
-    const gap = 16;
-
-    rail.scrollBy({
-      left:
-        direction === "next"
-          ? (slideWidth + gap) * 4
-          : -(slideWidth + gap) * 4,
-      behavior: "smooth",
-    });
-  };
-
-  return (
-    <div className="relative">
-      <div
-        ref={railRef}
-        className="v10-soft-scroll flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth pb-1"
-      >
-        {children}
-      </div>
-
-      <button
-        type="button"
-        onClick={() =>
-          scrollRail("prev")
-        }
-        className="absolute left-2 top-[38%] z-20 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/95 text-[18px] font-black text-[#171717] shadow-[0_8px_24px_rgba(0,0,0,.14)] backdrop-blur-sm transition hover:bg-[#171717] hover:text-white lg:flex"
-        aria-label="Previous hamper boxes"
-      >
-        ←
-      </button>
-
-      <button
-        type="button"
-        onClick={() =>
-          scrollRail("next")
-        }
-        className="absolute right-2 top-[38%] z-20 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-[#171717] text-[18px] font-black text-white shadow-[0_8px_24px_rgba(0,0,0,.16)] transition hover:bg-[#F47822] lg:flex"
-        aria-label="Next hamper boxes"
-      >
-        →
-      </button>
-
-      <div className="mt-3 flex justify-end gap-2 lg:hidden">
-        <button
-          type="button"
-          onClick={() =>
-            scrollRail("prev")
-          }
-          className="flex h-10 w-10 items-center justify-center rounded-full border border-black/[0.09] bg-white text-[16px] font-black text-[#171717]"
-          aria-label="Previous hamper boxes"
-        >
-          ←
-        </button>
-
-        <button
-          type="button"
-          onClick={() =>
-            scrollRail("next")
-          }
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-[#171717] text-[16px] font-black text-white"
-          aria-label="Next hamper boxes"
-        >
-          →
-        </button>
-      </div>
-    </div>
   );
 };
 
@@ -4382,7 +4354,7 @@ const V7ContainerCard = ({ container, active, onClick }) => {
 
           {popularityLabel && (
             <span
-              className="absolute left-2.5 top-2.5 z-10 inline-flex items-center gap-1 rounded-full border border-[#E9C861]/45 bg-[#171717]/92 px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.06em] text-[#F4D778] shadow-[0_7px_18px_rgba(0,0,0,.16)] backdrop-blur-sm"
+              className="absolute left-2.5 top-2.5 z-10 inline-flex items-center gap-1 rounded-full border border-[#E9C861]/45 bg-[#171717]/92 px-2.5 py-1 text-[12px] font-black uppercase tracking-[0.06em] text-[#F4D778] shadow-[0_7px_18px_rgba(0,0,0,.16)] backdrop-blur-sm"
               title={`${popularityLabel}${hamperSoldCount > 0 ? ` · ${hamperSoldCount} hampers chosen` : ""}`}
             >
               <span aria-hidden="true">★</span>
@@ -4392,7 +4364,7 @@ const V7ContainerCard = ({ container, active, onClick }) => {
 
           {!builderReady && (
             <span
-              className={`absolute left-2.5 z-10 max-w-[78%] truncate rounded-full border border-amber-200 bg-amber-50/95 px-2.5 py-1 text-[7px] font-black text-amber-700 shadow-sm backdrop-blur-sm ${
+              className={`absolute left-2.5 z-10 max-w-[78%] truncate rounded-full border border-amber-200 bg-amber-50/95 px-2.5 py-1 text-[12px] font-black text-amber-700 shadow-sm backdrop-blur-sm ${
                 popularityLabel ? "top-10" : "top-2.5"
               }`}
               title={builderReasons.join(", ")}
@@ -4420,17 +4392,6 @@ const V7ContainerCard = ({ container, active, onClick }) => {
                 {container.name}
               </p>
 
-              {container.material && (
-                <p className="mt-1 truncate text-[8px] font-black uppercase tracking-[0.08em] text-black/30">
-                  {container.material}
-                </p>
-              )}
-
-              {hamperSoldCount > 0 && (
-                <p className="mt-1.5 text-[8px] font-extrabold text-[#9A7316]">
-                  {hamperSoldCount} hamper{hamperSoldCount === 1 ? "" : "s"} chosen
-                </p>
-              )}
             </div>
 
             <span className="shrink-0 text-[15px] font-black text-[#171717]">
@@ -4442,40 +4403,20 @@ const V7ContainerCard = ({ container, active, onClick }) => {
             </span>
           </div>
 
-          <div className="mt-3 grid grid-cols-[minmax(0,.9fr)_minmax(0,1.1fr)] gap-2 sm:flex sm:items-center sm:justify-between sm:gap-3">
+          <div className="mt-3 flex justify-end">
             <button
               type="button"
               onClick={(event) => {
                 event.stopPropagation();
-                setDetailsOpen(true);
+                if (!active) onClick();
               }}
-              className="flex h-10 min-w-0 items-center justify-center rounded-[9px] border border-black/[0.08] bg-white px-2 text-[8.5px] font-black text-black/55 transition active:scale-[.98] hover:border-[#D4AF37]/35 hover:text-[#9A7316] sm:justify-start sm:rounded-none sm:border-0 sm:bg-transparent sm:px-0 sm:text-[10px]"
-            >
-              View details →
-            </button>
-
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-
-                if (!active) {
-                  onClick();
-                }
-              }}
-              className={`flex h-10 min-w-0 items-center justify-center rounded-[9px] px-2 text-[8.5px] font-black transition active:scale-[.98] sm:min-w-[106px] sm:rounded-none sm:px-4 sm:text-[10px] ${
+              className={`h-9 rounded-lg px-4 text-[11px] font-black transition active:scale-[.98] sm:text-[12px] ${
                 active
-                  ? "border border-emerald-200 bg-emerald-50 text-emerald-700 sm:border-0 sm:bg-transparent"
-                  : "bg-[#F47822] text-white hover:bg-[#171717]"
+                  ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
+                  : "bg-[#171717] text-white hover:bg-[#9A7316]"
               }`}
             >
-              {active
-                ? builderReady
-                  ? "✓ Selected"
-                  : "✓ Preview"
-                : builderReady
-                  ? "Select box"
-                  : "Preview box"}
+              {active ? "✓ Selected" : builderReady ? "Select" : "Preview"}
             </button>
           </div>
         </div>
@@ -4501,11 +4442,11 @@ const V7ContainerSpecRow = ({ label, value, divider = false }) => (
       divider ? "border-t border-black/[0.05]" : ""
     }`}
   >
-    <span className="text-[7px] font-black uppercase tracking-[0.08em] text-black/28">
+    <span className="text-[12px] font-black uppercase tracking-[0.08em] text-black/28">
       {label}
     </span>
     <span
-      className="truncate text-right text-[9px] font-extrabold text-black/58"
+      className="truncate text-right text-[11px] font-extrabold text-black/58"
       title={value}
     >
       {value}
@@ -4515,10 +4456,10 @@ const V7ContainerSpecRow = ({ label, value, divider = false }) => (
 
 const V7ContainerMetric = ({ label, value }) => (
   <div className="min-w-0 rounded-[12px] border border-black/[0.055] bg-white px-3 py-2.5 shadow-[0_3px_10px_rgba(23,23,23,.02)]">
-    <p className="text-[7px] font-black uppercase tracking-[0.08em] text-black/25">
+    <p className="text-[12px] font-black uppercase tracking-[0.08em] text-black/25">
       {label}
     </p>
-    <p className="mt-1 truncate text-[9px] font-extrabold text-black/60" title={value}>
+    <p className="mt-1 truncate text-[11px] font-extrabold text-black/60" title={value}>
       {value}
     </p>
   </div>
@@ -4530,11 +4471,11 @@ const V7ProductSpec = ({ label, value, wide = false }) => (
       wide ? "col-span-2" : ""
     }`}
   >
-    <p className="text-[9px] font-black uppercase tracking-[0.07em] text-black/34">
+    <p className="text-[11px] font-black uppercase tracking-[0.07em] text-black/34">
       {label}
     </p>
     <p
-      className="mt-1 truncate text-[10px] font-extrabold text-black/60"
+      className="mt-1 truncate text-[12px] font-extrabold text-black/60"
       title={value}
     >
       {value}
@@ -4552,23 +4493,23 @@ const V7FoodInfo = ({ component }) => {
     <div className="mt-2.5 overflow-hidden rounded-[12px] border border-[#E9C66A]/28 bg-[#FFFCF4]">
       <div className="flex items-center justify-between gap-3 px-3 py-2.5">
         <div className="min-w-0">
-          <p className="text-[7px] font-black uppercase tracking-[0.08em] text-[#9B7616]/70">
+          <p className="text-[12px] font-black uppercase tracking-[0.08em] text-[#9B7616]/70">
             Best before / expiry
           </p>
-          <p className="mt-1 truncate text-[9px] font-extrabold text-[#6D5313]">
+          <p className="mt-1 truncate text-[11px] font-extrabold text-[#6D5313]">
             {hasExpiry ? formatDate(component.expiryDate) : "Not specified"}
           </p>
         </div>
 
         {hasShelfLife && (
-          <span className="shrink-0 rounded-full bg-[#D4AF37]/12 px-2.5 py-1 text-[8px] font-black text-[#8A6815]">
+          <span className="shrink-0 rounded-full bg-[#D4AF37]/12 px-2.5 py-1 text-[12px] font-black text-[#8A6815]">
             {component.shelfLifeDays} days
           </span>
         )}
       </div>
 
       {component.dietary && (
-        <div className="border-t border-[#D4AF37]/12 px-3 py-2 text-[8px] font-bold text-[#8A6815]/75">
+        <div className="border-t border-[#D4AF37]/12 px-3 py-2 text-[12px] font-bold text-[#8A6815]/75">
           {component.dietary}
         </div>
       )}
@@ -4578,11 +4519,11 @@ const V7FoodInfo = ({ component }) => {
 
 const V10QuickSpec = ({ label, value }) => (
   <div className="min-w-0 rounded-[9px] border border-black/[0.06] bg-[#FAF8F5] px-2 py-2">
-    <p className="text-[8px] font-black uppercase tracking-[0.07em] text-black/35">
+    <p className="text-[12px] font-black uppercase tracking-[0.07em] text-black/35">
       {label}
     </p>
     <p
-      className="mt-1 truncate text-[10px] font-extrabold text-black/62"
+      className="mt-1 truncate text-[12px] font-extrabold text-black/62"
       title={value}
     >
       {value || "—"}
@@ -4592,7 +4533,7 @@ const V10QuickSpec = ({ label, value }) => (
 
 const V10DetailRow = ({ label, value, accent = false }) => (
   <div className="grid grid-cols-[118px_minmax(0,1fr)] gap-4 border-b border-black/[0.055] py-3 last:border-b-0">
-    <span className="text-[9px] font-black uppercase tracking-[0.08em] text-black/32">
+    <span className="text-[11px] font-black uppercase tracking-[0.08em] text-black/32">
       {label}
     </span>
     <span
@@ -4690,7 +4631,7 @@ const V10ProductDetailsModal = ({
             <div className="min-w-0">
               <div className="flex items-center gap-2.5">
                 <span className="h-2 w-2 rounded-full bg-[#F47822]" />
-                <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#F47822]">
+                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#F47822]">
                   {eyebrow}
                 </p>
               </div>
@@ -4732,7 +4673,7 @@ const V10ProductDetailsModal = ({
 
                 <div className="mt-5 flex items-start justify-between gap-4">
                   <div>
-                    <p className="text-[9px] font-black uppercase tracking-[0.11em] text-black/30">
+                    <p className="text-[11px] font-black uppercase tracking-[0.11em] text-black/30">
                       Selling price
                     </p>
                     <div className="mt-1 flex flex-wrap items-baseline gap-2">
@@ -4748,13 +4689,13 @@ const V10ProductDetailsModal = ({
                       )}
                     </div>
                     {!missingPrice && (
-                      <p className="mt-1 text-[9px] font-semibold text-black/34">
+                      <p className="mt-1 text-[11px] font-semibold text-black/34">
                         {taxLabel(component)}
                       </p>
                     )}
                   </div>
 
-                  <span className="max-w-[46%] truncate rounded-full bg-white px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.08em] text-black/42">
+                  <span className="max-w-[46%] truncate rounded-full bg-white px-3 py-1.5 text-[12px] font-black uppercase tracking-[0.08em] text-black/42">
                     {component.subcategory || component.category || "Gift"}
                   </span>
                 </div>
@@ -4762,10 +4703,10 @@ const V10ProductDetailsModal = ({
 
               <div className="p-5 sm:p-6 lg:p-7">
                 <div className="flex items-center justify-between gap-4">
-                  <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#9A7316]">
+                  <p className="text-[12px] font-black uppercase tracking-[0.13em] text-[#9A7316]">
                     Complete product information
                   </p>
-                  <span className="text-[9px] font-semibold text-black/28">
+                  <span className="text-[11px] font-semibold text-black/28">
                     Catalogue details
                   </span>
                 </div>
@@ -4783,10 +4724,10 @@ const V10ProductDetailsModal = ({
 
                 {builderBlocked && (
                   <div className="mt-5 rounded-[16px] border border-amber-200 bg-amber-50 px-4 py-3">
-                    <p className="text-[9px] font-black uppercase tracking-[0.1em] text-amber-700">
+                    <p className="text-[11px] font-black uppercase tracking-[0.1em] text-amber-700">
                       Data pending for Custom Hamper
                     </p>
-                    <p className="mt-1.5 text-[10px] font-semibold leading-5 text-amber-800/80">
+                    <p className="mt-1.5 text-[12px] font-semibold leading-5 text-amber-800/80">
                       {builderReasons.length
                         ? builderReasons.join(" · ")
                         : "This imported item is visible for review, but required builder data is incomplete."}
@@ -4796,7 +4737,7 @@ const V10ProductDetailsModal = ({
 
                 {component.description && (
                   <div className="mt-5 rounded-[16px] bg-[#FAF8F5] p-4">
-                    <p className="text-[9px] font-black uppercase tracking-[0.1em] text-black/32">
+                    <p className="text-[11px] font-black uppercase tracking-[0.1em] text-black/32">
                       Description
                     </p>
                     <p className="mt-2 text-[11px] font-semibold leading-5 text-black/52">
@@ -4809,10 +4750,10 @@ const V10ProductDetailsModal = ({
                   <div className="mt-4 flex items-start gap-3 border-l-[3px] border-[#D4AF37] bg-[#FFFCF5] px-4 py-3.5">
                     <span className="mt-0.5 text-[#9A7316]">✦</span>
                     <div>
-                      <p className="text-[9px] font-black uppercase tracking-[0.1em] text-[#8B6817]">
+                      <p className="text-[11px] font-black uppercase tracking-[0.1em] text-[#8B6817]">
                         Food freshness
                       </p>
-                      <p className="mt-1.5 text-[10px] font-semibold leading-5 text-black/48">
+                      <p className="mt-1.5 text-[12px] font-semibold leading-5 text-black/48">
                         Expiry and shelf-life values are shown directly from this catalogue item. Missing values are not invented.
                       </p>
                     </div>
@@ -4825,7 +4766,7 @@ const V10ProductDetailsModal = ({
           <div className="shrink-0 border-t border-black/[0.07] bg-white px-5 py-4 sm:px-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="hidden sm:block">
-                <p className="text-[9px] font-black uppercase tracking-[0.1em] text-black/28">
+                <p className="text-[11px] font-black uppercase tracking-[0.1em] text-black/28">
                   In your hamper
                 </p>
                 <p className="mt-0.5 text-[12px] font-black text-[#171717]">
@@ -4852,7 +4793,7 @@ const V10ProductDetailsModal = ({
                     >
                       −
                     </button>
-                    <span className="flex items-center justify-center border-x border-[#F47822]/15 text-[11px] font-black">
+                    <span className="flex items-center justify-center border-x border-[#F47822]/15 text-[13px] font-black">
                       {quantity}
                     </span>
                     <button
@@ -4870,7 +4811,7 @@ const V10ProductDetailsModal = ({
                     type="button"
                     disabled={cannotIncrease}
                     onClick={onPlus}
-                    className="h-11 flex-1 rounded-[11px] bg-[#F47822] px-6 text-[10px] font-black text-white transition hover:bg-[#171717] disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/25 sm:flex-none"
+                    className="h-11 flex-1 rounded-[11px] bg-[#F47822] px-6 text-[12px] font-black text-white transition hover:bg-[#171717] disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/25 sm:flex-none"
                   >
                     {addLabel}
                   </button>
@@ -4904,7 +4845,14 @@ const V7ProductCard = ({
   const builderReasons = Array.isArray(component.builderStatus?.reasons)
     ? component.builderStatus.reasons
     : [];
-  const recommendationLabel = recommendation?.label || "";
+  const recommendationLabel =
+    recommendation?.source === "container"
+      ? Number(recommendation?.rank || 0) === 1
+        ? "Top pick"
+        : "Recommended"
+      : recommendation?.source === "overall"
+        ? "Popular"
+        : "";
   const recommendationPickedCount = Number(recommendation?.pickedCount || 0);
 
   const cannotIncrease =
@@ -4953,13 +4901,10 @@ const V7ProductCard = ({
             )}
           </div>
 
-          <span className="absolute bottom-1.5 left-1.5 max-w-[78%] truncate rounded-full bg-white/94 px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.05em] text-black/48 shadow-sm backdrop-blur-sm sm:text-[8.5px]">
-            {component.subcategory || component.category || "Gift"}
-          </span>
 
           {recommendationLabel && !builderBlocked && (
             <span
-              className="absolute left-1.5 top-1.5 z-10 max-w-[78%] truncate rounded-full border border-[#E7C65D]/45 bg-[#171717]/92 px-2.5 py-1 text-[7px] font-black text-[#F3D677] shadow-[0_6px_16px_rgba(0,0,0,.14)] backdrop-blur-sm sm:text-[7.5px]"
+              className="absolute left-1.5 top-1.5 z-10 max-w-[78%] truncate rounded-full border border-[#E7C65D]/45 bg-[#171717]/92 px-2.5 py-1 text-[12px] font-black text-[#F3D677] shadow-[0_6px_16px_rgba(0,0,0,.14)] backdrop-blur-sm sm:text-[12px]"
               title={`${recommendationLabel}${recommendationPickedCount > 0 ? ` · ${recommendationPickedCount} picked with this box` : ""}`}
             >
               ★ {recommendationLabel}
@@ -4967,14 +4912,14 @@ const V7ProductCard = ({
           )}
 
           {selected && (
-            <span className="absolute right-1.5 top-1.5 rounded-full bg-[#171717] px-2.5 py-1 text-[9px] font-black text-white shadow-lg sm:text-[10px]">
+            <span className="absolute right-1.5 top-1.5 rounded-full bg-[#171717] px-2.5 py-1 text-[12px] font-black text-white shadow-lg sm:text-[12px]">
               ×{quantity}
             </span>
           )}
 
           {builderBlocked && (
             <span
-              className="absolute left-1.5 top-1.5 max-w-[72%] truncate rounded-full border border-amber-200 bg-amber-50/95 px-2.5 py-1 text-[8px] font-black text-amber-700 shadow-sm backdrop-blur-sm sm:text-[8.5px]"
+              className="absolute left-1.5 top-1.5 max-w-[72%] truncate rounded-full border border-amber-200 bg-amber-50/95 px-2.5 py-1 text-[12px] font-black text-amber-700 shadow-sm backdrop-blur-sm sm:text-[12px]"
               title={builderReasons.join(", ")}
             >
               Data pending
@@ -4983,32 +4928,21 @@ const V7ProductCard = ({
         </div>
 
         <div className="px-0.5 pb-0.5 pt-2">
-          <p className="line-clamp-2 min-h-[36px] text-[13px] font-extrabold leading-[1.35] text-[#171717] sm:min-h-[40px] sm:text-[14px]">
+          <p className="line-clamp-2 min-h-[40px] text-[14px] font-extrabold leading-[1.35] text-[#171717] sm:text-[14px]">
             {component.name}
           </p>
 
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              setDetailsOpen(true);
-            }}
-            className="mt-1 inline-flex items-center gap-1 text-[9.5px] font-extrabold text-[#9A7316] underline decoration-[#D4AF37]/45 underline-offset-[3px] transition hover:text-[#F47822] sm:text-[10px]"
-            aria-label={`View details for ${component.name}`}
-          >
-            View details <span aria-hidden="true">→</span>
-          </button>
 
-          <div className="mt-1.5 flex items-center justify-between gap-2 border-t border-black/[0.055] pt-2">
+          <div className="mt-2 flex items-center justify-between gap-2 pt-1">
             <div className="min-w-0">
               <div className="flex min-w-0 items-baseline gap-1.5">
-                <span className="truncate text-[15px] font-black text-[#171717] sm:text-[16px]">
+                <span className="truncate text-[16px] font-black text-[#171717] sm:text-[16px]">
                   {missingPrice
                     ? "Price pending"
                     : formatCurrency(component.sellingPrice)}
                 </span>
                 {hasMrp && (
-                  <span className="hidden text-[9px] font-semibold text-black/30 line-through sm:inline">
+                  <span className="hidden text-[11px] font-semibold text-black/30 line-through sm:inline">
                     {formatCurrency(component.mrp)}
                   </span>
                 )}
@@ -5057,7 +4991,7 @@ const V7ProductCard = ({
                   event.stopPropagation();
                   onPlus();
                 }}
-                className="flex h-9 w-[78px] shrink-0 items-center justify-center rounded-[9px] bg-[#F47822] px-2 text-[9px] font-black text-white transition hover:bg-[#171717] disabled:cursor-not-allowed disabled:bg-black/[0.08] disabled:text-black/28 sm:h-10 sm:w-[86px] sm:text-[10px]"
+                className="flex h-9 w-[82px] shrink-0 items-center justify-center rounded-[9px] bg-[#F47822] px-2 text-[13px] font-black text-white transition hover:bg-[#171717] disabled:cursor-not-allowed disabled:bg-black/[0.08] disabled:text-black/28 sm:h-10 sm:w-[86px] sm:text-[12px]"
               >
                 {actionLabel}
               </button>
@@ -5129,12 +5063,9 @@ const V7DecorationCard = ({
             )}
           </div>
 
-          <span className="absolute left-2 top-2 bg-white/92 px-2 py-1 text-[8.5px] font-black uppercase tracking-[0.05em] text-[#8B6817] backdrop-blur-sm sm:left-2.5 sm:top-2.5 sm:px-2.5 sm:text-[7px] sm:tracking-[0.07em]">
-            Finishing only
-          </span>
 
           {selected && (
-            <span className="absolute right-2 top-2 rounded-full bg-[#171717] px-2 py-1 text-[9px] font-black text-white shadow-lg">
+            <span className="absolute right-2 top-2 rounded-full bg-[#171717] px-2 py-1 text-[11px] font-black text-white shadow-lg">
               ×{quantity}
             </span>
           )}
@@ -5147,10 +5078,10 @@ const V7DecorationCard = ({
 
           {builderBlocked && (
             <p
-              className="mt-1.5 line-clamp-2 text-[9px] font-bold leading-4 text-amber-700"
+              className="mt-1.5 line-clamp-2 text-[11px] font-bold leading-4 text-amber-700"
               title={builderReasons.join(", ")}
             >
-              Data pending: {builderReasons[0] || "custom-builder setup incomplete"}
+              Unavailable
             </p>
           )}
 
@@ -5160,22 +5091,8 @@ const V7DecorationCard = ({
                 ? "Price pending"
                 : formatCurrency(component.sellingPrice)}
             </p>
-
-            <span className="text-[8.5px] font-black uppercase tracking-[0.05em] text-emerald-600 sm:text-[9px]">
-              0% capacity
-            </span>
           </div>
 
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              setDetailsOpen(true);
-            }}
-            className="mt-2 flex h-8 w-full items-center justify-center rounded-[8px] border border-black/[0.08] bg-white px-2 text-[7.5px] font-black text-black/52 transition active:scale-[.98] hover:border-[#D4AF37]/35 hover:text-[#9A7316] sm:h-9 sm:text-[9px]"
-          >
-            View details →
-          </button>
 
           <div
             className="mt-2 grid h-9 grid-cols-[32px_1fr_32px] overflow-hidden rounded-[8px] border border-[#D4AF37]/18 bg-[#FFFCF7] sm:mt-3 sm:grid-cols-[36px_1fr_36px] sm:rounded-none sm:border-x-0"
@@ -5194,7 +5111,7 @@ const V7DecorationCard = ({
               −
             </button>
 
-            <span className="flex items-center justify-center border-x border-[#D4AF37]/15 text-[9px] font-black">
+            <span className="flex items-center justify-center border-x border-[#D4AF37]/15 text-[11px] font-black">
               {quantity}
             </span>
 
@@ -5298,13 +5215,10 @@ const V7Studio = ({
       : cartError;
 
   return (
-    <div className="v30-live-shell v34-live-flat min-w-0 xl:border-l xl:border-black/[0.08] xl:pl-4 2xl:pl-5">
-      <div className="flex items-center justify-between gap-4 border-b border-black/[0.06] pb-4">
-        <div>
-          <p className="text-[11px] font-black uppercase tracking-[0.12em] text-[#9A7316] sm:text-[12px]">Live hamper</p>
-          <p style={{ fontFamily: DISPLAY_FONT }} className="mt-1 text-[31px] font-semibold leading-none tracking-[-.025em] text-[#171717] sm:text-[34px]">Your Hamper</p>
-        </div>
-        <span className={`rounded-full px-3 py-2 text-[9px] font-black uppercase tracking-[0.08em] sm:text-[10px] ${
+    <div className="v30-live-shell v34-live-flat min-w-0 xl:pl-1 2xl:pl-2">
+      <div className="flex items-center justify-between gap-4 pb-2">
+        <p style={{ fontFamily: DISPLAY_FONT }} className="text-[30px] font-semibold leading-none tracking-[-.025em] text-[#171717] sm:text-[32px]">Your hamper</p>
+        <span className={`rounded-full px-3 py-2 text-[11px] font-black uppercase tracking-[0.08em] sm:text-[12px] ${
           deliveryJourney === "shipping"
             ? "bg-[#171717] text-white"
             : deliveryJourney === "packing"
@@ -5345,53 +5259,27 @@ const V7Studio = ({
           journeyState={deliveryJourney}
         />
 
-        <div className="mt-3 grid grid-cols-3 divide-x divide-black/[0.06] border-y border-black/[0.07]">
-          <div className="px-3 py-3.5">
-            <p className="text-[10px] font-black uppercase tracking-[0.07em] text-black/45 sm:text-[11px]">Gifts</p>
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          <div className="rounded-xl bg-black/[0.035] px-3 py-3.5">
+            <p className="text-[12px] font-black uppercase tracking-[0.07em] text-black/45 sm:text-[11px]">Gifts</p>
             <p className="mt-1.5 text-[19px] font-black leading-none text-[#171717] sm:text-[21px]">{selectedItemCount}</p>
           </div>
-          <div className="px-3 py-3.5">
-            <p className="text-[10px] font-black uppercase tracking-[0.07em] text-black/45 sm:text-[11px]">Filled</p>
+          <div className="rounded-xl bg-black/[0.035] px-3 py-3.5">
+            <p className="text-[12px] font-black uppercase tracking-[0.07em] text-black/45 sm:text-[11px]">Filled</p>
             <p className="mt-1.5 text-[19px] font-black leading-none text-[#171717] sm:text-[21px]">{roundedFill}%</p>
           </div>
-          <div className="min-w-0 px-3 py-3.5 text-right">
-            <p className="text-[10px] font-black uppercase tracking-[0.07em] text-black/45 sm:text-[11px]">{orderMode === "bulk" ? "Per hamper" : "Total"}</p>
+          <div className="min-w-0 rounded-xl bg-black/[0.035] px-3 py-3.5 text-right">
+            <p className="text-[12px] font-black uppercase tracking-[0.07em] text-black/45 sm:text-[11px]">{orderMode === "bulk" ? "Per hamper" : "Total"}</p>
             <p style={{ fontFamily: DISPLAY_FONT }} className="mt-1 truncate text-[21px] font-semibold leading-none text-[#F47822] sm:text-[23px]">
               {pricing?.total === null || pricing?.total === undefined ? "—" : formatCurrency(pricing.total)}
             </p>
           </div>
         </div>
 
-        <div className="mt-3 flex items-center justify-between gap-3 border-b border-black/[0.06] pb-3">
-          <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-[0.07em] text-black/45 sm:text-[11px]">Selected box</p>
-            <p className="mt-1 truncate text-[13px] font-black text-[#171717] sm:text-[14px]">{selectedContainer?.name || "Choose a hamper box"}</p>
-          </div>
-          {selectedDecorationCount > 0 && <span className="shrink-0 rounded-full bg-[#FFF8DE] px-3 py-1.5 text-[10px] font-black text-[#8A6815] sm:text-[11px]">+{selectedDecorationCount} finishing</span>}
-        </div>
-
-        {personalization?.enabled && (
-          <div className="mt-3 flex items-center justify-between gap-3 border-y border-[#D4AF37]/18 py-2.5">
-            <span className="text-[10px] font-black uppercase tracking-[0.07em] text-[#8A6815] sm:text-[11px]">Personalisation added</span>
-            <span className="text-[10px] font-bold text-black/52 sm:text-[11px]">{personalization.assets?.length || 0} artwork</span>
-          </div>
-        )}
-
-        {configuration?.capacity && (
-          <div className="mt-3">
-            <div className="flex items-center justify-between text-[11px] font-bold text-black/52 sm:text-[12px]">
-              <span>Capacity</span>
-              <span>{roundedFill}%</span>
-            </div>
-            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-black/[0.06]">
-              <div className="h-full rounded-full bg-gradient-to-r from-[#F47822] to-[#D4AF37] transition-[width] duration-500" style={{ width: `${Math.min(100, Math.max(0, roundedFill))}%` }} />
-            </div>
-          </div>
-        )}
 
         {orderMode === "bulk" && pricing?.total !== null && pricing?.total !== undefined && (
           <div className="mt-3 flex items-center justify-between gap-3 border-y border-black/[0.10] py-2.5 text-[#171717]">
-            <span className="text-[10px] font-black uppercase tracking-[0.07em] text-black/45 sm:text-[11px]">{Number(bulkQuantity || 0).toLocaleString("en-IN")} hampers</span>
+            <span className="text-[12px] font-black uppercase tracking-[0.07em] text-black/45 sm:text-[11px]">{Number(bulkQuantity || 0).toLocaleString("en-IN")} hampers</span>
             <span className="text-[13px] font-black sm:text-[14px]">{formatCurrency(Number(pricing.total || 0) * Number(bulkQuantity || 0))}</span>
           </div>
         )}
@@ -5465,7 +5353,7 @@ const V7Studio = ({
 
 const V7TinyStat = ({ label, value }) => (
   <div className="min-w-[48px] text-right">
-    <p className="text-[7px] font-black uppercase tracking-[0.09em] text-black/26">
+    <p className="text-[12px] font-black uppercase tracking-[0.09em] text-black/26">
       {label}
     </p>
     <p className="mt-1 text-[12px] font-black text-[#171717]">{value}</p>
@@ -6551,7 +6439,7 @@ const v20ContainerPalette = (container, profile = { shape: "magnetic", theme: "s
   return themes[fallbackKeys[v7Hash(seed) % fallbackKeys.length]];
 };
 
-const v20PackingSize = (component, count) => {
+const v20PackingSize = (component, count, compact = false) => {
   const kind = v7ItemKind(component);
   const base = {
     bottle: [46, 84],
@@ -6563,17 +6451,19 @@ const v20PackingSize = (component, count) => {
 
   const crowdScale = count > 14 ? 0.78 : count > 10 ? 0.86 : count > 7 ? 0.94 : 1.12;
 
+  const compactScale = compact ? 0.80 : 1;
+
   return {
     kind,
-    width: Math.round(base[0] * crowdScale),
-    height: Math.round(base[1] * crowdScale),
+    width: Math.round(base[0] * crowdScale * compactScale),
+    height: Math.round(base[1] * crowdScale * compactScale),
   };
 };
 
-const V20PackingItem = ({ entry, index, count }) => {
+const V20PackingItem = ({ entry, index, count, compact = false }) => {
   const component = entry.component;
   const slot = V20_PACKING_SLOTS[index % V20_PACKING_SLOTS.length];
-  const size = v20PackingSize(component, count);
+  const size = v20PackingSize(component, count, compact);
   const image = component?.images?.[0]?.url || "";
   const name = String(component?.name || "Gift");
   const stagger = Math.min(index * 28, 250);
@@ -6631,6 +6521,7 @@ const V7OpenTop3D = ({
   canIncreaseAnyItem,
   validating,
   journeyState = "idle",
+  compact = false,
 }) => {
   const [liveItems, setLiveItems] = useState(() =>
     previewItems.map((item) => ({ ...item, phase: "stable" }))
@@ -6644,18 +6535,11 @@ const V7OpenTop3D = ({
   const introReadyTimerRef = useRef(null);
   const [boxEntryPhase, setBoxEntryPhase] = useState("idle");
 
-  const packed = Boolean(
-    selectedItemCount > 0 &&
-      configuration &&
-      !validating &&
-      canIncreaseAnyItem === false
-  );
-
-  const roundedFill = Math.round(Number(fillPercent || 0));
-  const isAutoSealed = roundedFill >= 96;
+  const roundedFill = Math.min(100, Math.round(Number(fillPercent || 0)));
+  const isAutoSealed = roundedFill >= 100;
   const isPacking = journeyState === "packing";
   const isShipping = journeyState === "shipping";
-  const sealed = packed || isAutoSealed || isPacking || isShipping;
+  const sealed = isAutoSealed || isPacking || isShipping;
   const isDroppingIn = boxEntryPhase === "drop";
   const isOpeningIn = boxEntryPhase === "opening";
 
@@ -6765,7 +6649,7 @@ const V7OpenTop3D = ({
       : "translateX(-50%) translateY(0) perspective(1250px) rotateX(48deg) scale(.99)";
 
   return (
-    <div className="relative isolate min-h-[320px] overflow-hidden rounded-[22px] border border-black/[0.055] bg-[radial-gradient(circle_at_50%_28%,#ffffff_0%,#fbfaf7_42%,#f4f0ea_72%,#ebe4da_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,.98),0_14px_35px_rgba(39,27,14,.055)] sm:min-h-[380px] xl:min-h-[430px]">
+    <div className="v60-live-stage relative isolate min-h-[320px] overflow-hidden rounded-[22px] border border-black/[0.055] bg-[radial-gradient(circle_at_50%_28%,#ffffff_0%,#fbfaf7_42%,#f4f0ea_72%,#ebe4da_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,.98),0_14px_35px_rgba(39,27,14,.055)] sm:min-h-[380px] xl:min-h-[430px]">
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-x-[12%] bottom-[5%] h-[58px] rounded-full bg-black/[0.12] blur-[26px]"
@@ -6779,7 +6663,7 @@ const V7OpenTop3D = ({
       {(packingNote || isPacking || isShipping) && (
         <div
           key={packingNote || journeyState}
-          className="absolute left-1/2 top-3 z-[150] max-w-[82%] -translate-x-1/2 overflow-hidden text-ellipsis whitespace-nowrap rounded-full border border-[#C7A254]/25 bg-white/95 px-3.5 py-1.5 text-[7.5px] font-black tracking-[.02em] text-black/55 shadow-[0_8px_22px_rgba(0,0,0,.07)] backdrop-blur-xl sm:top-4 sm:px-4 sm:py-2 sm:text-[8px]"
+          className="v60-packing-note absolute left-1/2 top-3 z-[150] max-w-[82%] -translate-x-1/2 overflow-hidden text-ellipsis whitespace-nowrap rounded-full border border-[#C7A254]/25 bg-white/95 px-3.5 py-1.5 text-[12px] font-black tracking-[.02em] text-black/55 shadow-[0_8px_22px_rgba(0,0,0,.07)] backdrop-blur-xl sm:top-4 sm:px-4 sm:py-2 sm:text-[12px]"
         >
           {isShipping
             ? "Hamper packed - preparing delivery"
@@ -6790,13 +6674,13 @@ const V7OpenTop3D = ({
       )}
 
       {!selectedContainer ? (
-        <div className="absolute left-1/2 top-1/2 z-20 w-[70%] -translate-x-1/2 -translate-y-1/2 rounded-[16px] border border-dashed border-black/15 bg-white/75 px-4 py-4 text-center text-[9px] font-extrabold leading-5 text-black/40 backdrop-blur-md sm:text-[10px]">
+        <div className="absolute left-1/2 top-1/2 z-20 w-[70%] -translate-x-1/2 -translate-y-1/2 rounded-[16px] border border-dashed border-black/15 bg-white/75 px-4 py-4 text-center text-[11px] font-extrabold leading-5 text-black/40 backdrop-blur-md sm:text-[12px]">
           Choose a box to start building your hamper.
         </div>
       ) : (
         <div
           key={selectedContainer._id}
-          className={`absolute inset-x-0 bottom-[15px] z-10 mx-auto h-[282px] w-[98%] max-w-[740px] [perspective:1500px] [transform-style:preserve-3d] sm:bottom-[16px] sm:h-[332px] xl:bottom-[18px] xl:h-[382px] ${
+          className={`v60-box-world absolute inset-x-0 bottom-[15px] z-10 mx-auto h-[282px] w-[98%] max-w-[740px] [perspective:1500px] [transform-style:preserve-3d] sm:bottom-[16px] sm:h-[332px] xl:bottom-[18px] xl:h-[382px] ${
             isDroppingIn
               ? "animate-[v50BoxDrop_.92s_cubic-bezier(.18,.88,.24,1.02)_both]"
               : ""
@@ -6932,6 +6816,7 @@ const V7OpenTop3D = ({
                     entry={entry}
                     index={index}
                     count={visibleLiveItems.length}
+                    compact={compact}
                   />
                 ))}
               </div>
@@ -6962,7 +6847,7 @@ const V7OpenTop3D = ({
           </div>
 
           {isShipping && (
-            <div className="absolute left-1/2 top-[3px] z-[160] -translate-x-1/2 rounded-full border border-[#D8B052]/25 bg-[#0B0B0C] px-3 py-1.5 text-[8px] font-black uppercase tracking-[.07em] text-[#F2D17A] shadow-[0_12px_24px_rgba(0,0,0,.16)]">
+            <div className="absolute left-1/2 top-[3px] z-[160] -translate-x-1/2 rounded-full border border-[#D8B052]/25 bg-[#0B0B0C] px-3 py-1.5 text-[12px] font-black uppercase tracking-[.07em] text-[#F2D17A] shadow-[0_12px_24px_rgba(0,0,0,.16)]">
               Packed - heading to you
             </div>
           )}
@@ -6970,7 +6855,7 @@ const V7OpenTop3D = ({
       )}
 
       {selectedContainer && (
-        <div className="absolute inset-x-[14px] bottom-[8px] z-[170] flex items-center gap-2">
+        <div className="v60-capacity-line absolute inset-x-[14px] bottom-[8px] z-[170] flex items-center gap-2">
           <div className="h-1 flex-1 overflow-hidden rounded-full bg-black/[0.075]">
             <div
               className="h-full rounded-full bg-gradient-to-r from-[#9A6A18] via-[#D5AD57] to-[#F0D58F] transition-[width] duration-500 ease-out"
@@ -6980,7 +6865,7 @@ const V7OpenTop3D = ({
             />
           </div>
 
-          <span className="w-[42px] shrink-0 text-right text-[8px] font-black text-black/45">
+          <span className="w-[42px] shrink-0 text-right text-[12px] font-black text-black/45">
             {isShipping ? "Ready" : `${roundedFill}%`}
           </span>
         </div>
@@ -7117,7 +7002,7 @@ const ProductPager = ({
       <div className="mt-5 rounded-[14px] border border-black/[0.06] bg-[#FAF8F5] p-3">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-[0.07em] text-black/38">
+            <p className="text-[12px] font-black uppercase tracking-[0.07em] text-black/38">
               {label}
             </p>
             <p className="mt-0.5 text-[11px] font-semibold text-black/48">
@@ -7139,7 +7024,7 @@ const ProductPager = ({
               type="button"
               disabled={page >= totalPages}
               onClick={() => go(page + 1)}
-              className="flex h-10 min-w-[82px] items-center justify-center rounded-full bg-[#171717] px-4 text-[10px] font-black uppercase tracking-[0.06em] text-white transition active:scale-95 disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/25"
+              className="flex h-10 min-w-[82px] items-center justify-center rounded-full bg-[#171717] px-4 text-[12px] font-black uppercase tracking-[0.06em] text-white transition active:scale-95 disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/25"
             >
               Next →
             </button>
@@ -7165,7 +7050,7 @@ const ProductPager = ({
           type="button"
           disabled={page <= 1}
           onClick={() => go(page - 1)}
-          className="h-9 rounded-xl border border-black/10 bg-white px-3 text-[10px] font-black uppercase tracking-[0.06em] text-black/55 transition hover:border-[#F47822] hover:text-[#F47822] disabled:cursor-not-allowed disabled:opacity-30"
+          className="h-9 rounded-xl border border-black/10 bg-white px-3 text-[12px] font-black uppercase tracking-[0.06em] text-black/55 transition hover:border-[#F47822] hover:text-[#F47822] disabled:cursor-not-allowed disabled:opacity-30"
         >
           ← Prev
         </button>
@@ -7175,7 +7060,7 @@ const ProductPager = ({
             key={pageNumber}
             type="button"
             onClick={() => go(pageNumber)}
-            className={`h-9 min-w-9 rounded-xl px-3 text-[10px] font-black transition ${
+            className={`h-9 min-w-9 rounded-xl px-3 text-[12px] font-black transition ${
               pageNumber === page
                 ? "bg-[#171717] text-white shadow-sm"
                 : "border border-black/10 bg-white text-black/45 hover:border-[#F47822] hover:text-[#F47822]"
@@ -7189,7 +7074,7 @@ const ProductPager = ({
           type="button"
           disabled={page >= totalPages}
           onClick={() => go(page + 1)}
-          className="h-9 rounded-xl border border-black/10 bg-white px-3 text-[10px] font-black uppercase tracking-[0.06em] text-black/55 transition hover:border-[#F47822] hover:text-[#F47822] disabled:cursor-not-allowed disabled:opacity-30"
+          className="h-9 rounded-xl border border-black/10 bg-white px-3 text-[12px] font-black uppercase tracking-[0.06em] text-black/55 transition hover:border-[#F47822] hover:text-[#F47822] disabled:cursor-not-allowed disabled:opacity-30"
         >
           Next →
         </button>
@@ -7205,7 +7090,7 @@ const V7Empty = ({ children }) => (
 );
 
 const NoImage = () => (
-  <div className="flex h-full items-center justify-center bg-gradient-to-br from-[#F1ECE5] to-[#E8DFD4] text-[10px] font-bold uppercase tracking-[0.1em] text-black/25">
+  <div className="flex h-full items-center justify-center bg-gradient-to-br from-[#F1ECE5] to-[#E8DFD4] text-[12px] font-bold uppercase tracking-[0.1em] text-black/25">
     No image
   </div>
 );

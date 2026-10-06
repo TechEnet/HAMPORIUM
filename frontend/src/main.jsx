@@ -8,10 +8,13 @@ import "./index.css";
 import { AuthProvider } from "./context/AuthContext.jsx";
 import { CartProvider } from "./context/CartContext.jsx";
 
+import HamporiumNavigationTransition from "./components/HamporiumRouteTransition.jsx";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
     <BrowserRouter>
+      <HamporiumNavigationTransition />
+
       <AuthProvider>
         <CartProvider>
           <App />

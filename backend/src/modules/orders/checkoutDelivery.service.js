@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import Address from "../users/address.model.js";
 import Cart from "../cart/cart.model.js";
 import SKU from "../catalog/sku.model.js";
+import Container from "../catalog/container.model.js";
 
 import { PRODUCT_STATUS } from "../../constants/statuses.js";
 import {
@@ -11,6 +12,7 @@ import {
 } from "../delivery/delivery.service.js";
 
 const INDIA_PINCODE_REGEX = /^[1-9][0-9]{5}$/;
+const MAX_COURIER_DAYS = 60;
 
 const httpError = (message, statusCode = 400, code = "") => {
   const error = new Error(message);
@@ -23,6 +25,75 @@ const normalizeQuantity = (value) => {
   const quantity = Number(value);
   if (!Number.isInteger(quantity) || quantity < 1 || quantity > 99) return null;
   return quantity;
+};
+
+const normalizeCourierDays = (value) => {
+  if (value === undefined || value === null || value === "") return null;
+
+  const days = Number(value);
+  if (!Number.isInteger(days) || days < 0 || days > MAX_COURIER_DAYS) {
+    return null;
+  }
+
+  return days;
+};
+
+/*
+ * Fallback order:
+ * 1. SKU / Container configured courier days
+ * 2. CHECKOUT_DEFAULT_COURIER_DAYS environment variable
+ *
+ * We intentionally do not hard-code a shipping promise in code.
+ */
+const resolveCourierDays = (...values) => {
+  for (const value of values) {
+    const normalized = normalizeCourierDays(value);
+    if (normalized !== null) return normalized;
+  }
+
+  return normalizeCourierDays(process.env.CHECKOUT_DEFAULT_COURIER_DAYS);
+};
+
+const requireCourierDays = (courierDays, label) => {
+  if (courierDays !== null) return courierDays;
+
+  throw httpError(
+    `Default courier days are not configured for ${label}. Set courier days in admin or configure CHECKOUT_DEFAULT_COURIER_DAYS.`,
+    409,
+    "COURIER_DAYS_MISSING"
+  );
+};
+
+const addCalendarDays = (value, days) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+
+  const result = new Date(date);
+  result.setUTCDate(result.getUTCDate() + Number(days || 0));
+  return result;
+};
+
+/*
+ * Defensive repair for older delivery.service implementations that return a
+ * dispatchReadyDate but leave expectedDeliveryDate empty when courierDays was
+ * not previously forwarded by checkoutDelivery.service.
+ */
+const ensureExpectedDeliveryDate = (estimate, courierDays) => {
+  if (!estimate || estimate.canEstimate === false) return estimate;
+  if (estimate.expectedDeliveryDate) return estimate;
+
+  const baseDate = estimate.dispatchReadyDate || estimate.materialsReadyDate;
+  const expectedDeliveryDate = baseDate
+    ? addCalendarDays(baseDate, courierDays)
+    : null;
+
+  if (!expectedDeliveryDate) return estimate;
+
+  return {
+    ...estimate,
+    courierDays,
+    expectedDeliveryDate,
+  };
 };
 
 const toDateKey = (value) => {
@@ -82,12 +153,23 @@ const validateEstimate = (estimate, label) => {
 };
 
 const buildSkuEstimate = async ({ sku, quantity, itemId = null }) => {
-  const estimate = await calculateSkuDeliveryEstimate(sku, {
+  const label = sku.product?.name || sku.name || sku.code || "Hamper";
+
+  const courierDays = requireCourierDays(
+    resolveCourierDays(
+      sku.defaultCourierDays,
+      sku.container?.defaultCourierDays
+    ),
+    label
+  );
+
+  const rawEstimate = await calculateSkuDeliveryEstimate(sku, {
     quantity,
+    courierDays,
     includeDetails: true,
   });
 
-  const label = sku.product?.name || sku.name || sku.code || "Hamper";
+  const estimate = ensureExpectedDeliveryDate(rawEstimate, courierDays);
   validateEstimate(estimate, label);
 
   return {
@@ -116,14 +198,36 @@ const buildCustomEstimate = async ({ cartItem }) => {
     );
   }
 
-  const estimate = await calculateCustomHamperDeliveryEstimate({
+  const container = await Container.findOne({
+    _id: customHamper.container,
+    isActive: true,
+  })
+    .select("_id name code defaultCourierDays")
+    .lean();
+
+  if (!container) {
+    throw httpError(
+      "Custom hamper box is no longer available",
+      409,
+      "ITEM_UNAVAILABLE"
+    );
+  }
+
+  const courierDays = requireCourierDays(
+    resolveCourierDays(container.defaultCourierDays),
+    container.name || "Custom Hamper"
+  );
+
+  const rawEstimate = await calculateCustomHamperDeliveryEstimate({
     containerId: customHamper.container,
     items: customHamper.items || [],
     decorations: customHamper.decorations || [],
     quantity,
+    courierDays,
     includeDetails: true,
   });
 
+  const estimate = ensureExpectedDeliveryDate(rawEstimate, courierDays);
   validateEstimate(estimate, "Custom Hamper");
 
   return {
@@ -188,6 +292,7 @@ export const calculateCartCheckoutDelivery = async ({ userId, addressId }) => {
   const skus = skuIds.length
     ? await SKU.find({ _id: { $in: skuIds }, isActive: true })
         .populate("product", "name slug status")
+        .populate("container", "name code defaultCourierDays")
         .lean()
     : [];
 
@@ -260,6 +365,7 @@ export const calculateBuyNowCheckoutDelivery = async ({
 
   const sku = await SKU.findOne({ _id: skuId, isActive: true })
     .populate("product", "name slug status")
+    .populate("container", "name code defaultCourierDays")
     .lean();
 
   if (!sku || !sku.product || sku.product.status !== PRODUCT_STATUS.ACTIVE) {
