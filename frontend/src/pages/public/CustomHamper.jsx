@@ -2784,7 +2784,7 @@ const CustomHamper = () => {
           }
 
           .v30-mobile-live .v60-live-stage {
-            min-height: 150px !important;
+            min-height: 165px !important;
             border-radius: 11px;
             border-color: rgba(212,175,55,.11);
             box-shadow: inset 0 1px 0 rgba(255,255,255,.98), 0 6px 16px rgba(39,27,14,.04);
@@ -2792,7 +2792,7 @@ const CustomHamper = () => {
 
           .v30-mobile-live .v60-box-world {
             bottom: -4px !important;
-            height: 156px !important;
+            height: 172px !important;
             width: 91% !important;
             max-width: 420px !important;
           }
@@ -4933,27 +4933,37 @@ const V7ProductCard = ({
           </p>
 
 
-          <div className="mt-2 flex items-center justify-between gap-2 pt-1">
-            <div className="min-w-0">
-              <div className="flex min-w-0 items-baseline gap-1.5">
-                <span className="truncate text-[16px] font-black text-[#171717] sm:text-[16px]">
-                  {missingPrice
-                    ? "Price pending"
-                    : formatCurrency(component.sellingPrice)}
-                </span>
-                {hasMrp && (
-                  <span className="hidden text-[11px] font-semibold text-black/30 line-through sm:inline">
-                    {formatCurrency(component.mrp)}
-                  </span>
-                )}
-              </div>
-             </div>
+          <div className="mt-2 flex min-w-0 items-baseline gap-1.5 pt-1">
+            <span className="truncate text-[16px] font-black text-[#171717] sm:text-[16px]">
+              {missingPrice
+                ? "Price pending"
+                : formatCurrency(component.sellingPrice)}
+            </span>
+            {hasMrp && (
+              <span className="hidden text-[11px] font-semibold text-black/30 line-through sm:inline">
+                {formatCurrency(component.mrp)}
+              </span>
+            )}
+          </div>
+
+          <div
+            className="mt-2 grid grid-cols-[minmax(0,.9fr)_minmax(0,1.1fr)] gap-1.5 sm:flex sm:items-center sm:gap-2"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                setDetailsOpen(true);
+              }}
+              className="flex h-9 min-w-0 items-center justify-center rounded-[9px] border border-black/[0.09] bg-white px-2 text-[12px] font-black text-black/60 transition hover:border-black/20 hover:bg-black/[0.025] hover:text-[#171717] sm:h-10 sm:min-w-[72px]"
+              aria-label={`View details for ${component.name}`}
+            >
+              Details
+            </button>
 
             {quantity > 0 ? (
-              <div
-                className="grid h-9 w-[92px] shrink-0 grid-cols-[29px_1fr_29px] overflow-hidden rounded-[9px] border border-[#F47822]/25 bg-[#FFF8F2] sm:h-10 sm:w-[102px] sm:grid-cols-[32px_1fr_32px]"
-                onClick={(event) => event.stopPropagation()}
-              >
+              <div className="grid h-9 min-w-0 grid-cols-[30px_1fr_30px] overflow-hidden rounded-[9px] border border-[#F47822]/25 bg-[#FFF8F2] sm:h-10 sm:w-[102px] sm:grid-cols-[32px_1fr_32px]">
                 <button
                   type="button"
                   onClick={(event) => {
@@ -4966,7 +4976,7 @@ const V7ProductCard = ({
                   −
                 </button>
 
-                <span className="flex items-center justify-center border-x border-[#F47822]/15 text-[11px] font-black">
+                <span className="flex items-center justify-center border-x border-[#F47822]/15 text-[12px] font-black">
                   {quantity}
                 </span>
 
@@ -4991,7 +5001,7 @@ const V7ProductCard = ({
                   event.stopPropagation();
                   onPlus();
                 }}
-                className="flex h-9 w-[82px] shrink-0 items-center justify-center rounded-[9px] bg-[#F47822] px-2 text-[13px] font-black text-white transition hover:bg-[#171717] disabled:cursor-not-allowed disabled:bg-black/[0.08] disabled:text-black/28 sm:h-10 sm:w-[86px] sm:text-[12px]"
+                className="flex h-9 min-w-0 items-center justify-center rounded-[9px] bg-[#F47822] px-2 text-[12px] font-black text-white transition hover:bg-[#171717] disabled:cursor-not-allowed disabled:bg-black/[0.08] disabled:text-black/28 sm:h-10 sm:min-w-[78px]"
               >
                 {actionLabel}
               </button>
