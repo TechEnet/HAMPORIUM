@@ -208,6 +208,12 @@ const CustomHamper = () => {
   const [requestingQuote, setRequestingQuote] = useState(false);
   const [deliveryJourney, setDeliveryJourney] = useState("idle");
 
+  // Desktop header hides while scrolling down and returns while scrolling up.
+  // Keep the sticky builder controls attached to that same motion: when the
+  // header is hidden they use the freed top space, and when it returns they
+  // slide down to leave room for it.
+  const [desktopHeaderVisible, setDesktopHeaderVisible] = useState(true);
+
   // Mobile uses a progressive builder so only one decision is visible at a time.
   // Desktop/tablet keep the existing full builder experience.
   const [mobileStep, setMobileStep] = useState(1);
@@ -217,6 +223,64 @@ const CustomHamper = () => {
       : false
   );
   const mobileFlowRef = useRef(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const desktopMedia = window.matchMedia("(min-width: 1024px)");
+    let lastScrollY = Math.max(0, window.scrollY);
+    let frame = null;
+
+    const syncDesktopHeaderSpace = () => {
+      frame = null;
+      const currentScrollY = Math.max(0, window.scrollY);
+
+      if (!desktopMedia.matches) {
+        setDesktopHeaderVisible(true);
+        lastScrollY = currentScrollY;
+        return;
+      }
+
+      if (currentScrollY <= 20) {
+        setDesktopHeaderVisible(true);
+      } else if (currentScrollY > lastScrollY + 5) {
+        setDesktopHeaderVisible(false);
+      } else if (currentScrollY < lastScrollY - 5) {
+        setDesktopHeaderVisible(true);
+      }
+
+      lastScrollY = currentScrollY;
+    };
+
+    const handleScroll = () => {
+      if (frame !== null) return;
+      frame = window.requestAnimationFrame(syncDesktopHeaderSpace);
+    };
+
+    const handleDesktopMediaChange = () => {
+      lastScrollY = Math.max(0, window.scrollY);
+      setDesktopHeaderVisible(true);
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+
+    if (desktopMedia.addEventListener) {
+      desktopMedia.addEventListener("change", handleDesktopMediaChange);
+    } else {
+      desktopMedia.addListener(handleDesktopMediaChange);
+    }
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      if (frame !== null) window.cancelAnimationFrame(frame);
+
+      if (desktopMedia.removeEventListener) {
+        desktopMedia.removeEventListener("change", handleDesktopMediaChange);
+      } else {
+        desktopMedia.removeListener(handleDesktopMediaChange);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -2791,7 +2855,8 @@ const CustomHamper = () => {
           }
 
           .v30-mobile-live .v60-box-world {
-            bottom: -4px !important;
+            /* Keep the bottom satin ribbon fully visible inside the compact mobile preview. */
+            bottom: 10px !important;
             height: 172px !important;
             width: 91% !important;
             max-width: 420px !important;
@@ -2837,20 +2902,76 @@ const CustomHamper = () => {
             border-left: 1px solid rgba(0,0,0,.06);
           }
 
-          /* Let products own the screen. Step actions stay in document flow
-             instead of floating over the product cards on mobile. */
+          /* V71 · persistent mobile step navigation.
+             Keep Back / Next visible without forcing the customer to reach
+             the end of a long product list first. */
           .v30-mobile-sticky-actions {
-            position: static;
-            z-index: auto;
-            margin-inline: 0;
-            padding: 0;
-            background: transparent;
+            position: fixed;
+            left: 12px;
+            right: 12px;
+            bottom: max(10px, env(safe-area-inset-bottom));
+            z-index: 110;
+            margin: 0;
+            padding: 6px;
+            border: 1px solid rgba(23,23,23,.07);
+            border-radius: 16px;
+            background: rgba(250,248,244,.96);
+            box-shadow: 0 12px 34px rgba(35,24,13,.16);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+          }
+
+          .v30-mobile-sticky-actions > div {
+            width: 100%;
+          }
+
+          .hamporium-mobile-builder {
+            padding-bottom: 108px !important;
           }
 
           .hamporium-mobile-builder input,
           .hamporium-mobile-builder select,
           .hamporium-mobile-builder textarea {
             font-size: 16px !important;
+          }
+        }
+
+        /* V73 · tablet keeps the persistent bottom controls, but desktop
+           moves Back / Next into the same top row as the step navigator. */
+        @media (min-width: 768px) and (max-width: 1023px) {
+          .v30-mobile-sticky-actions {
+            position: fixed;
+            left: 20px;
+            right: 20px;
+            bottom: 18px;
+            z-index: 110;
+            margin: 0;
+            padding: 7px;
+            border: 1px solid rgba(23,23,23,.07);
+            border-radius: 16px;
+            background: rgba(250,248,244,.965);
+            box-shadow: 0 14px 34px rgba(35,24,13,.14);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+          }
+
+          .v30-mobile-sticky-actions > div {
+            width: fit-content;
+            margin-left: auto;
+          }
+
+          .hamporium-mobile-builder {
+            padding-bottom: 118px !important;
+          }
+        }
+
+        @media (min-width: 1024px) {
+          .v30-mobile-sticky-actions {
+            display: none !important;
+          }
+
+          .hamporium-mobile-builder {
+            padding-bottom: 56px !important;
           }
         }
 
@@ -3167,13 +3288,47 @@ const CustomHamper = () => {
           <div aria-hidden="true" className="hidden sm:block sm:col-start-3 sm:row-start-1" />
         </div>
 
-        <V30Progress
-          step={mobileStep}
-          orderMode={orderMode}
-          canContinueFromBox={canContinueFromBox}
-          canContinueFromProducts={canContinueFromProducts}
-          onStepChange={moveMobileStep}
-        />
+        <div
+          className="mb-2 lg:sticky lg:z-[95] lg:mb-3 lg:rounded-[16px] lg:border lg:border-black/[0.055] lg:bg-[#FAF8F4]/95 lg:px-3 lg:py-2.5 lg:shadow-[0_10px_28px_rgba(35,24,13,.08)] lg:backdrop-blur-xl xl:mr-[430px] 2xl:mr-[484px]"
+          style={{
+            top: desktopHeaderVisible ? "84px" : "0px",
+            transition: "top 240ms cubic-bezier(.22,1,.36,1)",
+          }}
+        >
+          <div className="lg:flex lg:items-center lg:justify-between lg:gap-4">
+            <V30Progress
+              step={mobileStep}
+              orderMode={orderMode}
+              canContinueFromBox={canContinueFromBox}
+              canContinueFromProducts={canContinueFromProducts}
+              onStepChange={moveMobileStep}
+            />
+
+            <V30DesktopStepActions
+              step={mobileStep}
+              orderMode={orderMode}
+              canContinueFromBox={canContinueFromBox}
+              canContinueFromProducts={canContinueFromProducts}
+              selectedDecorationCount={selectedDecorationCount}
+              onStepChange={moveMobileStep}
+            />
+          </div>
+
+          {mobileStep === 2 && (
+            <div className="mt-2 hidden lg:block">
+              <V75GiftFilterBar
+                search={search}
+                setSearch={setSearch}
+                categoryFilter={categoryFilter}
+                setCategoryFilter={setCategoryFilter}
+                subcategoryFilter={subcategoryFilter}
+                setSubcategoryFilter={setSubcategoryFilter}
+                categories={categories}
+                subcategories={subcategories}
+              />
+            </div>
+          )}
+        </div>
 
         {(editError || error) && (
           <div className="mt-4 rounded-[16px] border border-red-200 bg-red-50 px-4 py-3 text-[11px] font-semibold text-red-700">
@@ -3247,68 +3402,17 @@ const CustomHamper = () => {
                   journeyState={deliveryJourney}
                 />
 
-                <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
-                  <div className="relative w-full shrink-0 sm:w-[220px] lg:w-[250px] xl:w-[230px] 2xl:w-[260px]">
-                    <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[14px] text-black/24">⌕</span>
-                    <input
-                      value={search}
-                      onChange={(event) => setSearch(event.target.value)}
-                      placeholder="Search gifts"
-                      className="h-11 w-full rounded-full border border-black/[0.07] bg-white pl-10 pr-4 text-[16px] font-semibold text-[#171717] outline-none transition placeholder:text-black/35 focus:border-[#F47822]/55 focus:ring-4 focus:ring-[#F47822]/[0.06] sm:h-10 sm:text-[13px]"
-                    />
-                  </div>
-
-                  <div className="v30-scrollbar-none min-w-0 flex-1 overflow-x-auto">
-                    <div className="flex w-max items-center gap-2 pr-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCategoryFilter("");
-                          setSubcategoryFilter("");
-                        }}
-                        className={`shrink-0 rounded-full border px-3.5 py-2.5 text-[13px] font-extrabold transition sm:py-2 sm:text-[12px] ${
-                          !categoryFilter && !subcategoryFilter
-                            ? "border-[#171717] bg-[#171717] text-white"
-                            : "border-black/[0.08] bg-white text-black/55 hover:border-black/20 hover:text-[#171717]"
-                        }`}
-                      >
-                        All
-                      </button>
-
-                      {categories.slice(0, 8).map((category) => (
-                        <button
-                          key={`category-${category}`}
-                          type="button"
-                          onClick={() => {
-                            setCategoryFilter(category);
-                            setSubcategoryFilter("");
-                          }}
-                          className={`shrink-0 rounded-full border px-3.5 py-2.5 text-[13px] font-extrabold transition sm:py-2 sm:text-[12px] ${
-                            categoryFilter === category && !subcategoryFilter
-                              ? "border-[#171717] bg-[#171717] text-white"
-                              : "border-black/[0.08] bg-white text-black/55 hover:border-black/20 hover:text-[#171717]"
-                          }`}
-                        >
-                          {category}
-                        </button>
-                      ))}
-
-                      {subcategories.map((subcategory) => (
-                        <button
-                          key={`subcategory-${subcategory}`}
-                          type="button"
-                          onClick={() => setSubcategoryFilter(subcategory)}
-                          className={`shrink-0 rounded-full border px-3.5 py-2.5 text-[13px] font-extrabold transition sm:py-2 sm:text-[12px] ${
-                            subcategoryFilter === subcategory
-                              ? "border-[#F47822] bg-[#FFF4EC] text-[#D85E0F]"
-                              : "border-black/[0.08] bg-white text-black/55 hover:border-[#F47822]/35 hover:text-[#D85E0F]"
-                          }`}
-                        >
-                          {subcategory}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                <div className="lg:hidden">
+                  <V75GiftFilterBar
+                    search={search}
+                    setSearch={setSearch}
+                    categoryFilter={categoryFilter}
+                    setCategoryFilter={setCategoryFilter}
+                    subcategoryFilter={subcategoryFilter}
+                    setSubcategoryFilter={setSubcategoryFilter}
+                    categories={categories}
+                    subcategories={subcategories}
+                  />
                 </div>
 
 
@@ -3647,6 +3751,15 @@ const CustomHamper = () => {
                   <V30ReviewStat label="Personalisation" value={personalizationPayload ? "Added" : "None"} />
                 </div>
 
+                <V71ReviewContents
+                  selectedContainer={selectedContainer}
+                  selectedItems={selectedItems}
+                  contentMap={contentMap}
+                  selectedDecorations={selectedDecorations}
+                  decorationComponentMap={decorationComponentMap}
+                  personalization={personalizationPayload}
+                />
+
                 <div className="mt-5 xl:hidden">
                   <V7Studio
                     selectedContainer={selectedContainer}
@@ -3736,7 +3849,7 @@ const V30Progress = ({
 
   return (
     <nav
-      className="mb-2 flex flex-wrap items-center gap-2 py-0.5 sm:mb-3 sm:py-1"
+      className="mb-2 flex flex-wrap items-center gap-2 py-0.5 sm:mb-3 sm:py-1 lg:mb-0 lg:flex-nowrap"
       aria-label="Hamper builder progress"
     >
       {steps.map(([number, label]) => {
@@ -3779,6 +3892,146 @@ const V30Progress = ({
     </nav>
   );
 };
+
+const V30DesktopStepActions = ({
+  step,
+  orderMode,
+  canContinueFromBox,
+  canContinueFromProducts,
+  selectedDecorationCount,
+  onStepChange,
+}) => {
+  let backLabel = "";
+  let nextLabel = "";
+  let nextDisabled = false;
+  let backStep = null;
+  let nextStep = null;
+
+  if (step === 1) {
+    nextLabel = "Add gifts";
+    nextDisabled = !canContinueFromBox;
+    nextStep = 2;
+  } else if (step === 2) {
+    backLabel = "Box";
+    nextLabel = "Finishing touches";
+    nextDisabled = !canContinueFromProducts;
+    backStep = 1;
+    nextStep = 3;
+  } else if (step === 3) {
+    backLabel = "Gifts";
+    nextLabel = selectedDecorationCount ? "Personalise" : "Skip & personalise";
+    backStep = 2;
+    nextStep = 4;
+  } else if (step === 4) {
+    backLabel = "Finishing";
+    nextLabel = orderMode === "bulk" ? "Quote details" : "Review hamper";
+    backStep = 3;
+    nextStep = 5;
+  } else if (step === 5) {
+    backLabel = "Personalise";
+    backStep = 4;
+  }
+
+  return (
+    <div className="hidden shrink-0 items-center gap-2 lg:flex lg:ml-3">
+      {backStep && (
+        <button
+          type="button"
+          onClick={() => onStepChange(backStep)}
+          className="h-9 rounded-full border border-black/[0.08] bg-white px-4 text-[11px] font-black text-black/55 transition hover:border-black/20 hover:text-[#171717] active:scale-[.98]"
+        >
+          ← {backLabel}
+        </button>
+      )}
+
+      {nextStep && (
+        <button
+          type="button"
+          disabled={nextDisabled}
+          onClick={() => onStepChange(nextStep)}
+          className="h-9 rounded-full bg-[#171717] px-4 text-[11px] font-black text-white transition hover:bg-[#9A7316] active:scale-[.99] disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/25"
+        >
+          {nextLabel} →
+        </button>
+      )}
+    </div>
+  );
+};
+
+const V75GiftFilterBar = ({
+  search,
+  setSearch,
+  categoryFilter,
+  setCategoryFilter,
+  subcategoryFilter,
+  setSubcategoryFilter,
+  categories,
+  subcategories,
+}) => (
+  <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
+    <div className="relative w-full shrink-0 sm:w-[220px] lg:w-[250px] xl:w-[230px] 2xl:w-[260px]">
+      <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[14px] text-black/24">⌕</span>
+      <input
+        value={search}
+        onChange={(event) => setSearch(event.target.value)}
+        placeholder="Search gifts"
+        className="h-11 w-full rounded-full border border-black/[0.07] bg-white pl-10 pr-4 text-[16px] font-semibold text-[#171717] outline-none transition placeholder:text-black/35 focus:border-[#F47822]/55 focus:ring-4 focus:ring-[#F47822]/[0.06] sm:h-10 sm:text-[13px]"
+      />
+    </div>
+
+    <div className="v30-scrollbar-none min-w-0 flex-1 overflow-x-auto">
+      <div className="flex w-max items-center gap-2 pr-1">
+        <button
+          type="button"
+          onClick={() => {
+            setCategoryFilter("");
+            setSubcategoryFilter("");
+          }}
+          className={`shrink-0 rounded-full border px-3.5 py-2.5 text-[13px] font-extrabold transition sm:py-2 sm:text-[12px] ${
+            !categoryFilter && !subcategoryFilter
+              ? "border-[#171717] bg-[#171717] text-white"
+              : "border-black/[0.08] bg-white text-black/55 hover:border-black/20 hover:text-[#171717]"
+          }`}
+        >
+          All
+        </button>
+
+        {categories.slice(0, 8).map((category) => (
+          <button
+            key={`category-${category}`}
+            type="button"
+            onClick={() => {
+              setCategoryFilter(category);
+              setSubcategoryFilter("");
+            }}
+            className={`shrink-0 rounded-full border px-3.5 py-2.5 text-[13px] font-extrabold transition sm:py-2 sm:text-[12px] ${
+              categoryFilter === category && !subcategoryFilter
+                ? "border-[#171717] bg-[#171717] text-white"
+                : "border-black/[0.08] bg-white text-black/55 hover:border-black/20 hover:text-[#171717]"
+            }`}
+          >
+            {category}
+          </button>
+        ))}
+
+        {subcategories.map((subcategory) => (
+          <button
+            key={`subcategory-${subcategory}`}
+            type="button"
+            onClick={() => setSubcategoryFilter(subcategory)}
+            className={`shrink-0 rounded-full border px-3.5 py-2.5 text-[13px] font-extrabold transition sm:py-2 sm:text-[12px] ${
+              subcategoryFilter === subcategory
+                ? "border-[#F47822] bg-[#FFF4EC] text-[#D85E0F]"
+                : "border-black/[0.08] bg-white text-black/55 hover:border-[#F47822]/35 hover:text-[#D85E0F]"
+            }`}
+          >
+            {subcategory}
+          </button>
+        ))}
+      </div>
+    </div>
+  </div>
+);
 
 const V34GiftWorkspace = ({ children }) => (
   <section className="v34-gift-workspace min-w-0">
@@ -3873,6 +4126,88 @@ const V30ReviewStat = ({ label, value }) => (
     <p className="mt-1 truncate text-[11px] font-black text-[#171717]" title={value}>{value}</p>
   </div>
 );
+
+const V71ReviewContents = ({
+  selectedContainer,
+  selectedItems = [],
+  contentMap,
+  selectedDecorations = [],
+  decorationComponentMap,
+  personalization,
+}) => {
+  const gifts = selectedItems
+    .map((selection) => ({
+      quantity: Number(selection.quantity || 0),
+      component: contentMap?.get(String(selection.componentId)),
+    }))
+    .filter((entry) => entry.component && entry.quantity > 0);
+
+  const decorations = selectedDecorations
+    .map((selection) => ({
+      quantity: Number(selection.quantity || 0),
+      component: decorationComponentMap?.get(String(selection.componentId)),
+    }))
+    .filter((entry) => entry.component && entry.quantity > 0);
+
+  return (
+    <section className="mt-4 overflow-hidden rounded-[16px] border border-black/[0.07] bg-white">
+      <div className="flex items-center justify-between gap-3 border-b border-black/[0.06] px-4 py-3">
+        <p className="text-[13px] font-black text-[#171717]">Hamper contents</p>
+        <span className="text-[11px] font-bold text-black/35">
+          {gifts.reduce((sum, entry) => sum + entry.quantity, 0)} gifts
+        </span>
+      </div>
+
+      {selectedContainer?.name && (
+        <div className="flex items-start justify-between gap-3 border-b border-black/[0.05] px-4 py-3">
+          <span className="text-[11px] font-bold text-black/35">Box</span>
+          <span className="max-w-[72%] text-right text-[12px] font-black leading-5 text-[#171717]">
+            {selectedContainer.name}
+          </span>
+        </div>
+      )}
+
+      <div className="divide-y divide-black/[0.05]">
+        {gifts.map(({ component, quantity }) => (
+          <div key={component._id} className="flex items-center justify-between gap-3 px-4 py-3">
+            <p className="min-w-0 flex-1 text-[12px] font-extrabold leading-5 text-[#171717]">
+              {component.name}
+            </p>
+            <span className="shrink-0 rounded-full bg-black/[0.045] px-2.5 py-1 text-[11px] font-black text-black/55">
+              ×{quantity}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {decorations.length > 0 && (
+        <div className="border-t border-black/[0.06]">
+          <div className="px-4 pb-1 pt-3 text-[10px] font-black uppercase tracking-[0.07em] text-black/35">
+            Finishing touches
+          </div>
+          <div className="divide-y divide-black/[0.05]">
+            {decorations.map(({ component, quantity }) => (
+              <div key={component._id} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                <p className="min-w-0 flex-1 text-[12px] font-extrabold leading-5 text-[#171717]">
+                  {component.name}
+                </p>
+                <span className="shrink-0 rounded-full bg-[#FFF8DE] px-2.5 py-1 text-[11px] font-black text-[#8A6815]">
+                  ×{quantity}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {personalization && (
+        <div className="border-t border-black/[0.06] px-4 py-3 text-[12px] font-extrabold text-[#171717]">
+          Personalisation added
+        </div>
+      )}
+    </section>
+  );
+};
 
 const OrderModeChooser = ({ mode, onChange }) => (
   <div className="inline-grid w-[286px] max-w-full grid-cols-2 rounded-xl border border-black/[0.07] bg-white p-1 sm:w-[260px]">
