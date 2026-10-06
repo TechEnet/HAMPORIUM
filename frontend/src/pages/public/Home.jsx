@@ -5927,6 +5927,69 @@ const Home = () => {
             contain: layout paint style;
           }
 
+          /* ==================================================
+             V80 · MOBILE SCROLL STABILITY
+             Mobile browser chrome changes the visual viewport while scrolling.
+             Avoid any feature that can re-size/re-anchor whole sections at that
+             moment. Horizontal rails still swipe naturally, but no longer force
+             a snap while the user is primarily moving vertically.
+          ================================================== */
+          @media (max-width:1023px), (pointer:coarse) {
+            .hamporium-home {
+              overflow-anchor: auto !important;
+            }
+
+            /* content-visibility with an estimated 900px intrinsic height can
+               correct the document height when a section becomes visible. That
+               correction feels like the page jumps on phones. */
+            .hp-home-v65 [data-home-section] {
+              content-visibility: visible !important;
+              contain-intrinsic-size: none !important;
+            }
+
+            /* Keep vertical gestures native. Proximity snap preserves the swipe
+               carousel feel without yanking a rail into place mid page-scroll. */
+            .hp-home-v65 .hp-bestseller-runway,
+            .hp-home-v65 .hp-mobile-rail,
+            .hp-home-v65 .hp-editorial-mobile-rail,
+            .hp-home-v65 .hp-journey-grid,
+            [data-home-section="bulk"] .hp-bulk-rail {
+              scroll-snap-type: x proximity !important;
+              scroll-behavior: auto !important;
+              overscroll-behavior-y: auto !important;
+              touch-action: pan-x pan-y !important;
+            }
+
+            .hp-home-v65 .hp-bestseller-runway > *,
+            .hp-home-v65 .hp-mobile-rail > *,
+            .hp-home-v65 .hp-editorial-mobile-rail > *,
+            .hp-home-v65 .hp-journey-grid > *,
+            [data-home-section="bulk"] .hp-bulk-rail > * {
+              scroll-snap-stop: normal !important;
+            }
+
+            /* Avoid changing backdrop-filter at scroll start/end. On mobile the
+               fixed concierge stays visually identical while scrolling. */
+            .hp-gift-concierge-fab {
+              -webkit-backdrop-filter: none !important;
+              backdrop-filter: none !important;
+              background: rgba(16,12,8,.97);
+            }
+
+            /* Continuous ambient loops are decorative only. Removing them on
+               coarse/touch devices leaves the deliberate reveal, swipe and
+               interaction animations intact and frees compositor time for scroll. */
+            .hp-ambient-float,
+            .hp-soft-spin,
+            .hp-badge-pulse,
+            .hp-why-bg,
+            .hp-why-glow,
+            .hp-why-status-dot,
+            .hp-why-signature-line {
+              animation: none !important;
+            }
+          }
+
           @media (prefers-reduced-motion:reduce) {
             .hp-home-golden-thread-knot,
             .hp-gift-concierge-fab,
@@ -8264,9 +8327,12 @@ const HamperOneUnwrapExperience = () => {
 
         @media (max-width: 639px) {
           .hp-home-v65 .hp-hamper-one-section {
-            height: 100dvh;
+            /* V80 · keep the section height stable while mobile browser chrome
+               expands/collapses. 100dvh changes during scroll and can visibly
+               resize the page; 100svh stays anchored to one viewport height. */
+            height: 100svh;
             min-height: 100svh;
-            max-height: 100dvh;
+            max-height: 100svh;
           }
 
           .hp-home-v65 .hp-hamper-one-stage {
@@ -9896,6 +9962,10 @@ const useHomeEnhancements = (homeRef, reducedMotion) => {
     let heroTravel = 1;
     let lastScrollY = -1;
     let heroSettled = false;
+    const stableMobileScroll = window.matchMedia?.(
+      "(max-width: 1023px), (pointer: coarse)"
+    )?.matches ?? false;
+    let lastViewportWidth = window.innerWidth;
 
     const paint = () => {
       frame = 0;
@@ -9952,12 +10022,20 @@ const useHomeEnhancements = (homeRef, reducedMotion) => {
     };
 
     const scheduleScroll = () => {
-      if (!root.classList.contains("is-scrolling")) root.classList.add("is-scrolling");
-      if (scrollIdleTimer) window.clearTimeout(scrollIdleTimer);
-      scrollIdleTimer = window.setTimeout(() => {
-        root.classList.remove("is-scrolling");
-        scrollIdleTimer = 0;
-      }, 130);
+      /* On phones, toggling a class on the Home root invalidates selectors across
+         thousands of descendants right as a fling begins/ends. Keep mobile scroll
+         entirely passive; the mobile CSS above already disables the costly ambient
+         effects permanently. */
+      if (!stableMobileScroll) {
+        if (!root.classList.contains("is-scrolling")) {
+          root.classList.add("is-scrolling");
+        }
+        if (scrollIdleTimer) window.clearTimeout(scrollIdleTimer);
+        scrollIdleTimer = window.setTimeout(() => {
+          root.classList.remove("is-scrolling");
+          scrollIdleTimer = 0;
+        }, 130);
+      }
       schedulePaint();
     };
 
@@ -9976,12 +10054,21 @@ const useHomeEnhancements = (homeRef, reducedMotion) => {
       if (!document.hidden) measure();
     };
 
+    const handleViewportResize = () => {
+      const nextWidth = window.innerWidth;
+      if (stableMobileScroll && Math.abs(nextWidth - lastViewportWidth) < 2) {
+        return;
+      }
+      lastViewportWidth = nextWidth;
+      measure();
+    };
+
     const resize = window.ResizeObserver ? new ResizeObserver(measure) : null;
     if (heroStage) resize?.observe(heroStage);
     resize?.observe(root);
 
     window.addEventListener("scroll", scheduleScroll, { passive: true });
-    window.addEventListener("resize", measure, { passive: true });
+    window.addEventListener("resize", handleViewportResize, { passive: true });
     document.addEventListener("visibilitychange", visibility);
     measure();
     visibility();
@@ -10149,7 +10236,7 @@ const useHomeEnhancements = (homeRef, reducedMotion) => {
 
       window.cancelAnimationFrame(frame);
       window.removeEventListener("scroll", scheduleScroll);
-      window.removeEventListener("resize", measure);
+      window.removeEventListener("resize", handleViewportResize);
       document.removeEventListener("visibilitychange", visibility);
       [...sections, ...stories].forEach((node) => node.classList.remove("hp-offscreen"));
     };
@@ -10441,12 +10528,30 @@ const InteractiveRail = ({ id, label, className = "", controlsClass = "", childr
   useEffect(() => {
     const node = ref.current;
     if (!node) return undefined;
+
+    let lastWidth = window.innerWidth;
+    const onViewportResize = () => {
+      const nextWidth = window.innerWidth;
+      /* Mobile address bars alter viewport height during a vertical fling.
+         Rail geometry depends on width, so do nothing unless width changed. */
+      if (Math.abs(nextWidth - lastWidth) < 2) return;
+      lastWidth = nextWidth;
+      schedule();
+    };
+
     const resize = window.ResizeObserver ? new ResizeObserver(schedule) : null;
-    resize?.observe(node); Array.from(node.children).forEach((child) => resize?.observe(child));
+    resize?.observe(node);
+    Array.from(node.children).forEach((child) => resize?.observe(child));
     node.addEventListener("scroll", schedule, { passive: true });
-    window.addEventListener("resize", schedule, { passive: true });
+    window.addEventListener("resize", onViewportResize, { passive: true });
     schedule();
-    return () => { resize?.disconnect(); cancelAnimationFrame(frame.current); frame.current = 0; node.removeEventListener("scroll", schedule); window.removeEventListener("resize", schedule); };
+    return () => {
+      resize?.disconnect();
+      cancelAnimationFrame(frame.current);
+      frame.current = 0;
+      node.removeEventListener("scroll", schedule);
+      window.removeEventListener("resize", onViewportResize);
+    };
   }, [children, schedule]);
   const move = (direction) => {
     const node = ref.current;
