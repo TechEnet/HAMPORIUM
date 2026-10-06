@@ -12,8 +12,8 @@ const DISPLAY_FONT =
   "'Cormorant Garamond', 'Playfair Display', Georgia, serif";
 
 const CHANNELS = ["corporate", "wedding", "diwali", "hamperOne"];
-const DESKTOP_ITEMS_PER_PAGE = 8;
-const MOBILE_ITEMS_PER_PAGE = 6;
+const DESKTOP_ITEMS_PER_PAGE = 20;
+const MOBILE_ITEMS_PER_PAGE = 8;
 
 const getToday = () => {
   const now = new Date();
@@ -200,6 +200,7 @@ const CustomHamper = () => {
   const [bulkDeliveryLocations, setBulkDeliveryLocations] = useState("");
   const [bulkNotes, setBulkNotes] = useState("");
   const [requestingQuote, setRequestingQuote] = useState(false);
+  const [deliveryJourney, setDeliveryJourney] = useState("idle");
 
   // Mobile uses a progressive builder so only one decision is visible at a time.
   // Desktop/tablet keep the existing full builder experience.
@@ -457,6 +458,27 @@ const CustomHamper = () => {
         if (leftFits !== rightFits) {
           return leftFits ? -1 : 1;
         }
+      }
+
+      const recommendationPriority = (component) => {
+        if (component.recommendation?.source === "container") return 2;
+        if (component.recommendation?.source === "overall") return 1;
+        return 0;
+      };
+
+      const leftRecommendationPriority = recommendationPriority(left);
+      const rightRecommendationPriority = recommendationPriority(right);
+
+      if (leftRecommendationPriority !== rightRecommendationPriority) {
+        return rightRecommendationPriority - leftRecommendationPriority;
+      }
+
+      const recommendationScoreDiff =
+        Number(right.recommendation?.score || 0) -
+        Number(left.recommendation?.score || 0);
+
+      if (recommendationScoreDiff !== 0) {
+        return recommendationScoreDiff;
       }
 
       return String(left.name || "").localeCompare(String(right.name || ""));
@@ -857,6 +879,47 @@ const CustomHamper = () => {
     setOrderMode(requestedMode);
   }, [requestedMode]);
 
+  // V51: Once a box is selected, refresh only the content catalogue with
+  // purchase-backed recommendations for that specific container. The existing
+  // compatibility validator remains the source of truth for whether an item can
+  // actually be added to the current configuration.
+  useEffect(() => {
+    if (!containerId) return;
+
+    let cancelled = false;
+
+    const loadBoxRecommendations = async () => {
+      try {
+        const params = new URLSearchParams({
+          hamperRole: "content",
+          builderCatalog: "1",
+          recommendForContainer: containerId,
+        });
+
+        if (channel) {
+          params.set("channel", channel);
+        }
+
+        const response = await api.get(
+          `/catalog/components?${params.toString()}`
+        );
+
+        if (!cancelled) {
+          setContentComponents(response.data?.components || []);
+        }
+      } catch {
+        // Recommendation data is enhancement-only. Keep the already-loaded
+        // catalogue and the existing physical-fit flow if this request fails.
+      }
+    };
+
+    loadBoxRecommendations();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [containerId, channel]);
+
   useEffect(() => {
     if (!isMobileWizard) return;
 
@@ -1233,9 +1296,12 @@ const CustomHamper = () => {
     }
 
     setAddingToCart(true);
+    setDeliveryJourney("packing");
     setCartError("");
 
     try {
+      await new Promise((resolve) => window.setTimeout(resolve, 900));
+
       const payload = {
         containerId,
         items: selectedItems,
@@ -1258,8 +1324,11 @@ const CustomHamper = () => {
         });
       }
 
+      setDeliveryJourney("shipping");
+      await new Promise((resolve) => window.setTimeout(resolve, 1600));
       navigate("/cart");
     } catch (requestError) {
+      setDeliveryJourney("idle");
       setCartError(
         requestError.response?.data?.message ||
           requestError.message ||
@@ -1488,15 +1557,15 @@ const CustomHamper = () => {
         }
 
         @keyframes v20LidOpen {
-          0% { opacity: .45; transform: perspective(760px) rotateX(4deg) translateY(82%) scale(.94); }
-          58% { opacity: 1; transform: perspective(760px) rotateX(66deg) translateY(-45%) scale(1.015); }
-          100% { opacity: 1; transform: perspective(760px) rotateX(60deg) translateY(-39%) scale(1); }
+          0% { opacity: .45; transform: perspective(820px) rotateX(10deg) translateY(64%) scale(.96); }
+          60% { opacity: 1; transform: perspective(820px) rotateX(78deg) translateY(-10%) scale(1.01); }
+          100% { opacity: 1; transform: perspective(820px) rotateX(74deg) translateY(-6%) scale(1); }
         }
 
         @keyframes v20LidClose {
-          0% { transform: perspective(760px) rotateX(60deg) translateY(-39%) scale(1); }
-          60% { transform: perspective(760px) rotateX(6deg) translateY(74%) scale(.965); }
-          100% { transform: perspective(760px) rotateX(0deg) translateY(78%) scale(.97); }
+          0% { transform: perspective(820px) rotateX(74deg) translateY(-6%) scale(1); }
+          60% { transform: perspective(820px) rotateX(8deg) translateY(52%) scale(.972); }
+          100% { transform: perspective(820px) rotateX(0deg) translateY(58%) scale(.978); }
         }
 
         @keyframes v20ItemDrop {
@@ -1549,15 +1618,15 @@ const CustomHamper = () => {
         .v20-live-stage {
           position: relative;
           isolation: isolate;
-          min-height: 286px;
+          min-height: 432px;
           overflow: hidden;
-          border: 1px solid rgba(78,56,31,.06);
-          border-radius: 18px;
+          border: 1px solid rgba(96,68,32,.08);
+          border-radius: 24px;
           background:
-            radial-gradient(circle at 50% 9%, rgba(255,255,255,.98), transparent 30%),
-            radial-gradient(circle at 50% 86%, rgba(212,175,55,.14), transparent 38%),
-            linear-gradient(180deg, #FFFDF9 0%, #F5ECE0 58%, #E9D9C7 100%);
-          box-shadow: inset 0 1px 0 rgba(255,255,255,.82), 0 8px 20px rgba(42,31,19,.035);
+            radial-gradient(circle at 50% 4%, rgba(255,255,255,.98), transparent 26%),
+            radial-gradient(circle at 50% 72%, rgba(255,219,158,.22), transparent 40%),
+            linear-gradient(180deg, #FFFDFB 0%, #F7EFE6 54%, #E8D9C8 100%);
+          box-shadow: inset 0 1px 0 rgba(255,255,255,.86), inset 0 -1px 0 rgba(112,73,26,.05), 0 16px 36px rgba(42,31,19,.06);
         }
 
         .v20-live-stage::before {
@@ -1576,13 +1645,13 @@ const CustomHamper = () => {
           position: absolute;
           z-index: 0;
           left: 50%;
-          bottom: 8px;
-          width: 76%;
-          height: 44px;
+          bottom: 6px;
+          width: 82%;
+          height: 56px;
           transform: translateX(-50%);
           border-radius: 999px;
-          background: rgba(78,48,21,.19);
-          filter: blur(16px);
+          background: rgba(78,48,21,.18);
+          filter: blur(22px);
         }
 
         .v20-studio-grid {
@@ -1608,11 +1677,12 @@ const CustomHamper = () => {
           position: absolute;
           z-index: 12;
           left: 50%;
-          bottom: 4px;
-          width: min(94%, 520px);
-          height: 292px;
+          bottom: 0;
+          width: min(100%, 640px);
+          height: 362px;
           transform: translateX(-50%);
-          perspective: 1000px;
+          perspective: 1200px;
+          transform-style: preserve-3d;
           animation: v20BoxArrive .68s cubic-bezier(.18,.78,.2,1) both;
           will-change: transform, opacity;
         }
@@ -1621,22 +1691,59 @@ const CustomHamper = () => {
           position: absolute;
           z-index: 0;
           left: 50%;
-          bottom: 0;
-          width: 86%;
-          height: 42%;
+          bottom: 8px;
+          width: 94%;
+          height: 44%;
           transform: translateX(-50%);
           border-radius: 999px;
-          background: radial-gradient(circle, rgba(244,120,34,.18), rgba(212,175,55,.09) 44%, transparent 72%);
-          filter: blur(24px);
+          background: radial-gradient(circle, rgba(244,120,34,.18), rgba(212,175,55,.14) 42%, transparent 74%);
+          filter: blur(30px);
+        }
+
+        .v20-box-floor {
+          position: absolute;
+          z-index: 1;
+          left: 8%;
+          right: 8%;
+          bottom: 16px;
+          height: 18px;
+          border-radius: 999px;
+          background: linear-gradient(180deg, rgba(255,251,240,.55), rgba(120,86,44,.08));
+          box-shadow: inset 0 1px 0 rgba(255,255,255,.6);
+        }
+
+        .v20-box-base-shadow {
+          position: absolute;
+          z-index: 2;
+          left: 14%;
+          right: 14%;
+          bottom: 26px;
+          height: 28px;
+          border-radius: 999px;
+          background: rgba(52,29,8,.20);
+          filter: blur(18px);
+        }
+
+        .v20-box-base {
+          position: absolute;
+          z-index: 3;
+          left: 16.5%;
+          right: 16.5%;
+          bottom: 24px;
+          height: 12px;
+          border: 1px solid rgba(89,57,20,.18);
+          border-radius: 0 0 12px 12px;
+          background: linear-gradient(180deg, rgba(255,245,222,.56), rgba(183,136,61,.42));
+          box-shadow: 0 8px 14px rgba(56,34,12,.10);
         }
 
         .v20-box-lid {
           position: absolute;
-          z-index: 4;
-          left: 8%;
-          top: 2%;
-          width: 84%;
-          height: 44%;
+          z-index: 8;
+          left: 11%;
+          top: 5%;
+          width: 78%;
+          height: 31%;
           transform-origin: 50% 100%;
           transform-style: preserve-3d;
           animation: v20LidOpen .86s cubic-bezier(.16,.82,.22,1) both;
@@ -1648,43 +1755,131 @@ const CustomHamper = () => {
           position: absolute;
           inset: 0;
           overflow: hidden;
-          border: 1px solid rgba(77,45,20,.22);
-          border-radius: 12px 12px 8px 8px;
-          background: linear-gradient(145deg, var(--v20-box-light), var(--v20-box-main) 58%, var(--v20-box-dark));
-          box-shadow: 0 14px 26px rgba(48,28,12,.22), inset 0 1px 0 rgba(255,255,255,.38), inset 0 -5px 14px rgba(77,40,12,.11);
+          border: 1px solid rgba(77,45,20,.24);
+          border-radius: 18px 18px 10px 10px;
+          background:
+            linear-gradient(180deg, rgba(255,255,255,.26), transparent 24%),
+            linear-gradient(145deg, var(--v20-box-light) 0%, color-mix(in srgb, var(--v20-box-main) 88%, white 12%) 36%, var(--v20-box-main) 62%, var(--v20-box-dark) 100%);
+          box-shadow: 0 14px 26px rgba(48,28,12,.22), inset 0 1px 0 rgba(255,255,255,.42), inset 0 -10px 18px rgba(77,40,12,.14);
         }
 
         .v20-box-lid-face::before {
           content: "";
           position: absolute;
-          inset: 9px;
-          border: 1px solid rgba(255,247,224,.32);
-          border-radius: 8px;
+          inset: 10px;
+          border: 1px solid rgba(255,247,224,.38);
+          border-radius: 11px;
           pointer-events: none;
         }
 
-        .v20-box-lid-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .19; mix-blend-mode: multiply; filter: saturate(.7) contrast(.9); }
-        .v20-box-monogram { position: absolute; z-index: 2; left: 50%; top: 50%; display: flex; width: 52px; height: 52px; align-items: center; justify-content: center; transform: translate(-50%, -50%); border: 1px solid rgba(255,240,191,.48); border-radius: 999px; color: #FFF2C8; background: rgba(76,40,16,.20); box-shadow: inset 0 0 0 5px rgba(255,255,255,.035); font-family: 'Cormorant Garamond', Georgia, serif; font-size: 25px; font-weight: 700; text-shadow: 0 2px 8px rgba(0,0,0,.22); backdrop-filter: blur(2px); }
-        .v20-box-back { position: absolute; z-index: 8; left: 8%; right: 8%; top: 31%; height: 31%; clip-path: polygon(6% 0, 94% 0, 100% 100%, 0 100%); border: 1px solid rgba(70,39,16,.18); background: linear-gradient(180deg, var(--v20-box-main), var(--v20-box-dark)); box-shadow: inset 0 10px 18px rgba(255,255,255,.08); }
-        .v20-box-well { position: absolute; z-index: 10; left: 11.5%; right: 11.5%; top: 35%; height: 44%; overflow: hidden; clip-path: polygon(5% 0, 95% 0, 100% 84%, 0 84%); background: radial-gradient(circle at 50% 68%, rgba(232,205,152,.52), transparent 38%), linear-gradient(180deg, #5A361C, #2C180D 78%); box-shadow: inset 0 18px 32px rgba(0,0,0,.34), inset 0 -8px 16px rgba(255,221,154,.06); }
-        .v20-filler { position: absolute; z-index: 12; left: 14%; right: 14%; top: 52%; height: 24%; overflow: hidden; opacity: .92; }
-        .v20-filler span { position: absolute; bottom: 0; width: 26px; height: 5px; border-radius: 999px; background: linear-gradient(90deg, #C59654, #E8C982, #9B6B31); box-shadow: 0 2px 3px rgba(0,0,0,.12); animation: v20FillerFloat 2.8s ease-in-out infinite; }
+        .v20-box-lid-face::after {
+          content: "";
+          position: absolute;
+          left: 12%;
+          right: 12%;
+          bottom: 8px;
+          height: 12px;
+          border-radius: 999px;
+          background: linear-gradient(180deg, rgba(117,73,26,.04), rgba(70,42,16,.18));
+          filter: blur(5px);
+        }
+
+        .v20-box-lid-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .13; mix-blend-mode: multiply; filter: saturate(.72) contrast(.92); }
+        .v20-box-monogram { position: absolute; z-index: 2; left: 50%; top: 50%; display: flex; width: 68px; height: 68px; align-items: center; justify-content: center; transform: translate(-50%, -50%); border: 1px solid rgba(255,240,191,.56); border-radius: 999px; color: #FFF2C8; background: radial-gradient(circle at 30% 25%, rgba(255,252,235,.4), rgba(102,58,23,.2)); box-shadow: inset 0 0 0 7px rgba(255,255,255,.05), 0 10px 24px rgba(60,34,11,.18); font-family: 'Cormorant Garamond', Georgia, serif; font-size: 34px; font-weight: 700; text-shadow: 0 2px 8px rgba(0,0,0,.22); backdrop-filter: blur(2px); }
+        .v20-box-back { position: absolute; z-index: 10; left: 17%; right: 17%; top: 29%; height: 21%; border: 1px solid rgba(70,39,16,.18); border-radius: 10px 10px 0 0; background: linear-gradient(180deg, color-mix(in srgb, var(--v20-box-main) 92%, white 8%), var(--v20-box-dark)); box-shadow: inset 0 10px 18px rgba(255,255,255,.10); }
+        .v20-box-well { position: absolute; z-index: 12; left: 18%; right: 18%; top: 42%; height: 31%; overflow: hidden; border-radius: 10px 10px 18px 18px; background: radial-gradient(circle at 50% 62%, rgba(232,205,152,.24), transparent 38%), linear-gradient(180deg, #6A4225, #2C180D 82%); box-shadow: inset 0 20px 28px rgba(0,0,0,.34), inset 0 -8px 18px rgba(255,221,154,.08); }
+        .v20-box-well::before { content: ""; position: absolute; inset: 7px 8px auto; height: 16px; border-radius: 10px; background: linear-gradient(180deg, rgba(255,237,205,.14), transparent); }
+        .v20-box-well::after {
+          content: "";
+          position: absolute;
+          inset: 2px 2px auto;
+          height: 8px;
+          border-radius: 10px;
+          border-top: 1px solid rgba(255,229,177,.22);
+          box-shadow: inset 0 3px 5px rgba(255,255,255,.04);
+        }
+        .v20-box-inner-left, .v20-box-inner-right {
+          position: absolute;
+          z-index: 18;
+          top: 43%;
+          width: 7.5%;
+          height: 28%;
+          border: 1px solid rgba(77,45,20,.14);
+          background: linear-gradient(180deg, rgba(235,199,133,.72), rgba(118,72,28,.92));
+          box-shadow: inset 0 1px 0 rgba(255,255,255,.14);
+          opacity: .82;
+        }
+        .v20-box-inner-left { left: 18.2%; border-radius: 9px 0 0 12px; transform: skewY(5deg); }
+        .v20-box-inner-right { right: 18.2%; border-radius: 0 9px 12px 0; transform: skewY(-5deg); }
+        .v20-filler { position: absolute; z-index: 16; left: 21%; right: 21%; top: 58%; height: 12%; overflow: hidden; opacity: .9; }
+        .v20-filler span { position: absolute; bottom: 0; width: 28px; height: 6px; border-radius: 999px; background: linear-gradient(90deg, #C59654, #E8C982, #9B6B31); box-shadow: 0 2px 3px rgba(0,0,0,.12); animation: v20FillerFloat 2.8s ease-in-out infinite; }
         .v20-item-layer { position: absolute; z-index: 24; inset: 0; pointer-events: none; }
         .v20-pack-item { position: absolute; transform: translate(-50%, -50%) rotate(var(--v20-rotate)) scale(var(--v20-scale)); transform-origin: center bottom; will-change: transform, opacity; }
         .v20-pack-item.is-entering { animation: v20ItemDrop .82s cubic-bezier(.17,.78,.2,1.08) both; }
         .v20-pack-item.is-exiting { animation: v20ItemExit .34s cubic-bezier(.45,0,.8,.4) both; }
-        .v20-pack-card { position: relative; width: 100%; height: 100%; overflow: hidden; border: 1px solid rgba(61,39,20,.18); border-radius: 9px; background: linear-gradient(145deg, #FFFDF9, #EEDCC6); box-shadow: 0 9px 18px rgba(36,22,10,.21), inset 0 1px 0 rgba(255,255,255,.72); animation: v20ItemPulse 2.8s ease-in-out infinite; }
+        .v20-pack-card { position: relative; width: 100%; height: 100%; overflow: hidden; border: 1px solid rgba(61,39,20,.18); border-radius: 10px; background: linear-gradient(145deg, #FFFDF9, #EEDCC6); box-shadow: 0 10px 18px rgba(36,22,10,.24), inset 0 1px 0 rgba(255,255,255,.72); animation: v20ItemPulse 2.8s ease-in-out infinite; }
         .v20-kind-bottle .v20-pack-card { border-radius: 13px 13px 9px 9px; }
         .v20-kind-cylinder .v20-pack-card { border-radius: 18px 18px 10px 10px; }
         .v20-kind-flat .v20-pack-card { border-radius: 7px; }
-        .v20-pack-image { width: 100%; height: 100%; object-fit: contain; padding: 4px; background: rgba(255,255,255,.90); }
+        .v20-pack-image { width: 100%; height: 100%; object-fit: contain; padding: 4px; background: rgba(255,255,255,.92); }
         .v20-pack-fallback { display: flex; width: 100%; height: 100%; align-items: center; justify-content: center; color: #8A631C; background: radial-gradient(circle at 30% 22%, rgba(255,255,255,.7), transparent 34%), linear-gradient(145deg, #F6E5C9, #C99449); font-family: 'Cormorant Garamond', Georgia, serif; font-size: 22px; font-weight: 700; }
         .v20-pack-label { position: absolute; left: 4px; right: 4px; bottom: 4px; overflow: hidden; padding: 2px 4px; border-radius: 5px; color: rgba(255,255,255,.94); background: rgba(22,17,12,.70); font-size: 5.5px; font-weight: 800; line-height: 1.1; text-align: center; text-overflow: ellipsis; white-space: nowrap; backdrop-filter: blur(3px); }
-        .v20-box-left, .v20-box-right, .v20-box-front { position: absolute; z-index: 42; pointer-events: none; border: 1px solid rgba(69,38,16,.18); background: linear-gradient(180deg, var(--v20-box-main), var(--v20-box-dark)); box-shadow: inset 0 1px 0 rgba(255,255,255,.18); }
-        .v20-box-left { left: 6%; top: 45%; width: 20%; height: 40%; clip-path: polygon(0 0, 100% 13%, 100% 100%, 26% 88%); background: linear-gradient(135deg, var(--v20-box-main), var(--v20-box-deep)); }
-        .v20-box-right { right: 6%; top: 45%; width: 20%; height: 40%; clip-path: polygon(0 13%, 100% 0, 74% 88%, 0 100%); background: linear-gradient(225deg, var(--v20-box-main), var(--v20-box-deep)); }
-        .v20-box-front { left: 16%; right: 16%; bottom: 2%; height: 33%; clip-path: polygon(0 8%, 100% 8%, 93% 100%, 7% 100%); background: linear-gradient(180deg, var(--v20-box-main) 0%, var(--v20-box-dark) 78%, var(--v20-box-deep) 100%); box-shadow: 0 12px 20px rgba(49,28,10,.18), inset 0 1px 0 rgba(255,255,255,.20); }
-        .v20-box-front::after { content: "HAMPORIUM"; position: absolute; left: 50%; top: 52%; transform: translate(-50%, -50%); color: rgba(255,240,192,.80); font-size: 7px; font-weight: 900; letter-spacing: .18em; text-shadow: 0 2px 8px rgba(0,0,0,.15); }
+        .v20-box-left, .v20-box-right, .v20-box-front {
+          position: absolute;
+          z-index: 42;
+          pointer-events: none;
+          border: 1px solid rgba(69,38,16,.18);
+          background: linear-gradient(180deg, var(--v20-box-main), var(--v20-box-dark));
+          box-shadow: inset 0 1px 0 rgba(255,255,255,.18);
+        }
+
+        /* V41: fixed rigid-box side walls — no outward gate/flap look */
+        .v20-box-left {
+          left: 17.2%;
+          top: 46%;
+          width: 7.8%;
+          height: 25%;
+          border-radius: 12px 2px 2px 14px;
+          transform: skewY(4deg);
+          background:
+            linear-gradient(90deg, rgba(255,255,255,.14), transparent 32%),
+            linear-gradient(180deg, color-mix(in srgb, var(--v20-box-main) 93%, white 7%), var(--v20-box-deep));
+          box-shadow: inset 1px 0 0 rgba(255,255,255,.16), 3px 6px 10px rgba(58,34,10,.08);
+        }
+
+        .v20-box-right {
+          right: 17.2%;
+          top: 46%;
+          width: 7.8%;
+          height: 25%;
+          border-radius: 2px 12px 14px 2px;
+          transform: skewY(-4deg);
+          background:
+            linear-gradient(270deg, rgba(255,255,255,.14), transparent 32%),
+            linear-gradient(180deg, color-mix(in srgb, var(--v20-box-main) 93%, white 7%), var(--v20-box-deep));
+          box-shadow: inset -1px 0 0 rgba(255,255,255,.16), -3px 6px 10px rgba(58,34,10,.08);
+        }
+
+        .v20-box-front {
+          left: 20%;
+          right: 20%;
+          bottom: 8%;
+          height: 23%;
+          clip-path: polygon(0 4%, 100% 4%, 96% 100%, 4% 100%);
+          border-radius: 5px 5px 14px 14px;
+          background: linear-gradient(180deg, color-mix(in srgb, var(--v20-box-main) 90%, white 10%) 0%, var(--v20-box-dark) 76%, var(--v20-box-deep) 100%);
+          box-shadow: 0 12px 18px rgba(49,28,10,.18), inset 0 1px 0 rgba(255,255,255,.24);
+        }
+        .v20-box-front::before {
+          content: "";
+          position: absolute;
+          left: 12%;
+          right: 12%;
+          top: 8px;
+          height: 1px;
+          background: linear-gradient(90deg, transparent, rgba(255,247,224,.55), transparent);
+        }
+        .v20-box-front::after { content: "HAMPORIUM"; position: absolute; left: 50%; top: 56%; transform: translate(-50%, -50%); color: rgba(255,240,192,.88); font-size: 7.6px; font-weight: 900; letter-spacing: .22em; text-shadow: 0 2px 8px rgba(0,0,0,.16); }
         .v20-pack-ribbon-h, .v20-pack-ribbon-v { position: absolute; z-index: 63; pointer-events: none; background: linear-gradient(90deg, #9B6C11, #E8CB67 26%, #FFF0AD 50%, #D5A532 74%, #81530D); box-shadow: inset 0 1px 0 rgba(255,255,255,.34), 0 4px 10px rgba(43,26,5,.16); animation: v20RibbonSettle .48s cubic-bezier(.2,.8,.2,1) both; }
         .v20-pack-ribbon-h { left: 17%; right: 17%; top: 68%; height: 9px; transform-origin: center; }
         .v20-pack-ribbon-v { left: 50%; top: 41%; bottom: 5%; width: 9px; transform: translateX(-50%); background: linear-gradient(180deg, #FFF0AD, #D5A532 44%, #81530D); }
@@ -1701,14 +1896,694 @@ const CustomHamper = () => {
         .v20-packed-glow { position: absolute; z-index: 3; left: 50%; bottom: 6%; width: 72%; height: 32%; transform: translateX(-50%); border-radius: 999px; background: rgba(212,175,55,.18); filter: blur(28px); animation: v20PackedGlow 2.8s ease-in-out infinite; }
 
         @media (min-width: 1280px) {
-          .v20-live-stage { min-height: 278px; }
-          .v20-box-world { width: 94%; max-width: 520px; height: 282px; }
+          .v20-live-stage { min-height: 282px; }
+          .v20-box-world { width: 95%; max-width: 540px; height: 292px; }
         }
 
+        .v20-box-world.is-top-view.is-drop-intro {
+          animation: v20BoxDropIn .84s cubic-bezier(.2,.9,.2,1.08) both;
+        }
+        .v20-box-world.is-top-view.is-drop-intro .v20-box-shell {
+          animation: v20ShellLand .84s cubic-bezier(.2,.9,.2,1.08) both;
+        }
+        .v20-box-world.is-top-view.is-drop-intro .v20-box-lid--top {
+          top: calc(var(--v20-shell-top) + 4%);
+          transform: translateX(-50%) translateY(0) rotateX(0deg) scale(1.02);
+          transition: none;
+        }
+        .v20-box-world.is-top-view.is-drop-intro .v20-box-fill,
+        .v20-box-world.is-top-view.is-opening-intro .v20-box-fill {
+          opacity: 0;
+          transform: scale(.98);
+        }
+        .v20-box-world.is-top-view.is-opening-intro .v20-box-lid--top {
+          animation: v20TopLidOpenIntro .92s cubic-bezier(.22,.86,.24,1) forwards;
+        }
+        .v20-box-world.is-top-view.is-opening-intro .v20-box-fill {
+          animation: v20TopFillReveal .62s ease .18s forwards;
+        }
+        .v20-box-world.is-top-view.is-opening-intro .v20-box-orbit {
+          animation-duration: 1.6s;
+          opacity: 1;
+        }
+        .v20-box-world.is-top-view.is-opening-intro .v20-box-sparkles {
+          animation: v20TopSparkBurst .9s ease-out;
+        }
+        @keyframes v20BoxDropIn {
+          0% {
+            opacity: 0;
+            transform: translateX(-50%) translateY(-140px) scale(.88);
+          }
+          62% {
+            opacity: 1;
+            transform: translateX(-50%) translateY(10px) scale(1.02);
+          }
+          100% {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0) scale(1);
+          }
+        }
+        @keyframes v20ShellLand {
+          0% {
+            transform: translateX(-50%) scale(.94);
+            filter: drop-shadow(0 28px 24px rgba(35,18,8,.18));
+          }
+          62% {
+            transform: translateX(-50%) scale(1.01);
+          }
+          100% {
+            transform: translateX(-50%) scale(1);
+            filter: drop-shadow(0 0 0 rgba(35,18,8,0));
+          }
+        }
+        @keyframes v20TopLidOpenIntro {
+          0% {
+            top: calc(var(--v20-shell-top) + 4%);
+            transform: translateX(-50%) translateY(0) rotateX(0deg) scale(1.02);
+          }
+          55% {
+            top: calc(var(--v20-shell-top) - 2%);
+            transform: translateX(-50%) translateY(-8px) rotateX(7deg) scale(1.01);
+          }
+          100% {
+            top: var(--v20-lid-top);
+            transform: translateX(-50%) translateY(0) rotateX(10deg) scale(1);
+          }
+        }
+        @keyframes v20TopFillReveal {
+          0% {
+            opacity: 0;
+            transform: scale(.98);
+          }
+          100% {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+        @keyframes v20TopSparkBurst {
+          0% { opacity: .18; transform: scale(.92); }
+          45% { opacity: 1; transform: scale(1.04); }
+          100% { opacity: 1; transform: scale(1); }
+        }
         @media (max-width: 639px) {
           .v20-live-stage { min-height: 272px; }
-          .v20-box-world { width: 98%; height: 258px; bottom: 4px; }
+          .v20-box-world { width: 100%; height: 244px; bottom: 2px; }
+          .v20-box-monogram { width: 46px; height: 46px; font-size: 22px; }
+          .v20-box-front::after { font-size: 6.4px; }
           .v20-pack-label { display: none; }
+        }
+
+        /* V45 · COUTURE LIVE HAMPER BOX */
+        .v20-box-world.is-top-view {
+          --v20-shell-width: 94%;
+          --v20-shell-height: 66%;
+          --v20-shell-top: 21%;
+          --v20-shell-radius: 34px;
+          --v20-lid-width: 90%;
+          --v20-lid-height: 20%;
+          --v20-lid-top: 3%;
+          left: 50%;
+          bottom: 4px;
+          width: 100%;
+          max-width: 760px;
+          height: 408px;
+          transform: translateX(-50%);
+          perspective: 1400px;
+        }
+        .v20-box-world.is-top-view[data-box-shape="round"] {
+          --v20-shell-width: 76%;
+          --v20-shell-height: 72%;
+          --v20-shell-top: 16%;
+          --v20-shell-radius: 999px;
+          --v20-lid-width: 72%;
+          --v20-lid-height: 18%;
+        }
+        .v20-box-world.is-top-view[data-box-shape="tray"] {
+          --v20-shell-width: 96%;
+          --v20-shell-height: 60%;
+          --v20-shell-top: 24%;
+          --v20-shell-radius: 24px;
+          --v20-lid-width: 92%;
+          --v20-lid-height: 16%;
+        }
+        .v20-box-world.is-top-view[data-box-shape="curved"] {
+          --v20-shell-radius: 50px;
+        }
+        .v20-box-world.is-top-view .v20-box-base,
+        .v20-box-world.is-top-view .v20-box-back,
+        .v20-box-world.is-top-view .v20-box-inner-left,
+        .v20-box-world.is-top-view .v20-box-inner-right,
+        .v20-box-world.is-top-view .v20-box-left,
+        .v20-box-world.is-top-view .v20-box-right,
+        .v20-box-world.is-top-view .v20-box-front {
+          display: none;
+        }
+        .v20-box-pedestal {
+          position: absolute;
+          left: 50%;
+          bottom: 10px;
+          width: 94%;
+          height: 84px;
+          transform: translateX(-50%);
+          border-radius: 999px;
+          background:
+            radial-gradient(circle at 50% 18%, rgba(255,255,255,.84), transparent 42%),
+            linear-gradient(180deg, rgba(255,251,244,.98), rgba(233,219,201,.88));
+          box-shadow: inset 0 1px 0 rgba(255,255,255,.94), 0 20px 42px rgba(60,38,16,.09);
+          z-index: 1;
+        }
+        .v20-box-pedestal::before {
+          content: "";
+          position: absolute;
+          inset: 12px 24px;
+          border-radius: inherit;
+          border: 1px solid rgba(212,175,55,.18);
+          background: linear-gradient(180deg, rgba(255,255,255,.22), rgba(255,255,255,0));
+        }
+        .v20-box-sparkles {
+          position: absolute;
+          inset: 0;
+          z-index: 4;
+          pointer-events: none;
+        }
+        .v20-box-spark {
+          position: absolute;
+          width: 14px;
+          height: 14px;
+          transform: rotate(45deg);
+          border-radius: 2px;
+          background: linear-gradient(180deg, rgba(255,251,235,.95), rgba(212,175,55,.85));
+          box-shadow: 0 0 0 3px rgba(255,245,214,.15), 0 0 20px rgba(244,188,72,.28);
+          animation: v20SparkPulse 2.8s ease-in-out infinite;
+        }
+        .v20-box-spark::before,
+        .v20-box-spark::after {
+          content: "";
+          position: absolute;
+          left: 50%;
+          top: 50%;
+          background: inherit;
+          transform: translate(-50%, -50%);
+          border-radius: 999px;
+        }
+        .v20-box-spark::before { width: 2px; height: 22px; }
+        .v20-box-spark::after { width: 22px; height: 2px; }
+        .v20-box-spark--1 { left: 14%; top: 13%; animation-delay: 0s; }
+        .v20-box-spark--2 { right: 16%; top: 20%; animation-delay: .7s; }
+        .v20-box-spark--3 { left: 20%; bottom: 24%; animation-delay: 1.4s; }
+        .v20-box-spark--4 { right: 19%; bottom: 31%; animation-delay: 2.1s; }
+
+        .v20-box-world.is-top-view .v20-box-lid--top {
+          left: 50%;
+          top: var(--v20-lid-top);
+          width: var(--v20-lid-width);
+          height: var(--v20-lid-height);
+          transform: translateX(-50%) translateY(0) rotateX(12deg);
+          z-index: 10;
+          animation: none;
+        }
+        .v20-box-world.is-top-view .v20-box-lid--top.is-packed { animation: none; }
+        .v20-box-world.is-top-view[data-box-shape="round"] .v20-box-lid-face {
+          border-radius: 999px;
+        }
+        .v20-box-shell {
+          position: absolute;
+          left: 50%;
+          top: var(--v20-shell-top);
+          width: var(--v20-shell-width);
+          height: var(--v20-shell-height);
+          transform: translateX(-50%);
+          border-radius: var(--v20-shell-radius);
+          background:
+            radial-gradient(circle at 50% 6%, rgba(255,255,255,.24), transparent 26%),
+            linear-gradient(180deg, color-mix(in srgb, var(--v20-box-light) 46%, white 54%) 0%, color-mix(in srgb, var(--v20-box-main) 82%, white 18%) 16%, color-mix(in srgb, var(--v20-box-main) 92%, black 8%) 72%, color-mix(in srgb, var(--v20-box-dark) 90%, black 10%) 100%);
+          border: 1px solid rgba(77,45,20,.22);
+          box-shadow: 0 38px 54px rgba(52,31,12,.18), 0 12px 22px rgba(52,31,12,.10), inset 0 1px 0 rgba(255,255,255,.34), inset 0 -18px 20px rgba(95,61,22,.18);
+          overflow: visible;
+          z-index: 8;
+        }
+        .v20-box-shell::before {
+          content: "";
+          position: absolute;
+          inset: 10px;
+          border-radius: calc(var(--v20-shell-radius) - 10px);
+          border: 1px solid rgba(255,244,218,.28);
+          background: linear-gradient(180deg, rgba(255,255,255,.12), transparent 18%, transparent 78%, rgba(255,244,212,.08));
+          pointer-events: none;
+        }
+        .v20-box-shell::after {
+          content: "";
+          position: absolute;
+          left: 50%;
+          bottom: -16px;
+          width: 74%;
+          height: 26px;
+          transform: translateX(-50%);
+          border-radius: 999px;
+          background: radial-gradient(circle, rgba(53,28,10,.22), rgba(53,28,10,0) 70%);
+          filter: blur(8px);
+          pointer-events: none;
+        }
+        .v20-box-world.is-top-view[data-box-shape="round"] .v20-box-shell {
+          border-radius: 50% / 40%;
+        }
+        .v20-box-rim {
+          position: absolute;
+          inset: 12px;
+          border-radius: calc(var(--v20-shell-radius) - 12px);
+          background: linear-gradient(180deg, rgba(255,250,236,.24), rgba(116,73,26,.18));
+          border: 1px solid rgba(255,244,218,.34);
+          box-shadow: inset 0 2px 0 rgba(255,255,255,.26), inset 0 -2px 0 rgba(88,54,22,.16);
+        }
+        .v20-box-world.is-top-view[data-box-shape="round"] .v20-box-rim,
+        .v20-box-world.is-top-view[data-box-shape="round"] .v20-box-fill,
+        .v20-box-world.is-top-view[data-box-shape="round"] .v20-box-well {
+          border-radius: 50% / 42%;
+        }
+        .v20-box-fill {
+          position: absolute;
+          inset: 24px 24px 30px;
+          overflow: hidden;
+          border-radius: calc(var(--v20-shell-radius) - 18px);
+          background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,0));
+        }
+        .v20-box-fill::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background:
+            radial-gradient(circle at 24% 26%, rgba(255,239,210,.11), transparent 22%),
+            radial-gradient(circle at 72% 36%, rgba(255,227,176,.1), transparent 20%),
+            linear-gradient(180deg, rgba(255,255,255,.02), rgba(0,0,0,0));
+          pointer-events: none;
+        }
+        .v20-box-world.is-top-view .v20-box-well {
+          position: absolute;
+          inset: 0;
+          height: auto;
+          border-radius: inherit;
+          background:
+            radial-gradient(circle at 50% 16%, rgba(255,240,205,.22), transparent 18%),
+            linear-gradient(180deg, #6F4020 0%, #4B2612 58%, #30160A 100%);
+          box-shadow: inset 0 24px 44px rgba(0,0,0,.24), inset 0 -12px 18px rgba(255,227,168,.08), inset 0 0 0 1px rgba(255,239,206,.05);
+        }
+        .v20-box-world.is-top-view .v20-filler {
+          left: 8%;
+          right: 8%;
+          top: auto;
+          bottom: 10%;
+          height: 22%;
+          z-index: 18;
+        }
+        .v20-box-world.is-top-view .v20-item-layer {
+          position: absolute;
+          inset: 8% 7% 13%;
+          overflow: hidden;
+          z-index: 24;
+          border-radius: inherit;
+        }
+        .v20-box-world.is-top-view .v20-item-layer::before {
+          content: "";
+          position: absolute;
+          inset: 10% 8% 8%;
+          border-radius: inherit;
+          background: radial-gradient(circle at 50% 20%, rgba(255,255,255,.08), rgba(255,255,255,0) 52%);
+          pointer-events: none;
+        }
+        .v20-box-world.is-top-view .v20-pack-item {
+          filter: drop-shadow(0 12px 16px rgba(0,0,0,.18));
+        }
+        .v20-box-world.is-top-view .v20-pack-card {
+          border-radius: 16px;
+          background: linear-gradient(145deg, #fffefd, #f3e7d5);
+          box-shadow: 0 12px 18px rgba(36,22,10,.2), inset 0 1px 0 rgba(255,255,255,.86);
+          animation: none;
+        }
+        .v20-box-world.is-top-view .v20-pack-image {
+          padding: 6px;
+          object-fit: cover;
+        }
+        .v20-box-world.is-top-view .v20-pack-label {
+          display: none;
+        }
+        .v20-box-front-badge {
+          position: absolute;
+          left: 50%;
+          bottom: 14px;
+          transform: translateX(-50%);
+          padding: 10px 22px;
+          border-radius: 999px;
+          border: 1px solid rgba(255,244,219,.26);
+          color: rgba(255,241,204,.97);
+          background: linear-gradient(180deg, rgba(255,255,255,.12), rgba(0,0,0,.12));
+          font-size: 11px;
+          font-weight: 900;
+          letter-spacing: .22em;
+          text-transform: uppercase;
+          box-shadow: 0 10px 20px rgba(40,22,8,.16);
+          z-index: 35;
+        }
+        .v20-box-world.is-top-view .v20-pack-ribbon-h {
+          left: 16%;
+          right: 16%;
+          top: calc(var(--v20-shell-top) + 54%);
+          height: 12px;
+          z-index: 60;
+        }
+        .v20-box-world.is-top-view .v20-pack-ribbon-v {
+          left: 50%;
+          top: calc(var(--v20-shell-top) + 4%);
+          bottom: 12%;
+          width: 12px;
+          z-index: 59;
+        }
+        .v20-box-world.is-top-view .v20-packed-badge {
+          top: calc(var(--v20-shell-top) + 40%);
+          z-index: 61;
+        }
+        @media (max-width: 639px) {
+          .v20-live-stage {
+            min-height: 336px;
+            border-radius: 18px;
+          }
+          .v20-box-pedestal {
+            width: 96%;
+            height: 60px;
+            bottom: 12px;
+          }
+          .v20-box-world.is-top-view {
+            height: 336px;
+            --v20-shell-width: 98%;
+            --v20-shell-height: 64%;
+            --v20-shell-top: 22%;
+            --v20-lid-width: 94%;
+            --v20-lid-height: 20%;
+            --v20-lid-top: 4%;
+          }
+          .v20-box-world.is-top-view[data-box-shape="round"] {
+            --v20-shell-width: 80%;
+            --v20-shell-height: 70%;
+            --v20-shell-top: 18%;
+            --v20-lid-width: 76%;
+          }
+          .v20-box-world.is-top-view .v20-box-front-badge {
+            font-size: 9px;
+            letter-spacing: .14em;
+            padding: 7px 14px;
+          }
+          .v20-box-monogram {
+            width: 54px;
+            height: 54px;
+            font-size: 28px;
+          }
+        }
+
+        @keyframes v20CinematicPulse {
+          0%, 100% { opacity: .55; transform: translateX(-50%) scale(.98); }
+          50% { opacity: .92; transform: translateX(-50%) scale(1.04); }
+        }
+        @keyframes v20BoxSheen {
+          0% { transform: translateX(-120%) rotate(10deg); opacity: 0; }
+          30% { opacity: .16; }
+          100% { transform: translateX(150%) rotate(10deg); opacity: 0; }
+        }
+        @keyframes v20SparkPulse {
+          0%, 100% { opacity: .32; transform: rotate(45deg) scale(.68); }
+          50% { opacity: 1; transform: rotate(45deg) scale(1); }
+        }
+        @keyframes v20ShipAway {
+          0% { transform: translateX(-50%) translateY(0) scale(1); opacity: 1; }
+          16% { transform: translateX(-48%) translateY(-3px) scale(1.01); }
+          100% { transform: translateX(88%) translateY(-12px) scale(.96); opacity: .08; }
+        }
+        @keyframes v20TrailMove {
+          0% { opacity: 0; transform: translateX(-10px); }
+          25% { opacity: .92; }
+          100% { opacity: 0; transform: translateX(48px); }
+        }
+        .v20-cinematic-halo {
+          position: absolute;
+          left: 50%;
+          top: 8%;
+          width: 84%;
+          height: 58%;
+          transform: translateX(-50%);
+          border-radius: 999px;
+          background: radial-gradient(circle, rgba(255,214,127,.3), rgba(255,214,127,.1) 44%, transparent 72%);
+          filter: blur(22px);
+          animation: v20CinematicPulse 3.4s ease-in-out infinite;
+        }
+        .v20-box-world.is-top-view .v20-box-lid-face {
+          box-shadow: 0 22px 34px rgba(75,44,15,.2), inset 0 1px 0 rgba(255,255,255,.36), inset 0 -12px 20px rgba(112,71,17,.24);
+          background: linear-gradient(180deg, rgba(255,247,217,.24), transparent 26%), linear-gradient(155deg, color-mix(in srgb, var(--v20-box-main) 74%, white 26%), color-mix(in srgb, var(--v20-box-dark) 82%, black 18%));
+        }
+        .v20-box-world.is-top-view .v20-box-lid-face::before {
+          inset: 12px;
+          border-radius: 16px;
+          border-color: rgba(255,247,224,.34);
+        }
+        .v20-box-world.is-top-view .v20-box-lid-face::after {
+          left: 10%;
+          right: 10%;
+          bottom: 10px;
+          height: 16px;
+          background: linear-gradient(180deg, rgba(117,73,26,.03), rgba(70,42,16,.18));
+          filter: blur(7px);
+        }
+        .v20-box-world.is-top-view .v20-box-lid-face::selection { background: transparent; }
+        .v20-box-world.is-top-view .v20-box-lid--top::after {
+          content: "";
+          position: absolute;
+          top: 6%;
+          bottom: 12%;
+          left: -24%;
+          width: 26%;
+          background: linear-gradient(90deg, transparent, rgba(255,255,255,.18), transparent);
+          transform: skewX(-18deg);
+          animation: v20BoxSheen 5.6s linear infinite;
+          pointer-events: none;
+          z-index: 3;
+        }
+        .v20-box-world.is-top-view .v20-box-lid--top.is-packed {
+          top: calc(var(--v20-shell-top) + 7%);
+          transform: translateX(-50%) rotateX(0deg) scale(1.01);
+          transition: top .72s cubic-bezier(.2,.84,.2,1), transform .72s cubic-bezier(.2,.84,.2,1);
+        }
+        .v20-box-world.is-top-view.is-sealed .v20-box-fill {
+          opacity: .08;
+          transform: scale(.98);
+          transition: opacity .55s ease, transform .55s ease;
+        }
+        .v20-box-world.is-top-view.is-sealed .v20-box-sparkles {
+          opacity: .4;
+        }
+        .v20-box-world.is-top-view.is-shipping {
+          animation: v20ShipAway 1.45s cubic-bezier(.3,.75,.18,1) forwards;
+        }
+        .v20-delivery-trail {
+          position: absolute;
+          left: 8%;
+          bottom: 19%;
+          width: 82px;
+          height: 12px;
+          border-radius: 999px;
+          background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,196,112,.82), rgba(255,255,255,0));
+          filter: blur(1px);
+          animation: v20TrailMove 1s linear infinite;
+        }
+        .v20-delivery-chip {
+          position: absolute;
+          left: 50%;
+          top: 0;
+          transform: translateX(-50%);
+          padding: 8px 14px;
+          border-radius: 999px;
+          background: rgba(23,23,23,.92);
+          color: #fff;
+          font-size: 10px;
+          font-weight: 800;
+          letter-spacing: .08em;
+          text-transform: uppercase;
+          box-shadow: 0 14px 28px rgba(23,23,23,.18);
+          z-index: 65;
+        }
+
+        /* V46 · NEXT LEVEL CINEMATIC HAMPER BOX */
+        .v20-box-orbit {
+          position: absolute;
+          left: 50%;
+          top: 18%;
+          width: 78%;
+          height: 48%;
+          transform: translateX(-50%);
+          border-radius: 999px;
+          background:
+            radial-gradient(circle at 50% 50%, rgba(255,255,255,.18), transparent 36%),
+            radial-gradient(circle at 50% 50%, var(--v20-box-glow-accent), transparent 70%);
+          filter: blur(20px);
+          opacity: .95;
+          z-index: 2;
+          animation: v20CinematicPulse 4.2s ease-in-out infinite;
+        }
+
+        .v20-box-shell {
+          background:
+            radial-gradient(circle at 50% 0%, rgba(255,255,255,.28), transparent 22%),
+            linear-gradient(145deg, color-mix(in srgb, var(--v20-box-light) 46%, white 54%) 0%, color-mix(in srgb, var(--v20-box-main) 78%, white 22%) 16%, color-mix(in srgb, var(--v20-box-main) 84%, black 16%) 68%, color-mix(in srgb, var(--v20-box-dark) 92%, black 8%) 100%);
+          border-color: rgba(77,45,20,.18);
+          box-shadow: 0 40px 54px rgba(52,31,12,.16), 0 10px 22px rgba(52,31,12,.08), inset 0 1px 0 rgba(255,255,255,.34), inset 0 -20px 24px rgba(95,61,22,.18);
+        }
+        .v20-box-shell::before {
+          border-color: color-mix(in srgb, var(--v20-box-trim) 42%, transparent);
+          background: linear-gradient(140deg, rgba(255,255,255,.14), transparent 24%, transparent 72%, rgba(255,255,255,.08));
+        }
+        .v20-box-rim {
+          background: linear-gradient(180deg, color-mix(in srgb, var(--v20-box-trim) 40%, rgba(255,255,255,.16)) 0%, rgba(116,73,26,.18) 100%);
+          border-color: color-mix(in srgb, var(--v20-box-trim) 55%, transparent);
+          box-shadow: inset 0 2px 0 rgba(255,255,255,.28), inset 0 -4px 10px rgba(88,54,22,.14);
+        }
+        .v20-box-lining {
+          position: absolute;
+          inset: 10px;
+          border-radius: inherit;
+          background:
+            radial-gradient(circle at 50% 18%, rgba(255,255,255,.25), transparent 20%),
+            linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,0) 22%),
+            linear-gradient(180deg, color-mix(in srgb, var(--v20-box-satin) 78%, white 22%) 0%, color-mix(in srgb, var(--v20-box-satin) 76%, rgba(90,60,25,.10)) 100%);
+          border: 1px solid rgba(255,255,255,.34);
+          opacity: .96;
+        }
+        .v20-box-satin {
+          position: absolute;
+          left: 5%;
+          right: 5%;
+          bottom: 4%;
+          height: 34%;
+          border-radius: 0 0 28px 28px;
+          background:
+            radial-gradient(circle at 18% 74%, rgba(255,255,255,.52), transparent 18%),
+            radial-gradient(circle at 82% 74%, rgba(255,255,255,.36), transparent 18%),
+            linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,0)),
+            repeating-linear-gradient(100deg, rgba(255,255,255,.1) 0 14px, rgba(241,228,208,.22) 14px 28px);
+          opacity: .84;
+          mix-blend-mode: screen;
+          pointer-events: none;
+        }
+        .v20-box-world.is-top-view .v20-box-well {
+          background:
+            radial-gradient(circle at 50% 16%, rgba(255,241,211,.18), transparent 20%),
+            radial-gradient(circle at 50% 56%, rgba(126,67,24,.16), transparent 46%),
+            linear-gradient(180deg, color-mix(in srgb, var(--v20-box-dark) 74%, #734121 26%) 0%, color-mix(in srgb, var(--v20-box-deep) 88%, black 12%) 100%);
+          box-shadow: inset 0 22px 42px rgba(0,0,0,.24), inset 0 -14px 22px rgba(255,227,168,.12), inset 0 0 0 1px rgba(255,239,206,.04);
+        }
+        .v20-box-world.is-top-view .v20-pack-card {
+          border: 1px solid rgba(84,57,28,.16);
+          border-radius: 18px;
+          background: linear-gradient(160deg, #fffefd 0%, #fff9f1 26%, #f2e4d0 100%);
+          box-shadow: 0 16px 22px rgba(36,22,10,.18), inset 0 1px 0 rgba(255,255,255,.94);
+        }
+        .v20-box-world.is-top-view .v20-pack-image {
+          padding: 6px;
+          background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,241,231,.96));
+          border-radius: 16px;
+        }
+        .v20-box-world.is-top-view .v20-box-lid-face {
+          border-color: rgba(77,45,20,.18);
+          background:
+            linear-gradient(180deg, rgba(255,247,217,.22), transparent 26%),
+            linear-gradient(135deg, color-mix(in srgb, var(--v20-box-main) 66%, white 34%) 0%, color-mix(in srgb, var(--v20-box-main) 86%, white 14%) 36%, color-mix(in srgb, var(--v20-box-dark) 90%, black 10%) 100%);
+        }
+        .v20-box-world.is-top-view .v20-box-lid-face::before {
+          border-color: color-mix(in srgb, var(--v20-box-trim) 68%, transparent);
+        }
+        .v20-box-monogram {
+          border-color: color-mix(in srgb, var(--v20-box-trim) 74%, transparent);
+          color: color-mix(in srgb, var(--v20-box-trim) 92%, white 8%);
+          background: radial-gradient(circle at 30% 25%, rgba(255,252,235,.52), rgba(102,58,23,.26));
+          box-shadow: inset 0 0 0 8px rgba(255,255,255,.06), 0 12px 28px rgba(60,34,11,.18);
+        }
+        .v20-box-front-badge {
+          padding: 10px 18px;
+          border-color: rgba(255,244,219,.34);
+          background: linear-gradient(180deg, rgba(255,255,255,.14), rgba(0,0,0,.16));
+          color: color-mix(in srgb, var(--v20-box-trim) 90%, white 10%);
+          box-shadow: 0 14px 24px rgba(40,22,8,.18);
+          letter-spacing: .28em;
+        }
+        .v20-box-world.is-top-view .v20-pack-ribbon-h,
+        .v20-box-world.is-top-view .v20-pack-ribbon-v,
+        .v20-decor-band,
+        .v20-decor-band-v {
+          background: linear-gradient(90deg, var(--v20-ribbon-b), var(--v20-ribbon-a) 32%, #fff4c5 50%, var(--v20-ribbon-a) 68%, var(--v20-ribbon-b));
+        }
+        .v20-box-world.is-top-view .v20-pack-ribbon-v,
+        .v20-decor-band-v {
+          background: linear-gradient(180deg, #fff4c5, var(--v20-ribbon-a) 40%, var(--v20-ribbon-b));
+        }
+        .v20-packed-badge {
+          border-color: color-mix(in srgb, var(--v20-box-trim) 70%, transparent);
+          color: #fff4c3;
+          background: radial-gradient(circle at 35% 28%, color-mix(in srgb, var(--v20-ribbon-a) 76%, white 24%), color-mix(in srgb, var(--v20-ribbon-b) 92%, black 8%));
+          box-shadow: 0 10px 18px rgba(42,24,4,.24), inset 0 1px 0 rgba(255,255,255,.28);
+        }
+        .v20-delivery-trail {
+          left: 9%;
+          bottom: 18%;
+          width: 92px;
+          height: 13px;
+          background: linear-gradient(90deg, rgba(255,255,255,0), color-mix(in srgb, var(--v20-ribbon-a) 60%, #F47822 40%), rgba(255,255,255,0));
+          box-shadow: 0 0 16px rgba(244,120,34,.18);
+        }
+        .v20-delivery-trail--2 {
+          bottom: 14%;
+          width: 54px;
+          opacity: .72;
+          animation-duration: .82s;
+        }
+        .v20-delivery-chip {
+          background: rgba(17,17,17,.92);
+          color: #fff;
+        }
+        .v20-dispatch-burst {
+          position: absolute;
+          right: 8%;
+          top: 16%;
+          width: 68px;
+          height: 68px;
+          border-radius: 999px;
+          background: radial-gradient(circle, rgba(255,245,214,.32), rgba(255,245,214,0) 62%);
+          filter: blur(2px);
+          z-index: 40;
+          animation: v20CinematicPulse 1.8s ease-in-out infinite;
+        }
+
+        .v20-box-world[data-box-theme="chest"] .v20-box-shell {
+          border-radius: 38px 38px 28px 28px;
+        }
+        .v20-box-world.is-top-view.is-packing .v20-box-shell {
+          animation: v20PackPulse .9s ease-in-out infinite;
+        }
+        .v20-box-world.is-top-view.is-packing .v20-box-lid--top {
+          animation: v20PackingHover .9s ease-in-out infinite;
+        }
+        .v20-box-world.is-top-view.is-shipping .v20-box-pedestal {
+          opacity: .2;
+          transition: opacity .22s ease;
+        }
+        @keyframes v20PackPulse {
+          0%, 100% { transform: translateX(-50%) scale(1); }
+          50% { transform: translateX(-50%) scale(1.014); }
+        }
+        @keyframes v20PackingHover {
+          0%, 100% { transform: translateX(-50%) translateY(0) rotateX(8deg); }
+          50% { transform: translateX(-50%) translateY(3px) rotateX(4deg); }
+        }
+        @media (max-width: 639px) {
+
+          .v20-box-front-badge {
+            padding: 8px 12px;
+            letter-spacing: .18em;
+          }
         }
 
         @keyframes v10Shimmer {
@@ -1823,6 +2698,273 @@ const CustomHamper = () => {
           to { opacity: 1; }
         }
 
+        @media (min-width: 1280px) {
+          .v31-studio-compact .v30-live-shell { padding: 14px; border-radius: 22px; }
+          .v31-studio-compact .v20-live-stage { min-height: 220px; border-radius: 16px; }
+          .v31-studio-compact .v20-box-world { width: 96%; height: 220px; bottom: -3px; }
+          .v31-studio-compact .v20-packing-toast { top: 14px; max-width: 86%; }
+        }
+
+        /* V34 · FLAT PRODUCT WORKSPACE — product cards are the only catalogue cards */
+        .v34-gift-workspace { background: transparent; }
+        .v34-live-flat .v20-live-stage {
+          border: 0;
+          border-radius: 0;
+          background: transparent;
+          box-shadow: none;
+        }
+        .v34-live-flat .v20-live-stage::before,
+        .v34-live-flat .v20-live-stage::after { display: none; }
+        .v34-live-flat .v20-studio-grid { opacity: .10; }
+        @media (min-width: 1280px) {
+          .v31-studio-compact.v34-live-flat,
+          .v31-studio-compact .v34-live-flat { padding-top: 2px; }
+        }
+
+        /* V38 · floating side progress navigator (no outer tracker card) */
+        .v38-builder-head {
+          position: relative;
+          isolation: isolate;
+        }
+
+        .v38-progress-dock {
+          position: fixed;
+          z-index: 96;
+          left: 12px;
+          top: 50%;
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 8px;
+          transform: translateY(-50%);
+          filter: drop-shadow(0 9px 22px rgba(31,22,12,.12));
+        }
+
+        .v38-progress-dock::before {
+          content: "";
+          position: absolute;
+          z-index: 0;
+          left: 20px;
+          top: 18px;
+          bottom: 18px;
+          width: 1px;
+          background: linear-gradient(180deg, rgba(212,175,55,.58), rgba(23,23,23,.10));
+          pointer-events: none;
+        }
+
+        .v38-progress-step {
+          position: relative;
+          z-index: 1;
+          display: flex;
+          height: 42px;
+          width: 42px;
+          align-items: center;
+          overflow: hidden;
+          border: 1px solid rgba(23,23,23,.08);
+          border-radius: 999px;
+          background: rgba(255,252,247,.94);
+          color: rgba(23,23,23,.50);
+          box-shadow: 0 4px 15px rgba(35,25,14,.06);
+          backdrop-filter: blur(14px);
+          -webkit-backdrop-filter: blur(14px);
+          transition: width .28s cubic-bezier(.22,1,.36,1), border-color .24s ease, background .24s ease, color .24s ease, transform .24s ease;
+        }
+
+        .v38-progress-step:hover:not(:disabled),
+        .v38-progress-step:focus-visible:not(:disabled) {
+          width: 146px;
+          border-color: rgba(212,175,55,.44);
+          background: rgba(255,250,235,.98);
+          color: #171717;
+          transform: translateX(2px);
+          outline: none;
+        }
+
+        .v38-progress-step.is-active {
+          width: 126px;
+          border-color: #171717;
+          background: #171717;
+          color: white;
+          box-shadow: 0 9px 25px rgba(23,23,23,.18);
+        }
+
+        .v38-progress-step.is-active:hover,
+        .v38-progress-step.is-active:focus-visible {
+          width: 146px;
+          background: #171717;
+          color: white;
+        }
+
+        .v38-progress-step:disabled {
+          cursor: not-allowed;
+          opacity: .55;
+        }
+
+        .v38-progress-dot {
+          display: flex;
+          height: 40px;
+          width: 40px;
+          flex: 0 0 40px;
+          align-items: center;
+          justify-content: center;
+          border-radius: 999px;
+          background: white;
+          font-size: 9px;
+          font-weight: 900;
+          color: rgba(23,23,23,.45);
+          transition: background .24s ease, color .24s ease;
+        }
+
+        .v38-progress-step.is-complete .v38-progress-dot {
+          background: #F4E5AF;
+          color: #7D5B08;
+        }
+
+        .v38-progress-step.is-active .v38-progress-dot {
+          background: #D4AF37;
+          color: #171717;
+        }
+
+        .v38-progress-label {
+          min-width: 0;
+          max-width: 0;
+          overflow: hidden;
+          margin-left: 0;
+          opacity: 0;
+          white-space: nowrap;
+          font-size: 9.5px;
+          font-weight: 900;
+          letter-spacing: .055em;
+          text-transform: uppercase;
+          transition: max-width .28s cubic-bezier(.22,1,.36,1), margin-left .28s cubic-bezier(.22,1,.36,1), opacity .18s ease;
+        }
+
+        .v38-progress-step.is-active .v38-progress-label,
+        .v38-progress-step:hover .v38-progress-label,
+        .v38-progress-step:focus-visible .v38-progress-label {
+          max-width: 92px;
+          margin-left: 8px;
+          opacity: 1;
+        }
+
+        @media (max-width: 1279px) {
+          .v38-progress-dock {
+            left: auto;
+            right: 8px;
+            top: 46%;
+          }
+          .v38-progress-step:hover:not(:disabled),
+          .v38-progress-step:focus-visible:not(:disabled) {
+            transform: translateX(-2px);
+          }
+        }
+
+        @media (max-width: 767px) {
+          .v38-progress-dock {
+            right: 6px;
+            top: 50%;
+            gap: 6px;
+          }
+          .v38-progress-dock::before { left: 18px; }
+          .v38-progress-step {
+            width: 36px;
+            height: 36px;
+          }
+          .v38-progress-dot {
+            width: 34px;
+            height: 34px;
+            flex-basis: 34px;
+            font-size: 8px;
+          }
+          .v38-progress-step.is-active {
+            width: 36px;
+          }
+          .v38-progress-step.is-active .v38-progress-label {
+            max-width: 0;
+            margin-left: 0;
+            opacity: 0;
+          }
+          .v38-progress-step:hover,
+          .v38-progress-step:focus-visible,
+          .v38-progress-step.is-active:hover,
+          .v38-progress-step.is-active:focus-visible {
+            width: 118px;
+          }
+          .v38-progress-step:hover .v38-progress-label,
+          .v38-progress-step:focus-visible .v38-progress-label,
+          .v38-progress-step.is-active:hover .v38-progress-label,
+          .v38-progress-step.is-active:focus-visible .v38-progress-label {
+            max-width: 72px;
+            margin-left: 7px;
+            opacity: 1;
+          }
+        }
+
+
+
+        /* V47 - BLACK BOTANICAL RIGID HAMPER (Tailwind utility driven) */
+        @keyframes v47BoxDrop {
+          0% { opacity: 0; transform: translateX(-50%) translateY(-190px) scale(.82); filter: blur(3px); }
+          62% { opacity: 1; transform: translateX(-50%) translateY(12px) scale(1.025); filter: blur(0); }
+          82% { transform: translateX(-50%) translateY(-5px) scale(.992); }
+          100% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); filter: blur(0); }
+        }
+
+        @keyframes v47LidOpen {
+          0% { top: 38%; transform: translateX(-50%) perspective(1100px) rotateX(3deg) scale(1.015); }
+          42% { top: 24%; transform: translateX(-50%) translateY(-10px) perspective(1100px) rotateX(9deg) scale(1.01); }
+          76% { top: 1%; transform: translateX(-50%) translateY(-3px) perspective(1100px) rotateX(16deg) scale(.988); }
+          100% { top: 3%; transform: translateX(-50%) perspective(1100px) rotateX(13deg) scale(.99); }
+        }
+
+        @keyframes v47InsideReveal {
+          0% { opacity: 0; transform: scale(.96); }
+          100% { opacity: 1; transform: scale(1); }
+        }
+
+        @keyframes v47GoldShine {
+          0% { transform: translateX(-170%) skewX(-20deg); opacity: 0; }
+          28% { opacity: .32; }
+          62%, 100% { transform: translateX(350%) skewX(-20deg); opacity: 0; }
+        }
+
+        @keyframes v47BowFloat {
+          0%, 100% { transform: translateY(0) rotate(-2deg); }
+          50% { transform: translateY(-2px) rotate(1deg); }
+        }
+
+        /* V48 - PROPORTION FIXED HINGED BLACK BOTANICAL BOX */
+        @keyframes v50BoxDrop {
+          0% { opacity: 0; transform: translateY(-260px) scale(.96); filter: blur(1px); }
+          54% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+          70% { transform: translateY(16px) scale(1.012); }
+          84% { transform: translateY(-7px) scale(.998); }
+          100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+        }
+
+        @keyframes v48LidOpen {
+          0% { transform: translateX(-50%) translateY(92%) perspective(1250px) rotateX(0deg) scale(1); }
+          46% { transform: translateX(-50%) translateY(48%) perspective(1250px) rotateX(20deg) scale(1.005); }
+          78% { transform: translateX(-50%) translateY(-2%) perspective(1250px) rotateX(51deg) scale(.987); }
+          100% { transform: translateX(-50%) translateY(0) perspective(1250px) rotateX(48deg) scale(.99); }
+        }
+
+        @keyframes v48InsideReveal {
+          0% { opacity: 0; transform: scale(.97); }
+          100% { opacity: 1; transform: scale(1); }
+        }
+
+        @keyframes v48GoldSheen {
+          0% { transform: translateX(-170%) skewX(-18deg); opacity: 0; }
+          28% { opacity: .26; }
+          62%, 100% { transform: translateX(390%) skewX(-18deg); opacity: 0; }
+        }
+
+        @keyframes v48BowSettle {
+          0% { opacity: 0; transform: translateX(-50%) translateY(-7px) scale(.92); }
+          100% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+        }
+
         @media (prefers-reduced-motion: reduce) {
           .v7-reveal, .v7-glow, .v7-spark, .v7-decoration, .v9-svg-box, .v9-svg-item, .v13-modal-backdrop, .v13-modal-panel,
           .v20-box-world, .v20-box-lid, .v20-pack-item, .v20-pack-card, .v20-packing-toast,
@@ -1833,69 +2975,44 @@ const CustomHamper = () => {
         }
       `}</style>
 
-      <section className="mx-auto w-full max-w-[1760px] px-3 sm:px-5 lg:px-7 xl:px-9 2xl:px-12">
-        <header className="relative overflow-hidden rounded-[26px] bg-[#171614] px-5 py-7 text-white shadow-[0_24px_80px_rgba(31,22,12,.14)] sm:rounded-[32px] sm:px-8 sm:py-9 lg:px-10 lg:py-10">
-          <div className="pointer-events-none absolute -right-24 -top-28 h-[380px] w-[380px] rounded-full bg-[radial-gradient(circle,rgba(212,175,55,.17),transparent_68%)] blur-[8px]" />
-          <div className="pointer-events-none absolute -bottom-28 left-[28%] h-[300px] w-[300px] rounded-full bg-[radial-gradient(circle,rgba(244,120,34,.12),transparent_70%)]" />
+      <section className="mx-auto w-full max-w-[1920px] px-3 sm:px-5 lg:px-6 xl:px-7 2xl:px-8">
+        <div
+          ref={mobileFlowRef}
+          className="v38-builder-head mb-3 flex scroll-mt-[108px] flex-col gap-3 border-b border-black/[0.07] pb-3 sm:mb-4 sm:flex-row sm:items-center sm:justify-between sm:gap-5"
+        >
+          <h1
+            style={{ fontFamily: DISPLAY_FONT }}
+            className="flex flex-wrap items-baseline gap-x-1.5 text-[30px] font-semibold leading-[.9] tracking-[-.045em] text-[#171717] sm:text-[34px] lg:text-[38px] xl:text-[42px]"
+          >
+            <span>Build your</span>
+            <span className="italic text-[#B58A22]">hamper</span>
+            <span className="mb-1 ml-0.5 inline-block h-[6px] w-[6px] rounded-full bg-[#F47822] sm:h-[7px] sm:w-[7px]" aria-hidden="true" />
+          </h1>
 
-          <div className="relative z-10 grid gap-7 lg:grid-cols-[minmax(0,1fr)_430px] lg:items-end">
-            <div className="max-w-[820px]">
-              <p className="text-[8px] font-black uppercase tracking-[0.23em] text-[#D9BB57] sm:text-[9px]">
-                HAMPORIUM · GIFT STUDIO
-              </p>
-              <h1
-                style={{ fontFamily: DISPLAY_FONT }}
-                className="mt-3 max-w-[800px] text-[44px] font-semibold leading-[.88] tracking-[-.045em] text-[#FFF6E4] sm:text-[56px] lg:text-[68px]"
-              >
-                {isEditingCartHamper ? "Edit your hamper," : "Build a hamper,"}
-                <span className="block italic text-[#D9BB57]">
-                  {isEditingCartHamper ? "without starting over." : "beautifully."}
-                </span>
-              </h1>
-              <p className="mt-4 max-w-[640px] text-[11px] font-medium leading-5 text-white/48 sm:text-[12px] sm:leading-6">
-                {isEditingCartHamper
-                  ? "Your saved box, gifts, finishing and personalisation are loaded below. Change anything you need, then save the same cart hamper."
-                  : "Choose a box, add only what fits, finish it your way, then review the live hamper before checkout."}
-              </p>
-            </div>
-
-            <div className="lg:justify-self-end">
-              {isEditingCartHamper ? (
-                <div className="rounded-[18px] border border-[#D9BB57]/25 bg-white/[0.06] px-4 py-3.5 text-right">
-                  <p className="text-[8px] font-black uppercase tracking-[0.15em] text-[#D9BB57]">
-                    Editing cart hamper
-                  </p>
-                  <p className="mt-1 text-[10px] font-semibold leading-4 text-white/50">
-                    Saving updates this cart hamper instead of adding a new duplicate line.
-                  </p>
-                </div>
-              ) : (
-                <>
-                  <p className="mb-2 text-[7px] font-black uppercase tracking-[0.16em] text-white/32">
-                    How are you ordering?
-                  </p>
-                  <OrderModeChooser
-                    mode={orderMode}
-                    onChange={(nextMode) => {
-                      setOrderMode(nextMode);
-                      setCartError("");
-                    }}
-                  />
-                </>
-              )}
-            </div>
+          <div className="shrink-0">
+            {isEditingCartHamper ? (
+              <span className="inline-flex h-10 items-center rounded-full border border-[#D4AF37]/25 bg-[#FFF9E9] px-4 text-[8px] font-black uppercase tracking-[0.1em] text-[#8A6815]">
+                Editing cart hamper
+              </span>
+            ) : (
+              <OrderModeChooser
+                mode={orderMode}
+                onChange={(nextMode) => {
+                  setOrderMode(nextMode);
+                  setCartError("");
+                }}
+              />
+            )}
           </div>
-        </header>
-
-        <div ref={mobileFlowRef} className="scroll-mt-[88px]">
-          <V30Progress
-            step={mobileStep}
-            orderMode={orderMode}
-            canContinueFromBox={canContinueFromBox}
-            canContinueFromProducts={canContinueFromProducts}
-            onStepChange={moveMobileStep}
-          />
         </div>
+
+        <V30Progress
+          step={mobileStep}
+          orderMode={orderMode}
+          canContinueFromBox={canContinueFromBox}
+          canContinueFromProducts={canContinueFromProducts}
+          onStepChange={moveMobileStep}
+        />
 
         {(editError || error) && (
           <div className="mt-4 rounded-[16px] border border-red-200 bg-red-50 px-4 py-3 text-[11px] font-semibold text-red-700">
@@ -1903,7 +3020,7 @@ const CustomHamper = () => {
           </div>
         )}
 
-        <div className="mt-5 grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_clamp(390px,30vw,500px)] xl:items-start 2xl:gap-7">
+        <div className="mt-4 grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_410px] xl:items-start 2xl:grid-cols-[minmax(0,1fr)_460px] 2xl:gap-6">
           <div className="min-w-0">
             {mobileStep === 1 && (
               <V30Panel
@@ -1950,45 +3067,69 @@ const CustomHamper = () => {
             )}
 
             {mobileStep === 2 && (
-              <V30Panel
+              <V34GiftWorkspace
                 number="02"
                 eyebrow="Curate the inside"
                 title="Add your gifts"
                 meta={selectedItemCount ? `${selectedItemCount} selected` : "Choose your favourites"}
               >
-                <V30MobileLivePreview
+                <MobileLiveHamperStatus
                   selectedContainer={selectedContainer}
-                  previewItems={previewItems}
-                  previewDecorations={previewDecorations}
                   selectedItemCount={selectedItemCount}
-                  selectedDecorationCount={selectedDecorationCount}
                   fillPercent={fillPercent}
                   configuration={configuration}
-                  canIncreaseAnyItem={canIncreaseAnyItem}
                   validating={validating || selectionPending}
                 />
 
-                <div className="grid gap-2.5 sm:grid-cols-[minmax(0,1fr)_210px]">
-                  <div className="relative">
-                    <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-base text-black/24">⌕</span>
-                    <input
-                      value={search}
-                      onChange={(event) => setSearch(event.target.value)}
-                      placeholder="Search gifts"
-                      className="h-11 w-full rounded-full border border-black/[0.08] bg-[#FAF8F4] pl-11 pr-4 text-[11px] font-semibold outline-none transition focus:border-[#F47822] focus:bg-white focus:ring-4 focus:ring-[#F47822]/8"
-                    />
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-base text-black/24">⌕</span>
+                  <input
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="Search gifts"
+                    className="h-11 w-full rounded-full border border-black/[0.08] bg-[#FAF8F4] pl-11 pr-4 text-[12px] font-semibold outline-none transition focus:border-[#F47822] focus:bg-white focus:ring-4 focus:ring-[#F47822]/8"
+                  />
+                </div>
+
+                {/* TYPE FILTER · horizontal scroll like the existing gift rails */}
+                <div className="mt-3">
+                  <div className="flex items-center justify-between gap-3 px-0.5">
+                    <p className="text-[8px] font-black uppercase tracking-[0.12em] text-black/30">
+                      Type
+                    </p>
+                    <p className="max-w-[55%] truncate text-[8px] font-bold text-[#9A7316]">
+                      {subcategoryFilter || "All types"}
+                    </p>
                   </div>
 
-                  <select
-                    value={subcategoryFilter}
-                    onChange={(event) => setSubcategoryFilter(event.target.value)}
-                    className="h-11 rounded-full border border-black/[0.08] bg-[#FAF8F4] px-4 text-[10px] font-bold outline-none transition focus:border-[#F47822] focus:bg-white"
-                  >
-                    <option value="">All types</option>
+                  <div className="v30-scrollbar-none mt-2 flex gap-2 overflow-x-auto pb-1 [scroll-snap-type:x_proximity]">
+                    <button
+                      type="button"
+                      onClick={() => setSubcategoryFilter("")}
+                      className={`shrink-0 snap-start rounded-full border px-3.5 py-2 text-[10px] font-black transition ${
+                        !subcategoryFilter
+                          ? "border-[#F47822] bg-[#FFF4EC] text-[#D85E0F] shadow-[0_5px_16px_rgba(244,120,34,.10)]"
+                          : "border-black/[0.08] bg-white text-black/42 hover:border-[#F47822]/35 hover:text-[#D85E0F]"
+                      }`}
+                    >
+                      All types
+                    </button>
+
                     {subcategories.map((subcategory) => (
-                      <option key={subcategory} value={subcategory}>{subcategory}</option>
+                      <button
+                        key={subcategory}
+                        type="button"
+                        onClick={() => setSubcategoryFilter(subcategory)}
+                        className={`shrink-0 snap-start rounded-full border px-3.5 py-2 text-[10px] font-black transition ${
+                          subcategoryFilter === subcategory
+                            ? "border-[#F47822] bg-[#FFF4EC] text-[#D85E0F] shadow-[0_5px_16px_rgba(244,120,34,.10)]"
+                            : "border-black/[0.08] bg-white text-black/42 hover:border-[#F47822]/35 hover:text-[#D85E0F]"
+                        }`}
+                      >
+                        {subcategory}
+                      </button>
                     ))}
-                  </select>
+                  </div>
                 </div>
 
                 <div className="v30-scrollbar-none mt-3 flex gap-2 overflow-x-auto pb-1">
@@ -1998,7 +3139,7 @@ const CustomHamper = () => {
                       setCategoryFilter("");
                       setSubcategoryFilter("");
                     }}
-                    className={`shrink-0 rounded-full border px-3.5 py-2 text-[9px] font-black transition ${
+                    className={`shrink-0 rounded-full border px-3.5 py-2 text-[10px] font-black transition ${
                       !categoryFilter
                         ? "border-[#171717] bg-[#171717] text-white"
                         : "border-black/[0.08] bg-white text-black/42 hover:border-[#D4AF37]/45 hover:text-[#8A6815]"
@@ -2015,7 +3156,7 @@ const CustomHamper = () => {
                         setCategoryFilter(category);
                         setSubcategoryFilter("");
                       }}
-                      className={`shrink-0 rounded-full border px-3.5 py-2 text-[9px] font-black transition ${
+                      className={`shrink-0 rounded-full border px-3.5 py-2 text-[10px] font-black transition ${
                         categoryFilter === category
                           ? "border-[#D4AF37] bg-[#FFF7D9] text-[#7B5D13]"
                           : "border-black/[0.08] bg-white text-black/42 hover:border-[#D4AF37]/45 hover:text-[#8A6815]"
@@ -2026,22 +3167,33 @@ const CustomHamper = () => {
                   ))}
                 </div>
 
-                <div className="mt-3 flex items-center justify-between gap-3 text-[8px] font-bold text-black/32">
-                  <span className="flex items-center gap-2">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                    All imported catalogue items are shown · pending data is marked
-                  </span>
-                  {(validating || selectionPending) && (
-                    <span className="shrink-0 text-[#8A6815]">Checking fit…</span>
+                {selectedContainer &&
+                  contentComponents.some(
+                    (component) =>
+                      component.recommendation?.source === "container"
+                  ) && (
+                    <div className="mt-3 flex items-center gap-2 rounded-[12px] border border-[#D4AF37]/18 bg-[#FFF9E9] px-3 py-2.5 text-[9px] font-bold text-[#7A5B12]">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#D4AF37]/15 text-[11px]">
+                        ★
+                      </span>
+                      <span className="min-w-0">
+                        Recommended for <strong>{selectedContainer.name}</strong> from completed customer purchases.
+                      </span>
+                    </div>
                   )}
-                </div>
+
+                {(validating || selectionPending) && (
+                  <div className="mt-3 flex justify-end text-[10px] font-bold text-[#8A6815]">
+                    Checking fit…
+                  </div>
+                )}
 
                 {visibleComponents.length === 0 ? (
                   <V7Empty>This box has reached its practical limit. Remove an item or choose a larger box.</V7Empty>
                 ) : (
                   <div
                     data-hamper-products-grid="true"
-                    className="mt-5 grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-3 sm:gap-x-4 sm:gap-y-7"
+                    className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-3.5 lg:grid-cols-4 2xl:grid-cols-5"
                   >
                     {paginatedComponents.map((component) => {
                       const quantity = selectedMap.get(component._id) || 0;
@@ -2064,6 +3216,9 @@ const CustomHamper = () => {
                           locked={missingPrice || builderBlocked || cannotAddMore}
                           checking={validating || selectionPending}
                           fitLeft={Number(candidate?.maxAdditionalQuantity || 0)}
+                          recommendation={
+                            cannotAddMore ? null : component.recommendation || null
+                          }
                           onMinus={() => decrementItem(component)}
                           onPlus={() => incrementItem(component)}
                         />
@@ -2092,7 +3247,7 @@ const CustomHamper = () => {
                   onNext={() => moveMobileStep(3)}
                   hint={selectedItemCount ? `${selectedItemCount} gift${selectedItemCount === 1 ? "" : "s"} in your hamper` : "Add at least one gift to continue."}
                 />
-              </V30Panel>
+              </V34GiftWorkspace>
             )}
 
             {mobileStep === 3 && (
@@ -2119,7 +3274,7 @@ const CustomHamper = () => {
                 ) : (
                   <div
                     data-hamper-decorations-grid="true"
-                    className="mt-5 grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-3 sm:gap-x-4 sm:gap-y-7"
+                    className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-3.5 lg:grid-cols-4 2xl:grid-cols-5"
                   >
                     {paginatedDecorations.map((component) => (
                       <V7DecorationCard
@@ -2337,6 +3492,7 @@ const CustomHamper = () => {
                     cartError={cartError}
                     canAddToCart={canPrimaryAction}
                     addingToCart={primaryBusy}
+                    deliveryJourney={deliveryJourney}
                     user={user}
                     isEditingCartHamper={isEditingCartHamper}
                     orderMode={orderMode}
@@ -2385,6 +3541,7 @@ const CustomHamper = () => {
                     cartError={cartError}
                     canAddToCart={canPrimaryAction}
                     addingToCart={primaryBusy}
+                    deliveryJourney={deliveryJourney}
                     user={user}
                     isEditingCartHamper={isEditingCartHamper}
                     orderMode={orderMode}
@@ -2399,7 +3556,7 @@ const CustomHamper = () => {
             )}
           </div>
 
-          <aside className="hidden xl:sticky xl:top-[104px] xl:block">
+          <aside className="v31-studio-compact hidden xl:sticky xl:top-[96px] xl:block">
             <V7Studio
               selectedContainer={selectedContainer}
               previewItems={previewItems}
@@ -2414,6 +3571,7 @@ const CustomHamper = () => {
               cartError={cartError}
               canAddToCart={canPrimaryAction}
               addingToCart={primaryBusy}
+              deliveryJourney={deliveryJourney}
               user={user}
               isEditingCartHamper={isEditingCartHamper}
               orderMode={orderMode}
@@ -2446,54 +3604,81 @@ const V30Progress = ({
   const maxReachable = !canContinueFromBox ? 1 : !canContinueFromProducts ? 2 : 5;
 
   return (
-    <nav className="v30-scrollbar-none mt-4 overflow-x-auto rounded-[18px] border border-black/[0.06] bg-white px-2 py-2 shadow-[0_10px_30px_rgba(45,31,17,.035)] sm:mt-5 sm:px-3" aria-label="Hamper builder steps">
-      <div className="flex min-w-[560px] items-center">
-        {steps.map(([number, label], index) => {
-          const active = step === number;
-          const complete = step > number;
-          const disabled = number > maxReachable;
+    <nav className="v38-progress-dock" aria-label="Hamper builder progress">
+      {steps.map(([number, label]) => {
+        const active = step === number;
+        const complete = step > number;
+        const disabled = number > maxReachable;
 
-          return (
-            <div key={number} className="flex min-w-0 flex-1 items-center">
-              <button
-                type="button"
-                disabled={disabled}
-                onClick={() => onStepChange(number)}
-                className={`group flex min-w-[88px] flex-1 items-center gap-2 rounded-xl px-2.5 py-2 text-left transition ${
-                  active ? "bg-[#171717] text-white" : disabled ? "cursor-not-allowed text-black/22" : "text-black/48 hover:bg-[#F8F4EE] hover:text-[#171717]"
-                }`}
-              >
-                <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[8px] font-black ${active ? "bg-[#D4AF37] text-[#171717]" : complete ? "bg-[#F2E7C2] text-[#8A6815]" : "bg-black/[0.045] text-black/42"}`}>
-                  {complete ? "✓" : String(number).padStart(2, "0")}
-                </span>
-                <span className="truncate text-[9px] font-black uppercase tracking-[0.06em]">{label}</span>
-              </button>
-
-              {index < steps.length - 1 && <span className={`mx-1 h-px w-4 shrink-0 sm:w-7 ${complete ? "bg-[#D4AF37]" : "bg-black/[0.08]"}`} />}
-            </div>
-          );
-        })}
-      </div>
+        return (
+          <button
+            key={number}
+            type="button"
+            disabled={disabled}
+            onClick={() => onStepChange(number)}
+            aria-current={active ? "step" : undefined}
+            aria-label={`${String(number).padStart(2, "0")} ${label}${complete ? ", completed" : active ? ", current step" : ""}`}
+            title={label}
+            className={`v38-progress-step ${active ? "is-active" : ""} ${complete ? "is-complete" : ""}`}
+          >
+            <span className="v38-progress-dot">
+              {complete ? "✓" : String(number).padStart(2, "0")}
+            </span>
+            <span className="v38-progress-label">{label}</span>
+          </button>
+        );
+      })}
     </nav>
   );
 };
 
-const V30Panel = ({ number, eyebrow, title, meta, children }) => (
-  <section className="v30-panel-mobile-sticky-safe v30-step-in overflow-visible rounded-[20px] border border-black/[0.06] bg-white shadow-[0_16px_46px_rgba(45,31,17,.05)] md:overflow-hidden sm:rounded-[26px]">
-    <div className="relative border-b border-black/[0.055] px-4 py-3.5 sm:px-6 sm:py-5 lg:px-7">
-      <span className="absolute bottom-3 left-0 top-3 w-[3px] rounded-r-full bg-gradient-to-b from-[#F47822] to-[#D4AF37]" aria-hidden="true" />
-      <div className="flex items-center gap-3">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#D4AF37]/26 bg-[#FFF9E9] text-[8px] font-black text-[#8A6815] shadow-[0_4px_14px_rgba(212,175,55,.08)] sm:h-9 sm:w-9 sm:text-[9px]">{number}</span>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-2">
-            <p className="truncate text-[7.5px] font-black uppercase tracking-[0.14em] text-[#9A7316] sm:text-[8px]">{eyebrow}</p>
-            {meta && <span className="max-w-[48%] truncate rounded-full bg-[#F8F4EA] px-2 py-1 text-[7px] font-black text-[#8A6815]/75 sm:text-[8px]">{meta}</span>}
-          </div>
-          <h2 style={{ fontFamily: DISPLAY_FONT }} className="mt-0.5 truncate text-[27px] font-semibold leading-none tracking-[-.035em] text-[#171717] sm:mt-1 sm:text-[36px]">{title}</h2>
+const V34GiftWorkspace = ({ number, eyebrow, title, meta, children }) => (
+  <section className="v34-gift-workspace min-w-0">
+    <div className="mb-4 flex items-end justify-between gap-4 border-b border-black/[0.07] pb-3 sm:mb-5 sm:pb-4">
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#D4AF37]/28 bg-[#FFF9E9] text-[9px] font-black text-[#8A6815] sm:h-9 sm:w-9">
+          {number}
+        </span>
+        <div className="min-w-0">
+          <p className="text-[9px] font-black uppercase tracking-[0.12em] text-[#9A7316] sm:text-[10px]">{eyebrow}</p>
+          <h2 style={{ fontFamily: DISPLAY_FONT }} className="mt-0.5 text-[31px] font-semibold leading-none tracking-[-.035em] text-[#171717] sm:text-[39px]">{title}</h2>
         </div>
       </div>
+      {meta && <span className="hidden shrink-0 text-[11px] font-bold text-black/42 sm:block">{meta}</span>}
     </div>
-    <div className="px-4 py-4 sm:px-6 sm:py-6 lg:px-7">{children}</div>
+    <div>{children}</div>
+  </section>
+);
+
+const V30Panel = ({ number, eyebrow, title, meta, children }) => (
+  <section className="v30-panel-mobile-sticky-safe v30-step-in min-w-0">
+    <div className="mb-4 flex items-end justify-between gap-4 border-b border-black/[0.07] pb-3 sm:mb-5 sm:pb-4">
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#D4AF37]/28 bg-[#FFF9E9] text-[9px] font-black text-[#8A6815] sm:h-9 sm:w-9">
+          {number}
+        </span>
+
+        <div className="min-w-0">
+          <p className="text-[9px] font-black uppercase tracking-[0.12em] text-[#9A7316] sm:text-[10px]">
+            {eyebrow}
+          </p>
+          <h2
+            style={{ fontFamily: DISPLAY_FONT }}
+            className="mt-0.5 text-[31px] font-semibold leading-none tracking-[-.035em] text-[#171717] sm:text-[39px]"
+          >
+            {title}
+          </h2>
+        </div>
+      </div>
+
+      {meta && (
+        <span className="hidden max-w-[42%] truncate text-[11px] font-bold text-black/42 sm:block">
+          {meta}
+        </span>
+      )}
+    </div>
+
+    <div>{children}</div>
   </section>
 );
 
@@ -2505,14 +3690,14 @@ const V30StepActions = ({
   onNext,
   hint = "",
 }) => (
-  <div className="v30-mobile-sticky-actions mt-6 rounded-[16px] border border-black/[0.06] bg-white/95 p-2.5 shadow-[0_12px_34px_rgba(43,29,15,.07)] backdrop-blur-xl sm:flex sm:items-center sm:justify-between sm:gap-4 sm:p-3">
-    {hint && <p className="mb-2 px-1 text-[9px] font-semibold leading-4 text-black/36 sm:mb-0 sm:max-w-[50%]">{hint}</p>}
+  <div className="v30-mobile-sticky-actions mt-6 border-t border-black/[0.07] bg-[#F6F1E9]/94 pt-3 backdrop-blur-xl sm:flex sm:items-center sm:justify-between sm:gap-4">
+    {hint && <p className="mb-2 px-1 text-[10px] font-semibold leading-4 text-black/45 sm:mb-0 sm:max-w-[50%] sm:text-[11px]">{hint}</p>}
     <div className={`grid gap-2 sm:ml-auto ${onBack && nextLabel ? "grid-cols-[88px_minmax(0,1fr)] sm:grid-cols-[100px_170px]" : "grid-cols-1 sm:w-auto"}`}>
       {onBack && (
-        <button type="button" onClick={onBack} className="h-11 rounded-xl border border-black/[0.08] bg-[#FAF8F4] px-3 text-[9px] font-black text-black/50 transition hover:bg-white hover:text-[#171717] active:scale-[.98]">← {backLabel}</button>
+        <button type="button" onClick={onBack} className="h-11 rounded-xl border border-black/[0.08] bg-[#FAF8F4] px-3 text-[10px] font-black text-black/55 sm:text-[11px] transition hover:bg-white hover:text-[#171717] active:scale-[.98]">← {backLabel}</button>
       )}
       {nextLabel && (
-        <button type="button" disabled={nextDisabled} onClick={onNext} className="h-11 rounded-xl bg-[#171717] px-4 text-[9px] font-black uppercase tracking-[0.06em] text-white shadow-[0_9px_24px_rgba(23,23,23,.13)] transition hover:bg-[#9A7316] active:scale-[.99] disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/25 disabled:shadow-none">{nextLabel} →</button>
+        <button type="button" disabled={nextDisabled} onClick={onNext} className="h-11 rounded-xl bg-[#171717] px-4 text-[10px] font-black uppercase tracking-[0.05em] text-white sm:text-[11px] shadow-[0_9px_24px_rgba(23,23,23,.13)] transition hover:bg-[#9A7316] active:scale-[.99] disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/25 disabled:shadow-none">{nextLabel} →</button>
       )}
     </div>
   </div>
@@ -2533,17 +3718,17 @@ const V30MobileLivePreview = (props) => {
       <div className="v30-mobile-live-summary">
         <div className="v30-mobile-live-summary-grid">
           <div className="v30-mobile-live-summary-cell">
-            <p className="text-[7px] font-black uppercase tracking-[0.08em] text-black/30">Gifts</p>
-            <p className="mt-1 text-[15px] font-black leading-none text-[#171717]">{giftCount}</p>
+            <p className="text-[9px] font-black uppercase tracking-[0.07em] text-black/40">Gifts</p>
+            <p className="mt-1 text-[17px] font-black leading-none text-[#171717]">{giftCount}</p>
           </div>
 
           <div className="v30-mobile-live-summary-cell">
-            <p className="text-[7px] font-black uppercase tracking-[0.08em] text-black/30">Filled</p>
-            <p className="mt-1 text-[15px] font-black leading-none text-[#171717]">{roundedFill}%</p>
+            <p className="text-[9px] font-black uppercase tracking-[0.07em] text-black/40">Filled</p>
+            <p className="mt-1 text-[17px] font-black leading-none text-[#171717]">{roundedFill}%</p>
           </div>
 
           <div className="v30-mobile-live-summary-cell text-right">
-            <p className="text-[7px] font-black uppercase tracking-[0.08em] text-black/30">Total</p>
+            <p className="text-[9px] font-black uppercase tracking-[0.07em] text-black/40">Total</p>
             <p
               style={{ fontFamily: DISPLAY_FONT }}
               className="mt-0.5 truncate text-[20px] font-semibold leading-none text-[#F47822]"
@@ -2557,14 +3742,14 @@ const V30MobileLivePreview = (props) => {
 
         <div className="v30-mobile-live-box-row">
           <div className="min-w-0">
-            <p className="text-[6.5px] font-black uppercase tracking-[0.08em] text-black/28">Selected box</p>
-            <p className="mt-0.5 truncate text-[9px] font-black text-[#171717]">
+            <p className="text-[8.5px] font-black uppercase tracking-[0.07em] text-black/38">Selected box</p>
+            <p className="mt-0.5 truncate text-[11px] font-black text-[#171717]">
               {props.selectedContainer?.name || "Choose a hamper box"}
             </p>
           </div>
 
           {Number(props.selectedDecorationCount || 0) > 0 && (
-            <span className="shrink-0 rounded-full bg-[#FFF8DE] px-2 py-1 text-[7px] font-black text-[#8A6815]">
+            <span className="shrink-0 rounded-full bg-[#FFF8DE] px-2 py-1 text-[9px] font-black text-[#8A6815]">
               +{props.selectedDecorationCount} finishing
             </span>
           )}
@@ -2586,7 +3771,7 @@ const OrderModeChooser = ({ mode, onChange }) => (
     <button
       type="button"
       onClick={() => onChange("personal")}
-      className={`h-10 rounded-[9px] px-4 text-[9px] font-black uppercase tracking-[0.06em] transition ${
+      className={`h-10 rounded-[9px] px-4 text-[10px] font-black uppercase tracking-[0.05em] transition ${
         mode === "personal"
           ? "bg-[#F7EFD9] text-[#171717] shadow-[0_8px_22px_rgba(0,0,0,.16)]"
           : "text-white/45 hover:text-white"
@@ -2597,7 +3782,7 @@ const OrderModeChooser = ({ mode, onChange }) => (
     <button
       type="button"
       onClick={() => onChange("bulk")}
-      className={`h-10 rounded-[9px] px-4 text-[9px] font-black uppercase tracking-[0.06em] transition ${
+      className={`h-10 rounded-[9px] px-4 text-[10px] font-black uppercase tracking-[0.05em] transition ${
         mode === "bulk"
           ? "bg-[#D4AF37] text-[#171717] shadow-[0_8px_22px_rgba(0,0,0,.16)]"
           : "text-white/45 hover:text-white"
@@ -2621,7 +3806,7 @@ const MobileBuilderProgress = ({ step, orderMode }) => {
     <div className="rounded-[16px] border border-black/[0.07] bg-white px-3.5 py-3 shadow-[0_8px_24px_rgba(41,29,15,.04)]">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <span className="text-[8px] font-black uppercase tracking-[0.13em] text-[#F47822]">
+          <span className="text-[10px] font-black uppercase tracking-[0.11em] text-[#F47822]">
             Step {String(step).padStart(2, "0")} / 05
           </span>
           <p className="mt-0.5 truncate text-[11px] font-black text-[#171717]">
@@ -2707,16 +3892,16 @@ const MobileLiveHamperStatus = ({
       <div className="overflow-hidden rounded-[18px] border border-[#F47822]/16 bg-[#FFFDF9]/95 shadow-[0_12px_32px_rgba(47,31,13,.10)] backdrop-blur-xl">
         <div className="flex items-center justify-between gap-3 border-b border-black/[0.055] px-3.5 py-2.5">
           <div className="min-w-0">
-            <p className="text-[8px] font-black uppercase tracking-[0.13em] text-[#F47822]">
+            <p className="text-[10px] font-black uppercase tracking-[0.11em] text-[#F47822]">
               Live hamper status
             </p>
-            <p className="mt-0.5 truncate text-[10px] font-black text-[#171717]">
+            <p className="mt-0.5 truncate text-[11px] font-black text-[#171717]">
               {selectedContainer?.name || "Selected hamper box"}
             </p>
           </div>
 
           <span
-            className={`shrink-0 rounded-full px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.08em] ${
+            className={`shrink-0 rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.07em] ${
               validating
                 ? "bg-black/[0.06] text-black/42"
                 : "bg-emerald-50 text-emerald-700"
@@ -2731,10 +3916,10 @@ const MobileLiveHamperStatus = ({
             <p className="text-[7px] font-black uppercase tracking-[0.08em] text-black/28">
               Box filled
             </p>
-            <p className="mt-1 text-[15px] font-black leading-none text-[#171717]">
+            <p className="mt-1 text-[17px] font-black leading-none text-[#171717]">
               {roundedFill}%
             </p>
-            <p className="mt-1 text-[7px] font-bold text-black/30">
+            <p className="mt-1 text-[9px] font-bold text-black/40">
               {remaining}% space left
             </p>
           </div>
@@ -2743,10 +3928,10 @@ const MobileLiveHamperStatus = ({
             <p className="text-[7px] font-black uppercase tracking-[0.08em] text-black/28">
               Gifts
             </p>
-            <p className="mt-1 text-[15px] font-black leading-none text-[#171717]">
+            <p className="mt-1 text-[17px] font-black leading-none text-[#171717]">
               {selectedItemCount}
             </p>
-            <p className="mt-1 text-[7px] font-bold text-black/30">
+            <p className="mt-1 text-[9px] font-bold text-black/40">
               selected
             </p>
           </div>
@@ -2763,7 +3948,7 @@ const MobileLiveHamperStatus = ({
                 ? "—"
                 : formatCurrency(liveTotal)}
             </p>
-            <p className="mt-1 text-[7px] font-bold text-black/30">
+            <p className="mt-1 text-[9px] font-bold text-black/40">
               updates as you add
             </p>
           </div>
@@ -3031,7 +4216,7 @@ const V11ContainerDetailsModal = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="h-11 rounded-[11px] border border-black/[0.09] bg-white px-5 text-[10px] font-black text-[#171717] transition hover:bg-[#FAF8F5]"
+                className="h-11 rounded-[11px] border border-black/[0.09] bg-white px-5 text-[11px] font-black text-[#171717] transition hover:bg-[#FAF8F5]"
               >
                 Close
               </button>
@@ -3160,6 +4345,9 @@ const V7ContainerCard = ({ container, active, onClick }) => {
   const builderReasons = Array.isArray(container.builderStatus?.reasons)
     ? container.builderStatus.reasons
     : [];
+  const popularity = container.popularity || null;
+  const popularityLabel = popularity?.label || "";
+  const hamperSoldCount = Number(popularity?.soldCount || 0);
 
   const handleCardClick = (event) => {
     if (
@@ -3192,9 +4380,21 @@ const V7ContainerCard = ({ container, active, onClick }) => {
             <NoImage />
           )}
 
+          {popularityLabel && (
+            <span
+              className="absolute left-2.5 top-2.5 z-10 inline-flex items-center gap-1 rounded-full border border-[#E9C861]/45 bg-[#171717]/92 px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.06em] text-[#F4D778] shadow-[0_7px_18px_rgba(0,0,0,.16)] backdrop-blur-sm"
+              title={`${popularityLabel}${hamperSoldCount > 0 ? ` · ${hamperSoldCount} hampers chosen` : ""}`}
+            >
+              <span aria-hidden="true">★</span>
+              {popularityLabel}
+            </span>
+          )}
+
           {!builderReady && (
             <span
-              className="absolute left-2.5 top-2.5 max-w-[78%] truncate rounded-full border border-amber-200 bg-amber-50/95 px-2.5 py-1 text-[7px] font-black text-amber-700 shadow-sm backdrop-blur-sm"
+              className={`absolute left-2.5 z-10 max-w-[78%] truncate rounded-full border border-amber-200 bg-amber-50/95 px-2.5 py-1 text-[7px] font-black text-amber-700 shadow-sm backdrop-blur-sm ${
+                popularityLabel ? "top-10" : "top-2.5"
+              }`}
               title={builderReasons.join(", ")}
             >
               Data pending: {builderReasons[0] || "builder setup incomplete"}
@@ -3223,6 +4423,12 @@ const V7ContainerCard = ({ container, active, onClick }) => {
               {container.material && (
                 <p className="mt-1 truncate text-[8px] font-black uppercase tracking-[0.08em] text-black/30">
                   {container.material}
+                </p>
+              )}
+
+              {hamperSoldCount > 0 && (
+                <p className="mt-1.5 text-[8px] font-extrabold text-[#9A7316]">
+                  {hamperSoldCount} hamper{hamperSoldCount === 1 ? "" : "s"} chosen
                 </p>
               )}
             </div>
@@ -3324,11 +4530,11 @@ const V7ProductSpec = ({ label, value, wide = false }) => (
       wide ? "col-span-2" : ""
     }`}
   >
-    <p className="text-[7px] font-black uppercase tracking-[0.075em] text-black/24">
+    <p className="text-[9px] font-black uppercase tracking-[0.07em] text-black/34">
       {label}
     </p>
     <p
-      className="mt-1 truncate text-[8px] font-extrabold text-black/55"
+      className="mt-1 truncate text-[10px] font-extrabold text-black/60"
       title={value}
     >
       {value}
@@ -3372,11 +4578,11 @@ const V7FoodInfo = ({ component }) => {
 
 const V10QuickSpec = ({ label, value }) => (
   <div className="min-w-0 rounded-[9px] border border-black/[0.06] bg-[#FAF8F5] px-2 py-2">
-    <p className="text-[6px] font-black uppercase tracking-[0.08em] text-black/25">
+    <p className="text-[8px] font-black uppercase tracking-[0.07em] text-black/35">
       {label}
     </p>
     <p
-      className="mt-1 truncate text-[8px] font-extrabold text-black/58"
+      className="mt-1 truncate text-[10px] font-extrabold text-black/62"
       title={value}
     >
       {value || "—"}
@@ -3631,7 +4837,7 @@ const V10ProductDetailsModal = ({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="h-11 flex-1 rounded-[11px] border border-black/[0.09] bg-white px-5 text-[10px] font-black text-[#171717] transition hover:bg-[#FAF8F5] sm:flex-none"
+                  className="h-11 flex-1 rounded-[11px] border border-black/[0.09] bg-white px-5 text-[11px] font-black text-[#171717] transition hover:bg-[#FAF8F5] sm:flex-none"
                 >
                   Close
                 </button>
@@ -3685,6 +4891,7 @@ const V7ProductCard = ({
   locked,
   checking,
   fitLeft,
+  recommendation = null,
   onMinus,
   onPlus,
 }) => {
@@ -3697,6 +4904,8 @@ const V7ProductCard = ({
   const builderReasons = Array.isArray(component.builderStatus?.reasons)
     ? component.builderStatus.reasons
     : [];
+  const recommendationLabel = recommendation?.label || "";
+  const recommendationPickedCount = Number(recommendation?.pickedCount || 0);
 
   const cannotIncrease =
     checking || missingPrice || builderBlocked || locked || quantity >= 99;
@@ -3712,85 +4921,103 @@ const V7ProductCard = ({
     setDetailsOpen(true);
   };
 
+  const actionLabel = checking
+    ? "Checking"
+    : missingPrice || builderBlocked
+      ? "Pending"
+      : Number(fitLeft || 0) <= 0
+        ? "No fit"
+        : "+ Add";
+
   return (
     <>
       <article
         onClick={handleCardClick}
-        className="group min-w-0 cursor-pointer"
+        className={`group min-w-0 cursor-pointer rounded-[14px] border bg-white p-2 shadow-[0_7px_22px_rgba(45,31,17,.035)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(45,31,17,.075)] ${
+          selected
+            ? "border-[#F47822]/35 ring-2 ring-[#F47822]/70 ring-offset-2 ring-offset-[#F6F1E9]"
+            : "border-black/[0.065] hover:border-[#D4AF37]/35"
+        }`}
+        aria-label={`${component.name}. Click for details.`}
       >
-        <div
-          className={`relative overflow-hidden bg-[#F3EEE7] transition duration-300 ${
-            selected
-              ? "ring-2 ring-[#F47822]/80 ring-offset-2 ring-offset-white"
-              : ""
-          }`}
-        >
-          <div className="aspect-[4/3]">
+        <div className="relative overflow-hidden rounded-[11px] bg-[#F4EFE8]">
+          <div className="aspect-[5/4]">
             {component.images?.[0]?.url ? (
               <img
                 src={component.images[0].url}
                 alt={component.name}
-                className="h-full w-full object-contain p-2 sm:p-3 transition duration-500 group-hover:scale-[1.025]"
+                className="h-full w-full object-contain p-1.5 transition duration-500 group-hover:scale-[1.035] sm:p-2"
               />
             ) : (
               <NoImage />
             )}
           </div>
 
-          <span className="absolute bottom-2 left-2 max-w-[82%] truncate bg-white/92 px-2 py-1 text-[6px] font-black uppercase tracking-[0.07em] text-black/42 backdrop-blur-sm sm:bottom-2.5 sm:left-2.5 sm:px-2.5 sm:text-[7px] sm:tracking-[0.08em]">
+          <span className="absolute bottom-1.5 left-1.5 max-w-[78%] truncate rounded-full bg-white/94 px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.05em] text-black/48 shadow-sm backdrop-blur-sm sm:text-[8.5px]">
             {component.subcategory || component.category || "Gift"}
           </span>
 
+          {recommendationLabel && !builderBlocked && (
+            <span
+              className="absolute left-1.5 top-1.5 z-10 max-w-[78%] truncate rounded-full border border-[#E7C65D]/45 bg-[#171717]/92 px-2.5 py-1 text-[7px] font-black text-[#F3D677] shadow-[0_6px_16px_rgba(0,0,0,.14)] backdrop-blur-sm sm:text-[7.5px]"
+              title={`${recommendationLabel}${recommendationPickedCount > 0 ? ` · ${recommendationPickedCount} picked with this box` : ""}`}
+            >
+              ★ {recommendationLabel}
+            </span>
+          )}
+
           {selected && (
-            <span className="absolute right-2.5 top-2.5 bg-[#171717] px-2.5 py-1.5 text-[9px] font-black text-white shadow-lg">
+            <span className="absolute right-1.5 top-1.5 rounded-full bg-[#171717] px-2.5 py-1 text-[9px] font-black text-white shadow-lg sm:text-[10px]">
               ×{quantity}
+            </span>
+          )}
+
+          {builderBlocked && (
+            <span
+              className="absolute left-1.5 top-1.5 max-w-[72%] truncate rounded-full border border-amber-200 bg-amber-50/95 px-2.5 py-1 text-[8px] font-black text-amber-700 shadow-sm backdrop-blur-sm sm:text-[8.5px]"
+              title={builderReasons.join(", ")}
+            >
+              Data pending
             </span>
           )}
         </div>
 
-        <div className="pt-3">
-          <p className="line-clamp-2 min-h-[34px] text-[11px] font-extrabold leading-[1.35] text-[#171717] sm:min-h-[40px] sm:text-[13px] sm:leading-[1.45]">
+        <div className="px-0.5 pb-0.5 pt-2">
+          <p className="line-clamp-2 min-h-[36px] text-[13px] font-extrabold leading-[1.35] text-[#171717] sm:min-h-[40px] sm:text-[14px]">
             {component.name}
           </p>
 
-          {builderBlocked && (
-            <p
-              className="mt-1.5 line-clamp-2 min-h-[24px] text-[7px] font-bold leading-3 text-amber-700"
-              title={builderReasons.join(", ")}
-            >
-              Data pending: {builderReasons[0] || "custom-builder setup incomplete"}
-            </p>
-          )}
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              setDetailsOpen(true);
+            }}
+            className="mt-1 inline-flex items-center gap-1 text-[9.5px] font-extrabold text-[#9A7316] underline decoration-[#D4AF37]/45 underline-offset-[3px] transition hover:text-[#F47822] sm:text-[10px]"
+            aria-label={`View details for ${component.name}`}
+          >
+            View details <span aria-hidden="true">→</span>
+          </button>
 
-          <div className="mt-1 flex min-h-[22px] flex-wrap items-baseline gap-x-1.5 gap-y-0.5 sm:mt-1.5 sm:min-h-[24px]">
-            <span className="text-[14px] font-black text-[#171717] sm:text-[16px]">
-              {missingPrice
-                ? "Price pending"
-                : formatCurrency(component.sellingPrice)}
-            </span>
-
-            {hasMrp && (
-              <span className="text-[8px] font-semibold text-black/28 line-through sm:text-[9px]">
-                {formatCurrency(component.mrp)}
-              </span>
-            )}
-          </div>
-
-          <div className="mt-2.5 grid grid-cols-[minmax(0,.9fr)_minmax(0,1.1fr)] gap-1.5 border-t border-black/[0.07] pt-2.5 sm:mt-3 sm:grid-cols-[.95fr_1.05fr] sm:gap-2 sm:pt-3">
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                setDetailsOpen(true);
-              }}
-              className="flex h-9 min-w-0 items-center justify-center rounded-[9px] border border-black/[0.08] bg-white px-1.5 text-[7.5px] font-black leading-tight text-black/55 transition active:scale-[.98] hover:border-[#D4AF37]/35 hover:text-[#9A7316] sm:h-10 sm:rounded-none sm:border-0 sm:bg-transparent sm:px-0 sm:text-[10px]"
-            >
-              View details →
-            </button>
+          <div className="mt-1.5 flex items-center justify-between gap-2 border-t border-black/[0.055] pt-2">
+            <div className="min-w-0">
+              <div className="flex min-w-0 items-baseline gap-1.5">
+                <span className="truncate text-[15px] font-black text-[#171717] sm:text-[16px]">
+                  {missingPrice
+                    ? "Price pending"
+                    : formatCurrency(component.sellingPrice)}
+                </span>
+                {hasMrp && (
+                  <span className="hidden text-[9px] font-semibold text-black/30 line-through sm:inline">
+                    {formatCurrency(component.mrp)}
+                  </span>
+                )}
+              </div>
+             </div>
 
             {quantity > 0 ? (
               <div
-                className="grid h-9 min-w-0 grid-cols-[28px_1fr_28px] overflow-hidden rounded-[9px] border border-[#F47822]/25 bg-[#FFF8F2] sm:h-10 sm:grid-cols-[36px_1fr_36px] sm:rounded-none"
+                className="grid h-9 w-[92px] shrink-0 grid-cols-[29px_1fr_29px] overflow-hidden rounded-[9px] border border-[#F47822]/25 bg-[#FFF8F2] sm:h-10 sm:w-[102px] sm:grid-cols-[32px_1fr_32px]"
                 onClick={(event) => event.stopPropagation()}
               >
                 <button
@@ -3805,7 +5032,7 @@ const V7ProductCard = ({
                   −
                 </button>
 
-                <span className="flex items-center justify-center border-x border-[#F47822]/15 text-[10px] font-black">
+                <span className="flex items-center justify-center border-x border-[#F47822]/15 text-[11px] font-black">
                   {quantity}
                 </span>
 
@@ -3830,18 +5057,12 @@ const V7ProductCard = ({
                   event.stopPropagation();
                   onPlus();
                 }}
-                className="flex h-9 min-w-0 items-center justify-center rounded-[9px] bg-[#F47822] px-1 text-[8px] font-black text-white transition active:scale-[.98] hover:bg-[#171717] disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/25 sm:h-10 sm:rounded-none sm:px-0 sm:text-[10px]"
+                className="flex h-9 w-[78px] shrink-0 items-center justify-center rounded-[9px] bg-[#F47822] px-2 text-[9px] font-black text-white transition hover:bg-[#171717] disabled:cursor-not-allowed disabled:bg-black/[0.08] disabled:text-black/28 sm:h-10 sm:w-[86px] sm:text-[10px]"
               >
-                + Add
+                {actionLabel}
               </button>
             )}
           </div>
-
-          {selected && fitLeft <= 0 && (
-            <p className="mt-1.5 text-center text-[7px] font-bold text-amber-600">
-              Box limit reached
-            </p>
-          )}
         </div>
       </article>
 
@@ -3908,25 +5129,25 @@ const V7DecorationCard = ({
             )}
           </div>
 
-          <span className="absolute left-2 top-2 bg-white/92 px-2 py-1 text-[6px] font-black uppercase tracking-[0.06em] text-[#8B6817] backdrop-blur-sm sm:left-2.5 sm:top-2.5 sm:px-2.5 sm:text-[7px] sm:tracking-[0.07em]">
+          <span className="absolute left-2 top-2 bg-white/92 px-2 py-1 text-[8.5px] font-black uppercase tracking-[0.05em] text-[#8B6817] backdrop-blur-sm sm:left-2.5 sm:top-2.5 sm:px-2.5 sm:text-[7px] sm:tracking-[0.07em]">
             Finishing only
           </span>
 
           {selected && (
-            <span className="absolute right-2 top-2 rounded-full bg-[#171717] px-2 py-1 text-[8px] font-black text-white shadow-lg">
+            <span className="absolute right-2 top-2 rounded-full bg-[#171717] px-2 py-1 text-[9px] font-black text-white shadow-lg">
               ×{quantity}
             </span>
           )}
         </div>
 
         <div className="pt-3">
-          <p className="line-clamp-2 min-h-[30px] text-[10px] font-extrabold leading-[1.35] text-[#171717] sm:min-h-0 sm:truncate sm:text-[11px]">
+          <p className="line-clamp-2 min-h-[30px] text-[12px] font-extrabold leading-[1.35] text-[#171717] sm:min-h-0 sm:truncate sm:text-[13px]">
             {component.name}
           </p>
 
           {builderBlocked && (
             <p
-              className="mt-1.5 line-clamp-2 text-[7px] font-bold leading-3 text-amber-700"
+              className="mt-1.5 line-clamp-2 text-[9px] font-bold leading-4 text-amber-700"
               title={builderReasons.join(", ")}
             >
               Data pending: {builderReasons[0] || "custom-builder setup incomplete"}
@@ -3934,13 +5155,13 @@ const V7DecorationCard = ({
           )}
 
           <div className="mt-1 flex items-center justify-between gap-2">
-            <p className="text-[10px] font-black text-[#9B7616] sm:text-[11px]">
+            <p className="text-[13px] font-black text-[#9B7616] sm:text-[14px]">
               {missingPrice
                 ? "Price pending"
                 : formatCurrency(component.sellingPrice)}
             </p>
 
-            <span className="text-[6px] font-black uppercase tracking-[0.05em] text-emerald-600 sm:text-[7px] sm:tracking-[0.06em]">
+            <span className="text-[8.5px] font-black uppercase tracking-[0.05em] text-emerald-600 sm:text-[9px]">
               0% capacity
             </span>
           </div>
@@ -4057,6 +5278,7 @@ const V7Studio = ({
   cartError,
   canAddToCart,
   addingToCart,
+  deliveryJourney = "idle",
   user,
   isEditingCartHamper = false,
   orderMode = "personal",
@@ -4076,22 +5298,36 @@ const V7Studio = ({
       : cartError;
 
   return (
-    <div className="v30-live-shell overflow-hidden rounded-[24px] border border-black/[0.07] bg-white p-4 shadow-[0_24px_70px_rgba(45,31,17,.075)] sm:rounded-[28px] sm:p-5">
+    <div className="v30-live-shell v34-live-flat min-w-0 xl:border-l xl:border-black/[0.08] xl:pl-4 2xl:pl-5">
       <div className="flex items-center justify-between gap-4 border-b border-black/[0.06] pb-4">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#9A7316] sm:text-[11px]">Live hamper</p>
+          <p className="text-[11px] font-black uppercase tracking-[0.12em] text-[#9A7316] sm:text-[12px]">Live hamper</p>
           <p style={{ fontFamily: DISPLAY_FONT }} className="mt-1 text-[31px] font-semibold leading-none tracking-[-.025em] text-[#171717] sm:text-[34px]">Your Hamper</p>
         </div>
         <span className={`rounded-full px-3 py-2 text-[9px] font-black uppercase tracking-[0.08em] sm:text-[10px] ${
-          validating
-            ? "bg-black/[0.05] text-black/48"
-            : configuration?.orderable
-              ? "bg-emerald-50 text-emerald-700"
-              : selectedItemCount
-                ? "bg-amber-50 text-amber-700"
-                : "bg-black/[0.04] text-black/42"
+          deliveryJourney === "shipping"
+            ? "bg-[#171717] text-white"
+            : deliveryJourney === "packing"
+              ? "bg-[#FFF0D9] text-[#9A5A15]"
+              : validating
+                ? "bg-black/[0.05] text-black/48"
+                : configuration?.orderable
+                  ? "bg-emerald-50 text-emerald-700"
+                  : selectedItemCount
+                    ? "bg-amber-50 text-amber-700"
+                    : "bg-black/[0.04] text-black/42"
         }`}>
-          {validating ? "Updating" : configuration?.orderable ? "Ready" : selectedItemCount ? "Adjust" : "Start"}
+          {deliveryJourney === "shipping"
+            ? "On the way"
+            : deliveryJourney === "packing"
+              ? "Packing"
+              : validating
+                ? "Updating"
+                : configuration?.orderable
+                  ? "Ready"
+                  : selectedItemCount
+                    ? "Adjust"
+                    : "Start"}
         </span>
       </div>
 
@@ -4106,19 +5342,20 @@ const V7Studio = ({
           configuration={configuration}
           canIncreaseAnyItem={canIncreaseAnyItem}
           validating={validating}
+          journeyState={deliveryJourney}
         />
 
-        <div className="mt-3 grid grid-cols-3 divide-x divide-black/[0.06] rounded-[14px] border border-black/[0.06] bg-[#FAF8F4]">
+        <div className="mt-3 grid grid-cols-3 divide-x divide-black/[0.06] border-y border-black/[0.07]">
           <div className="px-3 py-3.5">
-            <p className="text-[9px] font-black uppercase tracking-[0.08em] text-black/40 sm:text-[10px]">Gifts</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.07em] text-black/45 sm:text-[11px]">Gifts</p>
             <p className="mt-1.5 text-[19px] font-black leading-none text-[#171717] sm:text-[21px]">{selectedItemCount}</p>
           </div>
           <div className="px-3 py-3.5">
-            <p className="text-[9px] font-black uppercase tracking-[0.08em] text-black/40 sm:text-[10px]">Filled</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.07em] text-black/45 sm:text-[11px]">Filled</p>
             <p className="mt-1.5 text-[19px] font-black leading-none text-[#171717] sm:text-[21px]">{roundedFill}%</p>
           </div>
           <div className="min-w-0 px-3 py-3.5 text-right">
-            <p className="text-[9px] font-black uppercase tracking-[0.08em] text-black/40 sm:text-[10px]">{orderMode === "bulk" ? "Per hamper" : "Total"}</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.07em] text-black/45 sm:text-[11px]">{orderMode === "bulk" ? "Per hamper" : "Total"}</p>
             <p style={{ fontFamily: DISPLAY_FONT }} className="mt-1 truncate text-[21px] font-semibold leading-none text-[#F47822] sm:text-[23px]">
               {pricing?.total === null || pricing?.total === undefined ? "—" : formatCurrency(pricing.total)}
             </p>
@@ -4127,23 +5364,23 @@ const V7Studio = ({
 
         <div className="mt-3 flex items-center justify-between gap-3 border-b border-black/[0.06] pb-3">
           <div className="min-w-0">
-            <p className="text-[9px] font-black uppercase tracking-[0.08em] text-black/40 sm:text-[10px]">Selected box</p>
-            <p className="mt-1 truncate text-[12px] font-black text-[#171717] sm:text-[13px]">{selectedContainer?.name || "Choose a hamper box"}</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.07em] text-black/45 sm:text-[11px]">Selected box</p>
+            <p className="mt-1 truncate text-[13px] font-black text-[#171717] sm:text-[14px]">{selectedContainer?.name || "Choose a hamper box"}</p>
           </div>
-          {selectedDecorationCount > 0 && <span className="shrink-0 rounded-full bg-[#FFF8DE] px-3 py-1.5 text-[9px] font-black text-[#8A6815] sm:text-[10px]">+{selectedDecorationCount} finishing</span>}
+          {selectedDecorationCount > 0 && <span className="shrink-0 rounded-full bg-[#FFF8DE] px-3 py-1.5 text-[10px] font-black text-[#8A6815] sm:text-[11px]">+{selectedDecorationCount} finishing</span>}
         </div>
 
         {personalization?.enabled && (
-          <div className="mt-3 flex items-center justify-between gap-3 rounded-[12px] bg-[#FFF9EA] px-3 py-2.5">
-            <span className="text-[9px] font-black uppercase tracking-[0.08em] text-[#8A6815] sm:text-[10px]">Personalisation added</span>
-            <span className="text-[9px] font-bold text-black/48 sm:text-[10px]">{personalization.assets?.length || 0} artwork</span>
+          <div className="mt-3 flex items-center justify-between gap-3 border-y border-[#D4AF37]/18 py-2.5">
+            <span className="text-[10px] font-black uppercase tracking-[0.07em] text-[#8A6815] sm:text-[11px]">Personalisation added</span>
+            <span className="text-[10px] font-bold text-black/52 sm:text-[11px]">{personalization.assets?.length || 0} artwork</span>
           </div>
         )}
 
         {configuration?.capacity && (
           <div className="mt-3">
-            <div className="flex items-center justify-between text-[10px] font-bold text-black/48 sm:text-[11px]">
-              <span>Gift capacity</span>
+            <div className="flex items-center justify-between text-[11px] font-bold text-black/52 sm:text-[12px]">
+              <span>Capacity</span>
               <span>{roundedFill}%</span>
             </div>
             <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-black/[0.06]">
@@ -4153,8 +5390,8 @@ const V7Studio = ({
         )}
 
         {orderMode === "bulk" && pricing?.total !== null && pricing?.total !== undefined && (
-          <div className="mt-3 flex items-center justify-between gap-3 rounded-[12px] bg-[#171717] px-3 py-2.5 text-white">
-            <span className="text-[9px] font-black uppercase tracking-[0.08em] text-white/65 sm:text-[10px]">{Number(bulkQuantity || 0).toLocaleString("en-IN")} hampers</span>
+          <div className="mt-3 flex items-center justify-between gap-3 border-y border-black/[0.10] py-2.5 text-[#171717]">
+            <span className="text-[10px] font-black uppercase tracking-[0.07em] text-black/45 sm:text-[11px]">{Number(bulkQuantity || 0).toLocaleString("en-IN")} hampers</span>
             <span className="text-[13px] font-black sm:text-[14px]">{formatCurrency(Number(pricing.total || 0) * Number(bulkQuantity || 0))}</span>
           </div>
         )}
@@ -4162,13 +5399,13 @@ const V7Studio = ({
         {(timing?.expectedDeliveryDate || configuration?.earliestExpiryDate) && (
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
             {timing?.expectedDeliveryDate && (
-              <div className="flex items-center gap-2.5 rounded-[11px] border border-black/[0.055] bg-[#FAF8F4] px-3 py-2.5 text-[10px] font-bold text-black/58 sm:text-[11px]">
+              <div className="flex items-center gap-2.5 border-t border-black/[0.06] py-2.5 text-[11px] font-bold text-black/62 sm:text-[12px]">
                 <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#F47822]" />
                 <span><strong className="font-black text-[#171717]">Delivery</strong> · {formatDate(timing.expectedDeliveryDate)}</span>
               </div>
             )}
             {configuration?.earliestExpiryDate && (
-              <div className="flex items-center gap-2.5 rounded-[11px] border border-[#D4AF37]/15 bg-[#FFFCF4] px-3 py-2.5 text-[10px] font-bold text-black/58 sm:text-[11px]">
+              <div className="flex items-center gap-2.5 border-t border-[#D4AF37]/18 py-2.5 text-[11px] font-bold text-black/62 sm:text-[12px]">
                 <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#D4AF37]" />
                 <span><strong className="font-black text-[#171717]">Earliest expiry</strong> · {formatDate(configuration.earliestExpiryDate)}</span>
               </div>
@@ -4177,12 +5414,12 @@ const V7Studio = ({
         )}
 
         {notReadyMessage && selectedItemCount > 0 && (
-          <div className="mt-3 border-l-[3px] border-amber-500 bg-amber-50 px-3.5 py-3 text-[10px] font-semibold leading-5 text-amber-900 sm:text-[11px]">
+          <div className="mt-3 border-l-[3px] border-amber-500 bg-amber-50 px-3.5 py-3 text-[11px] font-semibold leading-5 text-amber-900 sm:text-[12px]">
             {notReadyMessage}
           </div>
         )}
         {unavailableCartMessage && (
-          <div className="mt-3 border-l-[3px] border-red-500 bg-red-50 px-3.5 py-3 text-[10px] font-semibold leading-5 text-red-700 sm:text-[11px]">
+          <div className="mt-3 border-l-[3px] border-red-500 bg-red-50 px-3.5 py-3 text-[11px] font-semibold leading-5 text-red-700 sm:text-[12px]">
             {unavailableCartMessage}
           </div>
         )}
@@ -4191,7 +5428,7 @@ const V7Studio = ({
           type="button"
           onClick={onAddToCart}
           disabled={!canAddToCart}
-          className={`v10-primary-cta mt-4 flex h-[48px] w-full items-center justify-center gap-3 rounded-[11px] px-5 text-[10px] font-black uppercase sm:text-[11px] tracking-[0.08em] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:translate-y-0 disabled:bg-black/10 disabled:text-black/25 disabled:shadow-none ${
+          className={`v10-primary-cta mt-4 flex h-[48px] w-full items-center justify-center gap-3 rounded-[11px] px-5 text-[11px] font-black uppercase sm:text-[12px] tracking-[0.07em] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:translate-y-0 disabled:bg-black/10 disabled:text-black/25 disabled:shadow-none ${
             orderMode === "bulk"
               ? "bg-[#171717] text-white shadow-[0_12px_28px_rgba(23,23,23,.16)] hover:bg-[#9B7616]"
               : "bg-[#F47822] text-white shadow-[0_12px_28px_rgba(244,120,34,.18)] hover:bg-[#171717]"
@@ -4200,9 +5437,13 @@ const V7Studio = ({
           {addingToCart
             ? orderMode === "bulk"
               ? "Submitting request…"
-              : isEditingCartHamper
-                ? "Saving changes…"
-                : "Adding…"
+              : deliveryJourney === "shipping"
+                ? "Sending for delivery…"
+                : deliveryJourney === "packing"
+                  ? "Packing hamper…"
+                  : isEditingCartHamper
+                    ? "Saving changes…"
+                    : "Adding…"
             : user
               ? orderMode === "bulk"
                 ? "Request quotation"
@@ -4216,8 +5457,7 @@ const V7Studio = ({
                   : "Login to add"}
           {!addingToCart && <span>→</span>}
         </button>
-
-        <p className="mt-2.5 text-center text-[9px] font-semibold text-black/38 sm:text-[10px]">Live preview updates as you build.</p>
+ 
       </div>
     </div>
   );
@@ -5020,7 +6260,7 @@ const V9HamperSvg = ({
           </g>
         ))}
 
-        {packed && (
+        {sealed && (
           <g className="v9-lid-close">
             <polygon
               points={v9PointString(outerPoints)}
@@ -5141,75 +6381,187 @@ const V9HamperSvg = ({
 };
 
 const V20_PACKING_SLOTS = [
-  { x: 22, y: 59, rotate: -8, scale: 0.90, z: 26 },
-  { x: 39, y: 52, rotate: 5, scale: 0.92, z: 25 },
-  { x: 57, y: 55, rotate: -4, scale: 0.94, z: 27 },
-  { x: 75, y: 60, rotate: 7, scale: 0.88, z: 28 },
-  { x: 30, y: 67, rotate: 4, scale: 0.92, z: 31 },
-  { x: 49, y: 65, rotate: -6, scale: 0.98, z: 32 },
-  { x: 68, y: 68, rotate: 5, scale: 0.94, z: 33 },
-  { x: 18, y: 69, rotate: -5, scale: 0.84, z: 34 },
-  { x: 82, y: 69, rotate: 6, scale: 0.84, z: 35 },
-  { x: 38, y: 72, rotate: -2, scale: 0.82, z: 37 },
-  { x: 59, y: 73, rotate: 3, scale: 0.84, z: 38 },
-  { x: 50, y: 48, rotate: 1, scale: 0.78, z: 24 },
-  { x: 25, y: 50, rotate: -3, scale: 0.74, z: 23 },
-  { x: 70, y: 49, rotate: 4, scale: 0.74, z: 23 },
-  { x: 46, y: 60, rotate: -2, scale: 0.74, z: 29 },
-  { x: 63, y: 61, rotate: 3, scale: 0.74, z: 30 },
-  { x: 34, y: 61, rotate: -4, scale: 0.72, z: 29 },
-  { x: 78, y: 54, rotate: 4, scale: 0.70, z: 25 },
+  { x: 30, y: 34, rotate: -7, scale: 0.86, z: 20 },
+  { x: 49, y: 33, rotate: 4, scale: 0.88, z: 21 },
+  { x: 68, y: 35, rotate: -5, scale: 0.86, z: 20 },
+  { x: 24, y: 49, rotate: 5, scale: 0.92, z: 24 },
+  { x: 41, y: 48, rotate: -6, scale: 0.94, z: 25 },
+  { x: 58, y: 47, rotate: 4, scale: 0.96, z: 26 },
+  { x: 75, y: 49, rotate: -5, scale: 0.90, z: 24 },
+  { x: 31, y: 63, rotate: -4, scale: 0.92, z: 30 },
+  { x: 49, y: 62, rotate: 2, scale: 1.0, z: 32 },
+  { x: 67, y: 63, rotate: 5, scale: 0.92, z: 31 },
+  { x: 24, y: 76, rotate: 4, scale: 0.84, z: 34 },
+  { x: 40, y: 76, rotate: -3, scale: 0.86, z: 35 },
+  { x: 57, y: 77, rotate: 4, scale: 0.84, z: 35 },
+  { x: 73, y: 76, rotate: -4, scale: 0.82, z: 34 },
+  { x: 17, y: 62, rotate: -6, scale: 0.76, z: 28 },
+  { x: 82, y: 61, rotate: 6, scale: 0.76, z: 28 },
+  { x: 36, y: 90, rotate: -2, scale: 0.74, z: 38 },
+  { x: 61, y: 90, rotate: 2, scale: 0.74, z: 38 },
 ];
 
-const v20ContainerPalette = (container) => {
-  const palettes = [
-    {
+const v20BoxStyleProfile = (container) => {
+  const text = [
+    container?.name,
+    container?.slug,
+    container?.type,
+    container?.category,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  let shape = "magnetic";
+
+  if (/round|hat box|hatbox|cylinder|tube|jar|oval/.test(text)) {
+    shape = "round";
+  } else if (/tray|basket|platter|sleeve/.test(text)) {
+    shape = "tray";
+  } else if (/curved|capsule|arched/.test(text)) {
+    shape = "curved";
+  }
+
+  let theme = "signature";
+
+  if (/royal|diwali|festive|premium|signature|celebration|grand/.test(text)) {
+    theme = "royal";
+  } else if (/magnetic|rigid|luxury|classic|edit/.test(text)) {
+    theme = "magnetic";
+  } else if (/chest|trunk|wood|crate|treasure/.test(text)) {
+    theme = "chest";
+  } else if (/ivory|wedding|floral|rose|pearl/.test(text)) {
+    theme = "ivory";
+  } else if (/emerald|forest|botanical|green/.test(text)) {
+    theme = "emerald";
+  } else if (shape === "round") {
+    theme = "couture";
+  }
+
+  return { shape, theme };
+};
+
+const v20ContainerPalette = (container, profile = { shape: "magnetic", theme: "signature" }) => {
+  const themes = {
+    magnetic: {
+      main: "#B88443",
+      light: "#F1D7AA",
+      dark: "#7E4B1D",
+      deep: "#3E210F",
+      trim: "#F8E7B8",
+      satin: "#F8EDDC",
+      glow: "rgba(244,189,90,.34)",
+      ribbonA: "#EBCB72",
+      ribbonB: "#8A5A10",
+      chip: "Luxury rigid magnetic hamper",
+      collection: "Private Gift Atelier",
+      badge: "HAMPORIUM",
+    },
+    royal: {
+      main: "#8D2F2F",
+      light: "#E3A767",
+      dark: "#561515",
+      deep: "#290A0D",
+      trim: "#F6D47B",
+      satin: "#F4D9BC",
+      glow: "rgba(244,164,73,.36)",
+      ribbonA: "#FFD27A",
+      ribbonB: "#A86B11",
+      chip: "Festive royal hamper",
+      collection: "Celebration Edition",
+      badge: "HAMPORIUM",
+    },
+    chest: {
+      main: "#6B4324",
+      light: "#CFA56B",
+      dark: "#3C2315",
+      deep: "#1C120C",
+      trim: "#E9C784",
+      satin: "#EEE0CE",
+      glow: "rgba(215,160,87,.30)",
+      ribbonA: "#F2D58C",
+      ribbonB: "#8E5D18",
+      chip: "3D premium gift chest",
+      collection: "Treasure Keepsake Box",
+      badge: "HAMPORIUM",
+    },
+    ivory: {
+      main: "#C7B090",
+      light: "#F5EBDC",
+      dark: "#887156",
+      deep: "#4C3F31",
+      trim: "#F6E8C6",
+      satin: "#FFF8EE",
+      glow: "rgba(243,214,170,.32)",
+      ribbonA: "#F3E1AE",
+      ribbonB: "#B28C3B",
+      chip: "Ivory couture hamper",
+      collection: "Soft Luxe Edition",
+      badge: "HAMPORIUM",
+    },
+    emerald: {
+      main: "#335845",
+      light: "#8CAD97",
+      dark: "#1D3328",
+      deep: "#0D1914",
+      trim: "#E7D79A",
+      satin: "#E9F1EB",
+      glow: "rgba(138,189,151,.28)",
+      ribbonA: "#F0DEA2",
+      ribbonB: "#8D6A1B",
+      chip: "Emerald house hamper",
+      collection: "Botanical Signature",
+      badge: "HAMPORIUM",
+    },
+    couture: {
+      main: "#B07C9A",
+      light: "#F1D6E5",
+      dark: "#6F4560",
+      deep: "#3B2335",
+      trim: "#F8E7C5",
+      satin: "#FFF3F6",
+      glow: "rgba(235,187,216,.28)",
+      ribbonA: "#F8E6B4",
+      ribbonB: "#A97A28",
+      chip: "Round couture hamper",
+      collection: "Maison Capsule",
+      badge: "HAMPORIUM",
+    },
+    signature: {
       main: "#C88A4A",
       light: "#F0D2AA",
       dark: "#8B5427",
       deep: "#4D2B14",
+      trim: "#F7E2B2",
+      satin: "#FBF1E4",
+      glow: "rgba(244,189,90,.32)",
+      ribbonA: "#EBCB72",
+      ribbonB: "#8A5A10",
+      chip: "Signature hamper",
+      collection: "Hamporium Atelier",
+      badge: "HAMPORIUM",
     },
-    {
-      main: "#292824",
-      light: "#6A6153",
-      dark: "#171612",
-      deep: "#090908",
-    },
-    {
-      main: "#A45137",
-      light: "#E0A184",
-      dark: "#6C2C20",
-      deep: "#35150F",
-    },
-    {
-      main: "#34523F",
-      light: "#75917E",
-      dark: "#20372A",
-      deep: "#102018",
-    },
-    {
-      main: "#C5A04B",
-      light: "#F0D98A",
-      dark: "#846319",
-      deep: "#48340B",
-    },
-  ];
+  };
 
+  const profileTheme = profile?.theme && themes[profile.theme] ? profile.theme : null;
+  if (profileTheme) return themes[profileTheme];
+
+  const fallbackKeys = Object.keys(themes);
   const seed = String(container?._id || container?.name || "hamper");
-  return palettes[v7Hash(seed) % palettes.length];
+  return themes[fallbackKeys[v7Hash(seed) % fallbackKeys.length]];
 };
 
 const v20PackingSize = (component, count) => {
   const kind = v7ItemKind(component);
   const base = {
-    bottle: [42, 78],
-    cylinder: [58, 62],
-    snack: [70, 58],
-    flat: [72, 48],
-    gift: [64, 58],
-  }[kind] || [62, 58];
+    bottle: [46, 84],
+    cylinder: [62, 68],
+    snack: [76, 62],
+    flat: [78, 52],
+    gift: [70, 62],
+  }[kind] || [68, 62];
 
-  const crowdScale = count > 14 ? 0.82 : count > 10 ? 0.90 : count > 7 ? 0.96 : 1.06;
+  const crowdScale = count > 14 ? 0.78 : count > 10 ? 0.86 : count > 7 ? 0.94 : 1.12;
 
   return {
     kind,
@@ -5278,8 +6630,8 @@ const V7OpenTop3D = ({
   configuration,
   canIncreaseAnyItem,
   validating,
+  journeyState = "idle",
 }) => {
-  const geometry = v9BoxGeometry(selectedContainer);
   const [liveItems, setLiveItems] = useState(() =>
     previewItems.map((item) => ({ ...item, phase: "stable" }))
   );
@@ -5287,6 +6639,10 @@ const V7OpenTop3D = ({
   const previousIdsRef = useRef(new Set(previewItems.map((item) => item.id)));
   const noteTimerRef = useRef(null);
   const settleTimerRef = useRef(null);
+  const introDropTimerRef = useRef(null);
+  const introOpenTimerRef = useRef(null);
+  const introReadyTimerRef = useRef(null);
+  const [boxEntryPhase, setBoxEntryPhase] = useState("idle");
 
   const packed = Boolean(
     selectedItemCount > 0 &&
@@ -5295,16 +6651,43 @@ const V7OpenTop3D = ({
       canIncreaseAnyItem === false
   );
 
+  const roundedFill = Math.round(Number(fillPercent || 0));
+  const isAutoSealed = roundedFill >= 96;
+  const isPacking = journeyState === "packing";
+  const isShipping = journeyState === "shipping";
+  const sealed = packed || isAutoSealed || isPacking || isShipping;
+  const isDroppingIn = boxEntryPhase === "drop";
+  const isOpeningIn = boxEntryPhase === "opening";
+
   useEffect(() => {
     previousIdsRef.current = new Set(previewItems.map((item) => item.id));
     setLiveItems(previewItems.map((item) => ({ ...item, phase: "stable" })));
 
     if (noteTimerRef.current) window.clearTimeout(noteTimerRef.current);
+    if (introDropTimerRef.current) window.clearTimeout(introDropTimerRef.current);
+    if (introOpenTimerRef.current) window.clearTimeout(introOpenTimerRef.current);
+    if (introReadyTimerRef.current) window.clearTimeout(introReadyTimerRef.current);
 
     if (selectedContainer) {
-      setPackingNote(`${selectedContainer.name} opened — start adding gifts`);
-      noteTimerRef.current = window.setTimeout(() => setPackingNote(""), 1350);
+      setBoxEntryPhase("drop");
+      setPackingNote(`${selectedContainer.name} selected`);
+
+      introDropTimerRef.current = window.setTimeout(() => {
+        setBoxEntryPhase("opening");
+        setPackingNote("Opening your hamper box");
+      }, 920);
+
+      introOpenTimerRef.current = window.setTimeout(() => {
+        setPackingNote("Box ready - start adding gifts");
+      }, 1540);
+
+      introReadyTimerRef.current = window.setTimeout(() => {
+        setBoxEntryPhase("idle");
+      }, 2020);
+
+      noteTimerRef.current = window.setTimeout(() => setPackingNote(""), 2500);
     } else {
+      setBoxEntryPhase("idle");
       setPackingNote("");
     }
   }, [selectedContainer?._id]);
@@ -5342,19 +6725,17 @@ const V7OpenTop3D = ({
 
     if (added.length) {
       const latest = added[added.length - 1];
-      setPackingNote(`Packing ${latest.component?.name || "your gift"} into the box`);
-      noteTimerRef.current = window.setTimeout(() => setPackingNote(""), 1350);
+      setPackingNote(`Adding ${latest.component?.name || "gift"} to your hamper`);
+      noteTimerRef.current = window.setTimeout(() => setPackingNote(""), 1250);
     } else if (removedIds.size) {
-      setPackingNote("Item removed — making space in your hamper");
-      noteTimerRef.current = window.setTimeout(() => setPackingNote(""), 1100);
+      setPackingNote("Gift removed - space updated");
+      noteTimerRef.current = window.setTimeout(() => setPackingNote(""), 1050);
     }
 
     if (settleTimerRef.current) window.clearTimeout(settleTimerRef.current);
 
     settleTimerRef.current = window.setTimeout(() => {
-      setLiveItems(
-        previewItems.map((item) => ({ ...item, phase: "stable" }))
-      );
+      setLiveItems(previewItems.map((item) => ({ ...item, phase: "stable" })));
     }, 930);
 
     return () => {
@@ -5369,119 +6750,245 @@ const V7OpenTop3D = ({
     return () => {
       if (noteTimerRef.current) window.clearTimeout(noteTimerRef.current);
       if (settleTimerRef.current) window.clearTimeout(settleTimerRef.current);
+      if (introDropTimerRef.current) window.clearTimeout(introDropTimerRef.current);
+      if (introOpenTimerRef.current) window.clearTimeout(introOpenTimerRef.current);
+      if (introReadyTimerRef.current) window.clearTimeout(introReadyTimerRef.current);
     };
   }, []);
 
-  const palette = v20ContainerPalette(selectedContainer);
-  const containerImage = selectedContainer?.images?.[0]?.url || "";
   const visibleLiveItems = liveItems.slice(0, 18);
 
-  const fillerBits = Array.from({ length: 16 }, (_, index) => ({
-    left: `${4 + ((index * 17) % 88)}%`,
-    bottom: `${(index * 9) % 18}px`,
-    rotate: `${-28 + ((index * 19) % 58)}deg`,
-    delay: `${(index % 5) * 140}ms`,
-  }));
+  const lidTransform = sealed
+    ? "translateX(-50%) translateY(92%) perspective(1250px) rotateX(0deg) scale(1)"
+    : isDroppingIn
+      ? "translateX(-50%) translateY(92%) perspective(1250px) rotateX(0deg) scale(1)"
+      : "translateX(-50%) translateY(0) perspective(1250px) rotateX(48deg) scale(.99)";
 
   return (
-    <div className="v20-live-stage">
-      <div className="v20-studio-grid" aria-hidden="true" />
+    <div className="relative isolate min-h-[320px] overflow-hidden rounded-[22px] border border-black/[0.055] bg-[radial-gradient(circle_at_50%_28%,#ffffff_0%,#fbfaf7_42%,#f4f0ea_72%,#ebe4da_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,.98),0_14px_35px_rgba(39,27,14,.055)] sm:min-h-[380px] xl:min-h-[430px]">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-[12%] bottom-[5%] h-[58px] rounded-full bg-black/[0.12] blur-[26px]"
+      />
 
-      {packingNote && (
-        <div key={packingNote} className="v20-packing-toast">{packingNote}</div>
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute left-1/2 top-[9%] h-[56%] w-[78%] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(221,178,84,.09),transparent_68%)] blur-[16px]"
+      />
+
+      {(packingNote || isPacking || isShipping) && (
+        <div
+          key={packingNote || journeyState}
+          className="absolute left-1/2 top-3 z-[150] max-w-[82%] -translate-x-1/2 overflow-hidden text-ellipsis whitespace-nowrap rounded-full border border-[#C7A254]/25 bg-white/95 px-3.5 py-1.5 text-[7.5px] font-black tracking-[.02em] text-black/55 shadow-[0_8px_22px_rgba(0,0,0,.07)] backdrop-blur-xl sm:top-4 sm:px-4 sm:py-2 sm:text-[8px]"
+        >
+          {isShipping
+            ? "Hamper packed - preparing delivery"
+            : isPacking
+              ? "Finishing your hamper"
+              : packingNote}
+        </div>
       )}
 
       {!selectedContainer ? (
-        <div className="v20-empty-cue">Choose a box to start building your live hamper.</div>
+        <div className="absolute left-1/2 top-1/2 z-20 w-[70%] -translate-x-1/2 -translate-y-1/2 rounded-[16px] border border-dashed border-black/15 bg-white/75 px-4 py-4 text-center text-[9px] font-extrabold leading-5 text-black/40 backdrop-blur-md sm:text-[10px]">
+          Choose a box to start building your hamper.
+        </div>
       ) : (
         <div
           key={selectedContainer._id}
-          className="v20-box-world"
-          style={{
-            "--v20-box-main": palette.main,
-            "--v20-box-light": palette.light,
-            "--v20-box-dark": palette.dark,
-            "--v20-box-deep": palette.deep,
-          }}
+          className={`absolute inset-x-0 bottom-[15px] z-10 mx-auto h-[282px] w-[98%] max-w-[740px] [perspective:1500px] [transform-style:preserve-3d] sm:bottom-[16px] sm:h-[332px] xl:bottom-[18px] xl:h-[382px] ${
+            isDroppingIn
+              ? "animate-[v50BoxDrop_.92s_cubic-bezier(.18,.88,.24,1.02)_both]"
+              : ""
+          } ${
+            isShipping
+              ? "animate-[v20ShipAway_1.45s_cubic-bezier(.3,.75,.18,1)_forwards]"
+              : ""
+          }`}
         >
-          {packed && <div className="v20-packed-glow" aria-hidden="true" />}
-          <div className="v20-box-glow" aria-hidden="true" />
+          <div
+            aria-hidden="true"
+            className="absolute bottom-[3%] left-1/2 z-0 h-[30px] w-[76%] -translate-x-1/2 rounded-full bg-black/25 blur-[16px] sm:h-[38px]"
+          />
 
-          <div className={`v20-box-lid ${packed ? "is-packed" : ""}`}>
-            <div className="v20-box-lid-face">
-              {containerImage && (
-                <img
-                  src={containerImage}
-                  alt=""
-                  aria-hidden="true"
-                  className="v20-box-lid-photo"
-                  draggable="false"
-                />
+          {/* HINGED LID - same footprint as box, opens from the back edge */}
+          <div
+            className={`absolute left-1/2 top-[1%] z-[12] h-[40%] w-[88%] origin-[50%_100%] [backface-visibility:hidden] [transform-style:preserve-3d] transition-transform duration-700 ease-[cubic-bezier(.2,.82,.2,1)] sm:w-[87%] ${
+              isOpeningIn
+                ? "animate-[v48LidOpen_.9s_cubic-bezier(.18,.84,.2,1)_forwards]"
+                : ""
+            } ${sealed ? "z-[90]" : ""}`}
+            style={{ transform: lidTransform }}
+          >
+            <div className="absolute inset-x-[1.2%] -bottom-[8px] h-[12px] rounded-b-[8px] border-x border-b border-white/[0.055] bg-gradient-to-b from-[#121214] via-[#09090A] to-[#050506] shadow-[0_8px_14px_rgba(0,0,0,.22)]" />
+
+            <div className="absolute inset-0 overflow-hidden rounded-[12px] border border-white/[0.075] bg-[radial-gradient(circle_at_28%_12%,rgba(255,255,255,.045),transparent_24%),linear-gradient(145deg,#171719_0%,#0e0e10_44%,#080809_75%,#121214_100%)] shadow-[0_20px_34px_rgba(0,0,0,.22),inset_0_1px_0_rgba(255,255,255,.075),inset_0_-8px_18px_rgba(0,0,0,.34)]">
+              <div className="pointer-events-none absolute inset-[7px] rounded-[8px] border border-[#CDA84F]/14" />
+
+              <div className="pointer-events-none absolute -left-[22%] -top-[30%] z-[6] h-[160%] w-[15%] skew-x-[-18deg] bg-gradient-to-r from-transparent via-white/12 to-transparent animate-[v48GoldSheen_5.6s_ease-in-out_infinite]" />
+
+              <svg
+                viewBox="0 0 1000 360"
+                preserveAspectRatio="none"
+                aria-hidden="true"
+                className="absolute inset-[5px] z-[4] h-[calc(100%-10px)] w-[calc(100%-10px)] text-[#CFA94F] opacity-[.92]"
+              >
+                <g
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M35 303 C120 255 145 175 234 76" />
+                  <path d="M80 270 C66 236 67 211 81 185" />
+                  <path d="M82 270 C112 247 129 221 136 192" />
+                  <ellipse cx="79" cy="194" rx="12" ry="27" transform="rotate(-30 79 194)" />
+                  <ellipse cx="132" cy="203" rx="12" ry="28" transform="rotate(32 132 203)" />
+                  <path d="M132 201 C163 187 181 164 193 137" />
+                  <ellipse cx="190" cy="140" rx="12" ry="29" transform="rotate(-39 190 140)" />
+
+                  <g transform="translate(267 100)">
+                    <ellipse cx="0" cy="-34" rx="14" ry="36" />
+                    <ellipse cx="31" cy="-19" rx="14" ry="36" transform="rotate(50 31 -19)" />
+                    <ellipse cx="34" cy="17" rx="14" ry="36" transform="rotate(98 34 17)" />
+                    <ellipse cx="3" cy="35" rx="14" ry="36" transform="rotate(180 3 35)" />
+                    <ellipse cx="-30" cy="18" rx="14" ry="36" transform="rotate(-98 -30 18)" />
+                    <ellipse cx="-32" cy="-19" rx="14" ry="36" transform="rotate(-50 -32 -19)" />
+                    <circle cx="1" cy="0" r="10" />
+                    <path d="M-11 -2 C-3 -15 12 -13 15 -1" />
+                    <path d="M-9 6 C1 16 14 10 16 1" />
+                  </g>
+
+                  <path d="M397 321 C456 267 478 203 501 108" />
+                  <path d="M430 266 C406 251 393 230 388 208" />
+                  <ellipse cx="394" cy="211" rx="12" ry="29" transform="rotate(-42 394 211)" />
+                  <path d="M456 223 C486 210 504 190 514 165" />
+                  <ellipse cx="509" cy="166" rx="12" ry="29" transform="rotate(43 509 166)" />
+
+                  <g transform="translate(590 185)">
+                    <ellipse cx="0" cy="-45" rx="17" ry="47" />
+                    <ellipse cx="39" cy="-29" rx="17" ry="47" transform="rotate(50 39 -29)" />
+                    <ellipse cx="49" cy="12" rx="17" ry="47" transform="rotate(93 49 12)" />
+                    <ellipse cx="25" cy="44" rx="17" ry="47" transform="rotate(145 25 44)" />
+                    <ellipse cx="-20" cy="45" rx="17" ry="47" transform="rotate(-150 -20 45)" />
+                    <ellipse cx="-49" cy="14" rx="17" ry="47" transform="rotate(-94 -49 14)" />
+                    <ellipse cx="-39" cy="-28" rx="17" ry="47" transform="rotate(-49 -39 -28)" />
+                    <circle cx="0" cy="0" r="14" />
+                    <path d="M-14 -3 C-6 -19 12 -20 17 -5" />
+                    <path d="M-16 6 C-3 20 15 17 18 2" />
+                  </g>
+
+                  <path d="M692 308 C748 258 782 190 851 77" />
+                  <path d="M724 274 C705 254 696 231 696 208" />
+                  <ellipse cx="699" cy="211" rx="12" ry="29" transform="rotate(-38 699 211)" />
+                  <path d="M761 234 C791 221 807 200 817 175" />
+                  <ellipse cx="814" cy="176" rx="12" ry="29" transform="rotate(42 814 176)" />
+
+                  <g transform="translate(896 110)">
+                    <ellipse cx="0" cy="-29" rx="12" ry="31" />
+                    <ellipse cx="26" cy="-15" rx="12" ry="31" transform="rotate(54 26 -15)" />
+                    <ellipse cx="27" cy="17" rx="12" ry="31" transform="rotate(111 27 17)" />
+                    <ellipse cx="0" cy="30" rx="12" ry="31" />
+                    <ellipse cx="-26" cy="17" rx="12" ry="31" transform="rotate(-111 -26 17)" />
+                    <ellipse cx="-27" cy="-16" rx="12" ry="31" transform="rotate(-54 -27 -16)" />
+                    <circle cx="0" cy="0" r="9" />
+                  </g>
+
+                  <path d="M210 294 C258 271 303 262 350 268" />
+                  <ellipse cx="257" cy="274" rx="10" ry="22" transform="rotate(68 257 274)" />
+                  <ellipse cx="307" cy="267" rx="10" ry="22" transform="rotate(82 307 267)" />
+
+                  <path d="M650 72 C700 53 744 50 794 61" />
+                  <ellipse cx="697" cy="59" rx="10" ry="22" transform="rotate(73 697 59)" />
+                  <ellipse cx="747" cy="57" rx="10" ry="22" transform="rotate(98 747 57)" />
+                </g>
+              </svg>
+            </div>
+
+            <div className="absolute bottom-[-1px] left-[6%] right-[6%] h-[2px] rounded-full bg-gradient-to-r from-transparent via-[#B58B35]/55 to-transparent shadow-[0_1px_6px_rgba(202,158,65,.26)]" />
+          </div>
+
+          {/* OPEN BOX TOP */}
+          <div className="absolute left-1/2 top-[39%] z-[24] h-[47%] w-[92%] rounded-[15px] border border-white/[0.065] bg-[linear-gradient(145deg,#1a1a1c_0%,#0d0d0f_46%,#080809_100%)] shadow-[0_25px_34px_rgba(0,0,0,.18),0_7px_13px_rgba(0,0,0,.11),inset_0_1px_0_rgba(255,255,255,.055)] [transform:translateX(-50%)_perspective(1200px)_rotateX(4deg)]">
+            <div className="absolute inset-[7px] rounded-[11px] bg-[linear-gradient(145deg,#232326_0%,#111113_48%,#080809_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,.065),inset_0_-3px_7px_rgba(0,0,0,.62)] sm:inset-[9px]" />
+
+            <div
+              className={`absolute inset-[16px_17px_18px] overflow-hidden rounded-[8px] border border-[#CDAA63]/10 bg-[radial-gradient(circle_at_50%_20%,rgba(218,179,102,.12),transparent_30%),linear-gradient(180deg,#262019_0%,#17130f_44%,#0d0b09_100%)] shadow-[inset_0_18px_30px_rgba(0,0,0,.42),inset_0_-10px_18px_rgba(202,158,80,.055)] transition-[opacity,transform] duration-500 sm:inset-[20px_22px_22px] ${
+                isDroppingIn ? "scale-[.97] opacity-0" : "scale-100 opacity-100"
+              } ${
+                isOpeningIn
+                  ? "animate-[v48InsideReveal_.48s_ease_.24s_both]"
+                  : ""
+              } ${sealed ? "opacity-[.05]" : ""}`}
+            >
+              <div className="pointer-events-none absolute inset-[7px] rounded-[6px] border border-[#D7B264]/10 bg-[repeating-linear-gradient(105deg,rgba(212,170,92,.045)_0_12px,rgba(255,255,255,.012)_12px_24px)]" />
+
+
+              <div className="absolute inset-[3%_4%_5%] z-20 overflow-hidden rounded-[7px] [&_.v20-pack-item]:drop-shadow-[0_9px_10px_rgba(0,0,0,.22)] [&_.v20-pack-card]:rounded-[10px] [&_.v20-pack-card]:border-black/10 [&_.v20-pack-card]:bg-white [&_.v20-pack-card]:shadow-[0_8px_15px_rgba(0,0,0,.24),inset_0_1px_0_rgba(255,255,255,.9)] [&_.v20-pack-image]:rounded-[8px] [&_.v20-pack-image]:bg-gradient-to-b [&_.v20-pack-image]:from-white [&_.v20-pack-image]:to-[#F4EFE8] [&_.v20-pack-label]:hidden">
+                {visibleLiveItems.map((entry, index) => (
+                  <V20PackingItem
+                    key={entry.id}
+                    entry={entry}
+                    index={index}
+                    count={visibleLiveItems.length}
+                  />
+                ))}
+              </div>
+
+              {selectedDecorationCount > 0 && !sealed && (
+                <V7DecorationOverlay decorations={previewDecorations} />
               )}
-              <span className="v20-box-monogram" aria-hidden="true">H</span>
             </div>
           </div>
 
-          <div className="v20-box-back" aria-hidden="true" />
-          <div className="v20-box-well" aria-hidden="true" />
-
-          <div className="v20-filler" aria-hidden="true">
-            {fillerBits.map((bit, index) => (
-              <span
-                key={index}
-                style={{
-                  left: bit.left,
-                  bottom: bit.bottom,
-                  "--v20-filler-turn": bit.rotate,
-                  animationDelay: bit.delay,
-                }}
-              />
-            ))}
+          {/* FRONT WALL - separate from top plane so the box has real depth */}
+          <div className="absolute left-[7%] right-[7%] top-[79%] z-[48] h-[13%] rounded-b-[12px] border-x border-b border-white/[0.055] bg-[linear-gradient(180deg,#121214_0%,#0a0a0b_48%,#050506_100%)] shadow-[0_15px_18px_rgba(0,0,0,.22),inset_0_1px_0_rgba(255,255,255,.05)] [clip-path:polygon(0_0,100%_0,97.5%_100%,2.5%_100%)]">
+            <div className="absolute inset-x-[9%] top-[1px] h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
           </div>
 
-          <div className="v20-item-layer">
-            {visibleLiveItems.map((entry, index) => (
-              <V20PackingItem
-                key={entry.id}
-                entry={entry}
-                index={index}
-                count={visibleLiveItems.length}
-              />
-            ))}
+          {/* SMALL SATIN BOW - sits ON the front wall, not below the box */}
+          <div
+            aria-hidden="true"
+            className={`absolute left-[67%] top-[80.2%] z-[70] h-[52px] w-[88px] -translate-x-1/2 origin-center ${
+              sealed ? "animate-[v48BowSettle_.46s_ease-out_both]" : ""
+            }`}
+          >
+            <span className="absolute left-[1px] top-[5px] h-[27px] w-[39px] -rotate-[15deg] rounded-[68%_34%_62%_38%] border-[6px] border-[#D3A43F] bg-[linear-gradient(135deg,rgba(255,226,145,.18),rgba(120,76,12,.05))] shadow-[inset_0_1px_0_rgba(255,244,194,.42),0_3px_7px_rgba(0,0,0,.16)]" />
+            <span className="absolute right-[1px] top-[5px] h-[27px] w-[39px] rotate-[15deg] rounded-[34%_68%_38%_62%] border-[6px] border-[#D3A43F] bg-[linear-gradient(225deg,rgba(255,226,145,.18),rgba(120,76,12,.05))] shadow-[inset_0_1px_0_rgba(255,244,194,.42),0_3px_7px_rgba(0,0,0,.16)]" />
+            <span className="absolute left-[31px] top-[26px] h-[25px] w-[12px] rotate-[10deg] [clip-path:polygon(0_0,100%_4%,82%_100%,50%_82%,15%_100%)] bg-[linear-gradient(90deg,#A97721,#E3B652_48%,#B47A20)] shadow-[0_3px_6px_rgba(0,0,0,.14)]" />
+            <span className="absolute right-[29px] top-[26px] h-[27px] w-[12px] -rotate-[13deg] [clip-path:polygon(0_0,100%_4%,82%_100%,50%_82%,15%_100%)] bg-[linear-gradient(90deg,#A97721,#E3B652_48%,#B47A20)] shadow-[0_3px_6px_rgba(0,0,0,.14)]" />
+            <span className="absolute left-1/2 top-[13px] z-[4] h-[17px] w-[19px] -translate-x-1/2 rounded-[6px] bg-[radial-gradient(circle_at_35%_25%,#F5D580,#D1A03A_48%,#986814_100%)] shadow-[0_4px_8px_rgba(0,0,0,.22),inset_0_1px_0_rgba(255,244,192,.58)]" />
           </div>
 
-          <div className="v20-box-left" aria-hidden="true" />
-          <div className="v20-box-right" aria-hidden="true" />
-          <div className="v20-box-front" aria-hidden="true" />
-
-          {selectedDecorationCount > 0 && !packed && (
-            <V7DecorationOverlay decorations={previewDecorations} />
-          )}
-
-          {packed && (
-            <>
-              <span className="v20-pack-ribbon-h" aria-hidden="true" />
-              <span className="v20-pack-ribbon-v" aria-hidden="true" />
-              <span className="v20-packed-badge">Ready to gift</span>
-            </>
+          {isShipping && (
+            <div className="absolute left-1/2 top-[3px] z-[160] -translate-x-1/2 rounded-full border border-[#D8B052]/25 bg-[#0B0B0C] px-3 py-1.5 text-[8px] font-black uppercase tracking-[.07em] text-[#F2D17A] shadow-[0_12px_24px_rgba(0,0,0,.16)]">
+              Packed - heading to you
+            </div>
           )}
         </div>
       )}
 
       {selectedContainer && (
-        <div className="v20-capacity-line">
-          <div className="v20-capacity-track">
+        <div className="absolute inset-x-[14px] bottom-[8px] z-[170] flex items-center gap-2">
+          <div className="h-1 flex-1 overflow-hidden rounded-full bg-black/[0.075]">
             <div
-              className="v20-capacity-fill"
-              style={{ width: `${Math.min(100, Math.max(0, Math.round(Number(fillPercent || 0))))}%` }}
+              className="h-full rounded-full bg-gradient-to-r from-[#9A6A18] via-[#D5AD57] to-[#F0D58F] transition-[width] duration-500 ease-out"
+              style={{
+                width: `${Math.min(100, Math.max(0, roundedFill))}%`,
+              }}
             />
           </div>
-          <span className="v20-capacity-copy">{Math.round(Number(fillPercent || 0))}%</span>
+
+          <span className="w-[42px] shrink-0 text-right text-[8px] font-black text-black/45">
+            {isShipping ? "Ready" : `${roundedFill}%`}
+          </span>
         </div>
       )}
     </div>
   );
 };
+
 
 const V7DecorationOverlay = ({ decorations }) => {
   const positions = [
@@ -5610,10 +7117,10 @@ const ProductPager = ({
       <div className="mt-5 rounded-[14px] border border-black/[0.06] bg-[#FAF8F5] p-3">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[9px] font-black uppercase tracking-[0.08em] text-black/28">
+            <p className="text-[10px] font-black uppercase tracking-[0.07em] text-black/38">
               {label}
             </p>
-            <p className="mt-0.5 text-[10px] font-semibold text-black/42">
+            <p className="mt-0.5 text-[11px] font-semibold text-black/48">
               {rangeStart}–{rangeEnd} of {totalItems} · Page {page} of {totalPages}
             </p>
           </div>
@@ -5632,7 +7139,7 @@ const ProductPager = ({
               type="button"
               disabled={page >= totalPages}
               onClick={() => go(page + 1)}
-              className="flex h-10 min-w-[82px] items-center justify-center rounded-full bg-[#171717] px-4 text-[9px] font-black uppercase tracking-[0.07em] text-white transition active:scale-95 disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/25"
+              className="flex h-10 min-w-[82px] items-center justify-center rounded-full bg-[#171717] px-4 text-[10px] font-black uppercase tracking-[0.06em] text-white transition active:scale-95 disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/25"
             >
               Next →
             </button>
@@ -5644,7 +7151,7 @@ const ProductPager = ({
 
   return (
     <div className="mt-6 flex flex-col gap-3 rounded-[12px] border border-black/[0.06] bg-[#FAF8F5] px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between">
-      <p className="text-[10px] font-semibold text-black/40">
+      <p className="text-[11px] font-semibold text-black/46">
         Showing{" "}
         <span className="font-black text-[#171717]">
           {rangeStart}–{rangeEnd}
@@ -5658,7 +7165,7 @@ const ProductPager = ({
           type="button"
           disabled={page <= 1}
           onClick={() => go(page - 1)}
-          className="h-9 rounded-xl border border-black/10 bg-white px-3 text-[9px] font-black uppercase tracking-[0.07em] text-black/55 transition hover:border-[#F47822] hover:text-[#F47822] disabled:cursor-not-allowed disabled:opacity-30"
+          className="h-9 rounded-xl border border-black/10 bg-white px-3 text-[10px] font-black uppercase tracking-[0.06em] text-black/55 transition hover:border-[#F47822] hover:text-[#F47822] disabled:cursor-not-allowed disabled:opacity-30"
         >
           ← Prev
         </button>
@@ -5682,7 +7189,7 @@ const ProductPager = ({
           type="button"
           disabled={page >= totalPages}
           onClick={() => go(page + 1)}
-          className="h-9 rounded-xl border border-black/10 bg-white px-3 text-[9px] font-black uppercase tracking-[0.07em] text-black/55 transition hover:border-[#F47822] hover:text-[#F47822] disabled:cursor-not-allowed disabled:opacity-30"
+          className="h-9 rounded-xl border border-black/10 bg-white px-3 text-[10px] font-black uppercase tracking-[0.06em] text-black/55 transition hover:border-[#F47822] hover:text-[#F47822] disabled:cursor-not-allowed disabled:opacity-30"
         >
           Next →
         </button>

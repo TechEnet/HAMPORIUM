@@ -9,10 +9,15 @@ import Category from "./category.model.js";
 import Collection from "./collection.model.js";
 import Component from "./component.model.js";
 import Container from "./container.model.js";
+import Order from "../orders/order.model.js";
 
 import asyncHandler from "../../utils/asyncHandler.js";
 import { getPagination, getPaginationMeta } from "../../utils/pagination.js";
-import { PRODUCT_STATUS } from "../../constants/statuses.js";
+import {
+  ORDER_PAYMENT_STATUS,
+  ORDER_STATUS,
+  PRODUCT_STATUS,
+} from "../../constants/statuses.js";
 import uploadFile, { deleteFile } from "../../helpers/uploadFile.js";
 import {
   calculateCatalogPricing,
@@ -6702,6 +6707,320 @@ const buildContainerBuilderStatus = (container, { channel = "" } = {}) => {
   };
 };
 
+
+/* =========================================================
+   CUSTOM HAMPER SOCIAL PROOF / RECOMMENDATIONS
+   ---------------------------------------------------------
+   Source of truth: successful paid custom-hamper orders.
+   - Cart activity is intentionally NOT counted as a sale.
+   - Fully refunded and cancelled orders are excluded.
+   - Container popularity is attached only to builderCatalog responses.
+   - Product recommendations are attached only when the caller supplies
+     recommendForContainer=<containerId>.
+   - No fake labels are emitted when order history does not support them.
+========================================================= */
+
+const CUSTOM_HAMPER_RECOMMENDATION_RECENT_DAYS = 90;
+
+const getCustomHamperRecommendationSince = () => {
+  const date = new Date();
+  date.setUTCDate(
+    date.getUTCDate() - CUSTOM_HAMPER_RECOMMENDATION_RECENT_DAYS
+  );
+  return date;
+};
+
+const customHamperSalesMatch = () => ({
+  paymentStatus: {
+    $in: [
+      ORDER_PAYMENT_STATUS.PAID,
+      ORDER_PAYMENT_STATUS.PARTIALLY_REFUNDED,
+    ],
+  },
+  status: { $ne: ORDER_STATUS.CANCELLED },
+  "items.itemType": "custom_hamper",
+});
+
+const addContainerPopularityRanks = (rows = []) => {
+  const sorted = [...rows].sort((left, right) => {
+    const soldDiff = Number(right.soldCount || 0) - Number(left.soldCount || 0);
+    if (soldDiff !== 0) return soldDiff;
+
+    const recentDiff =
+      Number(right.recentSoldCount || 0) - Number(left.recentSoldCount || 0);
+    if (recentDiff !== 0) return recentDiff;
+
+    return Number(right.orderCount || 0) - Number(left.orderCount || 0);
+  });
+
+  const map = new Map();
+
+  sorted.forEach((row, index) => {
+    const soldCount = Number(row.soldCount || 0);
+    if (soldCount <= 0 || !row._id) return;
+
+    const rank = index + 1;
+    const badge = rank === 1 ? "most_loved" : rank <= 3 ? "popular" : "";
+    const label = rank === 1 ? "Most loved" : rank <= 3 ? "Popular" : "";
+
+    map.set(String(row._id), {
+      soldCount,
+      orderCount: Number(row.orderCount || 0),
+      recentSoldCount: Number(row.recentSoldCount || 0),
+      rank,
+      badge,
+      label,
+      windowDays: CUSTOM_HAMPER_RECOMMENDATION_RECENT_DAYS,
+    });
+  });
+
+  return map;
+};
+
+const loadCustomHamperContainerPopularity = async () => {
+  const recentSince = getCustomHamperRecommendationSince();
+
+  const rows = await Order.aggregate([
+    { $match: customHamperSalesMatch() },
+    { $unwind: "$items" },
+    {
+      $match: {
+        "items.itemType": "custom_hamper",
+        "items.customHamper.container": { $ne: null },
+      },
+    },
+    {
+      $group: {
+        _id: "$items.customHamper.container",
+        soldCount: {
+          $sum: { $ifNull: ["$items.quantity", 1] },
+        },
+        recentSoldCount: {
+          $sum: {
+            $cond: [
+              {
+                $gte: [
+                  { $ifNull: ["$paidAt", "$createdAt"] },
+                  recentSince,
+                ],
+              },
+              { $ifNull: ["$items.quantity", 1] },
+              0,
+            ],
+          },
+        },
+        orderIds: { $addToSet: "$_id" },
+      },
+    },
+    {
+      $project: {
+        soldCount: 1,
+        recentSoldCount: 1,
+        orderCount: { $size: "$orderIds" },
+      },
+    },
+  ]);
+
+  return addContainerPopularityRanks(rows);
+};
+
+const buildComponentRecommendationMap = ({
+  containerRows = [],
+  overallRows = [],
+} = {}) => {
+  const overallSorted = [...overallRows].sort((left, right) => {
+    const pickedDiff =
+      Number(right.pickedCount || 0) - Number(left.pickedCount || 0);
+    if (pickedDiff !== 0) return pickedDiff;
+
+    return (
+      Number(right.recentPickedCount || 0) -
+      Number(left.recentPickedCount || 0)
+    );
+  });
+
+  const overallMap = new Map();
+  overallSorted.forEach((row, index) => {
+    if (!row?._id || Number(row.pickedCount || 0) <= 0) return;
+
+    overallMap.set(String(row._id), {
+      pickedCount: Number(row.pickedCount || 0),
+      recentPickedCount: Number(row.recentPickedCount || 0),
+      orderCount: Number(row.orderCount || 0),
+      rank: index + 1,
+    });
+  });
+
+  const containerSorted = [...containerRows].sort((left, right) => {
+    const pickedDiff =
+      Number(right.pickedCount || 0) - Number(left.pickedCount || 0);
+    if (pickedDiff !== 0) return pickedDiff;
+
+    const recentDiff =
+      Number(right.recentPickedCount || 0) -
+      Number(left.recentPickedCount || 0);
+    if (recentDiff !== 0) return recentDiff;
+
+    return Number(right.orderCount || 0) - Number(left.orderCount || 0);
+  });
+
+  const containerMap = new Map();
+  containerSorted.forEach((row, index) => {
+    if (!row?._id || Number(row.pickedCount || 0) <= 0) return;
+
+    containerMap.set(String(row._id), {
+      pickedCount: Number(row.pickedCount || 0),
+      recentPickedCount: Number(row.recentPickedCount || 0),
+      orderCount: Number(row.orderCount || 0),
+      rank: index + 1,
+    });
+  });
+
+  const ids = new Set([...overallMap.keys(), ...containerMap.keys()]);
+  const result = new Map();
+
+  for (const componentId of ids) {
+    const box = containerMap.get(componentId) || null;
+    const overall = overallMap.get(componentId) || null;
+
+    if (box) {
+      const badge =
+        box.rank === 1
+          ? "most_picked"
+          : box.rank <= 3
+            ? "popular_with_box"
+            : "";
+
+      result.set(componentId, {
+        source: "container",
+        score:
+          box.pickedCount * 1000 +
+          box.recentPickedCount * 100 +
+          Number(overall?.pickedCount || 0),
+        rank: box.rank,
+        badge,
+        label:
+          box.rank === 1
+            ? "Most picked with this box"
+            : box.rank <= 3
+              ? "Popular with this box"
+              : "",
+        pickedCount: box.pickedCount,
+        recentPickedCount: box.recentPickedCount,
+        orderCount: box.orderCount,
+        overallPickedCount: Number(overall?.pickedCount || 0),
+        windowDays: CUSTOM_HAMPER_RECOMMENDATION_RECENT_DAYS,
+      });
+      continue;
+    }
+
+    if (overall) {
+      result.set(componentId, {
+        source: "overall",
+        score: overall.pickedCount,
+        rank: overall.rank,
+        badge: overall.rank <= 3 ? "popular_gift" : "",
+        label: overall.rank <= 3 ? "Popular gift" : "",
+        pickedCount: 0,
+        recentPickedCount: 0,
+        orderCount: 0,
+        overallPickedCount: overall.pickedCount,
+        windowDays: CUSTOM_HAMPER_RECOMMENDATION_RECENT_DAYS,
+      });
+    }
+  }
+
+  return result;
+};
+
+const componentPopularityPipeline = ({ containerObjectId = null } = {}) => {
+  const recentSince = getCustomHamperRecommendationSince();
+
+  const customHamperMatch = {
+    "items.itemType": "custom_hamper",
+    "items.customHamper.container": { $ne: null },
+  };
+
+  if (containerObjectId) {
+    customHamperMatch["items.customHamper.container"] = containerObjectId;
+  }
+
+  return [
+    { $match: customHamperSalesMatch() },
+    { $unwind: "$items" },
+    { $match: customHamperMatch },
+    { $unwind: "$items.customHamper.components" },
+    {
+      $match: {
+        "items.customHamper.components.component": { $ne: null },
+      },
+    },
+    {
+      $group: {
+        _id: "$items.customHamper.components.component",
+        pickedCount: {
+          $sum: {
+            $multiply: [
+              { $ifNull: ["$items.quantity", 1] },
+              {
+                $ifNull: [
+                  "$items.customHamper.components.quantity",
+                  1,
+                ],
+              },
+            ],
+          },
+        },
+        recentPickedCount: {
+          $sum: {
+            $cond: [
+              {
+                $gte: [
+                  { $ifNull: ["$paidAt", "$createdAt"] },
+                  recentSince,
+                ],
+              },
+              {
+                $multiply: [
+                  { $ifNull: ["$items.quantity", 1] },
+                  {
+                    $ifNull: [
+                      "$items.customHamper.components.quantity",
+                      1,
+                    ],
+                  },
+                ],
+              },
+              0,
+            ],
+          },
+        },
+        orderIds: { $addToSet: "$_id" },
+      },
+    },
+    {
+      $project: {
+        pickedCount: 1,
+        recentPickedCount: 1,
+        orderCount: { $size: "$orderIds" },
+      },
+    },
+  ];
+};
+
+const loadCustomHamperComponentRecommendations = async (containerId) => {
+  if (!isValidId(containerId)) return new Map();
+
+  const containerObjectId = new mongoose.Types.ObjectId(String(containerId));
+
+  const [containerRows, overallRows] = await Promise.all([
+    Order.aggregate(componentPopularityPipeline({ containerObjectId })),
+    Order.aggregate(componentPopularityPipeline()),
+  ]);
+
+  return buildComponentRecommendationMap({ containerRows, overallRows });
+};
+
 export const getComponents = asyncHandler(async (req, res) => {
   disableCatalogCaching(res);
 
@@ -6714,9 +7033,17 @@ export const getComponents = asyncHandler(async (req, res) => {
     channel,
     hamperRole,
     builderCatalog,
+    recommendForContainer,
   } = req.query;
 
   const includeBuilderCatalogue = isBuilderCatalogRequest(builderCatalog);
+
+  if (recommendForContainer && !isValidId(recommendForContainer)) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid recommendForContainer ID",
+    });
+  }
 
   const filter = {
     isActive: true,
@@ -6837,6 +7164,10 @@ export const getComponents = asyncHandler(async (req, res) => {
     .sort({ productPriority: 1, name: 1 })
     .lean();
 
+  const recommendationMap = recommendForContainer
+    ? await loadCustomHamperComponentRecommendations(recommendForContainer)
+    : new Map();
+
   const publicComponents = components.map((component) => {
     const hasSellingPrice = Number(component.sellingPrice) > 0;
     const pricing = hasSellingPrice
@@ -6856,6 +7187,12 @@ export const getComponents = asyncHandler(async (req, res) => {
       taxablePrice: pricing?.taxableValue ?? null,
       taxAmount: pricing?.taxAmount ?? 0,
       taxIncluded: true,
+      ...(recommendForContainer
+        ? {
+            recommendation:
+              recommendationMap.get(String(component._id)) || null,
+          }
+        : {}),
       ...(includeBuilderCatalogue
         ? {
             builderStatus: buildComponentBuilderStatus(component, {
@@ -6936,6 +7273,10 @@ export const getContainers = asyncHandler(async (req, res) => {
     .sort({ sortOrder: 1, productPriority: 1, name: 1 })
     .lean();
 
+  const containerPopularityMap = includeBuilderCatalogue
+    ? await loadCustomHamperContainerPopularity()
+    : new Map();
+
   const result = containers.map((container) => {
     const hasSellingPrice = Number(container.sellingPrice) > 0;
     const pricing = hasSellingPrice
@@ -6956,6 +7297,12 @@ export const getContainers = asyncHandler(async (req, res) => {
       taxAmount: pricing?.taxAmount ?? 0,
       taxIncluded: true,
       capacity: calculateContainerCapacity(container),
+      ...(includeBuilderCatalogue
+        ? {
+            popularity:
+              containerPopularityMap.get(String(container._id)) || null,
+          }
+        : {}),
       ...(includeBuilderCatalogue
         ? {
             builderStatus: buildContainerBuilderStatus(container, {
