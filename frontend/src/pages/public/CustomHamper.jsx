@@ -3726,17 +3726,17 @@ const V30Progress = ({
 }) => {
   const steps = [
     [1, "Choose box"],
-    [2, "Add gifts"],
-    [3, "Finishing"],
+    [2, "Add your gifts"],
+    [3, "Finishing touch"],
     [4, "Personalise"],
-    [5, orderMode === "bulk" ? "Get quote" : "Review"],
+    [5, orderMode === "bulk" ? "Quote details" : "Review hamper"],
   ];
 
   const maxReachable = !canContinueFromBox ? 1 : !canContinueFromProducts ? 2 : 5;
 
   return (
     <nav
-      className="mb-3 flex flex-wrap items-center gap-2 py-0.5 sm:mb-5 sm:py-1"
+      className="mb-2 flex flex-wrap items-center gap-2 py-0.5 sm:mb-3 sm:py-1"
       aria-label="Hamper builder progress"
     >
       {steps.map(([number, label]) => {
@@ -3753,18 +3753,24 @@ const V30Progress = ({
             aria-current={active ? "step" : undefined}
             aria-label={`${number}. ${label}${complete ? ", completed" : active ? ", current step" : ""}`}
             title={`${number}. ${label}`}
-            className={`group/step flex h-8 w-8 items-center overflow-hidden rounded-full border transition-[width,border-color,background-color,color,box-shadow] duration-300 ease-out hover:w-[124px] focus-visible:w-[124px] focus-visible:outline-none sm:h-9 sm:w-9 sm:hover:w-[132px] sm:focus-visible:w-[132px] ${
+            className={`group/step flex h-8 items-center overflow-hidden rounded-full border transition-[width,border-color,background-color,color,box-shadow] duration-300 ease-out focus-visible:outline-none sm:h-9 ${
               active
-                ? "border-[#171717] bg-[#171717] text-white shadow-[0_5px_16px_rgba(0,0,0,.10)]"
+                ? "w-[140px] border-[#171717] bg-[#171717] text-white shadow-[0_5px_16px_rgba(0,0,0,.10)] sm:w-[150px]"
                 : complete
-                  ? "border-[#D4AF37]/35 bg-[#FFF8DE] text-[#8A6815]"
-                  : "border-black/[0.08] bg-white text-black/45 hover:border-black/15 hover:text-[#171717]"
-            } disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:w-8 sm:disabled:hover:w-9`}
+                  ? "w-8 border-[#D4AF37]/35 bg-[#FFF8DE] text-[#8A6815] hover:w-[140px] focus-visible:w-[140px] sm:w-9 sm:hover:w-[150px] sm:focus-visible:w-[150px]"
+                  : "w-8 border-black/[0.08] bg-white text-black/45 hover:w-[140px] hover:border-black/15 hover:text-[#171717] focus-visible:w-[140px] sm:w-9 sm:hover:w-[150px] sm:focus-visible:w-[150px]"
+            } disabled:cursor-not-allowed disabled:opacity-35`}
           >
             <span className="flex h-8 w-8 shrink-0 items-center justify-center text-[10px] font-black sm:h-9 sm:w-9 sm:text-[11px]">
               {complete ? "✓" : number}
             </span>
-            <span className="pointer-events-none mr-3 whitespace-nowrap text-[11px] font-extrabold opacity-0 transition-opacity duration-200 group-hover/step:opacity-100 group-focus-visible/step:opacity-100">
+            <span
+              className={`pointer-events-none mr-3 whitespace-nowrap text-[11px] font-extrabold transition-opacity duration-200 ${
+                active
+                  ? "opacity-100"
+                  : "opacity-0 group-hover/step:opacity-100 group-focus-visible/step:opacity-100"
+              }`}
+            >
               {label}
             </span>
           </button>
@@ -3774,30 +3780,14 @@ const V30Progress = ({
   );
 };
 
-const V34GiftWorkspace = ({ title, children }) => (
+const V34GiftWorkspace = ({ children }) => (
   <section className="v34-gift-workspace min-w-0">
-    <div className="mb-3 sm:mb-5">
-      <h2
-        style={{ fontFamily: DISPLAY_FONT }}
-        className="text-[25px] font-semibold leading-[1.02] tracking-[-.03em] text-[#171717] sm:text-[32px]"
-      >
-        {title}
-      </h2>
-    </div>
     <div>{children}</div>
   </section>
 );
 
-const V30Panel = ({ title, children }) => (
+const V30Panel = ({ children }) => (
   <section className="v30-panel-mobile-sticky-safe v30-step-in min-w-0">
-    <div className="mb-3 sm:mb-5">
-      <h2
-        style={{ fontFamily: DISPLAY_FONT }}
-        className="text-[25px] font-semibold leading-[1.02] tracking-[-.03em] text-[#171717] sm:text-[32px]"
-      >
-        {title}
-      </h2>
-    </div>
     <div>{children}</div>
   </section>
 );
@@ -4403,7 +4393,18 @@ const V7ContainerCard = ({ container, active, onClick }) => {
             </span>
           </div>
 
-          <div className="mt-3 flex justify-end">
+          <div className="mt-3 flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                setDetailsOpen(true);
+              }}
+              className="h-9 rounded-lg border border-black/[0.08] bg-white px-3.5 text-[11px] font-black text-black/55 transition hover:border-black/20 hover:text-[#171717] active:scale-[.98] sm:text-[12px]"
+            >
+              Details
+            </button>
+
             <button
               type="button"
               onClick={(event) => {
@@ -5226,36 +5227,7 @@ const V7Studio = ({
 
   return (
     <div className="v30-live-shell v34-live-flat min-w-0 xl:pl-1 2xl:pl-2">
-      <div className="flex items-center justify-between gap-4 pb-2">
-        <p style={{ fontFamily: DISPLAY_FONT }} className="text-[30px] font-semibold leading-none tracking-[-.025em] text-[#171717] sm:text-[32px]">Your hamper</p>
-        <span className={`rounded-full px-3 py-2 text-[11px] font-black uppercase tracking-[0.08em] sm:text-[12px] ${
-          deliveryJourney === "shipping"
-            ? "bg-[#171717] text-white"
-            : deliveryJourney === "packing"
-              ? "bg-[#FFF0D9] text-[#9A5A15]"
-              : validating
-                ? "bg-black/[0.05] text-black/48"
-                : configuration?.orderable
-                  ? "bg-emerald-50 text-emerald-700"
-                  : selectedItemCount
-                    ? "bg-amber-50 text-amber-700"
-                    : "bg-black/[0.04] text-black/42"
-        }`}>
-          {deliveryJourney === "shipping"
-            ? "On the way"
-            : deliveryJourney === "packing"
-              ? "Packing"
-              : validating
-                ? "Updating"
-                : configuration?.orderable
-                  ? "Ready"
-                  : selectedItemCount
-                    ? "Adjust"
-                    : "Start"}
-        </span>
-      </div>
-
-      <div className="pt-4">
+      <div>
         <V7OpenTop3D
           selectedContainer={selectedContainer}
           previewItems={previewItems}
