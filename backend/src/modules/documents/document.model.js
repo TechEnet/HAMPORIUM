@@ -89,6 +89,7 @@ const documentSchema = new Schema(
         "sample",
         "kyc",
         "pan",
+        "aadhaar",
         "gst",
         "business_registration",
         "agreement",

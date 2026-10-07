@@ -32,9 +32,7 @@ const Signup = () => {
           replace: true,
         });
       } catch (requestError) {
-        setError(
-          requestError.response?.data?.message || "Unable to continue with Google"
-        );
+        setError(requestError.response?.data?.message || "Unable to continue with Google");
       } finally {
         setSubmitting(false);
       }
@@ -109,11 +107,11 @@ const Signup = () => {
     }
   };
 
-  const titles = ["Tell us your name.", "Where should we reach you?", "Create a secure password."];
+  const titles = ["Tell us your name.", "How can we reach you?", "Create your password."];
   const descriptions = [
-    "We’ll use this for your gifting account and order communication.",
-    "Your email becomes your HAMPORIUM login. Phone is optional.",
-    "Use at least 8 characters. Long, memorable passphrases are welcome.",
+    "Add the name you want us to use for your HAMPORIUM account.",
+    "Your email becomes your login. Phone number is optional.",
+    "Choose at least 8 characters for a secure password.",
   ];
 
   return (
@@ -123,81 +121,88 @@ const Signup = () => {
       description={descriptions[step - 1]}
       step={step}
       totalSteps={3}
-      sideTitle="Make every gift feel personal."
-      sideText="Create an account, verify your email and manage every HAMPORIUM moment from one place."
+      sideTitle="Create your account."
+      sideText=""
     >
       {error && <ErrorBox>{error}</ErrorBox>}
 
       {step === 1 && (
         <>
-          <form onSubmit={nextFromIdentity} className="space-y-6">
-            <input
-              autoFocus
-              value={form.name}
-              onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
-              placeholder="Your full name"
-              className={bigInput}
-              required
-            />
+          <form onSubmit={nextFromIdentity} className="space-y-5">
+            <Field label="Full name">
+              <input
+                autoFocus
+                value={form.name}
+                onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
+                placeholder="Your full name"
+                className={inputClass}
+                required
+              />
+            </Field>
             <button className={primaryButton}>Continue →</button>
           </form>
+
           <Divider />
-          <GoogleAuthButton
-            onSuccess={handleGoogle}
-            onError={handleGoogleError}
-            disabled={submitting}
-          />
-          <p className="mt-3 text-[10px] leading-5 text-black/35">
+          <GoogleAuthButton onSuccess={handleGoogle} onError={handleGoogleError} disabled={submitting} />
+          <p className="mt-3 text-[12px] font-medium leading-5 text-black/38">
             Google signup uses your verified Google email and skips email OTP.
           </p>
         </>
       )}
 
       {step === 2 && (
-        <form onSubmit={nextFromEmail} className="space-y-6">
-          <input
-            autoFocus
-            type="email"
-            value={form.email}
-            onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
-            placeholder="you@example.com"
-            className={bigInput}
-            required
-          />
-          <input
-            type="tel"
-            value={form.phone}
-            onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))}
-            placeholder="Phone number (optional)"
-            className={bigInput}
-          />
+        <form onSubmit={nextFromEmail} className="space-y-5">
+          <Field label="Email address">
+            <input
+              autoFocus
+              type="email"
+              value={form.email}
+              onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
+              placeholder="you@example.com"
+              className={inputClass}
+              required
+            />
+          </Field>
+          <Field label="Phone number">
+            <input
+              type="tel"
+              value={form.phone}
+              onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))}
+              placeholder="Optional"
+              className={inputClass}
+            />
+          </Field>
           <StepButtons back={() => setStep(1)} />
         </form>
       )}
 
       {step === 3 && (
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <input
-            autoFocus
-            type="password"
-            value={form.password}
-            onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))}
-            placeholder="Create password"
-            className={bigInput}
-            autoComplete="new-password"
-            required
-          />
-          <input
-            type="password"
-            value={form.confirmPassword}
-            onChange={(event) => setForm((current) => ({ ...current, confirmPassword: event.target.value }))}
-            placeholder="Confirm password"
-            className={bigInput}
-            autoComplete="new-password"
-            required
-          />
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <Field label="Password">
+            <input
+              autoFocus
+              type="password"
+              value={form.password}
+              onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))}
+              placeholder="Create password"
+              className={inputClass}
+              autoComplete="new-password"
+              required
+            />
+          </Field>
+          <Field label="Confirm password">
+            <input
+              type="password"
+              value={form.confirmPassword}
+              onChange={(event) => setForm((current) => ({ ...current, confirmPassword: event.target.value }))}
+              placeholder="Repeat password"
+              className={inputClass}
+              autoComplete="new-password"
+              required
+            />
+          </Field>
           <div className="flex flex-wrap gap-3">
-            <button type="button" onClick={() => setStep(2)} className={backButton}>
+            <button type="button" onClick={() => setStep(2)} className={secondaryButton}>
               ← Back
             </button>
             <button disabled={submitting} className={primaryButton}>
@@ -207,39 +212,47 @@ const Signup = () => {
         </form>
       )}
 
-      <p className="mt-8 text-sm text-black/45">
+      <p className="mt-7 text-[13px] font-medium leading-6 text-black/48">
         Already registered?{" "}
-        <Link to="/login" className="font-black text-[#F97316]">Login</Link>
-        {" · "}
-        <Link to="/partner/register" className="font-black text-[#171717]">Become a Partner</Link>
+        <Link to="/login" className="font-extrabold text-[#F97316] hover:text-[#171717]">Login</Link>
+        <span className="mx-2 text-black/20">•</span>
+        <Link to="/partner/register" className="font-bold text-[#171717] hover:text-[#F97316]">Become a Partner</Link>
       </p>
     </TypeformShell>
   );
 };
 
-const bigInput =
-  "h-16 w-full border-b-2 border-black/15 bg-transparent text-2xl font-semibold outline-none transition placeholder:text-black/20 focus:border-[#F97316] sm:text-3xl";
-const primaryButton =
-  "rounded-xl bg-[#F97316] px-7 py-3.5 text-xs font-black uppercase tracking-[0.08em] text-white transition hover:bg-[#171717] disabled:opacity-50";
-const backButton = "rounded-xl border border-black/10 px-5 py-3 text-xs font-bold";
+const Field = ({ label, children }) => (
+  <label className="block">
+    <span className="mb-2 block text-[13px] font-bold text-black/58">{label}</span>
+    {children}
+  </label>
+);
 
 const StepButtons = ({ back }) => (
   <div className="flex flex-wrap gap-3">
-    <button type="button" onClick={back} className={backButton}>← Back</button>
+    <button type="button" onClick={back} className={secondaryButton}>← Back</button>
     <button className={primaryButton}>Continue →</button>
   </div>
 );
 
 const Divider = () => (
-  <div className="my-7 flex items-center gap-4">
-    <span className="h-px flex-1 bg-black/10" />
-    <span className="text-[9px] font-black uppercase tracking-[0.14em] text-black/30">or</span>
-    <span className="h-px flex-1 bg-black/10" />
+  <div className="my-6 flex items-center gap-3">
+    <span className="h-px flex-1 bg-black/[0.08]" />
+    <span className="text-[12px] font-bold uppercase tracking-[0.12em] text-black/30">or</span>
+    <span className="h-px flex-1 bg-black/[0.08]" />
   </div>
 );
 
 const ErrorBox = ({ children }) => (
-  <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{children}</div>
+  <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] font-semibold leading-5 text-red-700">{children}</div>
 );
+
+const inputClass =
+  "h-13 w-full rounded-xl border border-black/10 bg-[#FBF8F3] px-4 text-[16px] font-semibold text-[#171717] outline-none transition placeholder:font-medium placeholder:text-black/28 focus:border-[#D59A3A] focus:bg-white focus:ring-4 focus:ring-[#D59A3A]/10";
+const primaryButton =
+  "inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#171717] px-6 py-3 text-[13px] font-extrabold text-white transition hover:bg-[#F97316] disabled:cursor-not-allowed disabled:opacity-45";
+const secondaryButton =
+  "inline-flex min-h-12 items-center justify-center rounded-xl border border-black/10 bg-white px-5 py-3 text-[13px] font-bold text-[#171717] transition hover:border-black/20 hover:bg-black/[0.03]";
 
 export default Signup;

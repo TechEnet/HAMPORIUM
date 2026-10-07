@@ -65,7 +65,7 @@ const verificationDocumentSchema = new mongoose.Schema(
     },
     kind: {
       type: String,
-      enum: ["pan", "gst", "registration", "address", "portfolio", "other"],
+      enum: ["pan", "aadhaar", "gst", "registration", "address", "portfolio", "other"],
       default: "other",
     },
   },
@@ -185,6 +185,15 @@ const partnerSchema = new mongoose.Schema(
       select: false,
     },
 
+    // Full Aadhaar is intentionally NOT stored in Partner.
+    // Registration accepts the number only to validate the form and stores last 4 digits.
+    aadhaarLast4: {
+      type: String,
+      trim: true,
+      default: "",
+      maxlength: 4,
+    },
+
     address: {
       line1: { type: String, trim: true, default: "", maxlength: 180 },
       line2: { type: String, trim: true, default: "", maxlength: 180 },
@@ -223,6 +232,7 @@ const partnerSchema = new mongoose.Schema(
         default: "pending",
       },
       panVerified: { type: Boolean, default: false },
+      aadhaarVerified: { type: Boolean, default: false },
       gstVerified: { type: Boolean, default: false },
       note: { type: String, trim: true, default: "", maxlength: 1000 },
       documents: { type: [verificationDocumentSchema], default: [] },
@@ -273,7 +283,6 @@ const partnerSchema = new mongoose.Schema(
       note: { type: String, trim: true, default: "", maxlength: 1000 },
     },
 
-    // Internal partner earning rate. Never expose publicly.
     defaultCommissionRate: {
       type: Number,
       min: 0,
@@ -282,8 +291,6 @@ const partnerSchema = new mongoose.Schema(
       select: false,
     },
 
-    // Customer-facing discount attached to this partner's referral/promo code.
-    // Public referral resolution exposes only this rate, never commission rate.
     customerDiscountRate: {
       type: Number,
       min: 0,

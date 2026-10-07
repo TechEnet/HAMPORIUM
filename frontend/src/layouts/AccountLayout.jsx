@@ -2,19 +2,39 @@ import { useEffect, useState } from "react";
 
 
 
+
+
+
+
 import {
 
 
 
-  NavLink,
 
 
 
-  Outlet,
+
+  NavLink,
 
 
 
-  useNavigate,
+
+
+
+
+  Outlet,
+
+
+
+
+
+
+
+  useNavigate,
+
+
+
+
 
 
 
@@ -26,7 +46,19 @@ import {
 
 
 
+
+
+
+
+
+
+
+
 import { useAuth } from "../context/AuthContext.jsx";
+
+
+
+
 
 
 
@@ -38,15 +70,39 @@ import logo from "../assets/images/logo_dark.jpeg";
 
 
 
+
+
+
+
+
+
+
+
 /* =========================================================
 
 
 
-   TRANSPARENT LOGO
+
+
+
+
+   TRANSPARENT LOGO
+
+
+
+
 
 
 
 ========================================================= */
+
+
+
+
+
+
+
+
 
 
 
@@ -58,23 +114,21 @@ const useTransparentLogo = (source) => {
 
 
 
-  const [processedLogo, setProcessedLogo] =
 
 
 
-    useState(source);
 
+  const [processedLogo, setProcessedLogo] =
 
 
 
 
 
 
-  useEffect(() => {
 
+    useState(source);
 
 
-    if (!source) return undefined;
 
 
 
@@ -82,31 +136,28 @@ const useTransparentLogo = (source) => {
 
 
 
-    let cancelled = false;
 
 
 
 
 
 
+  useEffect(() => {
 
-    const image = new Image();
 
 
 
 
 
 
+    if (!source) return undefined;
 
-    const isWhitePixel = (r, g, b) => {
 
 
 
-      const max = Math.max(r, g, b);
 
 
 
-      const min = Math.min(r, g, b);
 
 
 
@@ -114,31 +165,26 @@ const useTransparentLogo = (source) => {
 
 
 
-      return (
 
+    let cancelled = false;
 
 
-        r > 218 &&
 
 
 
-        g > 218 &&
 
 
 
-        b > 218 &&
 
 
 
-        max - min < 28
 
 
 
-      );
 
+    const image = new Image();
 
 
-    };
 
 
 
@@ -146,107 +192,96 @@ const useTransparentLogo = (source) => {
 
 
 
-    image.onload = () => {
 
 
 
-      try {
 
 
 
-        const canvas =
+    const isWhitePixel = (r, g, b) => {
 
 
 
-          document.createElement("canvas");
 
 
 
 
+      const max = Math.max(r, g, b);
 
 
 
-        canvas.width = image.naturalWidth;
 
 
 
-        canvas.height = image.naturalHeight;
 
+      const min = Math.min(r, g, b);
 
 
 
 
 
 
-        const context = canvas.getContext(
 
 
 
-          "2d",
 
 
 
-          {
 
 
 
-            willReadFrequently: true,
+      return (
 
 
 
-          }
 
 
 
-        );
 
+        r > 218 &&
 
 
 
 
 
 
-        if (!context) return;
 
+        g > 218 &&
 
 
 
 
 
 
-        context.drawImage(image, 0, 0);
 
+        b > 218 &&
 
 
 
 
 
 
-        const imageData =
 
+        max - min < 28
 
 
-          context.getImageData(
 
 
 
-            0,
 
 
+      );
 
-            0,
 
 
 
-            canvas.width,
 
 
 
-            canvas.height
+    };
 
 
 
-          );
 
 
 
@@ -254,39 +289,37 @@ const useTransparentLogo = (source) => {
 
 
 
-        const data = imageData.data;
 
 
 
 
 
+    image.onload = () => {
 
 
-        const width = canvas.width;
 
 
 
-        const height = canvas.height;
 
 
+      try {
 
 
 
 
 
-        const visited =
 
 
+        const canvas =
 
-          new Uint8Array(width * height);
 
 
 
 
 
 
+          document.createElement("canvas");
 
-        const queue = [];
 
 
 
@@ -294,79 +327,70 @@ const useTransparentLogo = (source) => {
 
 
 
-        const pushPixel = (x, y) => {
 
 
 
-          if (
 
 
 
-            x < 0 ||
 
+        canvas.width = image.naturalWidth;
 
 
-            y < 0 ||
 
 
 
-            x >= width ||
 
 
+        canvas.height = image.naturalHeight;
 
-            y >= height
 
 
 
-          ) {
 
 
 
-            return;
 
 
 
-          }
 
 
 
 
 
+        const context = canvas.getContext(
 
 
-          const pixelIndex =
 
 
 
-            y * width + x;
 
 
+          "2d",
 
 
 
 
 
-          if (visited[pixelIndex]) {
 
 
+          {
 
-            return;
 
 
 
-          }
 
 
 
+            willReadFrequently: true,
 
 
 
 
-          const dataIndex =
 
 
 
-            pixelIndex * 4;
+          }
 
 
 
@@ -374,47 +398,40 @@ const useTransparentLogo = (source) => {
 
 
 
-          if (
+        );
 
 
 
-            !isWhitePixel(
 
 
 
-              data[dataIndex],
 
 
 
-              data[dataIndex + 1],
 
 
 
-              data[dataIndex + 2]
 
 
 
-            )
+        if (!context) return;
 
 
 
-          ) {
 
 
 
-            return;
 
 
 
-          }
 
 
 
 
 
 
+        context.drawImage(image, 0, 0);
 
-          visited[pixelIndex] = 1;
 
 
 
@@ -422,147 +439,128 @@ const useTransparentLogo = (source) => {
 
 
 
-          queue.push(pixelIndex);
 
 
 
-        };
 
 
 
 
+        const imageData =
 
 
 
-        for (
 
 
 
-          let x = 0;
 
+          context.getImageData(
 
 
-          x < width;
 
 
 
-          x += 1
 
 
+            0,
 
-        ) {
 
 
 
-          pushPixel(x, 0);
 
 
 
-          pushPixel(
+            0,
 
 
 
-            x,
 
 
 
-            height - 1
 
+            canvas.width,
 
 
-          );
 
 
 
-        }
 
 
+            canvas.height
 
 
 
 
 
-        for (
 
 
+          );
 
-          let y = 0;
 
 
 
-          y < height;
 
 
 
-          y += 1
 
 
 
-        ) {
 
 
 
-          pushPixel(0, y);
 
 
+        const data = imageData.data;
 
-          pushPixel(
 
 
 
-            width - 1,
 
 
 
-            y
 
 
 
-          );
 
 
 
-        }
 
 
+        const width = canvas.width;
 
 
 
 
 
-        let index = 0;
 
 
+        const height = canvas.height;
 
 
 
 
 
-        while (
 
 
 
-          index < queue.length
 
 
 
-        ) {
 
 
 
-          const pixelIndex =
 
+        const visited =
 
 
-            queue[index];
 
 
 
 
 
+          new Uint8Array(width * height);
 
 
-          index += 1;
 
 
 
@@ -570,95 +568,85 @@ const useTransparentLogo = (source) => {
 
 
 
-          const x =
 
 
 
-            pixelIndex % width;
 
 
 
+        const queue = [];
 
 
 
 
-          const y =
 
 
 
-            Math.floor(
 
 
 
-              pixelIndex / width
 
 
 
-            );
 
 
+        const pushPixel = (x, y) => {
 
 
 
 
 
-          data[
 
 
+          if (
 
-            pixelIndex * 4 + 3
 
 
 
-          ] = 0;
 
 
 
+            x < 0 ||
 
 
 
 
-          pushPixel(x + 1, y);
 
 
 
-          pushPixel(x - 1, y);
+            y < 0 ||
 
 
 
-          pushPixel(x, y + 1);
 
 
 
-          pushPixel(x, y - 1);
 
+            x >= width ||
 
 
-        }
 
 
 
 
 
+            y >= height
 
 
-        context.putImageData(
 
 
 
-          imageData,
 
 
+          ) {
 
-          0,
 
 
 
-          0
 
 
 
-        );
+            return;
 
 
 
@@ -666,79 +654,67 @@ const useTransparentLogo = (source) => {
 
 
 
-        if (!cancelled) {
+          }
 
 
 
-          setProcessedLogo(
 
 
 
-            canvas.toDataURL(
 
 
 
-              "image/png"
 
 
 
-            )
 
 
 
-          );
+          const pixelIndex =
 
 
 
-        }
 
 
 
-      } catch {
 
+            y * width + x;
 
 
-        if (!cancelled) {
 
 
 
-          setProcessedLogo(source);
 
 
 
-        }
 
 
 
-      }
 
 
 
-    };
 
+          if (visited[pixelIndex]) {
 
 
 
 
 
 
-    image.onerror = () => {
 
+            return;
 
 
-      if (!cancelled) {
 
 
 
-        setProcessedLogo(source);
 
 
+          }
 
-      }
 
 
 
-    };
 
 
 
@@ -746,27 +722,24 @@ const useTransparentLogo = (source) => {
 
 
 
-    image.src = source;
 
 
 
 
+          const dataIndex =
 
 
 
-    return () => {
 
 
 
-      cancelled = true;
 
+            pixelIndex * 4;
 
 
-    };
 
 
 
-  }, [source]);
 
 
 
@@ -774,7 +747,814 @@ const useTransparentLogo = (source) => {
 
 
 
-  return processedLogo;
+
+
+
+          if (
+
+
+
+
+
+
+
+            !isWhitePixel(
+
+
+
+
+
+
+
+              data[dataIndex],
+
+
+
+
+
+
+
+              data[dataIndex + 1],
+
+
+
+
+
+
+
+              data[dataIndex + 2]
+
+
+
+
+
+
+
+            )
+
+
+
+
+
+
+
+          ) {
+
+
+
+
+
+
+
+            return;
+
+
+
+
+
+
+
+          }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+          visited[pixelIndex] = 1;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+          queue.push(pixelIndex);
+
+
+
+
+
+
+
+        };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        for (
+
+
+
+
+
+
+
+          let x = 0;
+
+
+
+
+
+
+
+          x < width;
+
+
+
+
+
+
+
+          x += 1
+
+
+
+
+
+
+
+        ) {
+
+
+
+
+
+
+
+          pushPixel(x, 0);
+
+
+
+
+
+
+
+          pushPixel(
+
+
+
+
+
+
+
+            x,
+
+
+
+
+
+
+
+            height - 1
+
+
+
+
+
+
+
+          );
+
+
+
+
+
+
+
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        for (
+
+
+
+
+
+
+
+          let y = 0;
+
+
+
+
+
+
+
+          y < height;
+
+
+
+
+
+
+
+          y += 1
+
+
+
+
+
+
+
+        ) {
+
+
+
+
+
+
+
+          pushPixel(0, y);
+
+
+
+
+
+
+
+          pushPixel(
+
+
+
+
+
+
+
+            width - 1,
+
+
+
+
+
+
+
+            y
+
+
+
+
+
+
+
+          );
+
+
+
+
+
+
+
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        let index = 0;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        while (
+
+
+
+
+
+
+
+          index < queue.length
+
+
+
+
+
+
+
+        ) {
+
+
+
+
+
+
+
+          const pixelIndex =
+
+
+
+
+
+
+
+            queue[index];
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+          index += 1;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+          const x =
+
+
+
+
+
+
+
+            pixelIndex % width;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+          const y =
+
+
+
+
+
+
+
+            Math.floor(
+
+
+
+
+
+
+
+              pixelIndex / width
+
+
+
+
+
+
+
+            );
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+          data[
+
+
+
+
+
+
+
+            pixelIndex * 4 + 3
+
+
+
+
+
+
+
+          ] = 0;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+          pushPixel(x + 1, y);
+
+
+
+
+
+
+
+          pushPixel(x - 1, y);
+
+
+
+
+
+
+
+          pushPixel(x, y + 1);
+
+
+
+
+
+
+
+          pushPixel(x, y - 1);
+
+
+
+
+
+
+
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        context.putImageData(
+
+
+
+
+
+
+
+          imageData,
+
+
+
+
+
+
+
+          0,
+
+
+
+
+
+
+
+          0
+
+
+
+
+
+
+
+        );
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        if (!cancelled) {
+
+
+
+
+
+
+
+          setProcessedLogo(
+
+
+
+
+
+
+
+            canvas.toDataURL(
+
+
+
+
+
+
+
+              "image/png"
+
+
+
+
+
+
+
+            )
+
+
+
+
+
+
+
+          );
+
+
+
+
+
+
+
+        }
+
+
+
+
+
+
+
+      } catch {
+
+
+
+
+
+
+
+        if (!cancelled) {
+
+
+
+
+
+
+
+          setProcessedLogo(source);
+
+
+
+
+
+
+
+        }
+
+
+
+
+
+
+
+      }
+
+
+
+
+
+
+
+    };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    image.onerror = () => {
+
+
+
+
+
+
+
+      if (!cancelled) {
+
+
+
+
+
+
+
+        setProcessedLogo(source);
+
+
+
+
+
+
+
+      }
+
+
+
+
+
+
+
+    };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    image.src = source;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    return () => {
+
+
+
+
+
+
+
+      cancelled = true;
+
+
+
+
+
+
+
+    };
+
+
+
+
+
+
+
+  }, [source]);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  return processedLogo;
+
+
+
+
 
 
 
@@ -786,15 +1566,39 @@ const useTransparentLogo = (source) => {
 
 
 
+
+
+
+
+
+
+
+
 /* =========================================================
 
 
 
-   NAV CLASS
+
+
+
+
+   NAV CLASS
+
+
+
+
 
 
 
 ========================================================= */
+
+
+
+
+
+
+
+
 
 
 
@@ -806,7 +1610,15 @@ const navClass = ({
 
 
 
-  isActive,
+
+
+
+
+  isActive,
+
+
+
+
 
 
 
@@ -814,55 +1626,11 @@ const navClass = ({
 
 
 
-  `
 
 
 
-    group
 
-
-
-    relative
-
-
-
-    flex
-
-
-
-    min-h-[42px]
-
-
-
-    items-center
-
-
-
-    gap-3
-
-
-
-    px-6
-
-
-
-    text-[12px]
-
-
-
-    font-semibold
-
-
-
-    tracking-[0.01em]
-
-
-
-    transition-all
-
-
-
-    duration-200
+  `
 
 
 
@@ -870,27 +1638,159 @@ const navClass = ({
 
 
 
-    ${
+    group
 
 
 
-      isActive
 
 
 
-        ? "bg-white/[0.07] text-white"
+
+    relative
 
 
 
-        : "text-white/50 hover:bg-white/[0.04] hover:text-white"
 
 
 
-    }
+
+    flex
 
 
 
-  `;
+
+
+
+
+    min-h-[42px]
+
+
+
+
+
+
+
+    items-center
+
+
+
+
+
+
+
+    gap-3
+
+
+
+
+
+
+
+    px-6
+
+
+
+
+
+
+
+    text-[12px]
+
+
+
+
+
+
+
+    font-semibold
+
+
+
+
+
+
+
+    tracking-[0.01em]
+
+
+
+
+
+
+
+    transition-all
+
+
+
+
+
+
+
+    duration-200
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    ${
+
+
+
+
+
+
+
+      isActive
+
+
+
+
+
+
+
+        ? "bg-white/[0.07] text-white"
+
+
+
+
+
+
+
+        : "text-white/50 hover:bg-white/[0.04] hover:text-white"
+
+
+
+
+
+
+
+    }
+
+
+
+
+
+
+
+  `;
+
+
+
+
+
+
+
+
 
 
 
@@ -902,11 +1802,27 @@ const navClass = ({
 
 
 
-   ACCOUNT LAYOUT
+
+
+
+
+   ACCOUNT LAYOUT
+
+
+
+
 
 
 
 ========================================================= */
+
+
+
+
+
+
+
+
 
 
 
@@ -918,61 +1834,51 @@ const AccountLayout = () => {
 
 
 
-  const {
 
 
 
-    user,
 
+  const {
 
 
-    logout,
 
 
 
-  } = useAuth();
 
 
+    user,
 
 
 
 
 
-  const navigate =
 
 
+    logout,
 
-    useNavigate();
 
 
 
 
 
 
+  } = useAuth();
 
-  const transparentLogo =
 
 
 
-    useTransparentLogo(logo);
 
 
 
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
 
 
-  useEffect(() => {
 
-    if (!mobileMenuOpen) return undefined;
 
-    const previousOverflow = document.body.style.overflow;
 
-    document.body.style.overflow = "hidden";
 
-    return () => { document.body.style.overflow = previousOverflow; };
 
-  }, [mobileMenuOpen]);
+  const navigate =
 
 
 
@@ -980,17 +1886,15 @@ const AccountLayout = () => {
 
 
 
+    useNavigate();
 
 
-  const handleLogout =
 
 
 
-    async () => {
 
 
 
-      await logout();
 
 
 
@@ -998,265 +1902,569 @@ const AccountLayout = () => {
 
 
 
-      navigate("/");
+  const transparentLogo =
 
 
 
-    };
 
 
 
 
+    useTransparentLogo(logo);
 
 
 
-  return (
 
 
 
-    <div
 
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
 
-      className="
 
 
 
-        min-h-screen
 
 
+  useEffect(() => {
 
-        bg-[#F7F6F3]
 
 
+    if (!mobileMenuOpen) return undefined;
 
-        text-[#171717]
 
 
+    const previousOverflow = document.body.style.overflow;
 
 
 
+    document.body.style.overflow = "hidden";
 
 
-        lg:grid
 
+    return () => { document.body.style.overflow = previousOverflow; };
 
 
-        lg:h-screen
 
+  }, [mobileMenuOpen]);
 
 
-        lg:min-h-0
 
 
 
-        lg:grid-cols-[290px_minmax(0,1fr)]
 
 
 
-        lg:overflow-hidden
 
 
 
-      "
 
 
 
-    >
 
 
 
-      <div className="sticky top-0 z-40 flex h-[68px] items-center justify-between border-b border-black/[0.07] bg-[#FFFDF9]/95 px-3.5 shadow-[0_8px_30px_rgba(30,22,12,.06)] backdrop-blur-xl sm:px-5 lg:hidden">
 
-        <button type="button" onClick={() => navigate("/")} className="group flex min-w-0 items-center gap-2.5 text-left" aria-label="HAMPORIUM home">
-          <span className="flex h-[50px] w-[38px] shrink-0 items-center justify-center sm:h-[56px] sm:w-[46px]">
-            <img
-              src={transparentLogo}
-              alt=""
-              className="block h-full w-full object-contain transition duration-300 group-hover:scale-[1.025]"
-            />
-          </span>
-          <span className="min-w-0">
-            <strong
-              style={{ fontFamily: "'Cormorant Garamond', Georgia, serif" }}
-              className="block truncate text-[19px] font-semibold leading-none tracking-[0.04em] text-[#252119] sm:text-[24px] sm:tracking-[0.065em]"
-            >
-              HAMPORIUM
-            </strong>
-            <small className="mt-[6px] block truncate text-[7.3px] font-medium leading-none tracking-[0.01em] text-[#71695D] sm:text-[8px] sm:tracking-[0.035em]">
-              The art of thoughtful gifting
-            </small>
-          </span>
-        </button>
 
-        <button type="button" onClick={() => setMobileMenuOpen(true)} aria-label="Open account navigation" aria-expanded={mobileMenuOpen} className="flex h-11 w-11 shrink-0 flex-col items-center justify-center gap-[5px] rounded-[14px] border border-[#D4AF37]/25 bg-[#171717] text-white shadow-[0_8px_20px_rgba(0,0,0,.14)] transition active:scale-95">
+  const handleLogout =
 
-          <span className="h-[1.5px] w-[18px] rounded-full bg-[#F4D574]"/><span className="h-[1.5px] w-[14px] translate-x-[2px] rounded-full bg-white"/><span className="h-[1.5px] w-[18px] rounded-full bg-[#F4D574]"/>
 
-        </button>
 
-      </div>
 
-      {mobileMenuOpen && <button type="button" aria-label="Close navigation" onClick={() => setMobileMenuOpen(false)} className="fixed inset-0 z-40 bg-black/55 backdrop-blur-[2px] lg:hidden"/>}
 
 
 
-      {/* =====================================================
+    async () => {
 
 
 
-          SIDEBAR
 
 
 
-      ===================================================== */}
 
+      await logout();
 
 
 
 
 
 
-      <aside
 
-        onClickCapture={(event) => { if (event.target.closest("a[href]")) setMobileMenuOpen(false); }}
 
-        className={`fixed inset-y-0 left-0 z-50 w-[min(88vw,320px)] min-w-0 overflow-y-auto bg-[#171717] text-white shadow-[28px_0_70px_rgba(0,0,0,.30)] transition-transform duration-300 ease-out [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:static lg:z-auto lg:h-screen lg:w-auto lg:translate-x-0 lg:shadow-none ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`}
 
-      >
 
-        <button type="button" onClick={() => setMobileMenuOpen(false)} aria-label="Close account navigation" className="absolute right-3 top-3 z-20 flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-[22px] font-light leading-none text-white/70 lg:hidden">×</button>
 
 
 
-        <div
 
 
+      navigate("/");
 
-          className="
 
 
 
-            flex
 
 
 
-            min-h-full
+    };
 
 
 
-            flex-col
 
 
 
-          "
 
 
 
-        >
 
 
 
-          {/* =================================================
 
 
 
-              LOGO
+  return (
 
 
 
-          ================================================= */}
 
 
 
 
+    <div
 
 
 
-          <button
 
 
 
-            type="button"
 
+      className="
 
 
-            onClick={() =>
 
 
 
-              navigate("/")
 
 
+        min-h-screen overflow-x-hidden
 
-            }
 
 
 
-            className="
 
 
 
-              group
+        bg-[#F7F6F3]
 
 
 
-              w-full
 
 
 
-              shrink-0
 
+        text-[#171717]
 
 
-              border-b
 
 
 
-              border-white/[0.07]
 
 
 
-              px-6
 
 
 
-              py-5
 
 
+
+
+        lg:grid
+
+
+
+
+
+
+
+        lg:h-screen
+
+
+
+
+
+
+
+        lg:min-h-0
+
+
+
+
+
+
+
+        lg:grid-cols-[290px_minmax(0,1fr)]
+
+
+
+
+
+
+
+        lg:overflow-hidden
+
+
+
+
+
+
+
+      "
+
+
+
+
+
+
+
+    >
+
+
+
+
+
+
+
+      <div className="sticky top-0 z-40 flex h-[68px] items-center justify-between border-b border-black/[0.07] bg-[#FFFDF9]/95 px-3.5 shadow-[0_8px_30px_rgba(30,22,12,.06)] backdrop-blur-xl sm:px-5 lg:hidden">
+
+
+
+        <button type="button" onClick={() => navigate("/")} className="group flex min-w-0 flex-1 items-center gap-2 pr-2 text-left sm:gap-2.5" aria-label="HAMPORIUM home">
+
+          <span className="flex h-[44px] w-[34px] shrink-0 items-center justify-center min-[360px]:h-[48px] min-[360px]:w-[38px] sm:h-[54px] sm:w-[44px]">
+
+            <img
+
+              src={transparentLogo}
+
+              alt=""
+
+              className="block h-full w-full object-contain transition duration-300 group-hover:scale-[1.025]"
+
+            />
+
+          </span>
+
+          <span className="min-w-0 flex-1 overflow-visible">
+
+            <strong
+
+              style={{ fontFamily: "'Cormorant Garamond', Georgia, serif" }}
+
+              className="block max-w-full whitespace-nowrap pb-[2px] text-[clamp(17px,5.2vw,24px)] font-semibold leading-[1.12] tracking-[0.025em] text-[#252119] sm:tracking-[0.055em]"
+
+            >
+
+              HAMPORIUM
+
+            </strong>
+
+            <small className="mt-[4px] block max-w-full whitespace-nowrap text-[clamp(6.4px,2vw,8px)] font-medium leading-[1.15] tracking-[0.005em] text-[#71695D] sm:mt-[5px] sm:tracking-[0.025em]">
+
+              The art of thoughtful gifting
+
+            </small>
+
+          </span>
+
+        </button>
+
+
+
+        <button type="button" onClick={() => setMobileMenuOpen(true)} aria-label="Open account navigation" aria-expanded={mobileMenuOpen} className="flex h-11 w-11 shrink-0 flex-col items-center justify-center gap-[5px] rounded-[14px] border border-[#D4AF37]/25 bg-[#171717] text-white shadow-[0_8px_20px_rgba(0,0,0,.14)] transition active:scale-95">
+
+
+
+          <span className="h-[1.5px] w-[18px] rounded-full bg-[#F4D574]"/><span className="h-[1.5px] w-[14px] translate-x-[2px] rounded-full bg-white"/><span className="h-[1.5px] w-[18px] rounded-full bg-[#F4D574]"/>
+
+
+
+        </button>
+
+
+
+      </div>
+
+
+
+      {mobileMenuOpen && <button type="button" aria-label="Close navigation" onClick={() => setMobileMenuOpen(false)} className="fixed inset-0 z-40 bg-black/55 backdrop-blur-[2px] lg:hidden"/>}
+
+
+
+
+
+
+
+      {/* =====================================================
+
+
+
+
+
+
+
+          SIDEBAR
+
+
+
+
+
+
+
+      ===================================================== */}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      <aside
+
+
+
+        onClickCapture={(event) => { if (event.target.closest("a[href]")) setMobileMenuOpen(false); }}
+
+
+
+        className={`fixed inset-y-0 left-0 z-50 w-[min(88vw,320px)] min-w-0 overflow-y-auto bg-[#171717] text-white shadow-[28px_0_70px_rgba(0,0,0,.30)] transition-transform duration-300 ease-out [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:static lg:z-auto lg:h-screen lg:w-auto lg:translate-x-0 lg:shadow-none ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`}
+
+
+
+      >
+
+
+
+        <button type="button" onClick={() => setMobileMenuOpen(false)} aria-label="Close account navigation" className="absolute right-3 top-3 z-20 flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-[22px] font-light leading-none text-white/70 lg:hidden">×</button>
+
+
+
+
+
+
+
+        <div
+
+
+
+
+
+
+
+          className="
+
+
+
+
+
+
+
+            flex
+
+
+
+
+
+
+
+            min-h-full
+
+
+
+
+
+
+
+            flex-col
+
+
+
+
+
+
+
+          "
+
+
+
+
+
+
+
+        >
+
+
+
+
+
+
+
+          {/* =================================================
+
+
+
+
+
+
+
+              LOGO
+
+
+
+
+
+
+
+          ================================================= */}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+          <button
+
+
+
+
+
+
+
+            type="button"
+
+
+
+
+
+
+
+            onClick={() =>
+
+
+
+
+
+
+
+              navigate("/")
+
+
+
+
+
+
+
+            }
+
+
+
+
+
+
+
+            className="
+
+
+
+
+
+
+
+              group
+
+
+
+
+
+
+
+              w-full
+
+
+
+
+
+
+
+              shrink-0
+
+
+
+
+
+
+
+              border-b
+
+
+
+
+
+
+
+              border-white/[0.07]
+
+
+
+
+
+
+
+              px-5
+
+
+
+
+
+
+
+              py-5
+
+
+
+
+
+
+
+              pr-14
 
               text-left
 
+              lg:pr-5
 
 
-            "
 
 
 
-          >
 
-            <div className="flex items-center gap-[10px]">
-              <span className="flex h-[64px] w-[54px] shrink-0 items-center justify-center">
-                <img
-                  src={transparentLogo}
-                  alt=""
-                  className="block h-full w-full object-contain transition duration-300 group-hover:scale-[1.025]"
-                />
-              </span>
-              <span className="min-w-0">
-                <span
-                  style={{ fontFamily: "'Cormorant Garamond', Georgia, serif" }}
-                  className="block truncate text-[25px] font-semibold leading-none tracking-[0.065em] text-white"
-                >
-                  HAMPORIUM
-                </span>
-                <span className="mt-[7px] block truncate text-[9px] font-medium leading-none tracking-[0.035em] text-white/55">
-                  The art of thoughtful gifting
-                </span>
-              </span>
-            </div>
 
-          </button>
+            "
 
 
 
@@ -1264,87 +2472,93 @@ const AccountLayout = () => {
 
 
 
-          {/* =================================================
+          >
 
 
 
-              NAVIGATION
+            <div className="flex min-w-0 items-center gap-2">
 
+              <span className="flex h-[56px] w-[44px] shrink-0 items-center justify-center xl:h-[58px] xl:w-[46px]">
 
+                <img
 
-          ================================================= */}
+                  src={transparentLogo}
 
+                  alt=""
 
+                  className="block h-full w-full object-contain transition duration-300 group-hover:scale-[1.025]"
 
+                />
 
+              </span>
 
+              <span className="min-w-0 flex-1 overflow-visible">
 
+                <span
 
-          <nav
+                  style={{ fontFamily: "'Cormorant Garamond', Georgia, serif" }}
 
+                  className="block whitespace-nowrap pb-[2px] text-[22px] font-semibold leading-[1.12] tracking-[0.04em] text-white xl:text-[23px] xl:tracking-[0.05em]"
 
+                >
 
-            className="
+                  HAMPORIUM
 
+                </span>
 
+                <span className="mt-[5px] block whitespace-nowrap text-[8px] font-medium leading-[1.15] tracking-[0.02em] text-white/55 xl:text-[8.5px]">
 
-              flex-1
+                  The art of thoughtful gifting
 
+                </span>
 
+              </span>
 
-              pb-4
+            </div>
 
 
 
-              pt-2
+          </button>
 
 
 
-            "
 
 
 
-          >
 
 
 
-            <NavItem
 
 
 
-              end
 
 
 
-              to="/account"
+          {/* =================================================
 
 
 
-              label="Dashboard"
 
 
 
-              icon={<GridIcon />}
 
+              NAVIGATION
 
 
-            />
 
 
 
 
 
+          ================================================= */}
 
 
-            {/* ===============================================
 
 
 
-                SHOPPING
 
 
 
-            =============================================== */}
 
 
 
@@ -1352,115 +2566,104 @@ const AccountLayout = () => {
 
 
 
-            <NavSection
+          <nav
 
 
 
-              number="01"
 
 
 
-              first
 
+            className="
 
 
-            >
 
 
 
-              Shopping
 
 
+              flex-1
 
-            </NavSection>
 
 
 
 
 
 
+              pb-4
 
-            <NavItem
 
 
 
-              to="/account/orders"
 
 
 
-              label="My Orders"
+              pt-2
 
 
 
-              icon={<BagIcon />}
 
 
 
-            />
 
+            "
 
 
 
 
 
 
-            <NavItem
 
+          >
 
 
-              to="/account/payments"
 
 
 
-              label="Payments"
 
 
+            <NavItem
 
-              icon={<CardIcon />}
 
 
 
-            />
 
 
 
+              end
 
 
 
 
-            <NavItem
 
 
 
-              to="/account/reviews"
+              to="/account"
 
 
 
-              label="My Reviews"
 
 
 
-              icon={<StarIcon />}
 
+              label="Dashboard"
 
 
-            />
 
 
 
 
 
+              icon={<GridIcon />}
 
 
-            {/* ===============================================
 
 
 
-                CUSTOM & BULK GIFTING
 
 
+            />
 
-            =============================================== */}
 
 
 
@@ -1468,71 +2671,62 @@ const AccountLayout = () => {
 
 
 
-            <NavSection number="02">
 
 
 
-              Custom & Bulk Gifting
 
 
 
-            </NavSection>
 
+            {/* ===============================================
 
 
 
 
 
 
-            <NavItem
 
+                SHOPPING
 
 
-              to="/account/corporate/rfqs"
 
 
 
-              label="Bulk Requests / RFQs"
 
 
+            =============================================== */}
 
-              icon={
 
 
 
-                <DocumentIcon />
 
 
 
-              }
 
 
 
-            />
 
 
 
 
 
+            <NavSection
 
 
-            <NavItem
 
 
 
-              to="/account/corporate/quotes"
 
 
+              number="01"
 
-              label="Quotations"
 
 
 
-              icon={<QuoteIcon />}
 
 
 
-            />
+              first
 
 
 
@@ -1540,31 +2734,28 @@ const AccountLayout = () => {
 
 
 
-            {/* ===============================================
+            >
 
 
 
-                MY ACCOUNT
 
 
 
-            =============================================== */}
 
+              Shopping
 
 
 
 
 
 
-            <NavSection number="03">
 
+            </NavSection>
 
 
-              My Account
 
 
 
-            </NavSection>
 
 
 
@@ -1572,47 +2763,42 @@ const AccountLayout = () => {
 
 
 
-            <NavItem
 
 
 
-              to="/account/profile"
+            <NavItem
 
 
 
-              label="My Profile"
 
 
 
-              icon={<UserIcon />}
 
+              to="/account/orders"
 
 
-            />
 
 
 
 
 
+              label="My Orders"
 
 
-            <NavItem
 
 
 
-              to="/account/addresses"
 
 
+              icon={<BagIcon />}
 
-              label="Saved Addresses"
 
 
 
-              icon={<PinIcon />}
 
 
 
-            />
+            />
 
 
 
@@ -1620,59 +2806,51 @@ const AccountLayout = () => {
 
 
 
-            <NavItem
 
 
 
-              to="/account/refunds"
 
 
 
-              label="Refunds"
 
 
+            <NavItem
 
-              icon={<RefundIcon />}
 
 
 
-            />
 
 
 
+              to="/account/payments"
 
 
 
 
-            <NavItem
 
 
 
-              to="/account/support"
+              label="Payments"
 
 
 
-              label="Help & Support"
 
 
 
-              icon={
 
+              icon={<CardIcon />}
 
 
-                <SupportIcon />
 
 
 
-              }
 
 
+            />
 
-            />
 
 
 
-          </nav>
 
 
 
@@ -1680,211 +2858,179 @@ const AccountLayout = () => {
 
 
 
-          {/* =================================================
 
 
 
-              USER FOOTER
 
+            <NavItem
 
 
-          ================================================= */}
 
 
 
 
 
+              to="/account/reviews"
 
 
-          <div
 
 
 
-            className="
 
 
+              label="My Reviews"
 
-              shrink-0
 
 
 
-              border-t
 
 
 
-              border-white/[0.07]
+              icon={<StarIcon />}
 
 
 
-              px-6
 
 
 
-              py-4
 
+            />
 
 
-            "
 
 
 
-          >
 
 
 
-            <div
 
 
 
-              className="
 
 
 
-                flex
 
+            {/* ===============================================
 
 
-                items-center
 
 
 
-                justify-between
 
 
+                CUSTOM & BULK GIFTING
 
-                gap-3
 
 
 
-              "
 
 
 
-            >
+            =============================================== */}
 
 
 
-              <div
 
 
 
-                className="
 
 
 
-                  min-w-0
 
 
 
-                  flex-1
 
 
 
-                "
+            <NavSection number="02">
 
 
 
-              >
 
 
 
-                <p
 
+              Custom & Bulk Gifting
 
 
-                  className="
 
 
 
-                    truncate
 
 
+            </NavSection>
 
-                    font-serif
 
 
 
-                    text-[14px]
 
 
 
-                    font-semibold
 
 
 
-                    text-white
 
 
 
-                  "
 
 
+            <NavItem
 
-                >
 
 
 
-                  {user?.name ||
 
 
 
-                    "Customer"}
+              to="/account/corporate/rfqs"
 
 
 
-                </p>
 
 
 
 
+              label="Bulk Requests / RFQs"
 
 
 
-                <p
 
 
 
-                  className="
 
+              icon={
 
 
-                    mt-1
 
 
 
-                    truncate
 
 
+                <DocumentIcon />
 
-                    text-[9px]
 
 
 
-                    font-medium
 
 
 
-                    text-white/35
+              }
 
 
 
-                  "
 
 
 
-                >
 
+            />
 
 
-                  {user?.email}
 
 
 
-                </p>
 
 
 
-              </div>
 
 
 
@@ -1892,87 +3038,75 @@ const AccountLayout = () => {
 
 
 
-              <button
+            <NavItem
 
 
 
-                type="button"
 
 
 
-                onClick={
 
+              to="/account/corporate/quotes"
 
 
-                  handleLogout
 
 
 
-                }
 
 
+              label="Quotations"
 
-                title="Logout"
 
 
 
-                aria-label="Logout"
 
 
 
-                className="
+              icon={<QuoteIcon />}
 
 
 
-                  group
 
 
 
-                  flex
 
+            />
 
 
-                  h-9
 
 
 
-                  w-9
 
 
 
-                  shrink-0
 
 
 
-                  items-center
 
 
 
-                  justify-center
 
+            {/* ===============================================
 
 
-                  rounded-full
 
 
 
-                  border
 
 
+                MY ACCOUNT
 
-                  border-white/[0.1]
 
 
 
-                  text-white/35
 
 
 
+            =============================================== */}
 
 
 
 
-                  transition
 
 
 
@@ -1980,123 +3114,107 @@ const AccountLayout = () => {
 
 
 
-                  hover:border-red-400/30
 
 
 
-                  hover:bg-red-500/[0.08]
 
+            <NavSection number="03">
 
 
-                  hover:text-red-400
 
 
 
-                "
 
 
+              My Account
 
-              >
 
 
 
-                <LogoutIcon />
 
 
 
-              </button>
+            </NavSection>
 
 
 
-            </div>
 
 
 
-          </div>
 
 
 
-        </div>
 
 
 
-      </aside>
 
 
 
+            <NavItem
 
 
 
 
-      {/* =====================================================
 
 
 
-          PAGE CONTENT
+              to="/account/profile"
 
 
 
-      ===================================================== */}
 
 
 
 
+              label="My Profile"
 
 
 
-      <main
 
 
 
-        className="
 
+              icon={<UserIcon />}
 
 
-          min-w-0
 
 
 
-          bg-[#F7F6F3]
 
 
+            />
 
 
 
 
 
-          lg:h-screen
 
 
 
-          lg:overflow-y-auto
 
 
 
-        "
 
 
 
-      >
 
+            <NavItem
 
 
-        <div
 
 
 
-          className="
 
 
+              to="/account/addresses"
 
-            w-full
 
 
 
-            px-4
 
 
 
-            py-5
+              label="Saved Addresses"
 
 
 
@@ -2104,7 +3222,7 @@ const AccountLayout = () => {
 
 
 
-            sm:px-8
+              icon={<PinIcon />}
 
 
 
@@ -2112,11 +3230,10 @@ const AccountLayout = () => {
 
 
 
-            lg:px-10
+            />
 
 
 
-            lg:py-8
 
 
 
@@ -2124,43 +3241,1096 @@ const AccountLayout = () => {
 
 
 
-            xl:px-12
 
 
 
 
 
+            <NavItem
 
 
-            2xl:px-14
 
 
 
-          "
 
 
+              to="/account/refunds"
 
-        >
 
 
 
-          <Outlet />
 
 
 
-        </div>
+              label="Refunds"
 
 
 
-      </main>
 
 
 
-    </div>
 
+              icon={<RefundIcon />}
 
 
-  );
+
+
+
+
+
+            />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            <NavItem
+
+
+
+
+
+
+
+              to="/account/support"
+
+
+
+
+
+
+
+              label="Help & Support"
+
+
+
+
+
+
+
+              icon={
+
+
+
+
+
+
+
+                <SupportIcon />
+
+
+
+
+
+
+
+              }
+
+
+
+
+
+
+
+            />
+
+
+
+
+
+
+
+          </nav>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+          {/* =================================================
+
+
+
+
+
+
+
+              USER FOOTER
+
+
+
+
+
+
+
+          ================================================= */}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+          <div
+
+
+
+
+
+
+
+            className="
+
+
+
+
+
+
+
+              shrink-0
+
+
+
+
+
+
+
+              border-t
+
+
+
+
+
+
+
+              border-white/[0.07]
+
+
+
+
+
+
+
+              px-6
+
+
+
+
+
+
+
+              py-4
+
+
+
+
+
+
+
+            "
+
+
+
+
+
+
+
+          >
+
+
+
+
+
+
+
+            <div
+
+
+
+
+
+
+
+              className="
+
+
+
+
+
+
+
+                flex
+
+
+
+
+
+
+
+                items-center
+
+
+
+
+
+
+
+                justify-between
+
+
+
+
+
+
+
+                gap-3
+
+
+
+
+
+
+
+              "
+
+
+
+
+
+
+
+            >
+
+
+
+
+
+
+
+              <div
+
+
+
+
+
+
+
+                className="
+
+
+
+
+
+
+
+                  min-w-0
+
+
+
+
+
+
+
+                  flex-1
+
+
+
+
+
+
+
+                "
+
+
+
+
+
+
+
+              >
+
+
+
+
+
+
+
+                <p
+
+
+
+
+
+
+
+                  className="
+
+
+
+
+
+
+
+                    truncate
+
+
+
+
+
+
+
+                    font-serif
+
+
+
+
+
+
+
+                    text-[14px]
+
+
+
+
+
+
+
+                    font-semibold
+
+
+
+
+
+
+
+                    text-white
+
+
+
+
+
+
+
+                  "
+
+
+
+
+
+
+
+                >
+
+
+
+
+
+
+
+                  {user?.name ||
+
+
+
+
+
+
+
+                    "Customer"}
+
+
+
+
+
+
+
+                </p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <p
+
+
+
+
+
+
+
+                  className="
+
+
+
+
+
+
+
+                    mt-1
+
+
+
+
+
+
+
+                    truncate
+
+
+
+
+
+
+
+                    text-[9px]
+
+
+
+
+
+
+
+                    font-medium
+
+
+
+
+
+
+
+                    text-white/35
+
+
+
+
+
+
+
+                  "
+
+
+
+
+
+
+
+                >
+
+
+
+
+
+
+
+                  {user?.email}
+
+
+
+
+
+
+
+                </p>
+
+
+
+
+
+
+
+              </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+              <button
+
+
+
+
+
+
+
+                type="button"
+
+
+
+
+
+
+
+                onClick={
+
+
+
+
+
+
+
+                  handleLogout
+
+
+
+
+
+
+
+                }
+
+
+
+
+
+
+
+                title="Logout"
+
+
+
+
+
+
+
+                aria-label="Logout"
+
+
+
+
+
+
+
+                className="
+
+
+
+
+
+
+
+                  group
+
+
+
+
+
+
+
+                  flex
+
+
+
+
+
+
+
+                  h-9
+
+
+
+
+
+
+
+                  w-9
+
+
+
+
+
+
+
+                  shrink-0
+
+
+
+
+
+
+
+                  items-center
+
+
+
+
+
+
+
+                  justify-center
+
+
+
+
+
+
+
+                  rounded-full
+
+
+
+
+
+
+
+                  border
+
+
+
+
+
+
+
+                  border-white/[0.1]
+
+
+
+
+
+
+
+                  text-white/35
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                  transition
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                  hover:border-red-400/30
+
+
+
+
+
+
+
+                  hover:bg-red-500/[0.08]
+
+
+
+
+
+
+
+                  hover:text-red-400
+
+
+
+
+
+
+
+                "
+
+
+
+
+
+
+
+              >
+
+
+
+
+
+
+
+                <LogoutIcon />
+
+
+
+
+
+
+
+              </button>
+
+
+
+
+
+
+
+            </div>
+
+
+
+
+
+
+
+          </div>
+
+
+
+
+
+
+
+        </div>
+
+
+
+
+
+
+
+      </aside>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      {/* =====================================================
+
+
+
+
+
+
+
+          PAGE CONTENT
+
+
+
+
+
+
+
+      ===================================================== */}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      <main
+
+
+
+
+
+
+
+        className="
+
+
+
+
+
+
+
+          min-w-0
+
+
+
+
+
+
+
+          bg-[#F7F6F3]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+          lg:h-screen
+
+
+
+
+
+
+
+          lg:overflow-y-auto
+
+
+
+
+
+
+
+        "
+
+
+
+
+
+
+
+      >
+
+
+
+
+
+
+
+        <div
+
+
+
+
+
+
+
+          className="
+
+
+
+
+
+
+
+            w-full
+
+
+
+
+
+
+
+            px-4
+
+
+
+
+
+
+
+            py-5
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            sm:px-8
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            lg:px-10
+
+
+
+
+
+
+
+            lg:py-8
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            xl:px-12
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            2xl:px-14
+
+
+
+
+
+
+
+          "
+
+
+
+
+
+
+
+        >
+
+
+
+
+
+
+
+          <Outlet />
+
+
+
+
+
+
+
+        </div>
+
+
+
+
+
+
+
+      </main>
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+  );
+
+
+
+
 
 
 
@@ -2172,15 +4342,39 @@ const AccountLayout = () => {
 
 
 
+
+
+
+
+
+
+
+
 /* =========================================================
 
 
 
-   NAV ITEM
+
+
+
+
+   NAV ITEM
+
+
+
+
 
 
 
 ========================================================= */
+
+
+
+
+
+
+
+
 
 
 
@@ -2192,19 +4386,39 @@ const NavItem = ({
 
 
 
-  to,
 
 
 
-  label,
+
+  to,
 
 
 
-  icon,
 
 
 
-  end = false,
+
+  label,
+
+
+
+
+
+
+
+  icon,
+
+
+
+
+
+
+
+  end = false,
+
+
+
+
 
 
 
@@ -2212,271 +4426,543 @@ const NavItem = ({
 
 
 
-  <NavLink
 
 
 
-    end={end}
 
+  <NavLink
 
 
-    to={to}
 
 
 
-    className={navClass}
 
 
+    end={end}
 
-  >
 
 
 
-    {({ isActive }) => (
 
 
 
-      <>
+    to={to}
 
 
 
-        <span
 
 
 
-          className={`
 
+    className={navClass}
 
 
-            absolute
 
 
 
-            bottom-2
 
 
+  >
 
-            left-0
 
 
 
-            top-2
 
 
 
-            w-[3px]
+    {({ isActive }) => (
 
 
 
-            rounded-r-full
 
 
 
-            transition
 
+      <>
 
 
 
 
 
 
-            ${
 
+        <span
 
 
-              isActive
 
 
 
-                ? "bg-[#F97316]"
 
 
+          className={`
 
-                : "bg-transparent"
 
 
 
-            }
 
 
 
-          `}
+            absolute
 
 
 
-        />
 
 
 
 
+            bottom-2
 
 
 
-        <span
 
 
 
-          className={`
 
+            left-0
 
 
-            flex
 
 
 
-            h-7
 
 
+            top-2
 
-            w-7
 
 
 
-            shrink-0
 
 
 
-            items-center
+            w-[3px]
 
 
 
-            justify-center
 
 
 
-            transition
 
+            rounded-r-full
 
 
 
 
 
 
-            ${
 
+            transition
 
 
-              isActive
 
 
 
-                ? "text-[#F97316]"
 
 
 
-                : "text-white/25 group-hover:text-[#D4AF37]"
 
 
 
-            }
 
 
 
-          `}
 
+            ${
 
 
-        >
 
 
 
-          {icon}
 
 
+              isActive
 
-        </span>
 
 
 
 
 
 
+                ? "bg-[#F97316]"
 
-        <span
 
 
 
-          className="
 
 
 
-            truncate
+                : "bg-transparent"
 
 
 
-          "
 
 
 
-        >
 
+            }
 
 
-          {label}
 
 
 
-        </span>
 
 
+          `}
 
 
 
 
 
-        {isActive && (
 
 
+        />
 
-          <span
 
 
 
-            className="
 
 
 
-              ml-auto
 
 
 
-              h-1.5
 
 
 
-              w-1.5
 
 
+        <span
 
-              rounded-full
 
 
 
-              bg-[#D4AF37]
 
 
 
-            "
+          className={`
 
 
 
-          />
 
 
 
-        )}
 
+            flex
 
 
-      </>
 
 
 
-    )}
 
 
+            h-7
 
-  </NavLink>
+
+
+
+
+
+
+            w-7
+
+
+
+
+
+
+
+            shrink-0
+
+
+
+
+
+
+
+            items-center
+
+
+
+
+
+
+
+            justify-center
+
+
+
+
+
+
+
+            transition
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            ${
+
+
+
+
+
+
+
+              isActive
+
+
+
+
+
+
+
+                ? "text-[#F97316]"
+
+
+
+
+
+
+
+                : "text-white/25 group-hover:text-[#D4AF37]"
+
+
+
+
+
+
+
+            }
+
+
+
+
+
+
+
+          `}
+
+
+
+
+
+
+
+        >
+
+
+
+
+
+
+
+          {icon}
+
+
+
+
+
+
+
+        </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <span
+
+
+
+
+
+
+
+          className="
+
+
+
+
+
+
+
+            truncate
+
+
+
+
+
+
+
+          "
+
+
+
+
+
+
+
+        >
+
+
+
+
+
+
+
+          {label}
+
+
+
+
+
+
+
+        </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        {isActive && (
+
+
+
+
+
+
+
+          <span
+
+
+
+
+
+
+
+            className="
+
+
+
+
+
+
+
+              ml-auto
+
+
+
+
+
+
+
+              h-1.5
+
+
+
+
+
+
+
+              w-1.5
+
+
+
+
+
+
+
+              rounded-full
+
+
+
+
+
+
+
+              bg-[#D4AF37]
+
+
+
+
+
+
+
+            "
+
+
+
+
+
+
+
+          />
+
+
+
+
+
+
+
+        )}
+
+
+
+
+
+
+
+      </>
+
+
+
+
+
+
+
+    )}
+
+
+
+
+
+
+
+  </NavLink>
+
+
+
+
 
 
 
@@ -2488,15 +4974,39 @@ const NavItem = ({
 
 
 
+
+
+
+
+
+
+
+
 /* =========================================================
 
 
 
-   NAV SECTION
+
+
+
+
+   NAV SECTION
+
+
+
+
 
 
 
 ========================================================= */
+
+
+
+
+
+
+
+
 
 
 
@@ -2508,15 +5018,31 @@ const NavSection = ({
 
 
 
-  children,
 
 
 
-  number,
+
+  children,
 
 
 
-  first = false,
+
+
+
+
+  number,
+
+
+
+
+
+
+
+  first = false,
+
+
+
+
 
 
 
@@ -2524,31 +5050,27 @@ const NavSection = ({
 
 
 
-  <div
 
 
 
-    className={`
 
+  <div
 
 
-      mb-1.5
 
 
 
-      flex
 
 
+    className={`
 
-      items-center
 
 
 
-      gap-3
 
 
 
-      px-6
+      mb-1.5
 
 
 
@@ -2556,159 +5078,355 @@ const NavSection = ({
 
 
 
-      ${
+      flex
 
 
 
-        first
 
 
 
-          ? "mt-3"
 
+      items-center
 
 
-          : "mt-5"
 
 
 
-      }
 
 
+      gap-3
 
-    `}
 
 
 
-  >
 
 
 
-    <span
+      px-6
 
 
 
-      className="
 
 
 
-        font-serif
 
 
 
-        text-[10px]
 
 
 
-        italic
 
 
 
-        text-[#D4AF37]/80
+      ${
 
 
 
-      "
 
 
 
-    >
 
+        first
 
 
-      {number}
 
 
 
-    </span>
 
 
+          ? "mt-3"
 
 
 
 
 
-    <span
 
 
+          : "mt-5"
 
-      className="
 
 
 
-        whitespace-nowrap
 
 
 
-        text-[8px]
+      }
 
 
 
-        font-bold
 
 
 
-        uppercase
 
+    `}
 
 
-        tracking-[0.22em]
 
 
 
-        text-white/25
 
 
+  >
 
-      "
 
 
 
-    >
 
 
 
-      {children}
+    <span
 
 
 
-    </span>
 
 
 
 
+      className="
 
 
 
-    <span
 
 
 
-      className="
 
+        font-serif
 
 
-        h-px
 
 
 
-        flex-1
 
 
+        text-[10px]
 
-        bg-white/[0.07]
 
 
 
-      "
 
 
 
-    />
+        italic
 
 
 
-  </div>
+
+
+
+
+        text-[#D4AF37]/80
+
+
+
+
+
+
+
+      "
+
+
+
+
+
+
+
+    >
+
+
+
+
+
+
+
+      {number}
+
+
+
+
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span
+
+
+
+
+
+
+
+      className="
+
+
+
+
+
+
+
+        whitespace-nowrap
+
+
+
+
+
+
+
+        text-[8px]
+
+
+
+
+
+
+
+        font-bold
+
+
+
+
+
+
+
+        uppercase
+
+
+
+
+
+
+
+        tracking-[0.22em]
+
+
+
+
+
+
+
+        text-white/25
+
+
+
+
+
+
+
+      "
+
+
+
+
+
+
+
+    >
+
+
+
+
+
+
+
+      {children}
+
+
+
+
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span
+
+
+
+
+
+
+
+      className="
+
+
+
+
+
+
+
+        h-px
+
+
+
+
+
+
+
+        flex-1
+
+
+
+
+
+
+
+        bg-white/[0.07]
+
+
+
+
+
+
+
+      "
+
+
+
+
+
+
+
+    />
+
+
+
+
+
+
+
+  </div>
+
+
+
+
 
 
 
@@ -2720,15 +5438,39 @@ const NavSection = ({
 
 
 
+
+
+
+
+
+
+
+
 /* =========================================================
 
 
 
-   ICON BASE
+
+
+
+
+   ICON BASE
+
+
+
+
 
 
 
 ========================================================= */
+
+
+
+
+
+
+
+
 
 
 
@@ -2740,7 +5482,15 @@ const Icon = ({
 
 
 
-  children,
+
+
+
+
+  children,
+
+
+
+
 
 
 
@@ -2748,67 +5498,139 @@ const Icon = ({
 
 
 
-  <svg
 
 
 
-    viewBox="0 0 24 24"
+
+  <svg
 
 
 
-    fill="none"
 
 
 
-    stroke="currentColor"
+
+    viewBox="0 0 24 24"
 
 
 
-    strokeWidth="1.5"
 
 
 
-    strokeLinecap="round"
+
+    fill="none"
 
 
 
-    strokeLinejoin="round"
 
 
 
-    className="
+
+    stroke="currentColor"
 
 
 
-      h-[17px]
 
 
 
-      w-[17px]
+
+    strokeWidth="1.5"
 
 
 
-    "
 
 
 
-    aria-hidden="true"
+
+    strokeLinecap="round"
 
 
 
-  >
 
 
 
-    {children}
+
+    strokeLinejoin="round"
 
 
 
-  </svg>
+
+
+
+
+    className="
+
+
+
+
+
+
+
+      h-[17px]
+
+
+
+
+
+
+
+      w-[17px]
+
+
+
+
+
+
+
+    "
+
+
+
+
+
+
+
+    aria-hidden="true"
+
+
+
+
+
+
+
+  >
+
+
+
+
+
+
+
+    {children}
+
+
+
+
+
+
+
+  </svg>
+
+
+
+
 
 
 
 );
+
+
+
+
+
+
+
+
 
 
 
@@ -2820,7 +5642,15 @@ const Icon = ({
 
 
 
-   ICONS
+
+
+
+
+   ICONS
+
+
+
+
 
 
 
@@ -2832,71 +5662,71 @@ const Icon = ({
 
 
 
+
+
+
+
+
+
+
+
 const GridIcon = () => (
 
 
 
-  <Icon>
 
 
 
-    <rect
 
+  <Icon>
 
 
-      x="4"
 
 
 
-      y="4"
 
 
+    <rect
 
-      width="6"
 
 
 
-      height="6"
 
 
 
-      rx="1"
+      x="4"
 
 
 
-    />
 
 
 
 
+      y="4"
 
 
 
-    <rect
 
 
 
-      x="14"
 
+      width="6"
 
 
-      y="4"
 
 
 
-      width="6"
 
 
+      height="6"
 
-      height="6"
 
 
 
-      rx="1"
 
 
 
-    />
+      rx="1"
 
 
 
@@ -2904,71 +5734,223 @@ const GridIcon = () => (
 
 
 
-    <rect
+    />
 
 
 
-      x="4"
 
 
 
-      y="14"
 
 
 
-      width="6"
 
 
 
-      height="6"
 
 
 
-      rx="1"
+    <rect
 
 
 
-    />
 
 
 
 
+      x="14"
 
 
 
-    <rect
 
 
 
-      x="14"
 
+      y="4"
 
 
-      y="14"
 
 
 
-      width="6"
 
 
+      width="6"
 
-      height="6"
 
 
 
-      rx="1"
 
 
 
-    />
+      height="6"
 
 
 
-  </Icon>
+
+
+
+
+      rx="1"
+
+
+
+
+
+
+
+    />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <rect
+
+
+
+
+
+
+
+      x="4"
+
+
+
+
+
+
+
+      y="14"
+
+
+
+
+
+
+
+      width="6"
+
+
+
+
+
+
+
+      height="6"
+
+
+
+
+
+
+
+      rx="1"
+
+
+
+
+
+
+
+    />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <rect
+
+
+
+
+
+
+
+      x="14"
+
+
+
+
+
+
+
+      y="14"
+
+
+
+
+
+
+
+      width="6"
+
+
+
+
+
+
+
+      height="6"
+
+
+
+
+
+
+
+      rx="1"
+
+
+
+
+
+
+
+    />
+
+
+
+
+
+
+
+  </Icon>
+
+
+
+
 
 
 
 );
+
+
+
+
+
+
+
+
 
 
 
@@ -2980,27 +5962,59 @@ const BagIcon = () => (
 
 
 
-  <Icon>
-
-
-
-    <path d="M5 7h14l-1 13H6L5 7Z" />
 
 
 
 
+  <Icon>
 
 
 
-    <path d="M9 9V5a3 3 0 0 1 6 0v4" />
 
 
 
-  </Icon>
+
+    <path d="M5 7h14l-1 13H6L5 7Z" />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <path d="M9 9V5a3 3 0 0 1 6 0v4" />
+
+
+
+
+
+
+
+  </Icon>
+
+
+
+
 
 
 
 );
+
+
+
+
+
+
+
+
 
 
 
@@ -3012,35 +6026,11 @@ const CardIcon = () => (
 
 
 
-  <Icon>
 
 
 
-    <rect
 
-
-
-      x="3"
-
-
-
-      y="6"
-
-
-
-      width="18"
-
-
-
-      height="13"
-
-
-
-      rx="2"
-
-
-
-    />
+  <Icon>
 
 
 
@@ -3048,15 +6038,95 @@ const CardIcon = () => (
 
 
 
-    <path d="M3 10h18M7 15h4" />
+    <rect
 
 
 
-  </Icon>
+
+
+
+
+      x="3"
+
+
+
+
+
+
+
+      y="6"
+
+
+
+
+
+
+
+      width="18"
+
+
+
+
+
+
+
+      height="13"
+
+
+
+
+
+
+
+      rx="2"
+
+
+
+
+
+
+
+    />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <path d="M3 10h18M7 15h4" />
+
+
+
+
+
+
+
+  </Icon>
+
+
+
+
 
 
 
 );
+
+
+
+
+
+
+
+
 
 
 
@@ -3068,19 +6138,43 @@ const StarIcon = () => (
 
 
 
-  <Icon>
 
 
 
-    <path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9L12 3Z" />
+
+  <Icon>
 
 
 
-  </Icon>
+
+
+
+
+    <path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9L12 3Z" />
+
+
+
+
+
+
+
+  </Icon>
+
+
+
+
 
 
 
 );
+
+
+
+
+
+
+
+
 
 
 
@@ -3092,27 +6186,59 @@ const DocumentIcon = () => (
 
 
 
-  <Icon>
-
-
-
-    <path d="M6 3h8l4 4v14H6V3Z" />
 
 
 
 
+  <Icon>
 
 
 
-    <path d="M14 3v5h5M9 13h6M9 17h4" />
 
 
 
-  </Icon>
+
+    <path d="M6 3h8l4 4v14H6V3Z" />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <path d="M14 3v5h5M9 13h6M9 17h4" />
+
+
+
+
+
+
+
+  </Icon>
+
+
+
+
 
 
 
 );
+
+
+
+
+
+
+
+
 
 
 
@@ -3124,27 +6250,59 @@ const QuoteIcon = () => (
 
 
 
-  <Icon>
-
-
-
-    <path d="M5 5h14v14H5V5Z" />
 
 
 
 
+  <Icon>
 
 
 
-    <path d="M8 9h8M8 13h5M8 16h3" />
 
 
 
-  </Icon>
+
+    <path d="M5 5h14v14H5V5Z" />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <path d="M8 9h8M8 13h5M8 16h3" />
+
+
+
+
+
+
+
+  </Icon>
+
+
+
+
 
 
 
 );
+
+
+
+
+
+
+
+
 
 
 
@@ -3156,27 +6314,11 @@ const UserIcon = () => (
 
 
 
-  <Icon>
 
 
 
-    <circle
 
-
-
-      cx="12"
-
-
-
-      cy="8"
-
-
-
-      r="3.5"
-
-
-
-    />
+  <Icon>
 
 
 
@@ -3184,15 +6326,79 @@ const UserIcon = () => (
 
 
 
-    <path d="M5 20c.8-4 3.2-6 7-6s6.2 2 7 6" />
+    <circle
 
 
 
-  </Icon>
+
+
+
+
+      cx="12"
+
+
+
+
+
+
+
+      cy="8"
+
+
+
+
+
+
+
+      r="3.5"
+
+
+
+
+
+
+
+    />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <path d="M5 20c.8-4 3.2-6 7-6s6.2 2 7 6" />
+
+
+
+
+
+
+
+  </Icon>
+
+
+
+
 
 
 
 );
+
+
+
+
+
+
+
+
 
 
 
@@ -3204,43 +6410,91 @@ const PinIcon = () => (
 
 
 
-  <Icon>
-
-
-
-    <path d="M12 21s7-5.2 7-12a7 7 0 1 0-14 0c0 6.8 7 12 7 12Z" />
 
 
 
 
+  <Icon>
 
 
 
-    <circle
 
 
 
-      cx="12"
+
+    <path d="M12 21s7-5.2 7-12a7 7 0 1 0-14 0c0 6.8 7 12 7 12Z" />
 
 
 
-      cy="9"
 
 
 
-      r="2.4"
 
 
 
-    />
 
 
 
-  </Icon>
+
+
+
+    <circle
+
+
+
+
+
+
+
+      cx="12"
+
+
+
+
+
+
+
+      cy="9"
+
+
+
+
+
+
+
+      r="2.4"
+
+
+
+
+
+
+
+    />
+
+
+
+
+
+
+
+  </Icon>
+
+
+
+
 
 
 
 );
+
+
+
+
+
+
+
+
 
 
 
@@ -3252,19 +6506,11 @@ const RefundIcon = () => (
 
 
 
-  <Icon>
-
-
-
-    <path d="M7 7H4V4" />
 
 
 
 
-
-
-
-    <path d="M4.5 7.5A8 8 0 1 1 4 14" />
+  <Icon>
 
 
 
@@ -3272,15 +6518,63 @@ const RefundIcon = () => (
 
 
 
-    <path d="M8 12h8M12 8v8" />
+    <path d="M7 7H4V4" />
 
 
 
-  </Icon>
+
+
+
+
+
+
+
+
+
+
+
+
+    <path d="M4.5 7.5A8 8 0 1 1 4 14" />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <path d="M8 12h8M12 8v8" />
+
+
+
+
+
+
+
+  </Icon>
+
+
+
+
 
 
 
 );
+
+
+
+
+
+
+
+
 
 
 
@@ -3292,27 +6586,59 @@ const SupportIcon = () => (
 
 
 
-  <Icon>
-
-
-
-    <path d="M4 5h16v11H8l-4 4V5Z" />
 
 
 
 
+  <Icon>
 
 
 
-    <path d="M8 9h8M8 13h5" />
 
 
 
-  </Icon>
+
+    <path d="M4 5h16v11H8l-4 4V5Z" />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <path d="M8 9h8M8 13h5" />
+
+
+
+
+
+
+
+  </Icon>
+
+
+
+
 
 
 
 );
+
+
+
+
+
+
+
+
 
 
 
@@ -3324,27 +6650,59 @@ const LogoutIcon = () => (
 
 
 
-  <Icon>
-
-
-
-    <path d="M10 5H5v14h5" />
 
 
 
 
+  <Icon>
 
 
 
-    <path d="M14 8l4 4-4 4M18 12H9" />
 
 
 
-  </Icon>
+
+    <path d="M10 5H5v14h5" />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <path d="M14 8l4 4-4 4M18 12H9" />
+
+
+
+
+
+
+
+  </Icon>
+
+
+
+
 
 
 
 );
+
+
+
+
+
+
+
+
 
 
 

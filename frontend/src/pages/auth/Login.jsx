@@ -45,9 +45,7 @@ const Login = () => {
         const data = await googleLogin(credential);
         goAfterLogin(data);
       } catch (requestError) {
-        setError(
-          requestError.response?.data?.message || "Unable to login with Google"
-        );
+        setError(requestError.response?.data?.message || "Unable to login with Google");
       } finally {
         setSubmitting(false);
       }
@@ -58,12 +56,7 @@ const Login = () => {
   const handleGoogleError = useCallback((message) => setError(message), []);
 
   if (user) {
-    return (
-      <Navigate
-        to={getPostAuthPath({ user, partner, requestedPath })}
-        replace
-      />
-    );
+    return <Navigate to={getPostAuthPath({ user, partner, requestedPath })} replace />;
   }
 
   const next = (event) => {
@@ -105,44 +98,40 @@ const Login = () => {
   return (
     <TypeformShell
       eyebrow="Customer Login"
-      title={step === 1 ? "What’s your email?" : "Welcome back."}
+      title={step === 1 ? "Welcome back." : "Enter your password."}
       description={
         step === 1
-          ? "Start with the email linked to your HAMPORIUM account."
-          : `Enter the password for ${form.email}.`
+          ? "Use the email linked to your HAMPORIUM account."
+          : `Signing in as ${form.email}.`
       }
       step={step}
       totalSteps={2}
-      sideTitle="Beautiful gifts. Effortless moments."
-      sideText="A focused sign-in flow for orders, addresses, payments and gifting." 
+      sideTitle="Welcome back."
+      sideText=""
     >
       {error && <ErrorBox>{error}</ErrorBox>}
 
       {step === 1 ? (
         <>
           <form onSubmit={next} className="space-y-5">
-            <input
-              autoFocus
-              type="email"
-              value={form.email}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, email: event.target.value }))
-              }
-              required
-              autoComplete="email"
-              placeholder="you@example.com"
-              className="h-16 w-full border-b-2 border-black/15 bg-transparent text-2xl font-semibold outline-none transition placeholder:text-black/20 focus:border-[#F97316] sm:text-3xl"
-            />
+            <Field label="Email address">
+              <input
+                autoFocus
+                type="email"
+                value={form.email}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, email: event.target.value }))
+                }
+                required
+                autoComplete="email"
+                placeholder="you@example.com"
+                className={inputClass}
+              />
+            </Field>
 
-            <div className="flex flex-wrap items-center gap-4">
-              <button
-                type="submit"
-                className="rounded-xl bg-[#F97316] px-7 py-3.5 text-xs font-black uppercase tracking-[0.08em] text-white transition hover:bg-[#171717]"
-              >
-                Continue →
-              </button>
-              <span className="text-[10px] text-black/35">Press Enter ↵</span>
-            </div>
+            <button type="submit" className={primaryButton}>
+              Continue <span aria-hidden="true">→</span>
+            </button>
           </form>
 
           <Divider />
@@ -154,18 +143,20 @@ const Login = () => {
         </>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-5">
-          <input
-            autoFocus
-            type="password"
-            value={form.password}
-            onChange={(event) =>
-              setForm((current) => ({ ...current, password: event.target.value }))
-            }
-            required
-            autoComplete="current-password"
-            placeholder="Your password"
-            className="h-16 w-full border-b-2 border-black/15 bg-transparent text-2xl font-semibold outline-none transition placeholder:text-black/20 focus:border-[#F97316] sm:text-3xl"
-          />
+          <Field label="Password">
+            <input
+              autoFocus
+              type="password"
+              value={form.password}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, password: event.target.value }))
+              }
+              required
+              autoComplete="current-password"
+              placeholder="Your password"
+              className={inputClass}
+            />
+          </Field>
 
           <div className="flex flex-wrap items-center gap-3">
             <button
@@ -174,31 +165,27 @@ const Login = () => {
                 setStep(1);
                 setError("");
               }}
-              className="rounded-xl border border-black/10 px-5 py-3 text-xs font-bold"
+              className={secondaryButton}
             >
               ← Back
             </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="rounded-xl bg-[#F97316] px-7 py-3 text-xs font-black uppercase tracking-[0.08em] text-white transition hover:bg-[#171717] disabled:opacity-50"
-            >
+            <button type="submit" disabled={submitting} className={primaryButton}>
               {submitting ? "Signing in..." : "Login →"}
             </button>
-            <Link to="/forgot-password" className="ml-auto text-xs font-bold text-[#F97316]">
+            <Link to="/forgot-password" className="ml-auto text-[13px] font-bold text-[#C56920] hover:text-[#171717]">
               Forgot password?
             </Link>
           </div>
         </form>
       )}
 
-      <p className="mt-8 text-sm text-black/45">
+      <p className="mt-7 text-[13px] font-medium leading-6 text-black/48">
         New to HAMPORIUM?{" "}
-        <Link to="/signup" className="font-black text-[#F97316]">
+        <Link to="/signup" className="font-extrabold text-[#F97316] hover:text-[#171717]">
           Create an account
         </Link>
-        {" · "}
-        <Link to="/partner/login" className="font-black text-[#171717]">
+        <span className="mx-2 text-black/20">•</span>
+        <Link to="/partner/login" className="font-bold text-[#171717] hover:text-[#F97316]">
           Partner login
         </Link>
       </p>
@@ -206,18 +193,34 @@ const Login = () => {
   );
 };
 
+const Field = ({ label, children }) => (
+  <label className="block">
+    <span className="mb-2 block text-[13px] font-bold text-black/58">{label}</span>
+    {children}
+  </label>
+);
+
 const Divider = () => (
-  <div className="my-7 flex items-center gap-4">
-    <span className="h-px flex-1 bg-black/10" />
-    <span className="text-[9px] font-black uppercase tracking-[0.14em] text-black/30">or</span>
-    <span className="h-px flex-1 bg-black/10" />
+  <div className="my-6 flex items-center gap-3">
+    <span className="h-px flex-1 bg-black/[0.08]" />
+    <span className="text-[12px] font-bold uppercase tracking-[0.12em] text-black/30">or</span>
+    <span className="h-px flex-1 bg-black/[0.08]" />
   </div>
 );
 
 const ErrorBox = ({ children }) => (
-  <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+  <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] font-semibold leading-5 text-red-700">
     {children}
   </div>
 );
+
+const inputClass =
+  "h-13 w-full rounded-xl border border-black/10 bg-[#FBF8F3] px-4 text-[16px] font-semibold text-[#171717] outline-none transition placeholder:font-medium placeholder:text-black/28 focus:border-[#D59A3A] focus:bg-white focus:ring-4 focus:ring-[#D59A3A]/10";
+
+const primaryButton =
+  "inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#171717] px-6 py-3 text-[13px] font-extrabold text-white transition hover:bg-[#F97316] disabled:cursor-not-allowed disabled:opacity-45";
+
+const secondaryButton =
+  "inline-flex min-h-12 items-center justify-center rounded-xl border border-black/10 bg-white px-5 py-3 text-[13px] font-bold text-[#171717] transition hover:border-black/20 hover:bg-black/[0.03]";
 
 export default Login;

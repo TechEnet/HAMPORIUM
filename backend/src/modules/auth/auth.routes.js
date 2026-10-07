@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { rateLimit } from "express-rate-limit";
+import multer from "multer";
 
 import {
   forgotPassword,
@@ -64,6 +65,54 @@ const passwordResetLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const partnerKycUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 8 * 1024 * 1024,
+    files: 2,
+  },
+  fileFilter: (req, file, cb) => {
+    const allowed = new Set([
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "application/pdf",
+    ]);
+
+    if (!allowed.has(file.mimetype)) {
+      const error = new Error("Partner KYC must be JPG, PNG, WEBP or PDF.");
+      error.statusCode = 400;
+      return cb(error);
+    }
+
+    cb(null, true);
+  },
+});
+
+const partnerKycFields = partnerKycUpload.fields([
+  { name: "panDocument", maxCount: 1 },
+  { name: "aadhaarDocument", maxCount: 1 },
+]);
+
+const parsePartnerRegistrationPayload = (req, res, next) => {
+  if (typeof req.body?.payload !== "string") return next();
+
+  try {
+    const parsed = JSON.parse(req.body.payload);
+    req.body = {
+      ...req.body,
+      ...parsed,
+    };
+    delete req.body.payload;
+    return next();
+  } catch {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid partner registration payload.",
+    });
+  }
+};
+
 router.post("/register", registrationLimiter, registerValidation, validate, register);
 router.post("/verify-email", otpLimiter, verifyEmailValidation, validate, verifyEmail);
 router.post(
@@ -79,6 +128,8 @@ router.post("/google", authLimiter, googleLoginValidation, validate, googleLogin
 router.post(
   "/partner/register",
   registrationLimiter,
+  partnerKycFields,
+  parsePartnerRegistrationPayload,
   partnerRegisterValidation,
   validate,
   partnerRegister
@@ -93,6 +144,8 @@ router.post(
 router.post(
   "/partner/google/register",
   registrationLimiter,
+  partnerKycFields,
+  parsePartnerRegistrationPayload,
   partnerGoogleRegisterValidation,
   validate,
   partnerGoogleRegister

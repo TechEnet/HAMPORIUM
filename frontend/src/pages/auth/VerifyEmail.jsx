@@ -40,8 +40,10 @@ const VerifyEmail = () => {
         eyebrow="Email Verification"
         title="Verification session expired."
         description="Start signup again so we know which email to verify."
+        sideTitle="Verify your email."
+        sideText=""
       >
-        <Link to={isPartner ? "/partner/register" : "/signup"} className="font-black text-[#F97316]">
+        <Link to={isPartner ? "/partner/register" : "/signup"} className={primaryButton}>
           Start again →
         </Link>
       </TypeformShell>
@@ -57,10 +59,7 @@ const VerifyEmail = () => {
     try {
       const data = await verifyEmail({ email, otp });
       sessionStorage.removeItem("hamporium.pendingVerification");
-      navigate(
-        getPostAuthPath({ user: data.user, partner: data.partner }),
-        { replace: true }
-      );
+      navigate(getPostAuthPath({ user: data.user, partner: data.partner }), { replace: true });
     } catch (requestError) {
       setError(requestError.response?.data?.message || "Unable to verify OTP");
     } finally {
@@ -86,39 +85,32 @@ const VerifyEmail = () => {
       eyebrow={isPartner ? "Partner Verification" : "Email Verification"}
       title="Check your inbox."
       description={`Enter the 6-digit verification code sent to ${email}.`}
-      step={1}
-      totalSteps={1}
-      sideTitle="One quick security check."
-      sideText="Your account stays unverified until the OTP is successfully confirmed."
+      sideTitle="Verify your email."
+      sideText=""
     >
       {error && <Notice error>{error}</Notice>}
       {message && <Notice>{message}</Notice>}
 
-      <form onSubmit={submit} className="mt-6 space-y-6">
-        <input
-          autoFocus
-          inputMode="numeric"
-          value={otp}
-          onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))}
-          maxLength={6}
-          placeholder="000000"
-          className="h-20 w-full border-b-2 border-black/15 bg-transparent text-center text-4xl font-black tracking-[0.45em] outline-none focus:border-[#F97316]"
-          required
-        />
+      <form onSubmit={submit} className="space-y-5">
+        <label className="block">
+          <span className="mb-2 block text-[13px] font-bold text-black/58">Verification code</span>
+          <input
+            autoFocus
+            inputMode="numeric"
+            value={otp}
+            onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))}
+            maxLength={6}
+            placeholder="000000"
+            className="h-16 w-full rounded-xl border border-black/10 bg-[#FBF8F3] px-4 text-center text-[28px] font-extrabold tracking-[0.32em] text-[#171717] outline-none transition placeholder:text-black/18 focus:border-[#D59A3A] focus:bg-white focus:ring-4 focus:ring-[#D59A3A]/10 sm:text-[30px]"
+            required
+          />
+        </label>
 
         <div className="flex flex-wrap items-center gap-3">
-          <button
-            disabled={submitting || otp.length !== 6}
-            className="rounded-xl bg-[#F97316] px-7 py-3.5 text-xs font-black uppercase tracking-[0.08em] text-white transition hover:bg-[#171717] disabled:opacity-40"
-          >
+          <button disabled={submitting || otp.length !== 6} className={primaryButton}>
             {submitting ? "Verifying..." : "Verify email →"}
           </button>
-          <button
-            type="button"
-            disabled={cooldown > 0}
-            onClick={resend}
-            className="rounded-xl border border-black/10 px-5 py-3 text-xs font-bold disabled:opacity-35"
-          >
+          <button type="button" disabled={cooldown > 0} onClick={resend} className={secondaryButton}>
             {cooldown > 0 ? `Resend in ${cooldown}s` : "Resend OTP"}
           </button>
         </div>
@@ -128,9 +120,14 @@ const VerifyEmail = () => {
 };
 
 const Notice = ({ children, error = false }) => (
-  <div className={`mb-4 rounded-xl border px-4 py-3 text-sm ${error ? "border-red-200 bg-red-50 text-red-700" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`}>
+  <div className={`mb-5 rounded-xl border px-4 py-3 text-[13px] font-semibold leading-5 ${error ? "border-red-200 bg-red-50 text-red-700" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`}>
     {children}
   </div>
 );
+
+const primaryButton =
+  "inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#171717] px-6 py-3 text-[13px] font-extrabold text-white transition hover:bg-[#F97316] disabled:cursor-not-allowed disabled:opacity-45";
+const secondaryButton =
+  "inline-flex min-h-12 items-center justify-center rounded-xl border border-black/10 bg-white px-5 py-3 text-[13px] font-bold text-[#171717] transition hover:border-black/20 hover:bg-black/[0.03] disabled:cursor-not-allowed disabled:opacity-40";
 
 export default VerifyEmail;
