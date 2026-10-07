@@ -1595,6 +1595,12 @@ export const validateCustomHamper = async ({
 
 
 
+  // IMPORTANT:
+  // Decorations are valid custom-hamper selections even when hamperUse is false.
+  // hamperUse controls whether a component can consume the gift/content capacity;
+  // it must not exclude finishing touches such as ribbons, cards, stickers, etc.
+  // We therefore load all selectable content + decoration components here and
+  // enforce hamperUse only for normal hamper content below.
   const componentFilter = {
 
     _id: { $in: componentIds },
@@ -1602,8 +1608,6 @@ export const validateCustomHamper = async ({
     isActive: true,
 
     customerSelectable: true,
-
-    hamperUse: { $ne: false },
 
     type: { $in: PUBLIC_COMPONENT_TYPES },
 
@@ -1619,7 +1623,7 @@ export const validateCustomHamper = async ({
 
     .select(
 
-      "_id name code brand images type hamperRole mrp sellingPrice taxEnabled taxPercent hsnSac discount pricingSource taxSource dimensions weight availability category subcategory segment"
+      "_id name code brand images type hamperRole hamperUse mrp sellingPrice taxEnabled taxPercent hsnSac discount pricingSource taxSource dimensions weight availability category subcategory segment"
 
     )
 
@@ -1657,13 +1661,41 @@ export const validateCustomHamper = async ({
 
 
 
-    if (!component || (component.hamperRole || "content") === "decoration") {
+    if (!component) {
 
       return {
 
         orderable: false,
 
-        message: `${component?.name || "Selected item"} is configured as decorative material and cannot consume hamper capacity`,
+        message: "One or more selected hamper items are no longer available for custom gifting",
+
+      };
+
+    }
+
+
+
+    if ((component.hamperRole || "content") === "decoration") {
+
+      return {
+
+        orderable: false,
+
+        message: `${component.name} is configured as decorative material and cannot consume hamper capacity`,
+
+      };
+
+    }
+
+
+
+    if (component.hamperUse === false) {
+
+      return {
+
+        orderable: false,
+
+        message: `${component.name} is not enabled for custom hamper contents`,
 
       };
 

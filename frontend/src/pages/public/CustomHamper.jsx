@@ -3224,6 +3224,21 @@ const CustomHamper = () => {
           100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
         }
 
+        /* V79 - lock horizontal centering; animate only vertical free-fall. */
+        @keyframes v79CenterFreeFall {
+          0% { opacity: 0; transform: translate3d(0,var(--v79-drop-start,-380px),0) scale(.88); filter: blur(2px); }
+          48% { opacity: 1; filter: blur(0); }
+          72% { transform: translate3d(0,12px,0) scale(1.012); }
+          84% { transform: translate3d(0,-5px,0) scale(.997); }
+          100% { opacity: 1; transform: translate3d(0,0,0) scale(1); filter: blur(0); }
+        }
+
+        @keyframes v79ShipAway {
+          0% { opacity: 1; transform: translate3d(0,0,0) scale(1); }
+          16% { transform: translate3d(2%,-3px,0) scale(1.01); }
+          100% { opacity: .08; transform: translate3d(138%,-12px,0) scale(.96); }
+        }
+
         @keyframes v48LidOpen {
           0% { transform: translateX(-50%) translateY(92%) perspective(1250px) rotateX(0deg) scale(1); }
           46% { transform: translateX(-50%) translateY(48%) perspective(1250px) rotateX(20deg) scale(1.005); }
@@ -3245,6 +3260,12 @@ const CustomHamper = () => {
         @keyframes v48BowSettle {
           0% { opacity: 0; transform: translateX(-50%) translateY(-7px) scale(.92); }
           100% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+        }
+
+        /* V80 - bow anchor never animates horizontally. Only the bow artwork settles vertically. */
+        @keyframes v80BowSettle {
+          0% { opacity: .72; transform: translateY(-6px) scale(.94); }
+          100% { opacity: 1; transform: translateY(0) scale(1); }
         }
 
         @media (prefers-reduced-motion: reduce) {
@@ -6827,6 +6848,63 @@ const V20PackingItem = ({ entry, index, count, compact = false }) => {
   );
 };
 
+const V78BotanicalArt = () => (
+  <svg viewBox="0 0 1000 360" preserveAspectRatio="none" aria-hidden="true" className="h-full w-full">
+    <g fill="none" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M32 310C110 270 148 190 234 78" />
+      <path d="M79 272C64 236 68 211 82 184" />
+      <path d="M82 271C113 248 130 222 137 192" />
+      <ellipse cx="80" cy="194" rx="12" ry="27" transform="rotate(-30 80 194)" />
+      <ellipse cx="133" cy="203" rx="12" ry="28" transform="rotate(32 133 203)" />
+      <path d="M133 201C163 186 182 164 194 137" />
+      <ellipse cx="191" cy="140" rx="12" ry="29" transform="rotate(-39 191 140)" />
+      <g transform="translate(268 102)">
+        {[0, 60, 120, 180, 240, 300].map((angle) => (
+          <ellipse key={angle} cx="0" cy="-35" rx="14" ry="36" transform={`rotate(${angle})`} />
+        ))}
+        <circle r="10" />
+        <path d="M-11-2C-3-15 12-13 15-1M-9 6C1 16 14 10 16 1" />
+      </g>
+      <path d="M395 322C456 267 478 204 502 108" />
+      <path d="M431 266C407 251 394 230 389 208" />
+      <ellipse cx="395" cy="211" rx="12" ry="29" transform="rotate(-42 395 211)" />
+      <path d="M457 224C487 210 505 190 515 165" />
+      <ellipse cx="510" cy="166" rx="12" ry="29" transform="rotate(43 510 166)" />
+      <g transform="translate(590 186)">
+        {[0, 51, 102, 153, 204, 255, 306].map((angle) => (
+          <ellipse key={angle} cx="0" cy="-45" rx="17" ry="47" transform={`rotate(${angle})`} />
+        ))}
+        <circle r="14" />
+        <path d="M-14-3C-6-19 12-20 17-5M-16 6C-3 20 15 17 18 2" />
+      </g>
+      <path d="M692 309C749 258 783 190 852 78" />
+      <path d="M725 274C706 254 697 231 697 208" />
+      <ellipse cx="700" cy="211" rx="12" ry="29" transform="rotate(-38 700 211)" />
+      <path d="M762 234C792 221 808 200 818 175" />
+      <ellipse cx="815" cy="176" rx="12" ry="29" transform="rotate(42 815 176)" />
+      <g transform="translate(896 111)">
+        {[0, 60, 120, 180, 240, 300].map((angle) => (
+          <ellipse key={angle} cx="0" cy="-30" rx="12" ry="31" transform={`rotate(${angle})`} />
+        ))}
+        <circle r="9" />
+      </g>
+      <path d="M648 72C700 53 744 50 796 61" />
+      <ellipse cx="698" cy="59" rx="10" ry="22" transform="rotate(73 698 59)" />
+      <ellipse cx="748" cy="57" rx="10" ry="22" transform="rotate(98 748 57)" />
+    </g>
+  </svg>
+);
+
+const V78RibbonBow = ({ compact = false }) => (
+  <div className={`relative ${compact ? "h-[46px] w-[88px]" : "h-[72px] w-[138px]"}`}>
+    <span className="absolute left-[2%] top-[7%] h-[45%] w-[43%] -rotate-[10deg] rounded-[70%_28%_62%_38%] bg-[linear-gradient(135deg,#8E5E0A_0%,#D7A631_34%,#F2D577_55%,#A66F12_100%)] shadow-[inset_0_1px_0_rgba(255,248,209,.6),0_5px_10px_rgba(0,0,0,.22)]" />
+    <span className="absolute right-[2%] top-[7%] h-[45%] w-[43%] rotate-[10deg] rounded-[28%_70%_38%_62%] bg-[linear-gradient(225deg,#8E5E0A_0%,#D7A631_34%,#F2D577_55%,#A66F12_100%)] shadow-[inset_0_1px_0_rgba(255,248,209,.6),0_5px_10px_rgba(0,0,0,.22)]" />
+    <span className="absolute left-[31%] top-[42%] h-[55%] w-[18%] rotate-[8deg] [clip-path:polygon(0_0,100%_5%,80%_100%,50%_82%,16%_100%)] bg-[linear-gradient(90deg,#9A650D,#E3B84F_48%,#A66D0D)] shadow-[0_5px_8px_rgba(0,0,0,.18)]" />
+    <span className="absolute right-[31%] top-[42%] h-[58%] w-[18%] -rotate-[8deg] [clip-path:polygon(0_0,100%_5%,84%_100%,50%_82%,20%_100%)] bg-[linear-gradient(90deg,#9A650D,#E3B84F_48%,#A66D0D)] shadow-[0_5px_8px_rgba(0,0,0,.18)]" />
+    <span className="absolute left-1/2 top-[24%] z-10 h-[30%] w-[20%] -translate-x-1/2 rounded-[7px] bg-[radial-gradient(circle_at_32%_24%,#FFE9A6,#D9A632_52%,#8C5C08_100%)] shadow-[0_5px_10px_rgba(0,0,0,.28),inset_0_1px_0_rgba(255,250,218,.72)]" />
+  </div>
+);
+
 const V7OpenTop3D = ({
   selectedContainer,
   previewItems,
@@ -6834,363 +6912,195 @@ const V7OpenTop3D = ({
   selectedItemCount,
   selectedDecorationCount,
   fillPercent,
-  configuration,
-  canIncreaseAnyItem,
-  validating,
   journeyState = "idle",
   compact = false,
 }) => {
-  const [liveItems, setLiveItems] = useState(() =>
-    previewItems.map((item) => ({ ...item, phase: "stable" }))
-  );
+  const [liveItems, setLiveItems] = useState(() => previewItems.map((item) => ({ ...item, phase: "stable" })));
   const [packingNote, setPackingNote] = useState("");
-  const previousIdsRef = useRef(new Set(previewItems.map((item) => item.id)));
-  const noteTimerRef = useRef(null);
-  const settleTimerRef = useRef(null);
-  const introDropTimerRef = useRef(null);
-  const introOpenTimerRef = useRef(null);
-  const introReadyTimerRef = useRef(null);
   const [boxEntryPhase, setBoxEntryPhase] = useState("idle");
+  const previousIdsRef = useRef(new Set(previewItems.map((item) => item.id)));
+  const timersRef = useRef([]);
 
   const roundedFill = Math.min(100, Math.round(Number(fillPercent || 0)));
-  const isAutoSealed = roundedFill >= 100;
   const isPacking = journeyState === "packing";
   const isShipping = journeyState === "shipping";
-  const sealed = isAutoSealed || isPacking || isShipping;
-  const isDroppingIn = boxEntryPhase === "drop";
-  const isOpeningIn = boxEntryPhase === "opening";
+  const sealed = roundedFill >= 100 || isPacking || isShipping;
+  const dropping = boxEntryPhase === "drop";
+  const opening = boxEntryPhase === "opening";
+  const lidClosed = sealed || dropping;
+
+  const clearTimers = () => {
+    timersRef.current.forEach((timer) => window.clearTimeout(timer));
+    timersRef.current = [];
+  };
 
   useEffect(() => {
+    clearTimers();
     previousIdsRef.current = new Set(previewItems.map((item) => item.id));
     setLiveItems(previewItems.map((item) => ({ ...item, phase: "stable" })));
 
-    if (noteTimerRef.current) window.clearTimeout(noteTimerRef.current);
-    if (introDropTimerRef.current) window.clearTimeout(introDropTimerRef.current);
-    if (introOpenTimerRef.current) window.clearTimeout(introOpenTimerRef.current);
-    if (introReadyTimerRef.current) window.clearTimeout(introReadyTimerRef.current);
-
-    if (selectedContainer) {
-      setBoxEntryPhase("drop");
-      setPackingNote(`${selectedContainer.name} selected`);
-
-      introDropTimerRef.current = window.setTimeout(() => {
-        setBoxEntryPhase("opening");
-        setPackingNote("Opening your hamper box");
-      }, 920);
-
-      introOpenTimerRef.current = window.setTimeout(() => {
-        setPackingNote("Box ready - start adding gifts");
-      }, 1540);
-
-      introReadyTimerRef.current = window.setTimeout(() => {
-        setBoxEntryPhase("idle");
-      }, 2020);
-
-      noteTimerRef.current = window.setTimeout(() => setPackingNote(""), 2500);
-    } else {
+    if (!selectedContainer) {
       setBoxEntryPhase("idle");
       setPackingNote("");
+      return undefined;
     }
+
+    setBoxEntryPhase("drop");
+    setPackingNote(`${selectedContainer.name} selected`);
+    timersRef.current.push(window.setTimeout(() => {
+      setBoxEntryPhase("opening");
+      setPackingNote("Opening your hamper box");
+    }, 950));
+    timersRef.current.push(window.setTimeout(() => setPackingNote("Box ready - start adding gifts"), 1660));
+    timersRef.current.push(window.setTimeout(() => setBoxEntryPhase("idle"), 2110));
+    timersRef.current.push(window.setTimeout(() => setPackingNote(""), 2520));
+    return clearTimers;
   }, [selectedContainer?._id]);
 
   useEffect(() => {
-    const previousIds = previousIdsRef.current;
+    const previous = previousIdsRef.current;
     const nextIds = new Set(previewItems.map((item) => item.id));
-    const added = previewItems.filter((item) => !previousIds.has(item.id));
-    const removedIds = new Set(
-      [...previousIds].filter((id) => !nextIds.has(id))
-    );
+    const added = previewItems.filter((item) => !previous.has(item.id));
+    const removed = new Set([...previous].filter((id) => !nextIds.has(id)));
 
     setLiveItems((current) => {
       const currentMap = new Map(current.map((item) => [item.id, item]));
-
-      const next = previewItems.map((item) => {
-        const existing = currentMap.get(item.id);
-
-        return {
-          ...item,
-          phase: existing && existing.phase !== "exit" ? existing.phase : "enter",
-        };
-      });
-
-      const exiting = current
-        .filter((item) => removedIds.has(item.id))
-        .map((item) => ({ ...item, phase: "exit" }));
-
+      const next = previewItems.map((item) => ({ ...item, phase: currentMap.has(item.id) ? "stable" : "enter" }));
+      const exiting = current.filter((item) => removed.has(item.id)).map((item) => ({ ...item, phase: "exit" }));
       return [...next, ...exiting];
     });
-
     previousIdsRef.current = nextIds;
 
-    if (noteTimerRef.current) window.clearTimeout(noteTimerRef.current);
+    if (added.length) setPackingNote(`Adding ${added.at(-1)?.component?.name || "gift"}`);
+    else if (removed.size) setPackingNote("Gift removed - space updated");
 
-    if (added.length) {
-      const latest = added[added.length - 1];
-      setPackingNote(`Adding ${latest.component?.name || "gift"} to your hamper`);
-      noteTimerRef.current = window.setTimeout(() => setPackingNote(""), 1250);
-    } else if (removedIds.size) {
-      setPackingNote("Gift removed - space updated");
-      noteTimerRef.current = window.setTimeout(() => setPackingNote(""), 1050);
-    }
-
-    if (settleTimerRef.current) window.clearTimeout(settleTimerRef.current);
-
-    settleTimerRef.current = window.setTimeout(() => {
+    const settle = window.setTimeout(() => {
       setLiveItems(previewItems.map((item) => ({ ...item, phase: "stable" })));
-    }, 930);
-
-    return () => {
-      if (settleTimerRef.current) {
-        window.clearTimeout(settleTimerRef.current);
-        settleTimerRef.current = null;
-      }
-    };
+      if (added.length || removed.size) setPackingNote("");
+    }, 950);
+    return () => window.clearTimeout(settle);
   }, [previewItems]);
 
-  useEffect(() => {
-    return () => {
-      if (noteTimerRef.current) window.clearTimeout(noteTimerRef.current);
-      if (settleTimerRef.current) window.clearTimeout(settleTimerRef.current);
-      if (introDropTimerRef.current) window.clearTimeout(introDropTimerRef.current);
-      if (introOpenTimerRef.current) window.clearTimeout(introOpenTimerRef.current);
-      if (introReadyTimerRef.current) window.clearTimeout(introReadyTimerRef.current);
-    };
-  }, []);
+  useEffect(() => clearTimers, []);
 
-  const visibleLiveItems = liveItems.slice(0, 18);
-
-  const lidTransform = sealed
-    ? "translateX(-50%) translateY(92%) perspective(1250px) rotateX(0deg) scale(1)"
-    : isDroppingIn
-      ? "translateX(-50%) translateY(92%) perspective(1250px) rotateX(0deg) scale(1)"
-      : "translateX(-50%) translateY(0) perspective(1250px) rotateX(48deg) scale(.99)";
+  const visibleItems = liveItems.slice(0, compact ? 12 : 18);
+  const worldSize = compact
+    ? "bottom-[22px] h-[150px] w-[96%] max-w-[420px]"
+    : "bottom-[34px] h-[276px] w-[96%] max-w-[720px] sm:h-[320px] xl:h-[350px]";
 
   return (
-    <div className="v60-live-stage relative isolate min-h-[320px] overflow-hidden rounded-[22px] border border-black/[0.055] bg-[radial-gradient(circle_at_50%_28%,#ffffff_0%,#fbfaf7_42%,#f4f0ea_72%,#ebe4da_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,.98),0_14px_35px_rgba(39,27,14,.055)] sm:min-h-[380px] xl:min-h-[430px]">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-[12%] bottom-[5%] h-[58px] rounded-full bg-black/[0.12] blur-[26px]"
-      />
-
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute left-1/2 top-[9%] h-[56%] w-[78%] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(221,178,84,.09),transparent_68%)] blur-[16px]"
-      />
+    <div className={`v60-live-stage relative isolate overflow-hidden rounded-[22px] border border-black/[0.055] bg-[radial-gradient(circle_at_50%_20%,#fff_0%,#fbf9f5_42%,#f1ece5_72%,#e8e0d6_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,.98),0_16px_38px_rgba(39,27,14,.06)] ${compact ? "min-h-[165px]" : "min-h-[320px] sm:min-h-[380px] xl:min-h-[430px]"}`}>
+      <div aria-hidden="true" className="absolute inset-x-[10%] bottom-[5%] h-[54px] rounded-full bg-black/[0.12] blur-[26px]" />
 
       {(packingNote || isPacking || isShipping) && (
-        <div
-          key={packingNote || journeyState}
-          className="v60-packing-note absolute left-1/2 top-3 z-[150] max-w-[82%] -translate-x-1/2 overflow-hidden text-ellipsis whitespace-nowrap rounded-full border border-[#C7A254]/25 bg-white/95 px-3.5 py-1.5 text-[12px] font-black tracking-[.02em] text-black/55 shadow-[0_8px_22px_rgba(0,0,0,.07)] backdrop-blur-xl sm:top-4 sm:px-4 sm:py-2 sm:text-[12px]"
-        >
-          {isShipping
-            ? "Hamper packed - preparing delivery"
-            : isPacking
-              ? "Finishing your hamper"
-              : packingNote}
+        <div className="v60-packing-note absolute left-1/2 top-3 z-[160] max-w-[82%] -translate-x-1/2 truncate rounded-full border border-[#C7A254]/25 bg-white/95 px-3 py-1.5 text-[10px] font-black text-black/55 shadow-[0_8px_22px_rgba(0,0,0,.07)] backdrop-blur-xl sm:text-[11px]">
+          {isShipping ? "Hamper packed - preparing delivery" : isPacking ? "Finishing your hamper" : packingNote}
         </div>
       )}
 
       {!selectedContainer ? (
-        <div className="absolute left-1/2 top-1/2 z-20 w-[70%] -translate-x-1/2 -translate-y-1/2 rounded-[16px] border border-dashed border-black/15 bg-white/75 px-4 py-4 text-center text-[11px] font-extrabold leading-5 text-black/40 backdrop-blur-md sm:text-[12px]">
+        <div className="absolute left-1/2 top-1/2 z-20 w-[70%] -translate-x-1/2 -translate-y-1/2 rounded-[16px] border border-dashed border-black/15 bg-white/75 px-4 py-4 text-center text-[11px] font-extrabold leading-5 text-black/40 backdrop-blur-md">
           Choose a box to start building your hamper.
         </div>
       ) : (
         <div
           key={selectedContainer._id}
-          className={`v60-box-world absolute inset-x-0 bottom-[15px] z-10 mx-auto h-[282px] w-[98%] max-w-[740px] [perspective:1500px] [transform-style:preserve-3d] sm:bottom-[16px] sm:h-[332px] xl:bottom-[18px] xl:h-[382px] ${
-            isDroppingIn
-              ? "animate-[v50BoxDrop_.92s_cubic-bezier(.18,.88,.24,1.02)_both]"
-              : ""
-          } ${
-            isShipping
-              ? "animate-[v20ShipAway_1.45s_cubic-bezier(.3,.75,.18,1)_forwards]"
-              : ""
-          }`}
+          className={`v78-box-world absolute left-1/2 z-10 -translate-x-1/2 ${worldSize}`}
         >
           <div
-            aria-hidden="true"
-            className="absolute bottom-[3%] left-1/2 z-0 h-[30px] w-[76%] -translate-x-1/2 rounded-full bg-black/25 blur-[16px] sm:h-[38px]"
-          />
-
-          {/* HINGED LID - same footprint as box, opens from the back edge */}
-          <div
-            className={`absolute left-1/2 top-[1%] z-[12] h-[40%] w-[88%] origin-[50%_100%] [backface-visibility:hidden] [transform-style:preserve-3d] transition-transform duration-700 ease-[cubic-bezier(.2,.82,.2,1)] sm:w-[87%] ${
-              isOpeningIn
-                ? "animate-[v48LidOpen_.9s_cubic-bezier(.18,.84,.2,1)_forwards]"
-                : ""
-            } ${sealed ? "z-[90]" : ""}`}
-            style={{ transform: lidTransform }}
+            className={`relative h-full w-full [transform-style:preserve-3d] ${dropping ? "animate-[v79CenterFreeFall_.92s_cubic-bezier(.18,.88,.24,1.02)_both]" : ""} ${isShipping ? "animate-[v79ShipAway_1.45s_cubic-bezier(.3,.75,.18,1)_forwards]" : ""}`}
+            style={{ "--v79-drop-start": compact ? "-220px" : "-390px" }}
           >
-            <div className="absolute inset-x-[1.2%] -bottom-[8px] h-[12px] rounded-b-[8px] border-x border-b border-white/[0.055] bg-gradient-to-b from-[#121214] via-[#09090A] to-[#050506] shadow-[0_8px_14px_rgba(0,0,0,.22)]" />
+          <div aria-hidden="true" className="absolute bottom-[1%] left-1/2 h-[10%] w-[82%] -translate-x-1/2 rounded-full bg-black/30 blur-[14px]" />
 
-            <div className="absolute inset-0 overflow-hidden rounded-[12px] border border-white/[0.075] bg-[radial-gradient(circle_at_28%_12%,rgba(255,255,255,.045),transparent_24%),linear-gradient(145deg,#171719_0%,#0e0e10_44%,#080809_75%,#121214_100%)] shadow-[0_20px_34px_rgba(0,0,0,.22),inset_0_1px_0_rgba(255,255,255,.075),inset_0_-8px_18px_rgba(0,0,0,.34)]">
-              <div className="pointer-events-none absolute inset-[7px] rounded-[8px] border border-[#CDA84F]/14" />
+          {/* BODY: shallow front wall, wide visible interior */}
+          <div className="absolute bottom-[10%] left-[5%] right-[5%] top-[47%] z-[24] overflow-visible rounded-[22px] border border-white/[0.07] bg-[linear-gradient(145deg,#1b1b1d_0%,#0d0d0f_48%,#070708_100%)] shadow-[0_20px_30px_rgba(0,0,0,.22),inset_0_1px_0_rgba(255,255,255,.06)]">
+            <div className="absolute inset-x-[2.8%] top-[5%] bottom-[24%] overflow-hidden rounded-[16px] border border-[#CBA34A]/30 bg-[radial-gradient(circle_at_50%_18%,rgba(210,168,83,.13),transparent_28%),linear-gradient(180deg,#171719_0%,#09090a_100%)] shadow-[inset_0_18px_34px_rgba(0,0,0,.48),inset_0_0_0_1px_rgba(255,255,255,.025)]">
+              <div className="pointer-events-none absolute inset-[8px] rounded-[11px] border border-[#D4AF37]/14" />
 
-              <div className="pointer-events-none absolute -left-[22%] -top-[30%] z-[6] h-[160%] w-[15%] skew-x-[-18deg] bg-gradient-to-r from-transparent via-white/12 to-transparent animate-[v48GoldSheen_5.6s_ease-in-out_infinite]" />
-
-              <svg
-                viewBox="0 0 1000 360"
-                preserveAspectRatio="none"
-                aria-hidden="true"
-                className="absolute inset-[5px] z-[4] h-[calc(100%-10px)] w-[calc(100%-10px)] text-[#CFA94F] opacity-[.92]"
-              >
-                <g
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.4"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M35 303 C120 255 145 175 234 76" />
-                  <path d="M80 270 C66 236 67 211 81 185" />
-                  <path d="M82 270 C112 247 129 221 136 192" />
-                  <ellipse cx="79" cy="194" rx="12" ry="27" transform="rotate(-30 79 194)" />
-                  <ellipse cx="132" cy="203" rx="12" ry="28" transform="rotate(32 132 203)" />
-                  <path d="M132 201 C163 187 181 164 193 137" />
-                  <ellipse cx="190" cy="140" rx="12" ry="29" transform="rotate(-39 190 140)" />
-
-                  <g transform="translate(267 100)">
-                    <ellipse cx="0" cy="-34" rx="14" ry="36" />
-                    <ellipse cx="31" cy="-19" rx="14" ry="36" transform="rotate(50 31 -19)" />
-                    <ellipse cx="34" cy="17" rx="14" ry="36" transform="rotate(98 34 17)" />
-                    <ellipse cx="3" cy="35" rx="14" ry="36" transform="rotate(180 3 35)" />
-                    <ellipse cx="-30" cy="18" rx="14" ry="36" transform="rotate(-98 -30 18)" />
-                    <ellipse cx="-32" cy="-19" rx="14" ry="36" transform="rotate(-50 -32 -19)" />
-                    <circle cx="1" cy="0" r="10" />
-                    <path d="M-11 -2 C-3 -15 12 -13 15 -1" />
-                    <path d="M-9 6 C1 16 14 10 16 1" />
-                  </g>
-
-                  <path d="M397 321 C456 267 478 203 501 108" />
-                  <path d="M430 266 C406 251 393 230 388 208" />
-                  <ellipse cx="394" cy="211" rx="12" ry="29" transform="rotate(-42 394 211)" />
-                  <path d="M456 223 C486 210 504 190 514 165" />
-                  <ellipse cx="509" cy="166" rx="12" ry="29" transform="rotate(43 509 166)" />
-
-                  <g transform="translate(590 185)">
-                    <ellipse cx="0" cy="-45" rx="17" ry="47" />
-                    <ellipse cx="39" cy="-29" rx="17" ry="47" transform="rotate(50 39 -29)" />
-                    <ellipse cx="49" cy="12" rx="17" ry="47" transform="rotate(93 49 12)" />
-                    <ellipse cx="25" cy="44" rx="17" ry="47" transform="rotate(145 25 44)" />
-                    <ellipse cx="-20" cy="45" rx="17" ry="47" transform="rotate(-150 -20 45)" />
-                    <ellipse cx="-49" cy="14" rx="17" ry="47" transform="rotate(-94 -49 14)" />
-                    <ellipse cx="-39" cy="-28" rx="17" ry="47" transform="rotate(-49 -39 -28)" />
-                    <circle cx="0" cy="0" r="14" />
-                    <path d="M-14 -3 C-6 -19 12 -20 17 -5" />
-                    <path d="M-16 6 C-3 20 15 17 18 2" />
-                  </g>
-
-                  <path d="M692 308 C748 258 782 190 851 77" />
-                  <path d="M724 274 C705 254 696 231 696 208" />
-                  <ellipse cx="699" cy="211" rx="12" ry="29" transform="rotate(-38 699 211)" />
-                  <path d="M761 234 C791 221 807 200 817 175" />
-                  <ellipse cx="814" cy="176" rx="12" ry="29" transform="rotate(42 814 176)" />
-
-                  <g transform="translate(896 110)">
-                    <ellipse cx="0" cy="-29" rx="12" ry="31" />
-                    <ellipse cx="26" cy="-15" rx="12" ry="31" transform="rotate(54 26 -15)" />
-                    <ellipse cx="27" cy="17" rx="12" ry="31" transform="rotate(111 27 17)" />
-                    <ellipse cx="0" cy="30" rx="12" ry="31" />
-                    <ellipse cx="-26" cy="17" rx="12" ry="31" transform="rotate(-111 -26 17)" />
-                    <ellipse cx="-27" cy="-16" rx="12" ry="31" transform="rotate(-54 -27 -16)" />
-                    <circle cx="0" cy="0" r="9" />
-                  </g>
-
-                  <path d="M210 294 C258 271 303 262 350 268" />
-                  <ellipse cx="257" cy="274" rx="10" ry="22" transform="rotate(68 257 274)" />
-                  <ellipse cx="307" cy="267" rx="10" ry="22" transform="rotate(82 307 267)" />
-
-                  <path d="M650 72 C700 53 744 50 794 61" />
-                  <ellipse cx="697" cy="59" rx="10" ry="22" transform="rotate(73 697 59)" />
-                  <ellipse cx="747" cy="57" rx="10" ry="22" transform="rotate(98 747 57)" />
-                </g>
-              </svg>
-            </div>
-
-            <div className="absolute bottom-[-1px] left-[6%] right-[6%] h-[2px] rounded-full bg-gradient-to-r from-transparent via-[#B58B35]/55 to-transparent shadow-[0_1px_6px_rgba(202,158,65,.26)]" />
-          </div>
-
-          {/* OPEN BOX TOP */}
-          <div className="absolute left-1/2 top-[39%] z-[24] h-[47%] w-[92%] rounded-[15px] border border-white/[0.065] bg-[linear-gradient(145deg,#1a1a1c_0%,#0d0d0f_46%,#080809_100%)] shadow-[0_25px_34px_rgba(0,0,0,.18),0_7px_13px_rgba(0,0,0,.11),inset_0_1px_0_rgba(255,255,255,.055)] [transform:translateX(-50%)_perspective(1200px)_rotateX(4deg)]">
-            <div className="absolute inset-[7px] rounded-[11px] bg-[linear-gradient(145deg,#232326_0%,#111113_48%,#080809_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,.065),inset_0_-3px_7px_rgba(0,0,0,.62)] sm:inset-[9px]" />
-
-            <div
-              className={`absolute inset-[16px_17px_18px] overflow-hidden rounded-[8px] border border-[#CDAA63]/10 bg-[radial-gradient(circle_at_50%_20%,rgba(218,179,102,.12),transparent_30%),linear-gradient(180deg,#262019_0%,#17130f_44%,#0d0b09_100%)] shadow-[inset_0_18px_30px_rgba(0,0,0,.42),inset_0_-10px_18px_rgba(202,158,80,.055)] transition-[opacity,transform] duration-500 sm:inset-[20px_22px_22px] ${
-                isDroppingIn ? "scale-[.97] opacity-0" : "scale-100 opacity-100"
-              } ${
-                isOpeningIn
-                  ? "animate-[v48InsideReveal_.48s_ease_.24s_both]"
-                  : ""
-              } ${sealed ? "opacity-[.05]" : ""}`}
-            >
-              <div className="pointer-events-none absolute inset-[7px] rounded-[6px] border border-[#D7B264]/10 bg-[repeating-linear-gradient(105deg,rgba(212,170,92,.045)_0_12px,rgba(255,255,255,.012)_12px_24px)]" />
-
-
-              <div className="absolute inset-[3%_4%_5%] z-20 overflow-hidden rounded-[7px] [&_.v20-pack-item]:drop-shadow-[0_9px_10px_rgba(0,0,0,.22)] [&_.v20-pack-card]:rounded-[10px] [&_.v20-pack-card]:border-black/10 [&_.v20-pack-card]:bg-white [&_.v20-pack-card]:shadow-[0_8px_15px_rgba(0,0,0,.24),inset_0_1px_0_rgba(255,255,255,.9)] [&_.v20-pack-image]:rounded-[8px] [&_.v20-pack-image]:bg-gradient-to-b [&_.v20-pack-image]:from-white [&_.v20-pack-image]:to-[#F4EFE8] [&_.v20-pack-label]:hidden">
-                {visibleLiveItems.map((entry, index) => (
-                  <V20PackingItem
-                    key={entry.id}
-                    entry={entry}
-                    index={index}
-                    count={visibleLiveItems.length}
-                    compact={compact}
+              {/* black paper filler */}
+              <div className="pointer-events-none absolute inset-x-[4%] bottom-[3%] z-[8] h-[34%] overflow-hidden opacity-90">
+                {Array.from({ length: 28 }).map((_, index) => (
+                  <span
+                    key={index}
+                    className="absolute bottom-[8%] h-[4px] rounded-full bg-gradient-to-r from-[#0a0a0a] via-[#2b2b2d] to-[#080808] shadow-[0_1px_2px_rgba(255,255,255,.035)]"
+                    style={{
+                      left: `${(index * 17) % 96}%`,
+                      width: `${18 + (index % 5) * 7}px`,
+                      transform: `translateX(-50%) rotate(${(index * 29) % 170 - 85}deg) translateY(${(index % 4) * -7}px)`,
+                    }}
                   />
                 ))}
               </div>
 
-              {selectedDecorationCount > 0 && !sealed && (
-                <V7DecorationOverlay decorations={previewDecorations} />
-              )}
+              <div className="absolute inset-[7%_5%_10%] z-20 overflow-hidden rounded-[10px] [&_.v20-pack-item]:drop-shadow-[0_9px_12px_rgba(0,0,0,.28)] [&_.v20-pack-card]:rounded-[11px] [&_.v20-pack-card]:border-black/10 [&_.v20-pack-card]:bg-white [&_.v20-pack-card]:shadow-[0_8px_15px_rgba(0,0,0,.23)] [&_.v20-pack-image]:rounded-[9px] [&_.v20-pack-label]:hidden">
+                {visibleItems.map((entry, index) => (
+                  <V20PackingItem key={entry.id} entry={entry} index={index} count={visibleItems.length} compact={compact} />
+                ))}
+              </div>
+
+              {selectedDecorationCount > 0 && !sealed && <V7DecorationOverlay decorations={previewDecorations} />}
+            </div>
+
+            {/* front side is intentionally shallow so it never hides the hamper */}
+            <div className="absolute inset-x-0 bottom-0 z-[50] h-[29%] rounded-b-[21px] border-t border-[#D4AF37]/40 bg-[linear-gradient(180deg,#131315_0%,#09090a_54%,#050506_100%)] shadow-[0_12px_18px_rgba(0,0,0,.24),inset_0_1px_0_rgba(255,255,255,.045)]">
+              <div className="absolute inset-x-[6%] top-[22%] h-px bg-gradient-to-r from-transparent via-[#D5AE4D]/70 to-transparent" />
             </div>
           </div>
 
-          {/* FRONT WALL - separate from top plane so the box has real depth */}
-          <div className="absolute left-[7%] right-[7%] top-[79%] z-[48] h-[13%] rounded-b-[12px] border-x border-b border-white/[0.055] bg-[linear-gradient(180deg,#121214_0%,#0a0a0b_48%,#050506_100%)] shadow-[0_15px_18px_rgba(0,0,0,.22),inset_0_1px_0_rgba(255,255,255,.05)] [clip-path:polygon(0_0,100%_0,97.5%_100%,2.5%_100%)]">
-            <div className="absolute inset-x-[9%] top-[1px] h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+          {/* LID: full-size and separate from body when open; same footprint when closed */}
+          <div
+            className={`absolute left-1/2 h-[42%] w-[90%] origin-bottom [backface-visibility:hidden] [transform-style:preserve-3d] transition-[top,transform] duration-700 ease-[cubic-bezier(.22,.86,.24,1)] ${lidClosed ? "z-[78]" : "z-[18]"}`}
+            style={{
+              top: lidClosed ? "46%" : "1%",
+              transform: lidClosed
+                ? "translateX(-50%) rotateX(0deg) scale(1)"
+                : "translateX(-50%) perspective(1300px) rotateX(-3deg) scale(.99)",
+            }}
+          >
+            <div className="absolute inset-x-[1.2%] -bottom-[8px] h-[12px] rounded-b-[10px] border-x border-b border-white/[0.055] bg-gradient-to-b from-[#121214] via-[#09090a] to-[#050506] shadow-[0_8px_14px_rgba(0,0,0,.24)]" />
+            <div className="absolute inset-0 overflow-hidden rounded-[20px] border border-white/[0.085] bg-[radial-gradient(circle_at_24%_8%,rgba(255,255,255,.05),transparent_24%),linear-gradient(145deg,#19191b_0%,#0e0e10_44%,#070708_78%,#111113_100%)] shadow-[0_20px_34px_rgba(0,0,0,.24),inset_0_1px_0_rgba(255,255,255,.08),inset_0_-10px_20px_rgba(0,0,0,.36)]">
+              <div className="pointer-events-none absolute inset-[8px] rounded-[14px] border border-[#D4AF37]/38" />
+              <div className="pointer-events-none absolute inset-[15px] rounded-[10px] border border-[#D4AF37]/13" />
+              <div className="absolute inset-[10px] z-[4] text-[#D2A83D] opacity-[.94]">
+                <V78BotanicalArt />
+              </div>
+              <div className="pointer-events-none absolute -left-[20%] -top-[20%] z-[6] h-[145%] w-[14%] skew-x-[-18deg] bg-gradient-to-r from-transparent via-white/10 to-transparent animate-[v48GoldSheen_5.8s_ease-in-out_infinite]" />
+            </div>
+            {!lidClosed && <div className="absolute bottom-[-2px] left-1/2 h-[8px] w-[14%] -translate-x-1/2 rounded-t-[4px] bg-[linear-gradient(90deg,#85570b,#e4b548,#fff0a8,#ad7817)] shadow-[0_2px_8px_rgba(0,0,0,.22)]" />}
           </div>
 
-          {/* SMALL SATIN BOW - sits ON the front wall, not below the box */}
+          {/* gold band + bow always stay on the front face, visible open and closed */}
+          <div className="absolute bottom-[16%] left-[7%] right-[7%] z-[84] h-[3px] rounded-full bg-[linear-gradient(90deg,#7F530A,#E0B34B_28%,#FFE89A_50%,#D4A334_72%,#7F530A)] shadow-[0_2px_5px_rgba(0,0,0,.2)]" />
           <div
-            aria-hidden="true"
-            className={`absolute left-[67%] top-[80.2%] z-[70] h-[52px] w-[88px] -translate-x-1/2 origin-center ${
-              sealed ? "animate-[v48BowSettle_.46s_ease-out_both]" : ""
-            }`}
+            className="absolute bottom-[0%] left-1/2 z-[96]"
+            style={{ transform: "translateX(-50%)" }}
           >
-            <span className="absolute left-[1px] top-[5px] h-[27px] w-[39px] -rotate-[15deg] rounded-[68%_34%_62%_38%] border-[6px] border-[#D3A43F] bg-[linear-gradient(135deg,rgba(255,226,145,.18),rgba(120,76,12,.05))] shadow-[inset_0_1px_0_rgba(255,244,194,.42),0_3px_7px_rgba(0,0,0,.16)]" />
-            <span className="absolute right-[1px] top-[5px] h-[27px] w-[39px] rotate-[15deg] rounded-[34%_68%_38%_62%] border-[6px] border-[#D3A43F] bg-[linear-gradient(225deg,rgba(255,226,145,.18),rgba(120,76,12,.05))] shadow-[inset_0_1px_0_rgba(255,244,194,.42),0_3px_7px_rgba(0,0,0,.16)]" />
-            <span className="absolute left-[31px] top-[26px] h-[25px] w-[12px] rotate-[10deg] [clip-path:polygon(0_0,100%_4%,82%_100%,50%_82%,15%_100%)] bg-[linear-gradient(90deg,#A97721,#E3B652_48%,#B47A20)] shadow-[0_3px_6px_rgba(0,0,0,.14)]" />
-            <span className="absolute right-[29px] top-[26px] h-[27px] w-[12px] -rotate-[13deg] [clip-path:polygon(0_0,100%_4%,82%_100%,50%_82%,15%_100%)] bg-[linear-gradient(90deg,#A97721,#E3B652_48%,#B47A20)] shadow-[0_3px_6px_rgba(0,0,0,.14)]" />
-            <span className="absolute left-1/2 top-[13px] z-[4] h-[17px] w-[19px] -translate-x-1/2 rounded-[6px] bg-[radial-gradient(circle_at_35%_25%,#F5D580,#D1A03A_48%,#986814_100%)] shadow-[0_4px_8px_rgba(0,0,0,.22),inset_0_1px_0_rgba(255,244,192,.58)]" />
+            <div className={sealed || opening ? "animate-[v80BowSettle_.46s_ease-out_both]" : ""}>
+              <V78RibbonBow compact={compact} />
+            </div>
           </div>
 
           {isShipping && (
-            <div className="absolute left-1/2 top-[3px] z-[160] -translate-x-1/2 rounded-full border border-[#D8B052]/25 bg-[#0B0B0C] px-3 py-1.5 text-[12px] font-black uppercase tracking-[.07em] text-[#F2D17A] shadow-[0_12px_24px_rgba(0,0,0,.16)]">
+            <div className="absolute left-1/2 top-0 z-[170] -translate-x-1/2 rounded-full border border-[#D8B052]/25 bg-[#0B0B0C] px-3 py-1.5 text-[10px] font-black uppercase tracking-[.07em] text-[#F2D17A] shadow-[0_12px_24px_rgba(0,0,0,.16)]">
               Packed - heading to you
             </div>
           )}
+          </div>
         </div>
       )}
 
       {selectedContainer && (
-        <div className="v60-capacity-line absolute inset-x-[14px] bottom-[8px] z-[170] flex items-center gap-2">
+        <div className="v60-capacity-line absolute inset-x-[14px] bottom-[8px] z-[180] flex items-center gap-2">
           <div className="h-1 flex-1 overflow-hidden rounded-full bg-black/[0.075]">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-[#9A6A18] via-[#D5AD57] to-[#F0D58F] transition-[width] duration-500 ease-out"
-              style={{
-                width: `${Math.min(100, Math.max(0, roundedFill))}%`,
-              }}
-            />
+            <div className="h-full rounded-full bg-gradient-to-r from-[#9A6A18] via-[#D5AD57] to-[#F0D58F] transition-[width] duration-500 ease-out" style={{ width: `${roundedFill}%` }} />
           </div>
-
-          <span className="w-[42px] shrink-0 text-right text-[12px] font-black text-black/45">
-            {isShipping ? "Ready" : `${roundedFill}%`}
-          </span>
+          <span className="w-[42px] shrink-0 text-right text-[12px] font-black text-black/45">{isShipping ? "Ready" : `${roundedFill}%`}</span>
         </div>
       )}
     </div>
   );
 };
-
 
 const V7DecorationOverlay = ({ decorations }) => {
   const positions = [
