@@ -6,43 +6,95 @@ import {
   useState,
 } from "react";
 
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import api from "../../api/api.js";
 
 import hamperFestiveHero from "../../assets/images/hamper_one_festive.webp";
 import hamperExecutiveHero from "../../assets/images/hamper_one_executive.webp";
 import hamperWeddingHero from "../../assets/images/hamper_one_wedding.webp";
+import hamperOneLuxury from "../../assets/images/hamper_one_luxury.webp";
+import bestsellerCelebrationLuxury from "../../assets/images/bestseller_celebration_luxury.webp";
 
 const DISPLAY_FONT =
   "'Cormorant Garamond', 'Playfair Display', Georgia, serif";
 
-const HERO_SLIDES = [
+const HERO_SCENES = [
   {
-    src: hamperFestiveHero,
-    position: "62% 54%",
-    eyebrow: "THE PRIVATE EDIT",
-    title: "Rare Selection",
-    copy: "A tighter, more elevated edit chosen for exceptional gifting.",
+    image: hamperOneLuxury,
+    label: "THE PRIVATE SERIES",
+    title: "The First Impression",
+    note: "A composition designed to stop the room before it is even opened.",
+    position: "62% 50%",
   },
   {
-    src: hamperExecutiveHero,
-    position: "64% 52%",
-    eyebrow: "SIGNATURE PRESENTATION",
-    title: "Composed To Impress",
-    copy: "Premium finishing, restraint and visual detail from first glance to final reveal.",
+    image: hamperExecutiveHero,
+    label: "THE SIGNATURE EDIT",
+    title: "Quietly Impeccable",
+    note: "Deep tones, precise finishing and a presentation that feels intentional.",
+    position: "58% 52%",
   },
   {
-    src: hamperWeddingHero,
-    position: "66% 50%",
-    eyebrow: "BESPOKE DIRECTION",
-    title: "Made More Personal",
-    copy: "An intentional expression shaped around the person, occasion and gesture.",
+    image: hamperWeddingHero,
+    label: "THE PERSONAL EDIT",
+    title: "Made To Be Remembered",
+    note: "A more intimate expression for moments that deserve their own language.",
+    position: "61% 50%",
   },
 ];
 
-const FALLBACK_IMAGE =
-  "https://images.unsplash.com/photo-1607344645866-009c320b63e0?auto=format&fit=crop&w=1200&q=90";
+const STORY_CHAPTERS = [
+  {
+    number: "01",
+    kicker: "SELECTION",
+    title: "Nothing enters by accident.",
+    copy: "Every object earns its place through taste, texture and how it contributes to the full reveal.",
+    image: hamperFestiveHero,
+    line: "CURATED WITH RESTRAINT",
+    position: "center 50%",
+  },
+  {
+    number: "02",
+    kicker: "COMPOSITION",
+    title: "The box is part of the gift.",
+    copy: "Layering, spacing, ribbon, colour and proportion are treated as one visual composition — not an afterthought.",
+    image: hamperExecutiveHero,
+    line: "COMPOSED TO IMPRESS",
+    position: "center 48%",
+  },
+  {
+    number: "03",
+    kicker: "REVEAL",
+    title: "The moment opens slowly.",
+    copy: "HAMPER ONE is designed around the pause before discovery — the detail that makes unboxing feel ceremonial.",
+    image: hamperWeddingHero,
+    line: "BUILT FOR THE REVEAL",
+    position: "center 46%",
+  },
+];
+
+const PRINCIPLES = [
+  {
+    number: "I",
+    title: "Rare, not crowded",
+    copy: "Fewer things. Better things. Every composition is edited until nothing feels unnecessary.",
+    image: hamperFestiveHero,
+  },
+  {
+    number: "II",
+    title: "Luxury without noise",
+    copy: "Material, proportion and finishing do the work — not excessive decoration.",
+    image: hamperExecutiveHero,
+  },
+  {
+    number: "III",
+    title: "Personal by design",
+    copy: "The occasion, person and gesture shape the final direction of the hamper.",
+    image: hamperWeddingHero,
+  },
+];
+
+const FALLBACK_IMAGE = hamperOneLuxury || bestsellerCelebrationLuxury;
 
 const getApiOrigin = () => {
   const baseURL = api.defaults?.baseURL || "";
@@ -60,7 +112,6 @@ const resolveImage = (value) => {
   }
 
   if (typeof image !== "string" || !image) return "";
-
   if (
     image.startsWith("http://") ||
     image.startsWith("https://") ||
@@ -71,18 +122,41 @@ const resolveImage = (value) => {
   }
 
   if (image.startsWith("//")) return `https:${image}`;
-
   return API_ORIGIN
     ? `${API_ORIGIN}${image.startsWith("/") ? "" : "/"}${image}`
     : image;
 };
 
 const getProductImage = (product) => {
-  const first = Array.isArray(product?.images) ? product.images[0] : null;
-  return resolveImage(first) || FALLBACK_IMAGE;
+  const candidates = [
+    product?.images?.[0]?.url,
+    product?.images?.[0],
+    product?.image?.url,
+    product?.image,
+    product?.thumbnail?.url,
+    product?.thumbnail,
+    product?.skus?.[0]?.images?.[0]?.url,
+    product?.skus?.[0]?.images?.[0],
+  ];
+
+  for (const candidate of candidates) {
+    const image = resolveImage(candidate);
+    if (image) return image;
+  }
+
+  return FALLBACK_IMAGE;
 };
 
-const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+const getProductPrice = (product) => {
+  const value =
+    product?.minPrice ??
+    product?.price ??
+    product?.sellingPrice ??
+    product?.salePrice ??
+    0;
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : 0;
+};
 
 const useReducedMotion = () => {
   const [reduced, setReduced] = useState(false);
@@ -99,42 +173,90 @@ const useReducedMotion = () => {
   return reduced;
 };
 
-const ArrowIcon = ({ direction = "right" }) => (
-  <svg
-    viewBox="0 0 24 24"
-    aria-hidden="true"
-    className={direction === "down" ? "ho-icon-down" : ""}
-  >
-    <path d="M5 12h13" />
+const ArrowIcon = ({ down = false }) => (
+  <svg viewBox="0 0 24 24" aria-hidden="true" className={down ? "is-down" : ""}>
+    <path d="M4 12h15" />
     <path d="m14 7 5 5-5 5" />
   </svg>
 );
 
-const StarMark = () => (
+const StarIcon = () => (
   <svg viewBox="0 0 24 24" aria-hidden="true">
-    <path d="M12 2.8c.7 5.4 3.1 7.8 8.5 8.5-5.4.7-7.8 3.1-8.5 8.5-.7-5.4-3.1-7.8-8.5-8.5 5.4-.7 7.8-3.1 8.5-8.5Z" />
+    <path d="M12 2.4c.72 5.7 3.3 8.28 9 9-5.7.72-8.28 3.3-9 9-.72-5.7-3.3-8.28-9-9 5.7-.72 8.28-3.3 9-9Z" />
   </svg>
 );
 
+const createRouteCurtain = (to, navigate, reducedMotion) => {
+  if (reducedMotion || typeof document === "undefined") {
+    navigate(to);
+    return;
+  }
+
+  const overlay = document.createElement("div");
+  overlay.className = "h1-route-curtain";
+  overlay.innerHTML = `
+    <div class="h1-route-panel h1-route-panel-left"></div>
+    <div class="h1-route-panel h1-route-panel-right"></div>
+    <div class="h1-route-line"></div>
+    <div class="h1-route-seal"><span>H1</span></div>
+  `;
+  document.body.appendChild(overlay);
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => overlay.classList.add("is-closing"));
+  });
+
+  window.setTimeout(() => {
+    navigate(to);
+    overlay.classList.add("is-opening");
+  }, 430);
+
+  window.setTimeout(() => overlay.remove(), 860);
+};
+
+const CinematicLink = ({ to, children, className = "", reducedMotion, ...props }) => {
+  const navigate = useNavigate();
+
+  const handleClick = (event) => {
+    if (
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey ||
+      props.target === "_blank"
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    createRouteCurtain(to, navigate, reducedMotion);
+  };
+
+  return (
+    <Link to={to} className={className} onClick={handleClick} {...props}>
+      {children}
+    </Link>
+  );
+};
+
 const HamperOne = () => {
   const reducedMotion = useReducedMotion();
-
+  const rootRef = useRef(null);
+  const pointerFrameRef = useRef(0);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [heroSlide, setHeroSlide] = useState(0);
-  const [ritualActive, setRitualActive] = useState(0);
-  const [scrollProgress, setScrollProgress] = useState(0);
+  const [heroScene, setHeroScene] = useState(0);
+  const [activeChapter, setActiveChapter] = useState(0);
+  const [introDone, setIntroDone] = useState(false);
   const [heroReady, setHeroReady] = useState(false);
-
-  const rootRef = useRef(null);
-  const pointerFrameRef = useRef(0);
 
   useEffect(() => {
     let active = true;
     const controller = new AbortController();
 
-    const loadProducts = async () => {
+    const load = async () => {
       setLoading(true);
       setError("");
 
@@ -156,14 +278,14 @@ const HamperOne = () => {
         console.error("HAMPER ONE products error:", requestError);
         setError(
           requestError.response?.data?.message ||
-            "Unable to load the HAMPER ONE collection."
+            "The private edit is taking a little longer to arrive."
         );
       } finally {
         if (active) setLoading(false);
       }
     };
 
-    loadProducts();
+    load();
 
     return () => {
       active = false;
@@ -172,18 +294,28 @@ const HamperOne = () => {
   }, []);
 
   useEffect(() => {
-    HERO_SLIDES.forEach((slide) => {
+    [...HERO_SCENES, ...STORY_CHAPTERS, ...PRINCIPLES].forEach((scene) => {
       const image = new Image();
-      image.src = slide.src;
+      image.src = scene.image;
     });
   }, []);
 
   useEffect(() => {
+    if (reducedMotion) {
+      setIntroDone(true);
+      return undefined;
+    }
+
+    const timer = window.setTimeout(() => setIntroDone(true), 1600);
+    return () => window.clearTimeout(timer);
+  }, [reducedMotion]);
+
+  useEffect(() => {
     if (reducedMotion) return undefined;
-    const interval = window.setInterval(() => {
-      setHeroSlide((current) => (current + 1) % HERO_SLIDES.length);
-    }, 5200);
-    return () => window.clearInterval(interval);
+    const timer = window.setInterval(() => {
+      setHeroScene((current) => (current + 1) % HERO_SCENES.length);
+    }, 6200);
+    return () => window.clearInterval(timer);
   }, [reducedMotion]);
 
   useEffect(() => {
@@ -195,7 +327,7 @@ const HamperOne = () => {
       frame = 0;
       const max = document.documentElement.scrollHeight - window.innerHeight;
       const progress = max > 0 ? window.scrollY / max : 0;
-      setScrollProgress(clamp(progress, 0, 1));
+      root.style.setProperty("--h1-progress", String(Math.min(1, Math.max(0, progress))));
     };
 
     const onScroll = () => {
@@ -214,30 +346,11 @@ const HamperOne = () => {
   }, []);
 
   useEffect(() => {
-    const targets = Array.from(document.querySelectorAll("[data-ho-ritual-trigger]"));
-    if (!targets.length || typeof IntersectionObserver === "undefined") return undefined;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (!entry.isIntersecting) return;
-          const index = Number(entry.target.getAttribute("data-ho-ritual-trigger"));
-          if (Number.isFinite(index)) setRitualActive(index);
-        });
-      },
-      { threshold: 0.52, rootMargin: "-16% 0px -16% 0px" }
-    );
-
-    targets.forEach((target) => observer.observe(target));
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    const items = Array.from(document.querySelectorAll(".ho-reveal"));
-    if (!items.length) return undefined;
+    const elements = Array.from(document.querySelectorAll("[data-h1-reveal]"));
+    if (!elements.length) return undefined;
 
     if (reducedMotion || typeof IntersectionObserver === "undefined") {
-      items.forEach((item) => item.classList.add("is-visible"));
+      elements.forEach((element) => element.classList.add("is-visible"));
       return undefined;
     }
 
@@ -249,85 +362,55 @@ const HamperOne = () => {
           observer.unobserve(entry.target);
         });
       },
-      { threshold: 0.14, rootMargin: "0px 0px -7% 0px" }
+      { threshold: 0.14, rootMargin: "0px 0px -8% 0px" }
     );
 
-    items.forEach((item) => observer.observe(item));
+    elements.forEach((element) => observer.observe(element));
     return () => observer.disconnect();
   }, [loading, products.length, reducedMotion]);
 
-  const handleHeroPointerMove = useCallback((event) => {
-    if (reducedMotion || !rootRef.current) return;
+  useEffect(() => {
+    const chapters = Array.from(document.querySelectorAll("[data-h1-chapter]"));
+    if (!chapters.length || typeof IntersectionObserver === "undefined") return undefined;
 
-    const host = event.currentTarget;
-    const rect = host.getBoundingClientRect();
-    const x = ((event.clientX - rect.left) / rect.width) * 100;
-    const y = ((event.clientY - rect.top) / rect.height) * 100;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          const index = Number(entry.target.getAttribute("data-h1-chapter"));
+          if (Number.isFinite(index)) setActiveChapter(index);
+        });
+      },
+      { threshold: 0.56, rootMargin: "-12% 0px -12% 0px" }
+    );
 
-    if (pointerFrameRef.current) cancelAnimationFrame(pointerFrameRef.current);
-    pointerFrameRef.current = requestAnimationFrame(() => {
-      host.style.setProperty("--ho-pointer-x", `${x}%`);
-      host.style.setProperty("--ho-pointer-y", `${y}%`);
-      host.style.setProperty("--ho-parallax-x", `${(x - 50) * 0.08}px`);
-      host.style.setProperty("--ho-parallax-y", `${(y - 50) * 0.06}px`);
-    });
-  }, [reducedMotion]);
+    chapters.forEach((chapter) => observer.observe(chapter));
+    return () => observer.disconnect();
+  }, []);
 
-  const heroProducts = useMemo(() => {
-    return [
-      products[0] || null,
-      products[1] || null,
-      products[2] || null,
-      products[3] || null,
-    ];
-  }, [products]);
+  const handlePointerMove = useCallback(
+    (event) => {
+      if (reducedMotion) return;
+      const host = event.currentTarget;
+      const rect = host.getBoundingClientRect();
+      const x = ((event.clientX - rect.left) / rect.width) * 100;
+      const y = ((event.clientY - rect.top) / rect.height) * 100;
 
-  const ritualSlides = useMemo(
-    () => [
-      {
-        number: "01",
-        eyebrow: "THE SELECTION",
-        title: "Rare Selection",
-        accent: "chosen with restraint.",
-        body: "A tighter edit of gifts selected for exceptional moments, not an endless catalogue.",
-        foot: "CURATED WITH RESTRAINT",
-        image: getProductImage(heroProducts[0] || {}) || HERO_SLIDES[0].src,
-      },
-      {
-        number: "02",
-        eyebrow: "THE PRESENTATION",
-        title: "Signature Presentation",
-        accent: "composed to impress.",
-        body: "Finishing, packaging and visual balance are treated as part of the gift itself.",
-        foot: "FINISHED TO IMPRESS",
-        image: getProductImage(heroProducts[1] || {}) || HERO_SLIDES[1].src,
-      },
-      {
-        number: "03",
-        eyebrow: "THE PERSONAL TOUCH",
-        title: "Bespoke Direction",
-        accent: "made more personal.",
-        body: "A more intentional expression shaped around the person, occasion and gesture.",
-        foot: "MADE MORE PERSONAL",
-        image: getProductImage(heroProducts[2] || {}) || HERO_SLIDES[2].src,
-      },
-      {
-        number: "04",
-        eyebrow: "THE EXPERIENCE",
-        title: "White-glove Mindset",
-        accent: "handled with care.",
-        body: "Every touchpoint is considered as part of one private, premium gifting journey.",
-        foot: "PRIVATE EXPERIENCE",
-        image: getProductImage(heroProducts[3] || {}) || HERO_SLIDES[0].src,
-      },
-    ],
-    [heroProducts]
+      if (pointerFrameRef.current) cancelAnimationFrame(pointerFrameRef.current);
+      pointerFrameRef.current = requestAnimationFrame(() => {
+        host.style.setProperty("--h1-mx", `${x}%`);
+        host.style.setProperty("--h1-my", `${y}%`);
+        host.style.setProperty("--h1-px", `${(x - 50) * 0.065}px`);
+        host.style.setProperty("--h1-py", `${(y - 50) * 0.045}px`);
+      });
+    },
+    [reducedMotion]
   );
 
-  const currentRitual = ritualSlides[ritualActive] || ritualSlides[0];
+  const heroProducts = useMemo(() => products.slice(0, 8), [products]);
 
-  const handleCollectionJump = () => {
-    document.getElementById("hamper-one-collection")?.scrollIntoView({
+  const jumpToCollection = () => {
+    document.getElementById("h1-private-edit")?.scrollIntoView({
       behavior: reducedMotion ? "auto" : "smooth",
       block: "start",
     });
@@ -336,615 +419,523 @@ const HamperOne = () => {
   return (
     <main
       ref={rootRef}
-      className="ho-page min-h-screen overflow-x-clip bg-[#080706] text-[#F8F0DC]"
+      className="h1-page min-h-screen overflow-x-clip bg-[#070604] text-[#F8F0DC]"
       style={{ fontFamily: "'Manrope', Arial, sans-serif" }}
     >
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500;1,600&family=Manrope:wght@400;500;600;700;800&display=swap');
 
-        .ho-page {
-          --ho-gold:#D8B651;
-          --ho-gold-2:#F0D982;
-          --ho-orange:#F47822;
-          --ho-cream:#F8F0DC;
-          --ho-ink:#080706;
-          --ho-ease:cubic-bezier(.16,1,.3,1);
-          --ho-pointer-x:50%;
-          --ho-pointer-y:50%;
-          background:
-            radial-gradient(circle at 20% 10%, rgba(212,175,55,.045), transparent 30%),
-            #080706;
-        }
-
-        .ho-page *, .ho-page *::before, .ho-page *::after { box-sizing:border-box; }
-        .ho-page a, .ho-page button { -webkit-tap-highlight-color:transparent; }
-        .ho-page :where(a,button):focus-visible { outline:2px solid #F0D982; outline-offset:5px; }
-        .ho-display { font-family:${DISPLAY_FONT}; }
-        .ho-no-select { user-select:none; -webkit-user-select:none; }
-
-        .ho-progress {
-          position:fixed;
-          top:0; left:0; right:0;
-          z-index:160;
-          height:2px;
-          pointer-events:none;
-          background:rgba(255,255,255,.03);
-        }
-        .ho-progress > span {
-          display:block;
-          width:100%; height:100%;
-          transform:scaleX(var(--ho-progress,0));
-          transform-origin:left center;
-          background:linear-gradient(90deg,#F47822,#D8B651 52%,#F0D982);
-          box-shadow:0 0 14px rgba(216,182,81,.34);
-          will-change:transform;
-        }
-
-        .ho-reveal {
-          opacity:0;
-          transform:translate3d(0,26px,0);
-          transition:opacity .72s ease, transform .92s var(--ho-ease);
-        }
-        .ho-reveal.is-visible { opacity:1; transform:translate3d(0,0,0); }
-        .ho-delay-1 { transition-delay:.07s; }
-        .ho-delay-2 { transition-delay:.14s; }
-        .ho-delay-3 { transition-delay:.21s; }
-
-        /* HERO */
-        .ho-hero {
-          --ho-parallax-x:0px;
-          --ho-parallax-y:0px;
-          position:relative;
-          min-height:100svh;
-          isolation:isolate;
-          overflow:hidden;
+        .h1-page {
+          --gold:#D7B24A;
+          --gold-bright:#F2DA82;
+          --cream:#F8F0DC;
+          --ink:#070604;
+          --orange:#F47822;
+          --ease:cubic-bezier(.16,1,.3,1);
+          --h1-progress:0;
+          --h1-mx:50%;
+          --h1-my:50%;
+          --h1-px:0px;
+          --h1-py:0px;
           background:#070604;
+          -webkit-font-smoothing:antialiased;
+          text-rendering:optimizeLegibility;
         }
-        .ho-hero-media { position:absolute; inset:0; z-index:-6; overflow:hidden; }
-        .ho-hero-slide {
-          position:absolute;
-          inset:-2.4%;
-          width:104.8%; height:104.8%;
-          object-fit:cover;
-          opacity:0;
-          filter:saturate(.94) contrast(1.03) brightness(.76);
-          transform:translate3d(var(--ho-parallax-x),var(--ho-parallax-y),0) scale(1.045);
-          transition:opacity 1.25s var(--ho-ease), transform 6.4s var(--ho-ease), filter 1.2s ease;
+
+        .h1-page *, .h1-page *::before, .h1-page *::after { box-sizing:border-box; }
+        .h1-page a, .h1-page button { -webkit-tap-highlight-color:transparent; }
+        .h1-page :where(a,button):focus-visible { outline:2px solid var(--gold-bright); outline-offset:5px; }
+        .h1-display { font-family:${DISPLAY_FONT}; }
+
+        .h1-scroll-progress {
+          position:fixed; inset:0 0 auto 0; z-index:200; height:2px;
+          pointer-events:none; background:rgba(255,255,255,.025);
+        }
+        .h1-scroll-progress::after {
+          content:""; display:block; width:100%; height:100%;
+          transform:scaleX(var(--h1-progress)); transform-origin:left center;
+          background:linear-gradient(90deg,var(--orange),var(--gold),var(--gold-bright));
+          box-shadow:0 0 18px rgba(215,178,74,.36);
+        }
+
+        .h1-intro {
+          position:fixed; inset:0; z-index:9999; display:grid; place-items:center;
+          overflow:hidden; background:#070604; pointer-events:none;
+          transition:opacity .5s ease .08s, visibility .5s ease .08s;
+        }
+        .h1-intro.is-done { opacity:0; visibility:hidden; }
+        .h1-intro::before, .h1-intro::after {
+          content:""; position:absolute; inset:0 50% 0 0; background:#0B0907;
+          transform-origin:left center; animation:h1IntroLeft 1.42s .18s var(--ease) both;
+        }
+        .h1-intro::after {
+          inset:0 0 0 50%; transform-origin:right center;
+          animation-name:h1IntroRight;
+        }
+        .h1-intro-seal {
+          position:relative; z-index:3; display:grid; width:112px; height:112px; place-items:center;
+          border-radius:50%; border:1px solid rgba(245,220,150,.54);
+          color:#291A05; font:700 38px/1 ${DISPLAY_FONT};
+          background:radial-gradient(circle at 34% 28%,#FFF3B8 0%,#E6C55F 28%,#BD8422 62%,#664008 100%);
+          box-shadow:0 24px 70px rgba(0,0,0,.52),inset 0 1px 0 rgba(255,255,255,.5);
+          animation:h1IntroSeal 1.18s .05s var(--ease) both;
+        }
+        .h1-intro-seal::after { content:""; position:absolute; inset:10px; border:1px dashed rgba(82,52,9,.44); border-radius:50%; }
+        .h1-intro-copy { position:absolute; z-index:4; bottom:9vh; color:rgba(255,255,255,.42); font-size:8px; font-weight:900; letter-spacing:.24em; text-transform:uppercase; }
+        @keyframes h1IntroSeal { 0%{opacity:0;transform:scale(.35) rotate(-28deg)} 58%{opacity:1;transform:scale(1.08) rotate(4deg)} 100%{opacity:1;transform:scale(1) rotate(0)} }
+        @keyframes h1IntroLeft { 0%,58%{transform:translateX(0)} 100%{transform:translateX(-104%)} }
+        @keyframes h1IntroRight { 0%,58%{transform:translateX(0)} 100%{transform:translateX(104%)} }
+
+        .h1-hero {
+          position:relative; min-height:100svh; overflow:hidden; isolation:isolate;
+          display:flex; align-items:stretch; background:#070604;
+        }
+        .h1-hero-media { position:absolute; inset:0; z-index:-8; overflow:hidden; }
+        .h1-hero-image {
+          position:absolute; inset:-2.5%; width:105%; height:105%; object-fit:cover;
+          opacity:0; filter:saturate(.82) contrast(1.08) brightness(.52);
+          transform:translate3d(var(--h1-px),var(--h1-py),0) scale(1.055);
+          transition:opacity 1.3s var(--ease), transform 6.8s var(--ease), filter 1.2s ease;
           will-change:opacity,transform;
         }
-        .ho-hero-slide.is-active {
-          opacity:1;
-          transform:translate3d(var(--ho-parallax-x),var(--ho-parallax-y),0) scale(1.095);
-          filter:saturate(1.01) contrast(1.045) brightness(.86);
+        .h1-hero-image.is-active {
+          opacity:1; transform:translate3d(var(--h1-px),var(--h1-py),0) scale(1.115);
+          filter:saturate(.96) contrast(1.05) brightness(.69);
         }
-        .ho-hero-overlay {
-          position:absolute; inset:0; z-index:-5; pointer-events:none;
+        .h1-hero-wash {
+          position:absolute; inset:0; z-index:-7; pointer-events:none;
           background:
-            linear-gradient(90deg,rgba(3,3,3,.97) 0%,rgba(3,3,3,.88) 27%,rgba(5,4,3,.54) 52%,rgba(6,5,4,.19) 78%,rgba(4,4,4,.32) 100%),
-            linear-gradient(180deg,rgba(0,0,0,.22),transparent 42%,rgba(0,0,0,.72));
+            linear-gradient(90deg,rgba(5,4,3,.98) 0%,rgba(5,4,3,.91) 29%,rgba(5,4,3,.55) 55%,rgba(5,4,3,.16) 80%,rgba(5,4,3,.30) 100%),
+            linear-gradient(180deg,rgba(0,0,0,.18),transparent 47%,rgba(0,0,0,.72));
         }
-        .ho-hero-overlay::after {
-          content:"";
-          position:absolute; inset:0;
-          background:radial-gradient(circle 360px at var(--ho-pointer-x) var(--ho-pointer-y),rgba(255,219,122,.09),rgba(216,182,81,.025) 40%,transparent 72%);
-          opacity:.9;
+        .h1-hero-wash::after {
+          content:""; position:absolute; inset:0;
+          background:radial-gradient(circle 410px at var(--h1-mx) var(--h1-my),rgba(255,225,132,.105),rgba(215,178,74,.025) 42%,transparent 72%);
         }
-        .ho-grain {
-          position:absolute; inset:0; z-index:-4; pointer-events:none;
-          opacity:.07;
-          background-image:radial-gradient(rgba(255,255,255,.9) .48px,transparent .48px);
-          background-size:7px 7px;
-          mix-blend-mode:soft-light;
+        .h1-grain { position:absolute; inset:0; z-index:-5; pointer-events:none; opacity:.07; background-image:radial-gradient(rgba(255,255,255,.9) .45px,transparent .45px); background-size:7px 7px; mix-blend-mode:soft-light; }
+        .h1-hero-orbit {
+          position:absolute; z-index:-3; right:-11vw; top:-13vw; width:min(56vw,820px); aspect-ratio:1; border-radius:50%;
+          border:1px solid rgba(236,208,122,.13); box-shadow:0 0 0 48px rgba(215,178,74,.022),0 0 0 96px rgba(215,178,74,.016);
+          animation:h1Orbit 22s linear infinite; pointer-events:none;
         }
-        .ho-hero-glint {
-          position:absolute;
-          z-index:-2;
-          top:-18%; right:-9%;
-          width:min(48vw,720px);
-          aspect-ratio:1;
-          border-radius:50%;
-          background:conic-gradient(from 190deg,transparent 0 22%,rgba(255,228,147,.10) 31%,transparent 42% 100%);
-          filter:blur(4px);
-          animation:hoGlint 13s linear infinite;
-          pointer-events:none;
-        }
-        @keyframes hoGlint { to { transform:rotate(360deg); } }
+        .h1-hero-orbit::before, .h1-hero-orbit::after { content:""; position:absolute; border-radius:50%; background:#E5C969; box-shadow:0 0 24px rgba(229,201,105,.55); }
+        .h1-hero-orbit::before { width:8px;height:8px;top:14%;left:12%; }
+        .h1-hero-orbit::after { width:5px;height:5px;right:10%;bottom:18%; }
+        @keyframes h1Orbit { to{transform:rotate(360deg)} }
 
-        .ho-hero-inner {
-          min-height:100svh;
-          display:grid;
-          grid-template-columns:minmax(0,.94fr) minmax(360px,.66fr);
-          align-items:center;
-          gap:clamp(34px,6vw,96px);
-          padding:clamp(118px,10vw,156px) clamp(22px,5vw,88px) clamp(60px,6vw,92px);
+        .h1-hero-shell {
+          width:100%; min-height:100svh; display:grid;
+          grid-template-columns:minmax(0,1.15fr) minmax(320px,.44fr);
+          gap:clamp(40px,6vw,100px); align-items:center;
+          padding:clamp(118px,10vw,160px) clamp(22px,5vw,84px) clamp(76px,7vw,104px);
         }
-        .ho-hero-copy { max-width:840px; }
-        .ho-kicker {
-          display:flex; align-items:center; gap:12px;
-          color:#F0D982;
-          font-size:9px; font-weight:900; letter-spacing:.27em; text-transform:uppercase;
-        }
-        .ho-kicker::before {
-          content:""; width:46px; height:1px;
-          background:linear-gradient(90deg,#F47822,#D8B651);
-          box-shadow:0 0 12px rgba(216,182,81,.25);
-        }
-        .ho-hero-title {
-          margin:25px 0 0;
-          max-width:920px;
-          font-family:${DISPLAY_FONT};
-          font-size:clamp(92px,11.6vw,188px);
-          font-weight:600;
-          line-height:.68;
-          letter-spacing:-.058em;
-          color:#FAF0D9;
-          text-shadow:0 28px 70px rgba(0,0,0,.32);
-        }
-        .ho-hero-title span {
-          display:block;
-          margin-top:.19em;
-          color:#D8B651;
-          font-style:italic;
-          font-size:.52em;
-          letter-spacing:-.045em;
-          text-shadow:0 14px 44px rgba(216,182,81,.16);
-        }
-        .ho-hero-deck {
-          display:grid;
-          grid-template-columns:minmax(0,1fr) minmax(190px,.48fr);
-          gap:28px;
-          align-items:end;
-          max-width:820px;
-          margin-top:38px;
-          padding-top:27px;
-          border-top:1px solid rgba(255,255,255,.10);
-        }
-        .ho-hero-deck p {
-          margin:0;
-          color:rgba(255,255,255,.64);
-          font-size:14px;
-          line-height:1.9;
-        }
-        .ho-hero-micro {
-          padding-left:24px;
-          border-left:1px solid rgba(216,182,81,.30);
-          color:rgba(255,255,255,.45);
-          font-size:9px;
-          font-weight:800;
-          line-height:1.8;
-          letter-spacing:.12em;
-          text-transform:uppercase;
-        }
-        .ho-actions { display:flex; flex-wrap:wrap; gap:12px; margin-top:31px; }
-        .ho-btn {
-          position:relative;
-          display:inline-flex;
-          min-height:56px;
-          align-items:center;
-          justify-content:center;
-          gap:20px;
-          padding:0 26px;
-          overflow:hidden;
-          border:1px solid rgba(216,182,81,.42);
-          color:#F8F0DC;
-          background:rgba(10,8,5,.44);
-          backdrop-filter:blur(10px);
-          text-decoration:none;
-          font-size:9px;
-          font-weight:900;
-          letter-spacing:.14em;
-          text-transform:uppercase;
-          transition:transform .48s var(--ho-ease),border-color .35s ease,background .35s ease,color .35s ease,box-shadow .35s ease;
-        }
-        .ho-btn svg { width:17px; height:17px; fill:none; stroke:currentColor; stroke-width:1.7; transition:transform .45s var(--ho-ease); }
-        .ho-btn:hover { transform:translateY(-3px); border-color:#E7CD79; box-shadow:0 18px 42px rgba(0,0,0,.23); }
-        .ho-btn:hover svg { transform:translateX(4px); }
-        .ho-btn-primary { background:linear-gradient(135deg,#E6CA6D,#C99F32); color:#171007; border-color:#E9D17E; }
-        .ho-btn-primary::after {
-          content:""; position:absolute; inset:-70% auto -70% -36%; width:22%;
-          background:linear-gradient(90deg,transparent,rgba(255,255,255,.52),transparent);
-          transform:skewX(-18deg);
-          transition:transform .9s var(--ho-ease);
-        }
-        .ho-btn-primary:hover::after { transform:translateX(660%) skewX(-18deg); }
+        .h1-hero-copy { position:relative; max-width:1040px; }
+        .h1-eyebrow { display:flex; align-items:center; gap:12px; color:var(--gold-bright); font-size:9px; font-weight:900; letter-spacing:.28em; text-transform:uppercase; }
+        .h1-eyebrow::before { content:""; width:48px; height:1px; background:linear-gradient(90deg,var(--orange),var(--gold)); box-shadow:0 0 12px rgba(215,178,74,.28); }
 
-        .ho-hero-side {
-          align-self:stretch;
-          display:flex;
-          flex-direction:column;
-          justify-content:center;
-          gap:18px;
-          padding-top:40px;
+        .h1-hero-title {
+          margin:24px 0 0; max-width:1080px; color:#FBF2DD;
+          font:600 clamp(98px,12.6vw,194px)/.64 ${DISPLAY_FONT}; letter-spacing:-.061em;
+          text-shadow:0 34px 82px rgba(0,0,0,.34);
         }
-        .ho-hero-side-card {
-          position:relative;
-          overflow:hidden;
-          min-height:180px;
-          padding:20px 20px 18px;
-          border:1px solid rgba(216,182,81,.18);
-          background:linear-gradient(145deg,rgba(15,13,10,.76),rgba(11,10,8,.38));
-          backdrop-filter:blur(14px);
-          box-shadow:0 24px 58px rgba(0,0,0,.16),inset 0 1px 0 rgba(255,255,255,.025);
-          transition:transform .62s var(--ho-ease),border-color .4s ease,background .4s ease;
+        .h1-hero-title .h1-hero-one {
+          display:flex; align-items:flex-end; gap:.1em; margin-top:.15em;
+          color:var(--gold); font-style:italic; font-size:.55em; letter-spacing:-.05em;
         }
-        .ho-hero-side-card::before {
-          content:"";
-          position:absolute; inset:8px;
-          border:1px solid rgba(245,220,151,.08);
-          pointer-events:none;
-        }
-        .ho-hero-side-card.is-active { transform:translateX(-8px); border-color:rgba(216,182,81,.52); background:linear-gradient(145deg,rgba(29,24,15,.84),rgba(13,11,8,.58)); }
-        .ho-hero-side-index { display:flex; align-items:center; justify-content:space-between; gap:12px; color:#D8B651; font-size:8px; font-weight:900; letter-spacing:.18em; }
-        .ho-hero-side-card h3 { margin:22px 0 0; font:600 clamp(28px,2.25vw,40px)/.96 ${DISPLAY_FONT}; color:#F8EDCF; }
-        .ho-hero-side-card p { margin:11px 0 0; max-width:360px; color:rgba(255,255,255,.50); font-size:10px; line-height:1.75; }
-        .ho-hero-side-card button {
-          position:absolute; inset:0; width:100%; height:100%; border:0; background:transparent; cursor:pointer;
-        }
+        .h1-hero-title .h1-hero-one small { margin:0 0 .12em .22em; color:rgba(255,255,255,.38); font-family:'Manrope',Arial,sans-serif; font-size:.11em; font-style:normal; font-weight:900; letter-spacing:.19em; text-transform:uppercase; }
 
-        .ho-hero-foot {
-          position:absolute; left:clamp(22px,5vw,88px); right:clamp(22px,5vw,88px); bottom:22px;
-          z-index:10;
-          display:flex; align-items:center; justify-content:space-between; gap:18px;
-          color:rgba(255,255,255,.40);
-          font-size:8px; font-weight:800; letter-spacing:.14em; text-transform:uppercase;
+        .h1-hero-deck { display:grid; grid-template-columns:minmax(0,1fr) minmax(180px,.46fr); gap:30px; max-width:850px; margin-top:38px; padding-top:26px; border-top:1px solid rgba(255,255,255,.11); }
+        .h1-hero-deck p { margin:0; color:rgba(255,255,255,.62); font-size:13px; line-height:1.9; }
+        .h1-hero-signature { padding-left:22px; border-left:1px solid rgba(215,178,74,.30); color:rgba(255,255,255,.42); font-size:8px; font-weight:900; line-height:1.9; letter-spacing:.14em; text-transform:uppercase; }
+
+        .h1-actions { display:flex; flex-wrap:wrap; gap:12px; margin-top:30px; }
+        .h1-btn {
+          position:relative; display:inline-flex; min-height:56px; align-items:center; justify-content:center; gap:18px;
+          padding:0 26px; overflow:hidden; border:1px solid rgba(215,178,74,.38); color:#F8F0DC;
+          background:rgba(10,8,5,.42); backdrop-filter:blur(10px); text-decoration:none;
+          font-size:9px; font-weight:900; letter-spacing:.14em; text-transform:uppercase;
+          transition:transform .45s var(--ease),border-color .35s ease,background .35s ease,color .35s ease,box-shadow .35s ease;
         }
-        .ho-scroll-cue { display:flex; align-items:center; gap:11px; }
-        .ho-scroll-cue span { width:42px; height:1px; overflow:hidden; background:rgba(255,255,255,.12); }
-        .ho-scroll-cue span::after { content:""; display:block; width:100%; height:100%; background:linear-gradient(90deg,#F47822,#D8B651); animation:hoScrollLine 2.2s ease-in-out infinite; transform-origin:left; }
-        @keyframes hoScrollLine { 0%,100%{transform:scaleX(.15);opacity:.4} 50%{transform:scaleX(1);opacity:1} }
+        .h1-btn svg { width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.65;transition:transform .42s var(--ease); }
+        .h1-btn svg.is-down { transform:rotate(90deg); }
+        .h1-btn:hover { transform:translateY(-3px); border-color:#F0D67E; box-shadow:0 20px 48px rgba(0,0,0,.26); }
+        .h1-btn:hover svg:not(.is-down) { transform:translateX(4px); }
+        .h1-btn-gold { color:#171006; border-color:#F0D67E; background:linear-gradient(135deg,#F0D77F,#C99D31); }
+        .h1-btn-gold::after { content:""; position:absolute; inset:-70% auto -70% -42%; width:22%; background:linear-gradient(90deg,transparent,rgba(255,255,255,.55),transparent); transform:skewX(-18deg); transition:transform .95s var(--ease); }
+        .h1-btn-gold:hover::after { transform:translateX(720%) skewX(-18deg); }
 
-        /* MARQUEE */
-        .ho-marquee {
-          position:relative;
-          overflow:hidden;
-          border-block:1px solid rgba(216,182,81,.16);
-          background:#0B0907;
+        .h1-scene-nav { align-self:stretch; display:flex; flex-direction:column; justify-content:center; gap:10px; padding-top:34px; }
+        .h1-scene-card {
+          position:relative; min-height:126px; padding:18px 18px 16px; cursor:pointer; text-align:left;
+          border:1px solid rgba(215,178,74,.13); color:#F7EDCF;
+          background:linear-gradient(145deg,rgba(16,13,9,.74),rgba(9,8,7,.32)); backdrop-filter:blur(12px);
+          transition:transform .55s var(--ease),border-color .35s ease,background .35s ease,opacity .35s ease;
         }
-        .ho-marquee-track { display:flex; width:max-content; animation:hoMarquee 42s linear infinite; will-change:transform; }
-        .ho-marquee-seq { display:flex; flex:0 0 auto; }
-        .ho-marquee-item {
-          display:inline-flex; height:58px; align-items:center; gap:18px; padding-right:34px;
-          color:rgba(248,236,204,.70); font-size:9px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; white-space:nowrap;
+        .h1-scene-card::after { content:""; position:absolute; inset:7px; border:1px solid rgba(250,226,159,.055); pointer-events:none; }
+        .h1-scene-card:not(.is-active) { opacity:.52; }
+        .h1-scene-card.is-active { transform:translateX(-10px); opacity:1; border-color:rgba(215,178,74,.55); background:linear-gradient(145deg,rgba(33,26,15,.82),rgba(11,9,7,.54)); }
+        .h1-scene-top { display:flex; align-items:center; justify-content:space-between; gap:16px; color:var(--gold); font-size:7px; font-weight:900; letter-spacing:.18em; }
+        .h1-scene-card h3 { margin:18px 0 0; font:600 clamp(25px,2vw,35px)/.93 ${DISPLAY_FONT}; }
+        .h1-scene-card p { margin:8px 0 0; color:rgba(255,255,255,.47); font-size:9px; line-height:1.65; }
+
+        .h1-hero-foot { position:absolute; z-index:8; left:clamp(22px,5vw,84px); right:clamp(22px,5vw,84px); bottom:20px; display:flex; align-items:center; justify-content:space-between; gap:18px; color:rgba(255,255,255,.36); font-size:8px; font-weight:900; letter-spacing:.14em; text-transform:uppercase; }
+        .h1-scroll-cue { display:flex; align-items:center; gap:12px; }
+        .h1-scroll-cue span { width:46px;height:1px;overflow:hidden;background:rgba(255,255,255,.12); }
+        .h1-scroll-cue span::after { content:""; display:block; width:100%;height:100%;background:linear-gradient(90deg,var(--orange),var(--gold));transform-origin:left;animation:h1LinePulse 2.2s ease-in-out infinite; }
+        @keyframes h1LinePulse { 0%,100%{transform:scaleX(.12);opacity:.35}50%{transform:scaleX(1);opacity:1} }
+
+        .h1-ticker { position:relative; overflow:hidden; border-block:1px solid rgba(215,178,74,.15); background:#0B0907; }
+        .h1-ticker-track { display:flex; width:max-content; animation:h1Ticker 38s linear infinite; }
+        .h1-ticker-sequence { display:flex; flex:0 0 auto; }
+        .h1-ticker-item { display:inline-flex; height:56px; align-items:center; gap:17px; padding-right:32px; color:rgba(248,238,211,.66); font-size:8px; font-weight:900; letter-spacing:.15em; text-transform:uppercase; white-space:nowrap; }
+        .h1-ticker-item svg { width:10px;height:10px;fill:none;stroke:var(--gold);stroke-width:1.2; }
+        @keyframes h1Ticker { to{transform:translate3d(-50%,0,0)} }
+
+        .h1-manifesto { position:relative; overflow:hidden; color:#16120C; background:linear-gradient(180deg,#F7F0E5 0%,#ECE0CD 100%); }
+        .h1-manifesto::before { content:"ONE"; position:absolute; right:-2vw; top:-5vw; color:rgba(123,89,23,.045); font:italic 700 29vw/.8 ${DISPLAY_FONT}; pointer-events:none; }
+        .h1-manifesto-inner { position:relative; z-index:2; display:grid; grid-template-columns:minmax(0,.42fr) minmax(0,1.58fr); gap:clamp(38px,8vw,140px); align-items:end; padding:clamp(94px,9vw,150px) clamp(22px,6vw,96px); }
+        .h1-manifesto-mark { position:relative; width:min(270px,70vw); aspect-ratio:1; display:grid; place-items:center; border-radius:50%; border:1px solid rgba(137,98,25,.28); }
+        .h1-manifesto-mark::before, .h1-manifesto-mark::after { content:""; position:absolute; border-radius:50%; border:1px solid rgba(137,98,25,.14); }
+        .h1-manifesto-mark::before { inset:14px; }
+        .h1-manifesto-mark::after { inset:36px; }
+        .h1-manifesto-mark strong { font:italic 600 88px/1 ${DISPLAY_FONT}; color:#8A6518; }
+        .h1-manifesto-mark span { position:absolute; bottom:48px; font-size:7px; font-weight:900; letter-spacing:.22em; text-transform:uppercase; color:rgba(22,18,12,.46); }
+        .h1-manifesto-kicker { color:#906815; font-size:8px; font-weight:900; letter-spacing:.22em; text-transform:uppercase; }
+        .h1-manifesto-title { max-width:1120px; margin:22px 0 0; font:600 clamp(58px,6.7vw,112px)/.84 ${DISPLAY_FONT}; letter-spacing:-.045em; }
+        .h1-manifesto-title em { color:#A4771E; font-weight:500; }
+        .h1-manifesto-foot { display:grid; grid-template-columns:minmax(0,1fr) minmax(240px,.54fr); gap:34px; max-width:960px; margin-top:36px; padding-top:24px; border-top:1px solid rgba(21,17,11,.14); }
+        .h1-manifesto-foot p { margin:0; color:rgba(20,16,10,.58); font-size:13px; line-height:1.9; }
+        .h1-manifesto-foot small { padding-left:24px; border-left:1px solid rgba(143,104,24,.30); color:rgba(20,16,10,.48); font-size:8px; font-weight:900; line-height:1.9; letter-spacing:.12em; text-transform:uppercase; }
+
+        .h1-story { position:relative; background:#070604; }
+        .h1-story-nav {
+          position:fixed; z-index:40; left:18px; top:50%; display:flex; flex-direction:column; gap:7px;
+          transform:translateY(-50%); pointer-events:none; mix-blend-mode:screen;
         }
-        .ho-marquee-item svg { width:10px; height:10px; fill:none; stroke:#D8B651; stroke-width:1.3; }
-        @keyframes hoMarquee { to { transform:translate3d(-50%,0,0); } }
+        .h1-story-dot { width:3px; height:18px; background:rgba(255,255,255,.16); transition:height .4s var(--ease),background .35s ease; }
+        .h1-story-dot.is-active { height:44px; background:linear-gradient(180deg,var(--orange),var(--gold)); }
+        .h1-story-page { position:sticky; top:0; height:100svh; min-height:620px; overflow:hidden; isolation:isolate; background:#080706; }
+        .h1-story-page:nth-child(1){z-index:10}.h1-story-page:nth-child(2){z-index:20}.h1-story-page:nth-child(3){z-index:30}
+        .h1-story-page:nth-child(n+2) { clip-path:polygon(0 7.2vw,100% 0,100% 100%,0 100%); }
+        .h1-story-page:nth-child(n+2)::before { content:""; position:absolute; inset:0; z-index:8; pointer-events:none; background:linear-gradient(90deg,var(--orange),var(--gold),rgba(255,231,157,.72)); clip-path:polygon(0 7.2vw,100% 0,100% 3px,0 calc(7.2vw + 3px)); }
+        .h1-story-image { position:absolute; inset:0; z-index:-5; width:100%;height:100%;object-fit:cover;filter:saturate(.85) contrast(1.04) brightness(.64);transform:scale(1.015); }
+        .h1-story-overlay { position:absolute; inset:0; z-index:-4; background:linear-gradient(90deg,rgba(5,4,3,.95),rgba(5,4,3,.70) 42%,rgba(5,4,3,.16) 74%,rgba(5,4,3,.30)),linear-gradient(180deg,rgba(0,0,0,.10),transparent 48%,rgba(0,0,0,.74)); }
+        .h1-story-frame { position:absolute; inset:18px; z-index:3; pointer-events:none; border:1px solid rgba(240,216,148,.13); }
+        .h1-story-copy { position:absolute; z-index:5; left:clamp(30px,7vw,116px); right:clamp(30px,7vw,116px); bottom:clamp(48px,9vh,108px); max-width:900px; }
+        .h1-story-number { color:rgba(215,178,74,.80); font:italic 500 clamp(42px,5vw,72px)/1 ${DISPLAY_FONT}; }
+        .h1-story-kicker { margin:19px 0 0; color:var(--gold-bright); font-size:8px; font-weight:900; letter-spacing:.24em; text-transform:uppercase; }
+        .h1-story-title { max-width:900px; margin:20px 0 0; color:#FAF0D7; font:600 clamp(58px,7.2vw,118px)/.82 ${DISPLAY_FONT}; letter-spacing:-.047em; text-wrap:balance; }
+        .h1-story-bottom { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:end; gap:30px; max-width:780px; margin-top:27px; padding-top:21px; border-top:1px solid rgba(255,255,255,.13); }
+        .h1-story-bottom p { margin:0; color:rgba(255,255,255,.57); font-size:12px; line-height:1.85; }
+        .h1-story-bottom span { color:var(--gold); font-size:7px; font-weight:900; letter-spacing:.16em; text-transform:uppercase; }
 
-        /* RITUAL */
-        .ho-ritual { position:relative; background:#090807; border-bottom:1px solid rgba(255,255,255,.06); }
-        .ho-ritual-shell { display:grid; grid-template-columns:minmax(0,1.12fr) minmax(360px,.88fr); }
-        .ho-ritual-stage {
-          position:sticky;
-          top:0;
-          height:100svh;
-          overflow:hidden;
-          isolation:isolate;
-          border-right:1px solid rgba(216,182,81,.12);
-          background:#090807;
+        .h1-collection { position:relative; overflow:hidden; background:linear-gradient(180deg,#0A0806,#070604 72%); }
+        .h1-collection::before { content:"H1"; position:absolute; left:-3vw; top:-4vw; color:rgba(215,178,74,.035); font:italic 700 26vw/.8 ${DISPLAY_FONT}; pointer-events:none; }
+        .h1-collection-inner { position:relative; z-index:2; padding:clamp(92px,8vw,132px) clamp(18px,5vw,82px); }
+        .h1-section-head { display:grid; grid-template-columns:minmax(0,1.05fr) minmax(320px,.55fr); gap:clamp(28px,6vw,90px); align-items:end; padding-bottom:30px; border-bottom:1px solid rgba(255,255,255,.09); }
+        .h1-section-kicker { color:var(--gold); font-size:8px; font-weight:900; letter-spacing:.23em; text-transform:uppercase; }
+        .h1-section-title { margin:16px 0 0; color:#F7EACC; font:600 clamp(62px,7vw,112px)/.84 ${DISPLAY_FONT}; letter-spacing:-.046em; }
+        .h1-section-title em { display:block; color:var(--gold); font-weight:500; }
+        .h1-section-side { color:rgba(255,255,255,.49); font-size:11px; line-height:1.85; }
+        .h1-section-side strong { display:block; margin-bottom:10px; color:#F2D982; font-size:8px; font-weight:900; letter-spacing:.14em; text-transform:uppercase; }
+
+        .h1-product-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; margin-top:32px; }
+        .h1-product-card {
+          --card-bg:#17130E; --card-bg-2:#2A2115; --card-accent:#D8B650;
+          position:relative; min-width:0; overflow:hidden; border-radius:26px; padding:10px;
+          color:#F6E9C7; text-decoration:none; background:linear-gradient(145deg,var(--card-bg-2),var(--card-bg));
+          border:1px solid rgba(215,178,74,.20); box-shadow:0 22px 58px rgba(0,0,0,.24);
+          transition:transform .7s var(--ease),box-shadow .5s ease,border-color .4s ease;
         }
-        .ho-ritual-image { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; opacity:0; transform:scale(1.055); filter:saturate(.88) brightness(.72); transition:opacity 1s var(--ho-ease),transform 1.35s var(--ho-ease),filter .8s ease; }
-        .ho-ritual-image.is-active { opacity:1; transform:scale(1.01); filter:saturate(1.02) brightness(.86); }
-        .ho-ritual-stage::after { content:""; position:absolute; inset:0; background:linear-gradient(90deg,rgba(0,0,0,.14),rgba(0,0,0,.03) 48%,rgba(0,0,0,.40)),linear-gradient(180deg,rgba(0,0,0,.08),transparent 55%,rgba(0,0,0,.72)); pointer-events:none; }
-        .ho-ritual-frame { position:absolute; inset:18px; z-index:4; pointer-events:none; border:1px solid rgba(245,220,151,.16); }
-        .ho-ritual-stage-copy { position:absolute; z-index:6; left:clamp(26px,5vw,78px); right:clamp(26px,5vw,78px); bottom:clamp(46px,8vh,90px); }
-        .ho-ritual-stage-copy .ho-kicker { color:#F2D77D; }
-        .ho-ritual-stage-title { max-width:760px; margin:18px 0 0; font:600 clamp(56px,6vw,98px)/.84 ${DISPLAY_FONT}; letter-spacing:-.045em; color:#FBF1D8; }
-        .ho-ritual-stage-title em { display:block; color:#D8B651; font-weight:500; }
-        .ho-ritual-stage-foot { display:flex; align-items:center; justify-content:space-between; gap:18px; max-width:660px; margin-top:24px; padding-top:18px; border-top:1px solid rgba(255,255,255,.12); color:rgba(255,255,255,.52); font-size:9px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; }
-        .ho-ritual-stage-foot strong { color:#F1D77E; font-weight:900; }
-        .ho-ritual-triggers { position:relative; }
-        .ho-ritual-trigger {
-          min-height:92svh;
-          display:flex;
-          flex-direction:column;
-          justify-content:center;
-          padding:clamp(52px,7vw,100px) clamp(26px,5vw,72px);
-          border-bottom:1px solid rgba(255,255,255,.07);
-          background:linear-gradient(180deg,#0B0A08,#090807);
-        }
-        .ho-ritual-trigger:last-child { border-bottom:0; }
-        .ho-ritual-num { color:rgba(216,182,81,.68); font:italic 500 54px/1 ${DISPLAY_FONT}; }
-        .ho-ritual-trigger h3 { max-width:520px; margin:24px 0 0; color:#F4E7C6; font:600 clamp(43px,4vw,68px)/.9 ${DISPLAY_FONT}; letter-spacing:-.035em; }
-        .ho-ritual-trigger h3 em { display:block; color:#D8B651; font-weight:500; }
-        .ho-ritual-trigger p { max-width:530px; margin:24px 0 0; color:rgba(255,255,255,.50); font-size:13px; line-height:1.9; }
-        .ho-ritual-trigger-line { width:100%; max-width:430px; height:1px; margin-top:34px; background:linear-gradient(90deg,rgba(216,182,81,.80),rgba(216,182,81,.08),transparent); transform:scaleX(.28); transform-origin:left; transition:transform .8s var(--ho-ease); }
-        .ho-ritual-trigger.is-active .ho-ritual-trigger-line { transform:scaleX(1); }
+        .h1-product-card:nth-child(4n+2){--card-bg:#102018;--card-bg-2:#203B2D;--card-accent:#E0C06C}
+        .h1-product-card:nth-child(4n+3){--card-bg:#211117;--card-bg-2:#3A1E29;--card-accent:#E0AC71}
+        .h1-product-card:nth-child(4n+4){--card-bg:#11192A;--card-bg-2:#233652;--card-accent:#D9BD72}
+        .h1-product-card::before { content:""; position:absolute; inset:6px; z-index:1; border-radius:21px; border:1px solid rgba(249,224,153,.10); pointer-events:none; }
+        .h1-product-card:hover { transform:translateY(-8px); border-color:rgba(215,178,74,.52); box-shadow:0 34px 86px rgba(0,0,0,.34); }
+        .h1-product-sheen { position:absolute; z-index:10; top:-20%; bottom:-20%; left:-30%; width:13%; opacity:0; pointer-events:none; transform:skewX(-18deg); background:linear-gradient(90deg,transparent,rgba(255,255,255,.08),rgba(255,235,167,.25),rgba(255,255,255,.05),transparent); }
+        .h1-product-card:hover .h1-product-sheen { opacity:1; animation:h1Sheen 1s var(--ease) both; }
+        @keyframes h1Sheen { to{transform:skewX(-18deg) translateX(1050%)} }
+        .h1-product-media { position:relative; z-index:2; overflow:hidden; aspect-ratio:1/.78; border-radius:18px; background:#090807; border:1px solid rgba(242,216,142,.13); }
+        .h1-product-media img { width:100%;height:100%;object-fit:cover;transform:scale(1.02);transition:transform 1.05s var(--ease),filter .6s ease; }
+        .h1-product-card:hover .h1-product-media img { transform:scale(1.075);filter:saturate(1.05) contrast(1.02); }
+        .h1-product-media::after { content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.02),transparent 55%,rgba(0,0,0,.58));pointer-events:none; }
+        .h1-product-tag { position:absolute;z-index:5;left:14px;top:14px;display:inline-flex;align-items:center;min-height:26px;padding:0 10px;border-radius:999px;border:1px solid rgba(255,233,161,.21);background:rgba(8,8,8,.54);backdrop-filter:blur(8px);color:#F2D77D;font-size:6px;font-weight:900;letter-spacing:.14em;text-transform:uppercase; }
+        .h1-product-index { position:absolute;z-index:5;right:13px;bottom:12px;color:rgba(255,255,255,.74);font:italic 500 13px/1 ${DISPLAY_FONT}; }
+        .h1-product-body { position:relative;z-index:3;padding:16px 12px 12px; }
+        .h1-product-category { margin:0;color:var(--card-accent);font-size:7px;font-weight:900;letter-spacing:.14em;text-transform:uppercase; }
+        .h1-product-title { margin:8px 0 0;color:#F6E9C7;font:600 clamp(23px,1.6vw,30px)/.96 ${DISPLAY_FONT};letter-spacing:-.025em; }
+        .h1-product-desc { margin:9px 0 0;color:rgba(255,255,255,.43);font-size:9px;line-height:1.65;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden; }
+        .h1-product-meta { display:flex;align-items:end;justify-content:space-between;gap:10px;margin-top:15px;padding-top:13px;border-top:1px solid rgba(255,255,255,.09); }
+        .h1-product-price-label { margin:0;color:rgba(255,255,255,.30);font-size:6px;font-weight:900;letter-spacing:.12em;text-transform:uppercase; }
+        .h1-product-price { margin:4px 0 0;color:var(--card-accent);font-size:16px;font-weight:900; }
+        .h1-product-arrow { display:grid;width:35px;height:35px;place-items:center;border-radius:50%;border:1px solid rgba(232,204,118,.26);color:var(--card-accent);transition:transform .4s var(--ease),background .3s ease,color .3s ease; }
+        .h1-product-arrow svg { width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.7; }
+        .h1-product-card:hover .h1-product-arrow { transform:translateX(4px);background:var(--card-accent);color:#111; }
 
-        /* ATELIER */
-        .ho-atelier {
-          position:relative;
-          overflow:hidden;
-          background:
-            radial-gradient(circle at 86% 12%,rgba(216,182,81,.11),transparent 30%),
-            linear-gradient(180deg,#0B0907,#080706 72%);
-        }
-        .ho-atelier::before { content:"H1"; position:absolute; right:-2vw; top:-3vw; color:rgba(216,182,81,.035); font:italic 600 24vw/.8 ${DISPLAY_FONT}; pointer-events:none; }
-        .ho-atelier-inner { position:relative; z-index:2; padding:clamp(78px,7vw,118px) clamp(20px,5vw,84px); }
-        .ho-section-head { display:grid; grid-template-columns:minmax(0,.92fr) minmax(0,1.08fr); align-items:end; gap:clamp(28px,5vw,80px); margin-bottom:42px; }
-        .ho-section-title { margin:17px 0 0; max-width:780px; color:#F3E6C3; font:600 clamp(58px,6vw,100px)/.85 ${DISPLAY_FONT}; letter-spacing:-.045em; }
-        .ho-section-title span { display:block; color:#D8B651; font-style:italic; }
-        .ho-section-copy { max-width:690px; padding-left:28px; border-left:1px solid rgba(216,182,81,.28); color:rgba(255,255,255,.53); font-size:13px; line-height:1.95; }
+        .h1-skeleton { overflow:hidden;border-radius:26px;border:1px solid rgba(215,178,74,.13);background:#17130E;padding:10px; }
+        .h1-skeleton-media { aspect-ratio:1/.78;border-radius:18px;background:linear-gradient(90deg,rgba(255,255,255,.035),rgba(255,255,255,.085),rgba(255,255,255,.035));background-size:220% 100%;animation:h1Skeleton 1.45s linear infinite; }
+        .h1-skeleton-line { height:9px;margin-top:13px;background:rgba(255,255,255,.055); }
+        @keyframes h1Skeleton { to{background-position:-220% 0} }
+        .h1-empty { margin-top:32px;padding:70px 24px;border:1px solid rgba(215,178,74,.14);background:rgba(255,255,255,.018);text-align:center; }
+        .h1-empty h3 { margin:0;color:#F4E7C6;font:600 42px/1 ${DISPLAY_FONT}; }
+        .h1-empty p { max-width:520px;margin:14px auto 0;color:rgba(255,255,255,.45);font-size:11px;line-height:1.8; }
+        .h1-error { margin-top:24px;padding:14px 16px;border-left:2px solid #D85A44;background:rgba(102,20,12,.22);color:#FFD6CE;font-size:11px;font-weight:700; }
 
-        .ho-atelier-grid { display:grid; grid-template-columns:minmax(0,1.36fr) minmax(280px,.64fr); gap:14px; min-height:690px; }
-        .ho-atelier-main, .ho-atelier-small { position:relative; overflow:hidden; border:1px solid rgba(216,182,81,.17); background:#111; }
-        .ho-atelier-main::before, .ho-atelier-small::before { content:""; position:absolute; inset:10px; z-index:3; pointer-events:none; border:1px solid rgba(244,218,146,.12); }
-        .ho-atelier-main img, .ho-atelier-small img { width:100%; height:100%; object-fit:cover; transform:scale(1.02); transition:transform 1.2s var(--ho-ease),filter .7s ease; }
-        .ho-atelier-main:hover img, .ho-atelier-small:hover img { transform:scale(1.065); filter:saturate(1.04) contrast(1.02); }
-        .ho-atelier-main::after, .ho-atelier-small::after { content:""; position:absolute; inset:0; background:linear-gradient(180deg,rgba(0,0,0,.04),transparent 44%,rgba(0,0,0,.72)); pointer-events:none; }
-        .ho-atelier-side { display:grid; grid-template-rows:minmax(0,1fr) minmax(0,1fr); gap:14px; }
-        .ho-atelier-caption { position:absolute; z-index:5; left:24px; right:24px; bottom:22px; display:flex; align-items:end; justify-content:space-between; gap:14px; }
-        .ho-atelier-caption p { margin:0; color:#F6EBCB; font:italic 500 clamp(25px,2.2vw,38px)/1 ${DISPLAY_FONT}; }
-        .ho-atelier-caption span { color:rgba(255,255,255,.54); font:italic 500 13px/1 ${DISPLAY_FONT}; }
+        .h1-principles { position:relative; overflow:hidden; background:#EEE4D4; color:#17120B; }
+        .h1-principles-inner { padding:clamp(88px,8vw,126px) clamp(18px,5vw,82px); }
+        .h1-principles-head { display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,.52fr);gap:clamp(30px,6vw,90px);align-items:end;margin-bottom:34px; }
+        .h1-principles-title { margin:14px 0 0;font:600 clamp(60px,7vw,110px)/.84 ${DISPLAY_FONT};letter-spacing:-.045em; }
+        .h1-principles-title em { display:block;color:#987018;font-weight:500; }
+        .h1-principles-copy { color:rgba(23,18,11,.54);font-size:12px;line-height:1.9; }
+        .h1-principles-grid { display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);min-height:650px;overflow:hidden;border:1px solid rgba(85,59,15,.16);transition:grid-template-columns .72s var(--ease); }
+        .h1-principles-grid:has(.h1-principle:nth-child(1):hover){grid-template-columns:minmax(0,1.38fr) minmax(0,.81fr) minmax(0,.81fr)}
+        .h1-principles-grid:has(.h1-principle:nth-child(2):hover){grid-template-columns:minmax(0,.81fr) minmax(0,1.38fr) minmax(0,.81fr)}
+        .h1-principles-grid:has(.h1-principle:nth-child(3):hover){grid-template-columns:minmax(0,.81fr) minmax(0,.81fr) minmax(0,1.38fr)}
+        .h1-principle { position:relative;overflow:hidden;min-width:0;isolation:isolate;border-right:1px solid rgba(255,255,255,.18); }
+        .h1-principle:last-child { border-right:0; }
+        .h1-principle img { position:absolute;inset:0;z-index:-4;width:100%;height:100%;object-fit:cover;filter:saturate(.86) brightness(.60);transform:scale(1.02);transition:transform 1.15s var(--ease),filter .65s ease; }
+        .h1-principle::after { content:"";position:absolute;inset:0;z-index:-3;background:linear-gradient(180deg,rgba(0,0,0,.06),transparent 32%,rgba(4,4,4,.82)); }
+        .h1-principle:hover img { transform:scale(1.075);filter:saturate(1.02) brightness(.72); }
+        .h1-principle-copy { position:absolute;left:clamp(20px,3vw,44px);right:clamp(20px,3vw,44px);bottom:clamp(24px,4vw,52px);color:#F8EDD0; }
+        .h1-principle-number { color:var(--gold);font:italic 500 48px/1 ${DISPLAY_FONT}; }
+        .h1-principle h3 { max-width:430px;margin:18px 0 0;font:600 clamp(34px,3.6vw,58px)/.9 ${DISPLAY_FONT};letter-spacing:-.035em; }
+        .h1-principle p { max-width:430px;margin:16px 0 0;color:rgba(255,255,255,.56);font-size:11px;line-height:1.8;opacity:.76;transition:opacity .35s ease; }
+        .h1-principle:hover p { opacity:1; }
+        .h1-principle-line { display:block;width:54px;height:1px;margin-top:22px;background:linear-gradient(90deg,var(--orange),var(--gold));transform-origin:left;transition:transform .65s var(--ease); }
+        .h1-principle:hover .h1-principle-line { transform:scaleX(2.8); }
 
-        /* COLLECTION */
-        .ho-collection { position:relative; overflow:hidden; color:#171717; background:linear-gradient(180deg,#F7F2E9 0%,#EEE5D6 100%); }
-        .ho-collection::before { content:""; position:absolute; left:-12%; top:2%; width:48vw; aspect-ratio:1; border-radius:50%; background:radial-gradient(circle,rgba(216,182,81,.18),transparent 68%); filter:blur(22px); pointer-events:none; }
-        .ho-collection-inner { position:relative; z-index:2; padding:clamp(78px,7vw,112px) clamp(16px,4.5vw,76px); }
-        .ho-collection-head { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:28px; align-items:end; padding-bottom:30px; border-bottom:1px solid rgba(23,23,23,.11); }
-        .ho-collection-title { margin:13px 0 0; font:600 clamp(62px,6.5vw,106px)/.84 ${DISPLAY_FONT}; letter-spacing:-.045em; color:#171717; }
-        .ho-collection-sub { max-width:720px; margin:17px 0 0; color:rgba(23,23,23,.50); font-size:12px; font-weight:600; line-height:1.82; }
-        .ho-text-link { display:inline-flex; align-items:center; gap:10px; padding-bottom:5px; border-bottom:1px solid rgba(23,23,23,.28); color:#171717; text-decoration:none; font-size:8px; font-weight:900; letter-spacing:.11em; text-transform:uppercase; transition:gap .32s ease,color .32s ease,border-color .32s ease; }
-        .ho-text-link:hover { gap:15px; color:#8A6518; border-color:#A47B1F; }
+        .h1-finale { position:relative;min-height:100svh;overflow:hidden;isolation:isolate;display:flex;align-items:center;background:#070604; }
+        .h1-finale-bg { position:absolute;inset:0;z-index:-6;width:100%;height:100%;object-fit:cover;filter:saturate(.82) brightness(.42);transform:scale(1.04); }
+        .h1-finale::after { content:"";position:absolute;inset:0;z-index:-5;background:linear-gradient(90deg,rgba(5,4,3,.98),rgba(5,4,3,.76) 50%,rgba(5,4,3,.24)),linear-gradient(180deg,rgba(0,0,0,.08),rgba(0,0,0,.70)); }
+        .h1-finale-orbit { position:absolute;right:-11vw;top:50%;width:min(58vw,860px);aspect-ratio:1;transform:translateY(-50%);border:1px solid rgba(238,211,130,.15);border-radius:50%;box-shadow:0 0 0 56px rgba(215,178,74,.018),0 0 0 112px rgba(215,178,74,.012); }
+        .h1-finale-orbit::before { content:"H1";position:absolute;inset:0;display:grid;place-items:center;color:rgba(239,214,137,.11);font:italic 700 clamp(120px,16vw,270px)/1 ${DISPLAY_FONT}; }
+        .h1-finale-inner { width:100%;padding:clamp(94px,9vw,148px) clamp(22px,6vw,100px); }
+        .h1-finale-title { max-width:1080px;margin:19px 0 0;color:#F8ECD0;font:600 clamp(72px,9.2vw,154px)/.77 ${DISPLAY_FONT};letter-spacing:-.052em; }
+        .h1-finale-title em { display:block;color:var(--gold);font-weight:500; }
+        .h1-finale-copy { max-width:640px;margin:28px 0 0;color:rgba(255,255,255,.56);font-size:12px;line-height:1.9; }
+        .h1-finale-rule { width:min(560px,70vw);height:1px;margin-top:34px;background:linear-gradient(90deg,var(--orange),var(--gold) 58%,transparent); }
 
-        .ho-products { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:16px; margin-top:30px; }
-        .ho-product {
-          --p-bg:#17130E; --p-bg2:#272015; --p-accent:#D6AF51;
-          position:relative; min-width:0; overflow:hidden; border-radius:24px;
-          color:#F5E8C7; text-decoration:none;
-          background:linear-gradient(145deg,var(--p-bg2),var(--p-bg));
-          border:1px solid rgba(122,89,26,.22);
-          box-shadow:0 20px 48px rgba(43,31,15,.12);
-          transition:transform .72s var(--ho-ease),box-shadow .52s ease,border-color .42s ease;
-        }
-        .ho-product:nth-child(4n+2){--p-bg:#102018;--p-bg2:#1D3528;--p-accent:#D5B865}
-        .ho-product:nth-child(4n+3){--p-bg:#1D1115;--p-bg2:#351D26;--p-accent:#DAAC6E}
-        .ho-product:nth-child(4n+4){--p-bg:#101726;--p-bg2:#1F3049;--p-accent:#CDB06D}
-        .ho-product::before { content:""; position:absolute; inset:7px; z-index:1; border-radius:18px; border:1px solid rgba(237,209,135,.12); pointer-events:none; }
-        .ho-product:hover { transform:translateY(-7px); border-color:rgba(170,124,34,.44); box-shadow:0 30px 66px rgba(39,28,14,.18); }
-        .ho-product-media { position:relative; z-index:2; aspect-ratio:1/.72; margin:11px 11px 0; overflow:hidden; border-radius:15px; background:#080808; border:1px solid rgba(237,210,143,.14); }
-        .ho-product-media img { width:100%; height:100%; object-fit:cover; transform:scale(1.015); transition:transform 1.05s var(--ho-ease),filter .6s ease; }
-        .ho-product:hover .ho-product-media img { transform:scale(1.065); filter:saturate(1.035) contrast(1.02); }
-        .ho-product-media::after { content:""; position:absolute; inset:0; background:linear-gradient(180deg,rgba(0,0,0,.03),transparent 58%,rgba(0,0,0,.52)); }
-        .ho-product-tag { position:absolute; z-index:5; top:18px; left:18px; display:inline-flex; min-height:25px; align-items:center; padding:0 10px; border-radius:99px; border:1px solid rgba(255,237,170,.22); background:rgba(8,8,8,.56); backdrop-filter:blur(8px); color:#F0D57C; font-size:6px; font-weight:900; letter-spacing:.14em; text-transform:uppercase; }
-        .ho-product-number { position:absolute; z-index:5; right:17px; bottom:13px; color:rgba(255,255,255,.72); font:italic 500 13px/1 ${DISPLAY_FONT}; }
-        .ho-product-seal { position:absolute; z-index:6; right:16px; top:16px; display:grid; width:38px; height:38px; place-items:center; border-radius:50%; border:1px solid rgba(255,235,162,.44); background:radial-gradient(circle at 34% 30%,#F3DD99,#BC8429 58%,#6E4208); color:#FFF0B9; font:700 15px/1 ${DISPLAY_FONT}; box-shadow:0 8px 18px rgba(0,0,0,.22); transition:transform .55s var(--ho-ease); }
-        .ho-product:hover .ho-product-seal { transform:rotate(8deg) scale(1.05); }
-        .ho-product-body { position:relative; z-index:3; padding:18px 18px 18px; }
-        .ho-product-category { margin:0; color:var(--p-accent); font-size:7px; font-weight:900; letter-spacing:.14em; text-transform:uppercase; }
-        .ho-product-title { margin:8px 0 0; color:#F6E9C7; font:600 clamp(24px,1.65vw,31px)/.96 ${DISPLAY_FONT}; letter-spacing:-.028em; }
-        .ho-product-desc { margin:10px 0 0; color:rgba(255,255,255,.43); font-size:9px; line-height:1.65; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-        .ho-product-meta { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:16px; padding-top:13px; border-top:1px solid rgba(255,255,255,.09); }
-        .ho-product-price-label { margin:0; color:rgba(255,255,255,.30); font-size:6px; font-weight:900; letter-spacing:.11em; text-transform:uppercase; }
-        .ho-product-price { margin:4px 0 0; color:#F0D982; font-size:16px; font-weight:900; }
-        .ho-product-arrow { display:grid; width:34px; height:34px; place-items:center; border-radius:50%; border:1px solid rgba(233,204,119,.27); color:#F0D982; transition:transform .4s var(--ho-ease),background .3s ease,color .3s ease; }
-        .ho-product-arrow svg { width:15px; height:15px; fill:none; stroke:currentColor; stroke-width:1.7; }
-        .ho-product:hover .ho-product-arrow { transform:translateX(4px); color:#111; background:#D8B651; }
-        .ho-product-sheen { position:absolute; z-index:8; top:-20%; bottom:-20%; left:-25%; width:13%; opacity:0; pointer-events:none; transform:skewX(-18deg); background:linear-gradient(90deg,transparent,rgba(255,255,255,.07),rgba(255,236,169,.22),rgba(255,255,255,.05),transparent); }
-        .ho-product:hover .ho-product-sheen { opacity:1; animation:hoSheen 1s var(--ho-ease) both; }
-        @keyframes hoSheen { to { transform:skewX(-18deg) translateX(980%); } }
+        [data-h1-reveal] { opacity:0;transform:translate3d(0,28px,0);transition:opacity .72s ease,transform .95s var(--ease); }
+        [data-h1-reveal].is-visible { opacity:1;transform:translate3d(0,0,0); }
+        [data-h1-reveal].h1-delay-1 { transition-delay:.08s; }
+        [data-h1-reveal].h1-delay-2 { transition-delay:.16s; }
 
-        .ho-skeleton { overflow:hidden; border-radius:24px; border:1px solid rgba(216,182,81,.14); background:#17140F; padding:11px; }
-        .ho-skeleton-media { aspect-ratio:1/.72; border-radius:15px; background:linear-gradient(90deg,rgba(255,255,255,.035),rgba(255,255,255,.08),rgba(255,255,255,.035)); background-size:220% 100%; animation:hoSkeleton 1.5s linear infinite; }
-        .ho-skeleton-line { height:9px; margin-top:14px; background:rgba(255,255,255,.06); }
-        @keyframes hoSkeleton { to { background-position:-220% 0; } }
-
-        /* FINALE */
-        .ho-finale { position:relative; min-height:92svh; overflow:hidden; isolation:isolate; display:flex; align-items:center; background:#080706; }
-        .ho-finale-bg { position:absolute; inset:0; z-index:-4; width:100%; height:100%; object-fit:cover; filter:saturate(.90) brightness(.47); transform:scale(1.04); }
-        .ho-finale::after { content:""; position:absolute; inset:0; z-index:-3; background:linear-gradient(90deg,rgba(5,4,3,.97),rgba(5,4,3,.80) 48%,rgba(5,4,3,.36)),linear-gradient(180deg,rgba(0,0,0,.12),rgba(0,0,0,.68)); }
-        .ho-finale-inner { width:100%; padding:clamp(90px,9vw,140px) clamp(22px,6vw,100px); }
-        .ho-finale-title { max-width:1080px; margin:20px 0 0; color:#F7EBCB; font:600 clamp(72px,9vw,150px)/.78 ${DISPLAY_FONT}; letter-spacing:-.05em; }
-        .ho-finale-title span { display:block; color:#D8B651; font-style:italic; }
-        .ho-finale-copy { max-width:650px; margin:28px 0 0; color:rgba(255,255,255,.58); font-size:13px; line-height:1.9; }
-        .ho-finale-rule { width:min(520px,64vw); height:1px; margin-top:36px; background:linear-gradient(90deg,#F47822,#D8B651 56%,transparent); }
+        .h1-route-curtain { position:fixed;inset:0;z-index:2147483000;pointer-events:auto;overflow:hidden;isolation:isolate; }
+        .h1-route-panel { position:absolute;top:0;bottom:0;width:50.5%;background:linear-gradient(180deg,#120E09,#070604 55%,#0D0906);box-shadow:inset 0 0 80px rgba(215,178,74,.045);transition:transform .31s var(--ease); }
+        .h1-route-panel::after { content:"";position:absolute;inset:12px;border:1px solid rgba(215,178,74,.14); }
+        .h1-route-panel-left { left:0;transform:translateX(-104%); }
+        .h1-route-panel-right { right:0;transform:translateX(104%); }
+        .h1-route-line { position:absolute;z-index:4;left:0;right:0;top:50%;height:1px;opacity:0;transform:scaleX(0);background:linear-gradient(90deg,transparent,var(--orange),var(--gold),transparent); }
+        .h1-route-seal { position:absolute;z-index:6;left:50%;top:50%;display:grid;width:78px;height:78px;place-items:center;border-radius:50%;border:1px solid rgba(255,236,169,.68);background:radial-gradient(circle at 34% 28%,#FFF1B1,#E7CD70 26%,#C3902E 58%,#724509 100%);color:#2A1A04;font:700 26px/1 ${DISPLAY_FONT};opacity:0;transform:translate(-50%,-50%) scale(.35) rotate(-25deg);box-shadow:0 18px 50px rgba(0,0,0,.46); }
+        .h1-route-curtain.is-closing .h1-route-panel-left,.h1-route-curtain.is-closing .h1-route-panel-right{transform:translateX(0)}
+        .h1-route-curtain.is-closing .h1-route-line{animation:h1RouteLine .28s .12s var(--ease) both}
+        .h1-route-curtain.is-closing .h1-route-seal{animation:h1RouteSeal .30s .18s var(--ease) both}
+        .h1-route-curtain.is-opening .h1-route-panel-left{transform:translateX(-104%);transition-duration:.34s}.h1-route-curtain.is-opening .h1-route-panel-right{transform:translateX(104%);transition-duration:.34s}.h1-route-curtain.is-opening .h1-route-line,.h1-route-curtain.is-opening .h1-route-seal{opacity:0;transition:opacity .12s ease}
+        @keyframes h1RouteLine{from{opacity:0;transform:scaleX(0)}to{opacity:1;transform:scaleX(1)}}
+        @keyframes h1RouteSeal{0%{opacity:0;transform:translate(-50%,-50%) scale(.35) rotate(-25deg)}70%{opacity:1;transform:translate(-50%,-50%) scale(1.08) rotate(3deg)}100%{opacity:1;transform:translate(-50%,-50%) scale(1)}}
 
         @media (max-width:1279px) {
-          .ho-products { grid-template-columns:repeat(3,minmax(0,1fr)); }
-          .ho-hero-inner { grid-template-columns:minmax(0,1fr) minmax(320px,.72fr); }
+          .h1-product-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
+          .h1-hero-shell { grid-template-columns:minmax(0,1fr) minmax(300px,.5fr); }
         }
 
         @media (max-width:1023px) {
-          .ho-hero-inner { grid-template-columns:1fr; gap:36px; padding:116px 24px 72px; }
-          .ho-hero-copy { max-width:820px; }
-          .ho-hero-side { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); padding-top:0; }
-          .ho-hero-side-card { min-height:158px; }
-          .ho-hero-side-card.is-active { transform:translateY(-5px); }
-          .ho-hero-foot { position:relative; left:auto; right:auto; bottom:auto; margin:-34px 24px 0; padding-bottom:28px; }
-
-          .ho-ritual-shell { grid-template-columns:1fr; }
-          .ho-ritual-stage { position:relative; height:72svh; min-height:560px; border-right:0; border-bottom:1px solid rgba(216,182,81,.12); }
-          .ho-ritual-triggers { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
-          .ho-ritual-trigger { min-height:0; padding:48px 28px; }
-
-          .ho-section-head { grid-template-columns:1fr; gap:28px; }
-          .ho-section-copy { max-width:760px; }
-          .ho-atelier-grid { grid-template-columns:1fr; min-height:0; }
-          .ho-atelier-main { min-height:560px; }
-          .ho-atelier-side { grid-template-columns:1fr 1fr; grid-template-rows:none; }
-          .ho-atelier-small { min-height:350px; }
-
-          .ho-collection-head { grid-template-columns:1fr; align-items:start; }
-          .ho-products { grid-template-columns:repeat(2,minmax(0,1fr)); }
+          .h1-hero-shell { grid-template-columns:1fr;align-content:end;gap:30px;padding:112px 24px 68px; }
+          .h1-scene-nav { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));padding-top:0; }
+          .h1-scene-card { min-height:140px; }
+          .h1-scene-card.is-active { transform:translateY(-5px); }
+          .h1-manifesto-inner { grid-template-columns:1fr; }
+          .h1-manifesto-mark { width:210px; }
+          .h1-section-head,.h1-principles-head { grid-template-columns:1fr; }
+          .h1-product-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+          .h1-principles-grid { display:flex;min-height:0;overflow-x:auto;gap:12px;padding:0 0 16px;border:0;scroll-snap-type:x mandatory;scrollbar-width:none; }
+          .h1-principles-grid::-webkit-scrollbar { display:none; }
+          .h1-principle { flex:0 0 76vw;min-height:620px;border:1px solid rgba(85,59,15,.16);scroll-snap-align:center;border-radius:24px; }
+          .h1-story-nav { display:none; }
         }
 
         @media (max-width:767px) {
-          .ho-progress { height:1px; }
-          .ho-hero { min-height:100svh; }
-          .ho-hero-slide { object-position:64% center !important; transform:scale(1.06); }
-          .ho-hero-slide.is-active { transform:scale(1.08); }
-          .ho-hero-overlay { background:linear-gradient(180deg,rgba(4,4,4,.12) 0%,rgba(4,4,4,.30) 28%,rgba(4,4,4,.76) 62%,rgba(4,4,4,.98) 100%); }
-          .ho-hero-overlay::after { display:none; }
-          .ho-hero-glint { display:none; }
-          .ho-hero-inner { min-height:100svh; display:flex; flex-direction:column; justify-content:flex-end; padding:106px 16px 38px; }
-          .ho-hero-title { font-size:clamp(72px,25vw,108px); line-height:.72; }
-          .ho-hero-deck { grid-template-columns:1fr; gap:14px; margin-top:29px; padding-top:20px; }
-          .ho-hero-deck p { font-size:12px; line-height:1.78; }
-          .ho-hero-micro { padding:0 0 0 16px; font-size:8px; }
-          .ho-actions { display:grid; grid-template-columns:1fr; width:100%; margin-top:25px; }
-          .ho-btn { width:100%; min-height:54px; }
-          .ho-hero-side { width:100%; display:flex; gap:10px; overflow-x:auto; padding:4px 0 2px; scroll-snap-type:x mandatory; scrollbar-width:none; }
-          .ho-hero-side::-webkit-scrollbar { display:none; }
-          .ho-hero-side-card { flex:0 0 78vw; min-height:142px; scroll-snap-align:start; }
-          .ho-hero-side-card.is-active { transform:none; }
-          .ho-hero-side-card h3 { font-size:29px; }
-          .ho-hero-foot { display:none; }
+          .h1-scroll-progress { height:1px; }
+          .h1-hero-image { object-position:62% center !important; }
+          .h1-hero-wash { background:linear-gradient(180deg,rgba(5,4,3,.08) 0%,rgba(5,4,3,.25) 28%,rgba(5,4,3,.78) 62%,rgba(5,4,3,.98) 100%); }
+          .h1-hero-wash::after,.h1-hero-orbit { display:none; }
+          .h1-hero-shell { min-height:100svh;display:flex;flex-direction:column;justify-content:flex-end;padding:108px 16px 40px; }
+          .h1-hero-title { font-size:clamp(78px,25vw,112px);line-height:.68; }
+          .h1-hero-deck { grid-template-columns:1fr;gap:15px;margin-top:28px;padding-top:19px; }
+          .h1-hero-deck p { font-size:11px;line-height:1.78; }
+          .h1-hero-signature { padding-left:15px;font-size:7px; }
+          .h1-actions { display:grid;grid-template-columns:1fr;width:100%; }
+          .h1-btn { width:100%;min-height:54px; }
+          .h1-scene-nav { display:flex;width:100%;overflow-x:auto;gap:9px;padding:2px 0 4px;scroll-snap-type:x mandatory;scrollbar-width:none; }
+          .h1-scene-nav::-webkit-scrollbar { display:none; }
+          .h1-scene-card { flex:0 0 78vw;min-height:132px;scroll-snap-align:start; }
+          .h1-scene-card.is-active { transform:none; }
+          .h1-hero-foot { display:none; }
+          .h1-ticker-item { height:50px;font-size:7px;padding-right:25px; }
 
-          .ho-marquee-item { height:50px; padding-right:26px; font-size:8px; letter-spacing:.11em; }
+          .h1-manifesto-inner { padding:72px 16px;gap:38px; }
+          .h1-manifesto-mark { width:170px; }
+          .h1-manifesto-mark strong { font-size:64px; }
+          .h1-manifesto-mark span { bottom:34px;font-size:6px; }
+          .h1-manifesto-title { font-size:clamp(50px,14.5vw,72px);line-height:.88; }
+          .h1-manifesto-foot { grid-template-columns:1fr;gap:18px; }
+          .h1-manifesto-foot small { padding:17px 0 0;border-left:0;border-top:1px solid rgba(143,104,24,.28); }
 
-          .ho-ritual-stage { height:68svh; min-height:470px; }
-          .ho-ritual-stage-copy { left:18px; right:18px; bottom:28px; }
-          .ho-ritual-stage-title { font-size:clamp(47px,13vw,66px); }
-          .ho-ritual-stage-foot { margin-top:18px; padding-top:13px; font-size:7px; }
-          .ho-ritual-triggers { display:flex; overflow-x:auto; gap:10px; padding:14px 14px 18px; scroll-snap-type:x mandatory; scrollbar-width:none; background:#090807; }
-          .ho-ritual-triggers::-webkit-scrollbar { display:none; }
-          .ho-ritual-trigger { flex:0 0 82vw; min-height:340px; padding:32px 24px; border:1px solid rgba(216,182,81,.14); scroll-snap-align:center; }
-          .ho-ritual-num { font-size:40px; }
-          .ho-ritual-trigger h3 { font-size:42px; }
-          .ho-ritual-trigger p { font-size:11px; line-height:1.75; }
+          .h1-story-page { min-height:540px; }
+          .h1-story-page:nth-child(n+2){clip-path:polygon(0 54px,100% 0,100% 100%,0 100%)}
+          .h1-story-page:nth-child(n+2)::before{clip-path:polygon(0 54px,100% 0,100% 3px,0 57px)}
+          .h1-story-copy { left:18px;right:18px;bottom:32px; }
+          .h1-story-title { font-size:clamp(50px,14vw,70px);line-height:.86; }
+          .h1-story-bottom { grid-template-columns:1fr;gap:14px;margin-top:19px;padding-top:15px; }
+          .h1-story-bottom p { font-size:10px; }
+          .h1-story-frame { inset:10px; }
 
-          .ho-atelier-inner { padding:64px 14px; }
-          .ho-section-title { font-size:clamp(52px,15vw,72px); }
-          .ho-section-copy { padding:18px 0 0; border-left:0; border-top:1px solid rgba(216,182,81,.25); font-size:12px; line-height:1.82; }
-          .ho-atelier-main { min-height:430px; }
-          .ho-atelier-side { grid-template-columns:1fr; }
-          .ho-atelier-small { min-height:300px; }
-          .ho-atelier-caption { left:18px; right:18px; bottom:17px; }
-          .ho-atelier-caption p { font-size:28px; }
+          .h1-collection-inner { padding:72px 12px; }
+          .h1-section-title { font-size:clamp(52px,15vw,74px); }
+          .h1-product-grid { display:flex;gap:12px;overflow-x:auto;margin-left:-12px;margin-right:-12px;padding:4px 12px 18px;scroll-snap-type:x mandatory;scrollbar-width:none; }
+          .h1-product-grid::-webkit-scrollbar { display:none; }
+          .h1-product-card,.h1-skeleton { flex:0 0 82vw;max-width:360px;scroll-snap-align:center; }
+          .h1-product-card:hover { transform:none; }
+          .h1-product-card:hover .h1-product-media img { transform:scale(1.02);filter:none; }
+          .h1-product-card:hover .h1-product-sheen { animation:none;opacity:0; }
 
-          .ho-collection-inner { padding:62px 12px; }
-          .ho-collection-title { font-size:clamp(54px,16vw,74px); }
-          .ho-products { display:flex; gap:12px; overflow-x:auto; margin-left:-12px; margin-right:-12px; padding:4px 12px 18px; scroll-snap-type:x mandatory; scrollbar-width:none; }
-          .ho-products::-webkit-scrollbar { display:none; }
-          .ho-product, .ho-skeleton { flex:0 0 82vw; max-width:360px; scroll-snap-align:center; }
-          .ho-product:hover { transform:none; }
-          .ho-product:hover .ho-product-media img { transform:scale(1.015); filter:none; }
-          .ho-product:hover .ho-product-seal { transform:none; }
-          .ho-product:hover .ho-product-arrow { transform:none; }
-          .ho-product:hover .ho-product-sheen { animation:none; opacity:0; }
-
-          .ho-finale { min-height:88svh; }
-          .ho-finale-inner { padding:78px 16px; }
-          .ho-finale-title { font-size:clamp(65px,20vw,96px); }
-          .ho-finale-copy { font-size:12px; line-height:1.8; }
+          .h1-principles-inner { padding:68px 12px; }
+          .h1-principles-title { font-size:clamp(52px,15vw,72px); }
+          .h1-principle { flex-basis:84vw;min-height:540px; }
+          .h1-principle h3 { font-size:42px; }
+          .h1-finale { min-height:90svh; }
+          .h1-finale-inner { padding:76px 16px; }
+          .h1-finale-title { font-size:clamp(64px,19vw,94px); }
+          .h1-finale-orbit { opacity:.52;right:-36vw;width:100vw; }
         }
 
         @media (prefers-reduced-motion:reduce) {
-          .ho-page *, .ho-page *::before, .ho-page *::after { animation:none !important; transition:none !important; scroll-behavior:auto !important; }
-          .ho-reveal { opacity:1 !important; transform:none !important; }
+          .h1-page *, .h1-page *::before, .h1-page *::after { animation:none !important;transition:none !important;scroll-behavior:auto !important; }
+          [data-h1-reveal] { opacity:1 !important;transform:none !important; }
+          .h1-intro { display:none !important; }
         }
       `}</style>
 
-      <div className="ho-progress" aria-hidden="true">
-        <span style={{ "--ho-progress": scrollProgress }} />
+      <div className={`h1-intro ${introDone ? "is-done" : ""}`} aria-hidden="true">
+        <div className="h1-intro-seal">H1</div>
+        <div className="h1-intro-copy">HAMPORIUM · PRIVATE SERIES</div>
       </div>
 
+      <div className="h1-scroll-progress" aria-hidden="true" />
+
       <section
-        className="ho-hero"
-        onPointerMove={handleHeroPointerMove}
+        className="h1-hero"
+        onPointerMove={handlePointerMove}
         onPointerLeave={(event) => {
-          event.currentTarget.style.setProperty("--ho-pointer-x", "50%");
-          event.currentTarget.style.setProperty("--ho-pointer-y", "50%");
-          event.currentTarget.style.setProperty("--ho-parallax-x", "0px");
-          event.currentTarget.style.setProperty("--ho-parallax-y", "0px");
+          event.currentTarget.style.setProperty("--h1-mx", "50%");
+          event.currentTarget.style.setProperty("--h1-my", "50%");
+          event.currentTarget.style.setProperty("--h1-px", "0px");
+          event.currentTarget.style.setProperty("--h1-py", "0px");
         }}
       >
-        <div className="ho-hero-media" aria-hidden="true">
-          {HERO_SLIDES.map((slide, index) => (
+        <div className="h1-hero-media" aria-hidden="true">
+          {HERO_SCENES.map((scene, index) => (
             <img
-              key={slide.src}
-              src={slide.src}
+              key={scene.image}
+              src={scene.image}
               alt=""
-              style={{ objectPosition: slide.position }}
-              className={`ho-hero-slide ${heroSlide === index ? "is-active" : ""}`}
+              style={{ objectPosition: scene.position }}
+              className={`h1-hero-image ${heroScene === index ? "is-active" : ""}`}
               onLoad={() => index === 0 && setHeroReady(true)}
             />
           ))}
         </div>
+        <div className="h1-hero-wash" aria-hidden="true" />
+        <div className="h1-grain" aria-hidden="true" />
+        <div className="h1-hero-orbit" aria-hidden="true" />
 
-        <div className="ho-hero-overlay" aria-hidden="true" />
-        <div className="ho-grain" aria-hidden="true" />
-        <div className="ho-hero-glint" aria-hidden="true" />
+        <div className="h1-hero-shell">
+          <div className={`h1-hero-copy ${heroReady ? "is-ready" : ""}`}>
+            <p className="h1-eyebrow">HAMPORIUM · PRIVATE SERIES 01</p>
 
-        <div className="ho-hero-inner">
-          <div className={`ho-hero-copy ${heroReady ? "ho-reveal is-visible" : "ho-reveal"}`}>
-            <p className="ho-kicker">HAMPORIUM PRIVATE COLLECTION</p>
-
-            <h1 className="ho-hero-title">
+            <h1 className="h1-hero-title">
               HAMPER
-              <span>ONE</span>
+              <span className="h1-hero-one">
+                ONE
+                <small>NOT A COLLECTION. A SIGNATURE.</small>
+              </span>
             </h1>
 
-            <div className="ho-hero-deck">
+            <div className="h1-hero-deck">
               <p>
-                A rare edit of signature hampers for moments where the gift itself
-                needs to feel exceptional — curated, presented and experienced as one.
+                A private edit of HAMPORIUM&apos;s most considered hampers — built around
+                rare selection, immaculate composition and an unforgettable reveal.
               </p>
-              <div className="ho-hero-micro">
-                PRIVATE GIFTING
+              <div className="h1-hero-signature">
+                NUMBERED EDIT
                 <br />
-                ELEVATED
+                LIMITED FEEL
+                <br />
+                SIGNATURE FINISH
               </div>
             </div>
 
-            <div className="ho-actions">
-              <button type="button" className="ho-btn ho-btn-primary" onClick={handleCollectionJump}>
-                Explore The Private Edit
-                <ArrowIcon direction="down" />
+            <div className="h1-actions">
+              <button type="button" className="h1-btn h1-btn-gold" onClick={jumpToCollection}>
+                Enter The Private Edit
+                <ArrowIcon down />
               </button>
 
-              <Link to="/custom-hamper" className="ho-btn">
-                Create Bespoke
+              <CinematicLink
+                to="/custom-hamper"
+                className="h1-btn"
+                reducedMotion={reducedMotion}
+              >
+                Create Your Own
                 <ArrowIcon />
-              </Link>
+              </CinematicLink>
             </div>
           </div>
 
-          <div className="ho-hero-side" aria-label="HAMPER ONE highlights">
-            {HERO_SLIDES.map((slide, index) => (
-              <article
-                key={slide.title}
-                className={`ho-hero-side-card ${heroSlide === index ? "is-active" : ""}`}
+          <div className="h1-scene-nav" aria-label="HAMPER ONE visual chapters">
+            {HERO_SCENES.map((scene, index) => (
+              <button
+                key={scene.title}
+                type="button"
+                className={`h1-scene-card ${heroScene === index ? "is-active" : ""}`}
+                onClick={() => setHeroScene(index)}
               >
-                <div className="ho-hero-side-index">
+                <div className="h1-scene-top">
                   <span>{String(index + 1).padStart(2, "0")}</span>
-                  <span>{heroSlide === index ? "NOW" : "VIEW"}</span>
+                  <span>{heroScene === index ? "NOW" : scene.label}</span>
                 </div>
-                <h3>{slide.title}</h3>
-                <p>{slide.copy}</p>
-                <button
-                  type="button"
-                  aria-label={`Show ${slide.title}`}
-                  onClick={() => setHeroSlide(index)}
-                />
-              </article>
+                <h3>{scene.title}</h3>
+                <p>{scene.note}</p>
+              </button>
             ))}
           </div>
         </div>
 
-        <div className="ho-hero-foot" aria-hidden="true">
-          <div className="ho-scroll-cue">
+        <div className="h1-hero-foot" aria-hidden="true">
+          <div className="h1-scroll-cue">
             <span />
-            Scroll to enter the private experience
+            Scroll to enter the HAMPER ONE experience
           </div>
-          <div>H1 · PRIVATE SERIES</div>
+          <div>H1 · PRIVATE EDITION</div>
         </div>
       </section>
 
-      <section className="ho-marquee" aria-hidden="true">
-        <div className="ho-marquee-track">
+      <section className="h1-ticker" aria-hidden="true">
+        <div className="h1-ticker-track">
           {[0, 1].map((sequence) => (
-            <div className="ho-marquee-seq" key={sequence}>
+            <div className="h1-ticker-sequence" key={sequence}>
               {[
-                "Rare Selections",
-                "Signature Presentation",
-                "Bespoke Direction",
+                "Rare Selection",
+                "Signature Composition",
                 "Private Gifting",
                 "Refined Finishing",
                 "Elevated Unboxing",
+                "Made To Be Remembered",
                 "HAMPER ONE",
               ].map((item) => (
-                <div className="ho-marquee-item" key={`${sequence}-${item}`}>
+                <div className="h1-ticker-item" key={`${sequence}-${item}`}>
                   {item}
-                  <StarMark />
+                  <StarIcon />
                 </div>
               ))}
             </div>
@@ -952,208 +943,200 @@ const HamperOne = () => {
         </div>
       </section>
 
-      <section className="ho-ritual">
-        <div className="ho-ritual-shell">
-          <div className="ho-ritual-stage">
-            {ritualSlides.map((slide, index) => (
-              <img
-                key={`${slide.number}-${slide.image}`}
-                src={slide.image}
-                alt=""
-                className={`ho-ritual-image ${ritualActive === index ? "is-active" : ""}`}
-                loading={index === 0 ? "eager" : "lazy"}
-                decoding="async"
-              />
-            ))}
-            <div className="ho-ritual-frame" aria-hidden="true" />
+      <section className="h1-manifesto">
+        <div className="h1-manifesto-inner">
+          <div className="h1-manifesto-mark" data-h1-reveal>
+            <strong>1/1</strong>
+            <span>PRIVATE MINDSET</span>
+          </div>
 
-            <div className="ho-ritual-stage-copy">
-              <p className="ho-kicker">THE HAMPER ONE STANDARD</p>
-              <h2 className="ho-ritual-stage-title">
-                {currentRitual.title}
-                <em>{currentRitual.accent}</em>
-              </h2>
-              <div className="ho-ritual-stage-foot">
-                <strong>{currentRitual.number} / 04</strong>
-                <span>{currentRitual.foot}</span>
+          <div>
+            <p className="h1-manifesto-kicker" data-h1-reveal>
+              THE IDEA BEHIND HAMPER ONE
+            </p>
+            <h2 className="h1-manifesto-title" data-h1-reveal>
+              Less catalogue. More <em>signature piece.</em>
+            </h2>
+            <div className="h1-manifesto-foot" data-h1-reveal>
+              <p>
+                HAMPER ONE is for gifting moments where ordinary choice is not enough.
+                The selection is tighter, the presentation more deliberate, and the final
+                composition is treated with the mindset of a designed object.
+              </p>
+              <small>
+                HAMPORIUM PRIVATE SERIES
+                <br />
+                INDIA · 2026
+              </small>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="h1-story">
+        <div className="h1-story-nav" aria-hidden="true">
+          {STORY_CHAPTERS.map((chapter, index) => (
+            <span
+              key={chapter.number}
+              className={`h1-story-dot ${activeChapter === index ? "is-active" : ""}`}
+            />
+          ))}
+        </div>
+
+        {STORY_CHAPTERS.map((chapter, index) => (
+          <article
+            key={chapter.number}
+            data-h1-chapter={index}
+            className="h1-story-page"
+          >
+            <img
+              src={chapter.image}
+              alt=""
+              aria-hidden="true"
+              className="h1-story-image"
+              style={{ objectPosition: chapter.position }}
+              loading={index === 0 ? "eager" : "lazy"}
+              decoding="async"
+            />
+            <div className="h1-story-overlay" aria-hidden="true" />
+            <div className="h1-story-frame" aria-hidden="true" />
+
+            <div className="h1-story-copy">
+              <span className="h1-story-number">{chapter.number}</span>
+              <p className="h1-story-kicker">THE HAMPER ONE RITUAL · {chapter.kicker}</p>
+              <h2 className="h1-story-title">{chapter.title}</h2>
+              <div className="h1-story-bottom">
+                <p>{chapter.copy}</p>
+                <span>{chapter.line}</span>
               </div>
+            </div>
+          </article>
+        ))}
+      </section>
+
+      <section id="h1-private-edit" className="h1-collection">
+        <div className="h1-collection-inner">
+          <div className="h1-section-head">
+            <div data-h1-reveal>
+              <p className="h1-section-kicker">THE CURRENT PRIVATE EDIT</p>
+              <h2 className="h1-section-title">
+                Selected now.
+                <em>Remembered later.</em>
+              </h2>
+            </div>
+
+            <div className="h1-section-side" data-h1-reveal>
+              <strong>HAMPER ONE COLLECTION</strong>
+              Every product shown here comes from your live HAMPORIUM catalogue and keeps
+              its real product route and pricing.
             </div>
           </div>
 
-          <div className="ho-ritual-triggers">
-            {ritualSlides.map((slide, index) => (
-              <article
-                key={slide.number}
-                data-ho-ritual-trigger={index}
-                className={`ho-ritual-trigger ${ritualActive === index ? "is-active" : ""}`}
-                onMouseEnter={() => setRitualActive(index)}
-                onFocus={() => setRitualActive(index)}
-                tabIndex={0}
-              >
-                <span className="ho-ritual-num">{slide.number}</span>
-                <p className="ho-kicker" style={{ marginTop: 22 }}>{slide.eyebrow}</p>
-                <h3>
-                  {slide.title}
-                  <em>{slide.accent}</em>
-                </h3>
-                <p>{slide.body}</p>
-                <span className="ho-ritual-trigger-line" aria-hidden="true" />
+          {error && <div className="h1-error">{error}</div>}
+
+          {loading ? (
+            <div className="h1-product-grid">
+              {Array.from({ length: 8 }).map((_, index) => (
+                <HamperOneSkeleton key={index} />
+              ))}
+            </div>
+          ) : heroProducts.length ? (
+            <div className="h1-product-grid">
+              {heroProducts.map((product, index) => (
+                <HamperOneProductCard
+                  key={product._id || product.slug || index}
+                  product={product}
+                  index={index}
+                  reducedMotion={reducedMotion}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="h1-empty" data-h1-reveal>
+              <h3>The private edit is being composed.</h3>
+              <p>
+                Mark ready-made products for HAMPER ONE in Product Master and they will
+                appear here automatically.
+              </p>
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section className="h1-principles">
+        <div className="h1-principles-inner">
+          <div className="h1-principles-head">
+            <div data-h1-reveal>
+              <p className="h1-manifesto-kicker">THE H1 STANDARD</p>
+              <h2 className="h1-principles-title">
+                Three rules.
+                <em>One point of view.</em>
+              </h2>
+            </div>
+            <p className="h1-principles-copy" data-h1-reveal>
+              Hover to open each principle on desktop. On mobile, swipe through the
+              series like a private lookbook.
+            </p>
+          </div>
+
+          <div className="h1-principles-grid" data-h1-reveal>
+            {PRINCIPLES.map((principle) => (
+              <article className="h1-principle" key={principle.number}>
+                <img src={principle.image} alt="" aria-hidden="true" loading="lazy" />
+                <div className="h1-principle-copy">
+                  <span className="h1-principle-number">{principle.number}</span>
+                  <h3>{principle.title}</h3>
+                  <p>{principle.copy}</p>
+                  <span className="h1-principle-line" aria-hidden="true" />
+                </div>
               </article>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="ho-atelier">
-        <div className="ho-atelier-inner">
-          <div className="ho-section-head">
-            <div className="ho-reveal">
-              <p className="ho-kicker">THE PRIVATE ATELIER</p>
-              <h2 className="ho-section-title">
-                Composed like
-                <span>a signature piece.</span>
-              </h2>
-            </div>
-
-            <p className="ho-section-copy ho-reveal ho-delay-1">
-              HAMPER ONE is built around restraint, rarity and presentation. Every
-              composition is considered as a complete experience — from the first
-              visual impression to the final reveal.
-            </p>
-          </div>
-
-          <div className="ho-atelier-grid">
-            <div className="ho-atelier-main ho-reveal">
-              <img
-                src={getProductImage(products[0] || {}) || HERO_SLIDES[0].src}
-                alt={products[0]?.name || "HAMPER ONE signature composition"}
-                loading="lazy"
-                decoding="async"
-              />
-              <div className="ho-atelier-caption">
-                <p>Every detail earns its place.</p>
-                <span>01</span>
-              </div>
-            </div>
-
-            <div className="ho-atelier-side">
-              <div className="ho-atelier-small ho-reveal ho-delay-1">
-                <img
-                  src={getProductImage(products[1] || {}) || HERO_SLIDES[1].src}
-                  alt={products[1]?.name || "HAMPER ONE detail"}
-                  loading="lazy"
-                  decoding="async"
-                />
-                <div className="ho-atelier-caption">
-                  <p>Luxury without excess.</p>
-                  <span>02</span>
-                </div>
-              </div>
-
-              <div className="ho-atelier-small ho-reveal ho-delay-2">
-                <img
-                  src={getProductImage(products[2] || {}) || HERO_SLIDES[2].src}
-                  alt={products[2]?.name || "HAMPER ONE presentation"}
-                  loading="lazy"
-                  decoding="async"
-                />
-                <div className="ho-atelier-caption">
-                  <p>Made for remarkable moments.</p>
-                  <span>03</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="hamper-one-collection" className="ho-collection">
-        <div className="ho-collection-inner">
-          <div className="ho-collection-head">
-            <div className="ho-reveal">
-              <p className="ho-kicker" style={{ color: "#9D7318" }}>HAMPER ONE COLLECTION</p>
-              <h2 className="ho-collection-title">The Private Edit</h2>
-              <p className="ho-collection-sub">
-                Hampers tagged for HAMPER ONE in Product Master appear here automatically.
-              </p>
-            </div>
-
-            <Link to="/gifts" className="ho-text-link ho-reveal ho-delay-1">
-              Browse Standard Collection
-              <span>→</span>
-            </Link>
-          </div>
-
-          {error && (
-            <div className="mt-7 border-l-[3px] border-red-500 bg-red-50 px-4 py-3 text-[12px] font-semibold text-red-700">
-              {error}
-            </div>
-          )}
-
-          {loading ? (
-            <div className="ho-products">
-              {Array.from({ length: 8 }).map((_, index) => (
-                <HamperOneSkeleton key={index} />
-              ))}
-            </div>
-          ) : products.length ? (
-            <div className="ho-products">
-              {products.map((product, index) => (
-                <HamperOneProductCard
-                  key={product._id || product.slug || index}
-                  product={product}
-                  index={index}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="mt-8 border border-black/[0.1] bg-[#E8DFCF] px-6 py-16 text-center ho-reveal">
-              <p className="ho-display text-[36px] font-semibold">
-                The private edit is being prepared.
-              </p>
-              <p className="mx-auto mt-3 max-w-lg text-[12px] leading-6 text-black/45">
-                Mark ready-made products as HAMPER ONE in Product Master and they will appear here automatically.
-              </p>
-            </div>
-          )}
-        </div>
-      </section>
-
-      <section className="ho-finale">
+      <section className="h1-finale">
         <img
-          className="ho-finale-bg"
-          src={HERO_SLIDES[1].src}
+          src={bestsellerCelebrationLuxury}
           alt=""
           aria-hidden="true"
+          className="h1-finale-bg"
           loading="lazy"
           decoding="async"
         />
-        <div className="ho-finale-inner">
-          <div className="ho-reveal">
-            <p className="ho-kicker">BEYOND THE PRIVATE EDIT</p>
-            <h2 className="ho-finale-title">
-              Make the gift
-              <span>distinctly yours.</span>
-            </h2>
-            <p className="ho-finale-copy">
-              Begin with HAMPORIUM&apos;s build-your-own studio, or explore our managed
-              Wedding and Corporate gifting experiences for larger requirements.
-            </p>
-            <div className="ho-finale-rule" aria-hidden="true" />
+        <div className="h1-finale-orbit" aria-hidden="true" />
 
-            <div className="ho-actions">
-              <Link to="/custom-hamper" className="ho-btn ho-btn-primary">
-                Build Bespoke
+        <div className="h1-finale-inner">
+          <div data-h1-reveal>
+            <p className="h1-eyebrow">BEYOND THE PRIVATE EDIT</p>
+            <h2 className="h1-finale-title">
+              Make the next one
+              <em>entirely yours.</em>
+            </h2>
+            <p className="h1-finale-copy">
+              Start from a blank box and build a hamper around the person, the moment and
+              your own point of view — with HAMPORIUM&apos;s build-your-own studio.
+            </p>
+            <div className="h1-finale-rule" aria-hidden="true" />
+
+            <div className="h1-actions">
+              <CinematicLink
+                to="/custom-hamper"
+                className="h1-btn h1-btn-gold"
+                reducedMotion={reducedMotion}
+              >
+                Build A Bespoke Hamper
                 <ArrowIcon />
-              </Link>
-              <Link to="/weddings" className="ho-btn">
-                Wedding Concierge
+              </CinematicLink>
+
+              <CinematicLink
+                to="/gifts"
+                className="h1-btn"
+                reducedMotion={reducedMotion}
+              >
+                Explore All Hampers
                 <ArrowIcon />
-              </Link>
-              <Link to="/corporate" className="ho-btn">
-                Corporate Gifting
-                <ArrowIcon />
-              </Link>
+              </CinematicLink>
             </div>
           </div>
         </div>
@@ -1162,64 +1145,70 @@ const HamperOne = () => {
   );
 };
 
-const HamperOneProductCard = ({ product, index }) => {
+const HamperOneProductCard = ({ product, index, reducedMotion }) => {
   const image = getProductImage(product);
-  const price = Number(
-    product.minPrice ?? product.price ?? product.sellingPrice ?? product.salePrice ?? 0
-  );
-
-  const destination = product.slug ? `/products/${product.slug}` : "/hamper-one";
+  const price = getProductPrice(product);
+  const destination = product.slug ? `/products/${product.slug}` : "/gifts";
 
   return (
-    <Link to={destination} className="ho-product ho-reveal">
-      <span className="ho-product-sheen" aria-hidden="true" />
+    <CinematicLink
+      to={destination}
+      reducedMotion={reducedMotion}
+      className="h1-product-card"
+      data-h1-reveal
+    >
+      <span className="h1-product-sheen" aria-hidden="true" />
 
-      <div className="ho-product-media">
-        <img src={image} alt={product.name || "HAMPER ONE hamper"} loading="lazy" decoding="async" />
-        <span className="ho-product-tag">Private Edit</span>
-        <span className="ho-product-seal">H1</span>
-        <span className="ho-product-number">No. {String(index + 1).padStart(2, "0")}</span>
+      <div className="h1-product-media">
+        <img
+          src={image}
+          alt={product.name || "HAMPER ONE hamper"}
+          loading="lazy"
+          decoding="async"
+        />
+        <span className="h1-product-tag">Private Edit</span>
+        <span className="h1-product-index">No. {String(index + 1).padStart(2, "0")}</span>
       </div>
 
-      <div className="ho-product-body">
-        <p className="ho-product-category">
-          {product.category?.name || "Private Collection"}
+      <div className="h1-product-body">
+        <p className="h1-product-category">
+          {product.category?.name || "HAMPER ONE"}
         </p>
-        <h3 className="ho-product-title">{product.name || "HAMPER ONE Hamper"}</h3>
-
+        <h3 className="h1-product-title">{product.name || "HAMPER ONE Hamper"}</h3>
         {product.shortDescription && (
-          <p className="ho-product-desc">{product.shortDescription}</p>
+          <p className="h1-product-desc">{product.shortDescription}</p>
         )}
 
-        <div className="ho-product-meta">
+        <div className="h1-product-meta">
           <div>
-            <p className="ho-product-price-label">From</p>
-            <p className="ho-product-price">
+            <p className="h1-product-price-label">From</p>
+            <p className="h1-product-price">
               {price > 0 ? `₹${price.toLocaleString("en-IN")}` : "Private Edit"}
             </p>
           </div>
-          <span className="ho-product-arrow" aria-hidden="true">
+          <span className="h1-product-arrow" aria-hidden="true">
             <ArrowIcon />
           </span>
         </div>
       </div>
-    </Link>
+    </CinematicLink>
   );
 };
 
 const HamperOneSkeleton = () => (
-  <div className="ho-skeleton">
-    <div className="ho-skeleton-media" />
-    <div className="px-2 pb-2 pt-4">
-      <div className="ho-skeleton-line w-20" />
-      <div className="ho-skeleton-line h-7 w-3/4" />
-      <div className="ho-skeleton-line mt-4 h-px w-full" />
+  <div className="h1-skeleton">
+    <div className="h1-skeleton-media" />
+    <div className="px-2 pb-2 pt-3">
+      <div className="h1-skeleton-line w-20" />
+      <div className="h1-skeleton-line h-7 w-3/4" />
+      <div className="h1-skeleton-line mt-4 h-px w-full" />
       <div className="mt-3 flex items-center justify-between">
-        <div className="ho-skeleton-line mt-0 h-5 w-16" />
-        <div className="h-8 w-8 rounded-full bg-white/[0.07]" />
+        <div className="h1-skeleton-line mt-0 h-5 w-16" />
+        <div className="h-8 w-8 rounded-full bg-white/[0.06]" />
       </div>
     </div>
   </div>
 );
 
 export default HamperOne;
+ 
