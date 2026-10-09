@@ -5996,6 +5996,523 @@ const Home = () => {
             .hp-gift-concierge-sheet { transition:none !important; animation:none !important; }
           }
 
+
+
+          /* ==================================================
+             V103 / HAMPORIUM - 60%-SCREEN KINETIC CONTACT FINALE
+             Image-free, bold editorial type, centered and responsive.
+             Reuses the existing useHomeEnhancements heading observer.
+          ================================================== */
+          .hp-home-v65 .hp-contact-finale {
+            position: relative;
+            isolation: isolate;
+            overflow: hidden;
+            padding: clamp(9px, 1.2vw, 18px) clamp(10px, 2.7vw, 40px);
+            color: #271c14;
+            background: linear-gradient(180deg, #f9f6f0 0%, #f4ede3 100%);
+            border-top: 1px solid rgba(187, 149, 97, .25);
+          }
+
+          .hp-home-v65 .hp-contact-finale::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            z-index: -1;
+            pointer-events: none;
+            background:
+              radial-gradient(ellipse at 50% -30%, rgba(255,255,255,.98), transparent 64%),
+              repeating-linear-gradient(90deg, transparent 0 158px, rgba(192,151,91,.055) 158px 159px);
+          }
+
+          .hp-home-v65 .hp-contact-finale__shell {
+            position: relative;
+            isolation: isolate;
+            width: min(100%, 1680px);
+            margin: 0 auto;
+            overflow: hidden;
+            border: 1px solid rgba(183, 134, 70, .40);
+            background:
+              radial-gradient(ellipse at 15% 0%, rgba(251,217,164,.15), transparent 43%),
+              radial-gradient(ellipse at 85% 100%, rgba(245,206,148,.14), transparent 43%),
+              #fffcf6;
+            box-shadow:
+              0 12px 42px rgba(77,46,22,.07),
+              inset 0 0 0 5px rgba(255,255,255,.72),
+              inset 0 0 0 6px rgba(176,125,62,.17);
+          }
+
+          .hp-home-v65 .hp-contact-finale__shell::before,
+          .hp-home-v65 .hp-contact-finale__shell::after {
+            content: '';
+            position: absolute;
+            z-index: 0;
+            width: clamp(96px,13vw,188px);
+            aspect-ratio: 1;
+            pointer-events: none;
+            border-radius: 50%;
+            border: 1px solid rgba(189,146,84,.15);
+            box-shadow: 0 0 0 16px rgba(199,150,81,.032), 0 0 0 40px rgba(199,150,81,.020);
+          }
+          .hp-home-v65 .hp-contact-finale__shell::before { top: -94px; left: -87px; }
+          .hp-home-v65 .hp-contact-finale__shell::after { bottom: -102px; right: -88px; }
+
+          .hp-home-v65 .hp-contact-finale__corner {
+            position: absolute;
+            z-index: 1;
+            width: 30px;
+            height: 30px;
+            pointer-events: none;
+            border-color: rgba(185,137,64,.55);
+            border-style: solid;
+          }
+          .hp-home-v65 .hp-contact-finale__corner--tl { top: 13px; left: 13px; border-width: 1px 0 0 1px; }
+          .hp-home-v65 .hp-contact-finale__corner--tr { top: 13px; right: 13px; border-width: 1px 1px 0 0; }
+          .hp-home-v65 .hp-contact-finale__corner--bl { bottom: 13px; left: 13px; border-width: 0 0 1px 1px; }
+          .hp-home-v65 .hp-contact-finale__corner--br { bottom: 13px; right: 13px; border-width: 0 1px 1px 0; }
+
+          .hp-home-v65 .hp-contact-finale__copy {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            width: 100%;
+            min-width: 0;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: clamp(26px, 3vw, 44px) clamp(15px, 3.5vw, 54px) clamp(28px, 3vw, 46px);
+          }
+
+          .hp-home-v65 .hp-contact-finale__eyebrow {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: clamp(9px,1.3vw,17px);
+            margin: 0 0 clamp(11px, 1.3vw, 19px);
+            color: #8b6d49;
+            font: 800 clamp(9px,.72vw,11px)/1.5 'Manrope',Arial,sans-serif;
+            letter-spacing: .20em;
+            text-transform: uppercase;
+          }
+          .hp-home-v65 .hp-contact-finale__eyebrow::before,
+          .hp-home-v65 .hp-contact-finale__eyebrow::after {
+            content: '';
+            width: clamp(17px,3.2vw,44px);
+            height: 1px;
+            background: linear-gradient(90deg,transparent,#bb9158);
+          }
+          .hp-home-v65 .hp-contact-finale__eyebrow::after { transform: rotate(180deg); }
+          .hp-home-v65 .hp-contact-finale__eyebrow b { color: #e76d23; font-weight: 800; }
+
+          /* High-impact, wide Manrope + contrasting foil-italic serif. */
+          .hp-home-v65 .hp-contact-finale__title {
+            position: relative;
+            width: 100%;
+            max-width: 1550px;
+            margin: 0;
+            padding: 0 0 .1em;
+            color: #281d16;
+            font-family: 'Manrope', Arial, sans-serif;
+            font-size: clamp(62px, 8.05vw, 138px);
+            font-weight: 800;
+            line-height: 1.02;
+            letter-spacing: -.065em;
+            text-align: center;
+            text-wrap: balance;
+            overflow: visible !important;
+            transform-origin: 50% 50% !important;
+          }
+          .hp-home-v65 .hp-contact-finale__title .hp-contact-finale__line,
+          .hp-home-v65 .hp-contact-finale__title .hp-contact-finale__accent {
+            display: block;
+            position: relative;
+            max-width: 100%;
+            margin-inline: auto;
+            text-align: center;
+            transform-origin: center center;
+            backface-visibility: hidden;
+          }
+          .hp-home-v65 .hp-contact-finale__title .hp-contact-finale__line {
+            white-space: normal;
+            font-weight: 800;
+          }
+          .hp-home-v65 .hp-contact-finale__title .hp-contact-finale__accent {
+            width: fit-content;
+            margin-top: .018em;
+            padding: .04em .09em .13em;
+            font-family: 'Cormorant Garamond','Playfair Display',Georgia,serif;
+            font-size: clamp(67px, 8.35vw, 143px);
+            font-style: italic;
+            font-weight: 700;
+            line-height: .98;
+            letter-spacing: -.046em;
+            text-wrap: balance;
+            color: #e36923;
+            background: linear-gradient(105deg, #bb491c 0%, #e6661f 29%, #f18c33 50%, #c48b32 78%, #be521a 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+          }
+          .hp-home-v65 .hp-contact-finale__title .hp-contact-finale__accent::after {
+            content: '';
+            display: block;
+            width: clamp(86px, 13vw, 190px);
+            height: 2px;
+            margin: .07em auto 0;
+            transform-origin: center;
+            background: linear-gradient(90deg, transparent, #ef782d 20%, #c89b4d 76%, transparent);
+            box-shadow: 0 1px 12px rgba(223,139,44,.20);
+          }
+
+          .hp-home-v65 .hp-contact-finale__description {
+            max-width: 690px;
+            margin: clamp(5px, .85vw, 13px) 0 0;
+            color: #6a5949;
+            font: 600 clamp(13px,.98vw,16px)/1.55 'Manrope',Arial,sans-serif;
+            text-wrap: balance;
+          }
+          .hp-home-v65 .hp-contact-finale__bottom {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: clamp(15px, 1.4vw, 22px);
+          }
+          .hp-home-v65 .hp-contact-finale__cta {
+            position: relative;
+            isolation: isolate;
+            overflow: hidden;
+            display: inline-flex;
+            min-width: 238px;
+            min-height: 53px;
+            align-items: center;
+            justify-content: space-between;
+            gap: 24px;
+            padding: 5px 6px 5px 22px;
+            border: 1px solid #cf581a;
+            border-radius: 4px;
+            background: linear-gradient(112deg,#d9551b,#f27728 60%,#f79a42);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,.42), 0 10px 26px rgba(232,105,32,.18);
+            color: #fff;
+            font: 800 12px/1.2 'Manrope',Arial,sans-serif;
+            letter-spacing: .085em;
+            text-decoration: none;
+            text-transform: uppercase;
+            transition: transform .38s cubic-bezier(.16,1,.3,1), box-shadow .38s ease;
+          }
+          .hp-home-v65 .hp-contact-finale__cta::before {
+            content: '';
+            position: absolute;
+            inset: -40% auto -40% -70%;
+            width: 38%;
+            pointer-events: none;
+            background: linear-gradient(90deg,transparent,rgba(255,255,255,.58),transparent);
+            transform: skewX(-22deg);
+            transition: left .78s cubic-bezier(.16,1,.3,1);
+          }
+          .hp-home-v65 .hp-contact-finale__cta:hover,
+          .hp-home-v65 .hp-contact-finale__cta:focus-visible {
+            transform: translateY(-3px);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,.55), 0 16px 35px rgba(232,105,32,.27);
+          }
+          .hp-home-v65 .hp-contact-finale__cta:hover::before,
+          .hp-home-v65 .hp-contact-finale__cta:focus-visible::before { left: 138%; }
+          .hp-home-v65 .hp-contact-finale__arrow {
+            display: grid;
+            place-items: center;
+            flex: 0 0 40px;
+            width: 40px;
+            height: 40px;
+            border: 1px solid rgba(255,255,255,.60);
+            border-radius: 3px;
+            background: rgba(255,255,255,.12);
+            font: 24px/1 Georgia,serif;
+            transition: transform .32s ease;
+          }
+          .hp-home-v65 .hp-contact-finale__cta:hover .hp-contact-finale__arrow { transform: translateX(4px); }
+          .hp-home-v65 .hp-contact-finale__promise {
+            color: #947a5c;
+            font: 700 9px/1.5 'Manrope',Arial,sans-serif;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+          }
+
+          /* Scroll-triggered kinetic reveal is driven by the EXISTING heading
+             IntersectionObserver, so no additional scroll handler is needed. */
+          @keyframes hpContactHeadlineKinetic {
+            0% { opacity:0; transform:translate3d(0,35px,0) scale(.955) skewY(1.3deg); }
+            70% { opacity:1; transform:translate3d(0,-3px,0) scale(1.004) skewY(0); }
+            100% { opacity:1; transform:translate3d(0,0,0) scale(1) skewY(0); }
+          }
+          @keyframes hpContactFoilKinetic {
+            0% { opacity:0; transform:translate3d(0,24px,0) scale(.94) skewX(-4deg); }
+            67% { opacity:1; transform:translate3d(0,-2px,0) scale(1.006) skewX(0); }
+            100% { opacity:1; transform:translate3d(0,0,0) scale(1); }
+          }
+          @keyframes hpContactUnderlineDraw {
+            0% { opacity:0; transform:scaleX(0); }
+            100% { opacity:1; transform:scaleX(1); }
+          }
+          @keyframes hpContactCopyLift {
+            0% { opacity:0; transform:translate3d(0,15px,0); }
+            100% { opacity:1; transform:translate3d(0,0,0); }
+          }
+          .hp-home-v65 .hp-contact-finale__title.hp-kinetic-heading {
+            transform-origin: center center !important;
+          }
+          .hp-home-v65 .hp-contact-finale__title.hp-kinetic-heading.is-kinetic-visible .hp-contact-finale__line {
+            animation: hpContactHeadlineKinetic .94s cubic-bezier(.16,1,.3,1) both;
+          }
+          .hp-home-v65 .hp-contact-finale__title.hp-kinetic-heading.is-kinetic-visible .hp-contact-finale__accent {
+            animation: hpContactFoilKinetic 1.08s .13s cubic-bezier(.16,1,.3,1) both;
+          }
+          .hp-home-v65 .hp-contact-finale__title.hp-kinetic-heading.is-kinetic-visible .hp-contact-finale__accent::after {
+            animation: hpContactUnderlineDraw .78s .77s cubic-bezier(.16,1,.3,1) both;
+          }
+          @supports selector(:has(*)) {
+            .hp-home-v65 .hp-contact-finale__copy:has(> .hp-contact-finale__title.is-kinetic-visible) .hp-contact-finale__description {
+              animation: hpContactCopyLift .75s .3s cubic-bezier(.16,1,.3,1) both;
+            }
+            .hp-home-v65 .hp-contact-finale__copy:has(> .hp-contact-finale__title.is-kinetic-visible) .hp-contact-finale__bottom {
+              animation: hpContactCopyLift .82s .42s cubic-bezier(.16,1,.3,1) both;
+            }
+          }
+
+          @media (max-width: 1023px) {
+            .hp-home-v65 .hp-contact-finale__copy { padding: 28px 24px 30px; }
+            .hp-home-v65 .hp-contact-finale__title { font-size: clamp(52px, 8.8vw, 89px); }
+            .hp-home-v65 .hp-contact-finale__title .hp-contact-finale__accent { font-size: clamp(55px, 9.1vw, 95px); }
+          }
+          @media (max-width: 639px) {
+            .hp-home-v65 .hp-contact-finale { padding: 9px; }
+            .hp-home-v65 .hp-contact-finale__copy { padding: 28px 14px 30px; }
+            .hp-home-v65 .hp-contact-finale__eyebrow { font-size: 9px; letter-spacing: .11em; margin-bottom: 14px; }
+            .hp-home-v65 .hp-contact-finale__title { font-size: clamp(34px, 9.1vw, 54px); letter-spacing: -.055em; line-height: 1.06; }
+            .hp-home-v65 .hp-contact-finale__title .hp-contact-finale__accent {
+              font-size: clamp(45px, 11vw, 70px);
+              line-height: 1.04;
+              padding-bottom: .14em;
+              letter-spacing: -.04em;
+            }
+            .hp-home-v65 .hp-contact-finale__description { font-size: 12px; line-height: 1.6; max-width: 440px; margin-top: 8px; }
+            .hp-home-v65 .hp-contact-finale__bottom { margin-top: 17px; gap: 11px; }
+            .hp-home-v65 .hp-contact-finale__corner { width: 20px; height: 20px; }
+            .hp-home-v65 .hp-contact-finale__corner--tl { top: 10px; left: 10px; }
+            .hp-home-v65 .hp-contact-finale__corner--tr { top: 10px; right: 10px; }
+            .hp-home-v65 .hp-contact-finale__corner--bl { bottom: 10px; left: 10px; }
+            .hp-home-v65 .hp-contact-finale__corner--br { bottom: 10px; right: 10px; }
+          }
+          @media (max-width: 390px) {
+            .hp-home-v65 .hp-contact-finale__title { font-size: clamp(31px, 8.9vw, 37px); }
+            .hp-home-v65 .hp-contact-finale__title .hp-contact-finale__accent { font-size: clamp(41px, 10.7vw, 46px); }
+            .hp-home-v65 .hp-contact-finale__cta { min-width: 0; width: min(100%, 270px); }
+            .hp-home-v65 .hp-contact-finale__promise { font-size: 8px; letter-spacing: .025em; }
+          }
+          @media (prefers-reduced-motion: reduce) {
+            .hp-home-v65 .hp-contact-finale__title.hp-kinetic-heading,
+            .hp-home-v65 .hp-contact-finale__title .hp-contact-finale__line,
+            .hp-home-v65 .hp-contact-finale__title .hp-contact-finale__accent,
+            .hp-home-v65 .hp-contact-finale__title .hp-contact-finale__accent::after,
+            .hp-home-v65 .hp-contact-finale__description,
+            .hp-home-v65 .hp-contact-finale__bottom {
+              animation: none !important;
+              opacity: 1 !important;
+              transform: none !important;
+            }
+            .hp-home-v65 .hp-contact-finale__cta,
+            .hp-home-v65 .hp-contact-finale__cta::before,
+            .hp-home-v65 .hp-contact-finale__arrow { transition: none !important; }
+          }
+
+
+          /* ==================================================
+             V103 / 60% SCREEN CONTACT FINALE - BOLD WIDE TYPE
+             Exactly 60% of the viewport in standard conditions.
+             Extremely short screens may grow to prevent text cutoff.
+             Only the Contact finale is changed; no JS changes.
+          ================================================== */
+          .hp-home-v65 .hp-contact-finale {
+            box-sizing: border-box;
+            display: flex;
+            align-items: stretch;
+            height: 60vh;
+            height: 60svh;
+            min-height: max-content;
+            padding: clamp(8px, 1.1vw, 16px) clamp(8px, 2.4vw, 34px);
+          }
+          .hp-home-v65 .hp-contact-finale__shell {
+            box-sizing: border-box;
+            flex: 1 1 auto;
+            min-width: 0;
+            min-height: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+          .hp-home-v65 .hp-contact-finale__copy {
+            min-height: 0;
+            width: 100%;
+            padding: clamp(13px, 2svh, 28px) clamp(12px, 2.7vw, 38px);
+          }
+          .hp-home-v65 .hp-contact-finale__eyebrow {
+            margin-bottom: clamp(9px, 1.4svh, 18px);
+          }
+          /* Manrope ExtraBold enlarged and optically widened instead
+             of compressing glyphs with aggressive negative tracking. */
+          .hp-home-v65 .hp-contact-finale__title {
+            width: 100%;
+            max-width: 1580px;
+            font-family: 'Manrope', Arial, sans-serif;
+            font-size: clamp(72px, min(10.3vw, 13.2svh), 170px);
+            font-weight: 800;
+            letter-spacing: -.018em;
+            line-height: .99;
+            padding-bottom: .055em;
+            text-align: center;
+            text-wrap: balance;
+            transform-origin: center center !important;
+          }
+          .hp-home-v65 .hp-contact-finale__title .hp-contact-finale__line {
+            font-weight: 800;
+            letter-spacing: -.025em;
+            -webkit-text-stroke: .65px currentColor;
+          }
+          .hp-home-v65 .hp-contact-finale__title .hp-contact-finale__accent {
+            max-width: 100%;
+            font-size: clamp(82px, min(10.55vw, 13.8svh), 176px);
+            font-weight: 700;
+            letter-spacing: -.021em;
+            line-height: .99;
+            margin-top: 0;
+            padding: .02em .055em .11em;
+            -webkit-text-stroke: .35px rgba(196, 90, 30, .65);
+          }
+          .hp-home-v65 .hp-contact-finale__title .hp-contact-finale__accent::after {
+            margin-top: .055em;
+            height: 3px;
+            width: clamp(110px, 17vw, 220px);
+          }
+          .hp-home-v65 .hp-contact-finale__description {
+            margin-top: clamp(6px, 1svh, 12px);
+            max-width: 780px;
+            font-size: clamp(12px, 1vw, 16px);
+            line-height: 1.48;
+          }
+          .hp-home-v65 .hp-contact-finale__bottom {
+            margin-top: clamp(11px, 1.7svh, 21px);
+            gap: 7px;
+          }
+          .hp-home-v65 .hp-contact-finale__cta { min-height: 51px; }
+          .hp-home-v65 .hp-contact-finale__arrow {
+            flex-basis: 38px;
+            width: 38px;
+            height: 38px;
+          }
+          @media (max-width: 1023px) {
+            .hp-home-v65 .hp-contact-finale__title {
+              font-size: clamp(52px, min(10vw, 11.5svh), 96px);
+              letter-spacing: -.02em;
+            }
+            .hp-home-v65 .hp-contact-finale__title .hp-contact-finale__accent {
+              font-size: clamp(59px, min(10.8vw, 12svh), 104px);
+              letter-spacing: -.026em;
+            }
+            .hp-home-v65 .hp-contact-finale__copy {
+              padding-block: clamp(11px, 1.7svh, 21px);
+            }
+          }
+          @media (max-width: 639px) {
+            .hp-home-v65 .hp-contact-finale { padding: 7px; }
+            .hp-home-v65 .hp-contact-finale__copy { padding: 10px 10px 11px; }
+            .hp-home-v65 .hp-contact-finale__eyebrow {
+              margin-bottom: 9px;
+              font-size: 9px;
+              letter-spacing: .1em;
+            }
+            .hp-home-v65 .hp-contact-finale__title {
+              font-size: clamp(41px, 11.75vw, 66px);
+              letter-spacing: -.018em;
+              line-height: 1.04;
+            }
+            .hp-home-v65 .hp-contact-finale__title .hp-contact-finale__line {
+              letter-spacing: -.027em;
+              -webkit-text-stroke: .3px currentColor;
+            }
+            .hp-home-v65 .hp-contact-finale__title .hp-contact-finale__accent {
+              font-size: clamp(46px, 12.7vw, 72px);
+              letter-spacing: -.03em;
+              line-height: 1;
+              padding: .015em .015em .11em;
+              -webkit-text-stroke: .2px rgba(196, 90, 30, .65);
+            }
+            .hp-home-v65 .hp-contact-finale__title .hp-contact-finale__accent::after {
+              height: 2px;
+              width: 112px;
+              margin-top: .05em;
+            }
+            .hp-home-v65 .hp-contact-finale__description {
+              max-width: 440px;
+              font-size: 11.5px;
+              line-height: 1.48;
+              margin-top: 6px;
+            }
+            .hp-home-v65 .hp-contact-finale__bottom {
+              margin-top: 10px;
+              gap: 6px;
+            }
+            .hp-home-v65 .hp-contact-finale__cta { min-height: 45px; }
+            .hp-home-v65 .hp-contact-finale__arrow {
+              flex-basis: 34px;
+              width: 34px;
+              height: 34px;
+            }
+            .hp-home-v65 .hp-contact-finale__promise {
+              font-size: 8px;
+              letter-spacing: .03em;
+            }
+          }
+          @media (max-width: 390px) {
+            .hp-home-v65 .hp-contact-finale__title {
+              font-size: clamp(38px, 11.3vw, 45px);
+            }
+            .hp-home-v65 .hp-contact-finale__title .hp-contact-finale__accent {
+              font-size: clamp(43px, 12.1vw, 49px);
+            }
+          }
+
+          /* V104: Contact card inset by 10% on BOTH sides.
+             Everything inside the card (fonts, animation, CTA) stays unchanged. */
+          .hp-home-v65 .hp-contact-finale {
+            padding-inline: 10%;
+          }
+
+
+          /* V108 / GPU budget: release finished kinetic text layers.
+             Animated headings still get compositor-friendly transforms. */
+          .hp-home-v65 .hp-kinetic-heading {
+            will-change: auto;
+          }
+          .hp-home-v65 .hp-kinetic-heading.is-kinetic-visible:not(.is-kinetic-settled) {
+            will-change: transform, opacity;
+          }
+          .hp-home-v65 .hp-kinetic-heading.is-kinetic-settled,
+          .hp-home-v65 .hp-kinetic-heading.is-kinetic-settled .hp-section-heading-accent {
+            will-change: auto;
+          }
+
+          /* V106: Mobile only. Keep the 48svh height, expand the card to 90%
+             of the section width (5% inset each side), and hide its description. */
+          @media (max-width: 639px) {
+            .hp-home-v65 .hp-contact-finale {
+              height: 48vh;
+              height: 48svh;
+              padding-inline: 5%;
+            }
+            .hp-home-v65 .hp-contact-finale__description {
+              display: none;
+            }
+          }
         `}
       </style>
 
@@ -6093,7 +6610,7 @@ const Home = () => {
                   hoverSrc={item.hoverImage}
                   alt={item.title}
                   loading={index === 0 ? "eager" : "lazy"}
-                  fetchPriority={index === 0 ? "high" : "low"}
+                  fetchPriority="low"
                   style={{ objectPosition: item.objectPosition }}
                   imageClassName="hp-story-image hp-journey-story-image object-cover"
                   strength={index === 1 ? 21 : 19}
@@ -6653,10 +7170,10 @@ const Home = () => {
 
                   <div>
                     <div className="mb-4 flex justify-center">
-                      <span className="rounded-full border border-white/10 bg-black/42 px-3 py-1.5 text-[11px] font-black text-[#F4D36A]">
-                        {
-                          activeBudget?.label
-                        }
+                      <span
+                        className="rounded-full border border-white/10 bg-black/42 px-3 py-1.5 text-[11px] font-black text-[#F4D36A]"
+                      >
+                        {activeBudget?.label}
                       </span>
                     </div>
 
@@ -7092,6 +7609,36 @@ const Home = () => {
           </Reveal>
         </section>
 
+        {/* ==================================================
+            CONTACT / V103 - 60% screen-height, oversized bold finale
+        =================================================== */}
+        <section data-home-section="contact" className="hp-contact-finale" aria-labelledby="hp-contact-heading">
+          <div className="hp-contact-finale__shell">
+            <span className="hp-contact-finale__corner hp-contact-finale__corner--tl" aria-hidden="true" />
+            <span className="hp-contact-finale__corner hp-contact-finale__corner--tr" aria-hidden="true" />
+            <span className="hp-contact-finale__corner hp-contact-finale__corner--bl" aria-hidden="true" />
+            <span className="hp-contact-finale__corner hp-contact-finale__corner--br" aria-hidden="true" />
+            <div className="hp-contact-finale__copy">
+              <p className="hp-contact-finale__eyebrow">The <b>HAMPORIUM</b> Concierge</p>
+              <h2 id="hp-contact-heading" className="hp-contact-finale__title">
+                <span className="hp-contact-finale__line">Have a vision?</span>
+                <em className="hp-contact-finale__accent">Let's make it yours.</em>
+              </h2>
+              <p className="hp-contact-finale__description">
+                From one unforgettable gift to a grand celebration, our team
+                brings the thoughtful details to life, beautifully.
+              </p>
+              <div className="hp-contact-finale__bottom">
+                <SignatureLink to="/contact" className="hp-contact-finale__cta">
+                  <span>Contact our team</span>
+                  <span className="hp-contact-finale__arrow" aria-hidden="true">→</span>
+                </SignatureLink>
+                <span className="hp-contact-finale__promise">Personal gifting · Custom requests · Events</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
       </div>
     </main>
   );
@@ -7101,27 +7648,56 @@ const Home = () => {
 // SCROLL REVEAL
 // ======================================================
 
+// V108: A single IntersectionObserver serves all lightweight scroll reveals.
+// Each wrapper still owns its Web Animation and cancels it on unmount/focus.
+const homeRevealRegistry = new Map();
+let homeSharedRevealObserver = null;
+
+const observeHomeReveal = (node, callback) => {
+  if (!window.IntersectionObserver) return () => {};
+  if (!homeSharedRevealObserver) {
+    homeSharedRevealObserver = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        const reveal = homeRevealRegistry.get(entry.target);
+        homeRevealRegistry.delete(entry.target);
+        homeSharedRevealObserver?.unobserve(entry.target);
+        reveal?.();
+      }
+    }, { threshold: 0.01, rootMargin: "0px 0px 70px 0px" });
+  }
+  homeRevealRegistry.set(node, callback);
+  homeSharedRevealObserver.observe(node);
+  return () => {
+    homeRevealRegistry.delete(node);
+    homeSharedRevealObserver?.unobserve(node);
+    if (homeRevealRegistry.size === 0) {
+      homeSharedRevealObserver?.disconnect();
+      homeSharedRevealObserver = null;
+    }
+  };
+};
+
 const Reveal = ({ children, className = "", delay = 0 }) => {
   const ref = useRef(null);
   useEffect(() => {
     const node = ref.current;
     if (!node || !window.IntersectionObserver || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return undefined;
     let animation;
-    const observer = new IntersectionObserver(([entry]) => {
-      if (!entry.isIntersecting) return;
-      observer.unobserve(node);
-      // Animate only after intersection. Base CSS always remains visible.
-      // Never animate a focused control, and never gate content on image load.
+    const stopObserving = observeHomeReveal(node, () => {
       if (node.contains(document.activeElement)) return;
       animation = node.animate?.([
         { opacity: 0.18, transform: "translate3d(0,18px,0)" },
         { opacity: 1, transform: "translate3d(0,0,0)" },
       ], { duration: 660, delay: Math.min(delay, 140), easing: "cubic-bezier(.22,1,.36,1)" });
-    }, { threshold: 0.01, rootMargin: "0px 0px 70px 0px" });
+    });
     const revealFocused = () => animation?.cancel();
     node.addEventListener("focusin", revealFocused);
-    observer.observe(node);
-    return () => { observer.disconnect(); animation?.cancel(); node.removeEventListener("focusin", revealFocused); };
+    return () => {
+      stopObserving();
+      animation?.cancel();
+      node.removeEventListener("focusin", revealFocused);
+    };
   }, [delay]);
   return <div ref={ref} className={`hp-reveal is-visible ${className}`}>{children}</div>;
 };
@@ -7267,8 +7843,9 @@ const FluidBackdrop = ({
 
     const scheduleSwap = (delay = 4200) => {
       clearTimer();
-      if (!visible) return;
+      if (!visible || document.hidden) return;
       timerId = window.setTimeout(() => {
+        if (document.hidden || !visible) return;
         setMobileAlt((current) => !current);
         scheduleSwap(4800);
       }, delay);
@@ -7289,12 +7866,18 @@ const FluidBackdrop = ({
       { threshold: [0, 0.38, 0.7] }
     );
 
+    const onTabVisibility = () => {
+      if (document.hidden) clearTimer();
+      else if (visible) scheduleSwap(2600);
+    };
     observer.observe(host);
+    document.addEventListener("visibilitychange", onTabVisibility);
 
     return () => {
       visible = false;
       clearTimer();
       observer.disconnect();
+      document.removeEventListener("visibilitychange", onTabVisibility);
     };
   }, [hoverReady, hoverSrc]);
 
@@ -10014,6 +10597,7 @@ const useHomeEnhancements = (homeRef, reducedMotion) => {
     };
 
     let scrollIdleTimer = 0;
+    let resizeFrame = 0;
 
     const schedulePaint = () => {
       if (!frame && !document.hidden) {
@@ -10049,9 +10633,17 @@ const useHomeEnhancements = (homeRef, reducedMotion) => {
       schedulePaint();
     };
 
+    const scheduleMeasure = () => {
+      if (resizeFrame || document.hidden) return;
+      resizeFrame = window.requestAnimationFrame(() => {
+        resizeFrame = 0;
+        measure();
+      });
+    };
+
     const visibility = () => {
       root.dataset.pageHidden = String(document.hidden);
-      if (!document.hidden) measure();
+      if (!document.hidden) scheduleMeasure();
     };
 
     const handleViewportResize = () => {
@@ -10060,10 +10652,10 @@ const useHomeEnhancements = (homeRef, reducedMotion) => {
         return;
       }
       lastViewportWidth = nextWidth;
-      measure();
+      scheduleMeasure();
     };
 
-    const resize = window.ResizeObserver ? new ResizeObserver(measure) : null;
+    const resize = window.ResizeObserver ? new ResizeObserver(scheduleMeasure) : null;
     if (heroStage) resize?.observe(heroStage);
     resize?.observe(root);
 
@@ -10103,6 +10695,13 @@ const useHomeEnhancements = (homeRef, reducedMotion) => {
       'h1:not(.sr-only), h2, h3, h4, [role="heading"]:not(.sr-only)';
     const kineticHeadingNodes = new Set();
     const kineticRevealTimers = new Map();
+    const settleKineticHeading = (event) => {
+      const heading = event.target;
+      if (heading instanceof HTMLElement && heading.classList.contains("hp-kinetic-heading")) {
+        heading.classList.add("is-kinetic-settled");
+      }
+    };
+    root.addEventListener("animationend", settleKineticHeading);
     const isMobileKinetic = window.matchMedia(
       "(max-width: 767px), (pointer: coarse)"
     ).matches;
@@ -10214,6 +10813,7 @@ const useHomeEnhancements = (homeRef, reducedMotion) => {
       ambientObserver?.disconnect();
       kineticHeadingObserver?.disconnect();
       kineticMutationObserver?.disconnect();
+      root.removeEventListener("animationend", settleKineticHeading);
 
       if (mutationFrame) window.cancelAnimationFrame(mutationFrame);
       pendingMutationNodes.clear();
@@ -10228,13 +10828,14 @@ const useHomeEnhancements = (homeRef, reducedMotion) => {
       if (scrollIdleTimer) window.clearTimeout(scrollIdleTimer);
 
       kineticHeadingNodes.forEach((heading) => {
-        heading.classList.remove("hp-kinetic-heading", "is-kinetic-visible");
+        heading.classList.remove("hp-kinetic-heading", "is-kinetic-visible", "is-kinetic-settled");
         heading.style.removeProperty("--hp-kinetic-x");
         delete heading.dataset.hpKineticSeen;
         delete heading.dataset.hpKineticVariant;
       });
 
       window.cancelAnimationFrame(frame);
+      if (resizeFrame) window.cancelAnimationFrame(resizeFrame);
       window.removeEventListener("scroll", scheduleScroll);
       window.removeEventListener("resize", handleViewportResize);
       document.removeEventListener("visibilitychange", visibility);
@@ -10384,7 +10985,7 @@ const CinematicHero = ({ onIntroComplete }) => {
     <section ref={stageRef} className="hp-hero-stage relative h-[100svh] min-h-[620px] w-full overflow-hidden bg-black" aria-label="HAMPORIUM gifting showcase">
       <h1 className="sr-only">HAMPORIUM - curated hampers and personalised gifting</h1>
       <div className="hp-hero-motion-layer">
-        <img src={HOME_IMAGES.hero} alt="" aria-hidden="true" fetchPriority="high" className="hp-hero-poster" />
+        <img src={HOME_IMAGES.hero} alt="" aria-hidden="true" loading="eager" decoding="async" fetchPriority="high" className="hp-hero-poster" />
         {allowVideo && !failed && <video ref={videoRef} muted playsInline preload={seen ? "metadata" : "auto"}
           poster={HOME_IMAGES.hero} onLoadedData={() => setReady(true)} onCanPlay={() => setReady(true)}
           onPlay={() => setPaused(false)} onPause={() => setPaused(true)}
@@ -10413,6 +11014,7 @@ const CinematicHero = ({ onIntroComplete }) => {
 const InteractiveRail = ({ id, label, className = "", controlsClass = "", children, showStatus = true }) => {
   const ref = useRef(null);
   const frame = useRef(0);
+  const nearViewportRef = useRef(true);
   const reducedMotion = useMediaPreference("(prefers-reduced-motion: reduce)");
   const [range, setRange] = useState({ start: 1, end: 1, total: 0, prev: false, next: false });
   const measure = useCallback(() => {
@@ -10456,17 +11058,22 @@ const InteractiveRail = ({ id, label, className = "", controlsClass = "", childr
     const isJourneyRail =
       node.classList.contains("hp-journey-grid") && window.innerWidth <= 1023;
 
+    const writeVar = (element, property, value) => {
+      if (element.style.getPropertyValue(property) !== value) {
+        element.style.setProperty(property, value);
+      }
+    };
     if (isJourneyRail) {
       const railWidth = Math.max(1, node.clientWidth);
       const cardWidth = railWidth * .74;
       const sideSpace = Math.max(0, (railWidth - cardWidth) / 2);
-      node.style.setProperty("--hp-journey-card-width", `${cardWidth.toFixed(2)}px`);
-      node.style.setProperty("--hp-journey-side-space", `${sideSpace.toFixed(2)}px`);
-      node.style.setProperty("--hp-journey-gap", "14px");
+      writeVar(node, "--hp-journey-card-width", `${cardWidth.toFixed(2)}px`);
+      writeVar(node, "--hp-journey-side-space", `${sideSpace.toFixed(2)}px`);
+      writeVar(node, "--hp-journey-gap", "14px");
     } else {
-      node.style.removeProperty("--hp-journey-card-width");
-      node.style.removeProperty("--hp-journey-side-space");
-      node.style.removeProperty("--hp-journey-gap");
+      for (const property of ["--hp-journey-card-width", "--hp-journey-side-space", "--hp-journey-gap"]) {
+        if (node.style.getPropertyValue(property)) node.style.removeProperty(property);
+      }
     }
 
     let nearest = null;
@@ -10511,17 +11118,18 @@ const InteractiveRail = ({ id, label, className = "", controlsClass = "", childr
     writes.forEach((entry) => {
       const { item } = entry;
       if (entry.active) {
-        item.style.setProperty("--hp-journey-scroll-scale", entry.scale);
-        item.style.setProperty("--hp-journey-scroll-opacity", entry.opacity);
-        item.style.setProperty("--hp-journey-scale-origin", entry.origin);
-        item.style.setProperty("--hp-journey-z", entry.z);
+        writeVar(item, "--hp-journey-scroll-scale", entry.scale);
+        writeVar(item, "--hp-journey-scroll-opacity", entry.opacity);
+        writeVar(item, "--hp-journey-scale-origin", entry.origin);
+        writeVar(item, "--hp-journey-z", entry.z);
       } else {
-        item.style.removeProperty("--hp-journey-scroll-scale");
-        item.style.removeProperty("--hp-journey-scroll-opacity");
-        item.style.removeProperty("--hp-journey-scale-origin");
-        item.style.removeProperty("--hp-journey-z");
+        for (const property of ["--hp-journey-scroll-scale", "--hp-journey-scroll-opacity", "--hp-journey-scale-origin", "--hp-journey-z"]) {
+          if (item.style.getPropertyValue(property)) item.style.removeProperty(property);
+        }
       }
-      item.classList.toggle("is-mobile-active", item === nearest);
+      if (item.classList.contains("is-mobile-active") !== (item === nearest)) {
+        item.classList.toggle("is-mobile-active", item === nearest);
+      }
     });
   }, []);
   const schedule = useCallback(() => { if (!frame.current) frame.current = requestAnimationFrame(measure); }, [measure]);
@@ -10536,17 +11144,27 @@ const InteractiveRail = ({ id, label, className = "", controlsClass = "", childr
          Rail geometry depends on width, so do nothing unless width changed. */
       if (Math.abs(nextWidth - lastWidth) < 2) return;
       lastWidth = nextWidth;
-      schedule();
+      if (nearViewportRef.current) schedule();
     };
 
-    const resize = window.ResizeObserver ? new ResizeObserver(schedule) : null;
+    const resize = window.ResizeObserver ? new ResizeObserver(() => {
+      if (nearViewportRef.current) schedule();
+    }) : null;
     resize?.observe(node);
     Array.from(node.children).forEach((child) => resize?.observe(child));
+    const visibilityObserver = window.IntersectionObserver
+      ? new IntersectionObserver(([entry]) => {
+          nearViewportRef.current = Boolean(entry?.isIntersecting);
+          if (nearViewportRef.current) schedule();
+        }, { rootMargin: "450px 0px", threshold: 0 })
+      : null;
+    visibilityObserver?.observe(node);
     node.addEventListener("scroll", schedule, { passive: true });
     window.addEventListener("resize", onViewportResize, { passive: true });
     schedule();
     return () => {
       resize?.disconnect();
+      visibilityObserver?.disconnect();
       cancelAnimationFrame(frame.current);
       frame.current = 0;
       node.removeEventListener("scroll", schedule);

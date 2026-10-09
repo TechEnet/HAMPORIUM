@@ -985,7 +985,8 @@ const HEADER_CSS = `
 .hh-brand-mark { display:flex; width:54px; height:64px; align-items:center; justify-content:center; }
 .hh-brand-mark img { display:block; width:100%; height:100%; object-fit:contain; transition:transform .6s var(--hh-ease); }
 .hh-wordmark { font-family:'Cormorant Garamond',Georgia,serif; font-size:25px; letter-spacing:.065em; font-weight:600; line-height:1; white-space:nowrap; }
-.hh-nav { display:flex; align-self:stretch; align-items:center; gap:clamp(14px,1.6vw,28px); margin-left:clamp(6px,1.4vw,22px); }
+/* Keep Hampers and HAMPER ONE close to the search box on desktop. */
+.hh-nav { display:flex; align-self:stretch; align-items:center; gap:clamp(14px,1.6vw,28px); margin-left:auto; }
 .hh-nav-link { position:relative; display:inline-flex; height:100%; align-items:center; gap:8px; padding:0 2px; border:0; color:inherit; background:transparent; font-weight:600!important; font-size:14px!important; white-space:nowrap; }
 .hh-nav-link::after { content:''; position:absolute; bottom:17px; left:0; right:0; height:1px; transform:scaleX(0); transform-origin:left; background:var(--hh-orange); transition:transform .42s var(--hh-ease); }
 .hh-nav-link.is-current::after,.hh-nav-link:hover::after { transform:scaleX(1); }
@@ -999,7 +1000,7 @@ const HEADER_CSS = `
 .hh-private-link.is-current>span { color:#977023; }
 .hh-hero .hh-private-link em,.hh-hero .hh-private-link>.hh-icon { color:#e0c173; }
 .hh-hero .hh-private-link small { color:#e9e1cfbf; }
-.hh-tools { min-width:0; display:flex; align-items:center; gap:6px; margin-left:auto; }
+.hh-tools { min-width:0; display:flex; align-items:center; gap:6px; margin-left:0; }
 .hh-search-trigger { display:flex; align-items:center; gap:10px; min-width:0; width:clamp(240px,22vw,390px); height:44px; padding:0 12px; border:1px solid #e8dfd1; border-radius:9px; color:var(--hh-muted); background:#f5f0e8; transition:border-color .3s,background .3s,box-shadow .3s; }
 .hh-search-trigger>.hh-icon { width:18px; height:18px; color:#98732f; }
 .hh-search-trigger>span { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:13px; text-align:left; }
@@ -1165,7 +1166,7 @@ const HEADER_CSS = `
 .hh-spin { animation:hh-spin .85s linear infinite; }
 
 @media (min-width:1180px) and (max-width:1319px) {
-  .hh-bar { gap:16px; padding-inline:24px; }.hh-wordmark { font-size:22px; }.hh-brand { gap:7px; }.hh-brand-mark { width:46px; height:60px; }.hh-nav { margin-left:0; gap:17px; }.hh-private-link { padding-left:16px; }.hh-tools { gap:3px; }.hh-search-trigger { width:240px; }.hh-search-trigger kbd { display:none; }.hh-location-trigger { width:145px; margin-left:2px; padding-inline:7px; }.hh-tools-divider { margin-inline:3px; }.hh-action { width:40px; }
+  .hh-bar { gap:16px; padding-inline:24px; }.hh-wordmark { font-size:22px; }.hh-brand { gap:7px; }.hh-brand-mark { width:46px; height:60px; }.hh-nav { margin-left:auto; gap:17px; }.hh-private-link { padding-left:16px; }.hh-tools { gap:3px; }.hh-search-trigger { width:240px; }.hh-search-trigger kbd { display:none; }.hh-location-trigger { width:145px; margin-left:2px; padding-inline:7px; }.hh-tools-divider { margin-inline:3px; }.hh-action { width:40px; }
 }
 @media (max-width:1179px) {
   .hh-header,.hh-overlay { --hh-height:72px; }
@@ -1173,7 +1174,7 @@ const HEADER_CSS = `
   .hh-wordmark { font-size:24px; }.hh-brand-mark { width:46px; height:56px; }
   .hh-search-trigger { width:44px; height:44px; justify-content:center; padding:0; border:0; background:transparent; }.hh-search-trigger>span,.hh-search-trigger kbd,.hh-tools-divider { display:none; }.hh-search-trigger>.hh-icon { width:21px; height:21px; color:inherit; }
   .hh-hero .hh-search-trigger { border:0; background:transparent; }.hh-hero .hh-search-trigger>.hh-icon { color:inherit; }
-  .hh-tools { gap:5px; }.hh-action { width:44px; height:44px; }.hh-notifications { max-width:46px; }
+  .hh-tools { margin-left:auto; gap:5px; }.hh-action { width:44px; height:44px; }.hh-notifications { max-width:46px; }
   .hh-mobile-overlay .hh-backdrop { inset:0; background:#17130c65; }
   .hh-mobile-overlay .hh-panel { top:calc(var(--hh-height) + 10px); left:12px; right:12px; width:calc(100% - 24px); max-width:700px; max-height:calc(100dvh - var(--hh-height) - 26px); margin-inline:auto; border-radius:16px; }
   .hh-mobile-overlay.hh-overlay-menu .hh-panel { top:0; right:0; left:auto; width:min(100%,460px); height:100dvh; max-height:100dvh; margin:0; border-radius:0; animation:hh-drawer-in .42s var(--hh-ease) both; }
