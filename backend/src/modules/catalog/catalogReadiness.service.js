@@ -64,7 +64,11 @@ export function hamperArchiveReasons(product, skus = []) {
 // MongoDB pre-filters AND JS readiness must both pass; this query keeps existing
 // pagination accurate while excluding incomplete items at the database layer.
 export const websiteImageMongoFilter = () => ({
-  "images.0.url": { $regex: /^https?:\/\//i, $not: /(?:drive|docs)\.google\.com/i },
+  images: {
+    $elemMatch: {
+      url: { $regex: /^https?:\/\//i, $not: /(?:drive|docs)\.google\.com/i },
+    },
+  },
 });
 
 export function buildComponentPublicFilter() {

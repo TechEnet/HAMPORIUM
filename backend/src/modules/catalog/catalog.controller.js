@@ -7946,35 +7946,84 @@ export const getProductMasterArchive = asyncHandler(async (req, res) => {
     const code = String(row.externalSku || "");
     let reasons = [];
     let found = false;
+    let record = null;
     if (row.recordType === "container") {
-      const record = containerBySku.get(code);
+      record = containerBySku.get(code);
       found = Boolean(record);
       reasons = record ? containerArchiveReasons(record) : row.reasons;
     } else if (row.recordType === "ready_made_hamper") {
-      const record = productBySku.get(code);
+      record = productBySku.get(code);
       found = Boolean(record);
       reasons = record
         ? hamperArchiveReasons(record, skuByProduct.get(String(record._id)) || [])
         : row.reasons;
     } else {
-      const record = componentBySku.get(code);
+      record = componentBySku.get(code);
       found = Boolean(record);
       reasons = record ? componentArchiveReasons(record) : row.reasons;
     }
     // Invalid rows remain archived even when they cannot enter a strict schema.
     if (!found && reasons.length === 0) reasons = ["Row needs review before catalogue creation"];
+
+    // IMPORTANT: Customer publication is separate from admin media visibility.
+    // Even an archived/inactive product must show its real saved pictures to admins.
+    const productSkus = row.recordType === "ready_made_hamper" && record
+      ? (skuByProduct.get(String(record._id)) || [])
+      : [];
+    const imageCandidates = [
+      ...(Array.isArray(record?.images) ? record.images : []),
+      ...productSkus.flatMap((sku) => Array.isArray(sku.images) ? sku.images : []),
+    ];
+    const seenImageUrls = new Set();
+    const images = imageCandidates.map((image) => ({
+      url: String(typeof image === "string" ? image : image?.url || "").trim(),
+      alt: String(typeof image === "object" ? image?.alt || "" : ""),
+    })).filter((image) => {
+      if (!/^https:\/\//i.test(image.url) || seenImageUrls.has(image.url)) return false;
+      try {
+        const host = new URL(image.url).hostname.toLowerCase();
+        if (["drive.google.com", "docs.google.com"].includes(host)) return false;
+      } catch { return false; }
+      seenImageUrls.add(image.url);
+      return true;
+    });
+
+    // Raw Excel image link is ONLY a source reference, not a website image.
+    // Keep it available to authenticated admins for diagnosing sync failures.
+    const rawData = row.rawExcelData && typeof row.rawExcelData === "object"
+      ? row.rawExcelData : {};
+    const excelImageLink = Object.entries(rawData).find(([key]) =>
+      ["imageasseturl", "imageurl"].includes(String(key).toLowerCase().replace(/[^a-z0-9]/g, ""))
+    )?.[1];
+    const sourceImageUrl = String(excelImageLink || "").trim();
+    const hasDriveLink = Boolean(parseDriveAssetLink(sourceImageUrl));
+    const imageState = images.length > 0
+      ? "saved"
+      : hasDriveLink ? "drive_link_pending" : "no_source_link";
+
     return {
       rowKey: row.rowKey, rowNumber: row.rowNumber,
       externalSku: row.externalSku, name: row.name,
       recordType: row.recordType, sourceSheetName: row.sourceSheetName,
       importedToCatalog: found, state: found && reasons.length === 0 ? "ready" : "archive",
       reasons,
+      images,
+      imageCount: images.length,
+      imageState,
+      hasDriveLink,
+      sourceImageUrl: hasDriveLink ? sourceImageUrl : "",
     };
   });
   const ready = records.filter((row) => row.state === "ready").length;
+  const savedImageRows = records.filter((row) => row.imageState === "saved").length;
+  const pendingDriveRows = records.filter((row) => row.imageState === "drive_link_pending").length;
+  const noSourceLinkRows = records.filter((row) => row.imageState === "no_source_link").length;
   res.status(200).json({
     success: true,
-    summary: { total: records.length, ready, archive: records.length - ready },
+    summary: {
+      total: records.length, ready, archive: records.length - ready,
+      savedImageRows, pendingDriveRows, noSourceLinkRows,
+    },
     records,
   });
 });

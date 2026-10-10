@@ -7,7 +7,7 @@ const ROOT = "/catalog/admin/import/product-master/images";
 
 // Add <ProductMasterImageSyncPanel /> to an ADMIN-only catalogue import page.
 // It never calls the destructive Product Master "Confirm Import" endpoint.
-function ProductMasterImageSyncPanel() {
+function ProductMasterImageSyncPanel({ onComplete }) {
   const [file, setFile] = useState(null);
   const [jobId, setJobId] = useState(() => localStorage.getItem(KEY) || "");
   const [busy, setBusy] = useState(false);
@@ -34,6 +34,7 @@ function ProductMasterImageSyncPanel() {
           if (Array.isArray(data.results)) setResults(data.results);
           localStorage.removeItem(KEY);
           setJobId("");
+          onComplete?.();
           break;
         }
         if (data.busy) { setError("Another image batch is running. Retry in a moment."); break; }
@@ -78,7 +79,7 @@ function ProductMasterImageSyncPanel() {
       const data = statusResponse.data;
       setProgress({ nextOffset: data.nextOffset || 0, total: data.total || 0 });
       setResults(data.results || []);
-      if (data.done) { setJobId(""); localStorage.removeItem(KEY); return; }
+      if (data.done) { setJobId(""); localStorage.removeItem(KEY); onComplete?.(); return; }
       await run(jobId);
     } catch (requestError) {
       setError(requestError.response?.data?.message || requestError.message || "Unable to resume image sync");
@@ -123,6 +124,9 @@ function ProductMasterArchivePanel({ reloadKey = 0 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [view, setView] = useState("archive");
+  const [mediaView, setMediaView] = useState("all");
+  const [gallery, setGallery] = useState(null);
+  const [galleryIndex, setGalleryIndex] = useState(0);
 
   const refresh = async () => {
     setLoading(true);
@@ -139,15 +143,22 @@ function ProductMasterArchivePanel({ reloadKey = 0 }) {
   };
 
   useEffect(() => { void refresh(); }, [reloadKey]);
-  const visible = rows.filter((row) => view === "all" || row.state === view);
+
+  const visible = rows.filter((row) =>
+    (view === "all" || row.state === view) &&
+    (mediaView === "all" || row.imageState === mediaView)
+  );
 
   return (
     <section className="mt-8 overflow-hidden rounded-3xl border border-black/10 bg-white" aria-label="Product Master archive">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-black/10 p-5 sm:p-6">
         <div>
           <p className="text-xs font-bold uppercase tracking-wide text-[#F97316]">Admin only</p>
-          <h2 className="mt-1 text-xl font-bold">Catalogue readiness & archive</h2>
-          <p className="mt-2 text-sm text-black/55">Missing image, price or required fields = archived from customers, not deleted. Click Refresh after image sync.</p>
+          <h2 className="mt-1 text-xl font-bold">Catalogue readiness & image audit</h2>
+          <p className="mt-2 text-sm text-black/55">
+            Archived products remain visible here to admins, including saved photos.
+            A Google Drive folder link is not a displayable image until image-only sync succeeds.
+          </p>
         </div>
         <button type="button" onClick={refresh} disabled={loading}
           className="rounded-xl border border-black/15 px-4 py-2 text-sm font-semibold disabled:opacity-50">
@@ -157,31 +168,90 @@ function ProductMasterArchivePanel({ reloadKey = 0 }) {
       <div className="flex flex-wrap items-center gap-3 p-5">
         <span className="rounded-xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">Ready: {summary?.ready ?? 0}</span>
         <span className="rounded-xl bg-orange-50 px-4 py-3 text-sm font-semibold text-orange-800">Archive: {summary?.archive ?? 0}</span>
-        <span className="rounded-xl bg-black/[0.04] px-4 py-3 text-sm font-semibold">Total saved: {summary?.total ?? 0}</span>
-        <select aria-label="Filter archive" value={view} onChange={(e) => setView(e.target.value)}
-          className="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm">
-          <option value="archive">Needs attention</option><option value="ready">Ready</option><option value="all">All</option>
-        </select>
+        <span className="rounded-xl bg-black/[0.04] px-4 py-3 text-sm font-semibold">Total: {summary?.total ?? 0}</span>
+        <span className="rounded-xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">Photos saved: {summary?.savedImageRows ?? 0}</span>
+        <span className="rounded-xl bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">Drive links pending: {summary?.pendingDriveRows ?? 0}</span>
+        <span className="rounded-xl bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-600">No image link: {summary?.noSourceLinkRows ?? 0}</span>
+      </div>
+      <div className="flex flex-wrap gap-3 px-5 pb-5">
+        <label className="text-xs font-semibold text-black/60">Readiness
+          <select aria-label="Filter readiness" value={view} onChange={(e) => setView(e.target.value)}
+            className="ml-2 rounded-xl border border-black/10 bg-white px-3 py-2 text-sm">
+            <option value="archive">Needs attention</option><option value="ready">Ready</option><option value="all">All</option>
+          </select>
+        </label>
+        <label className="text-xs font-semibold text-black/60">Images
+          <select aria-label="Filter image status" value={mediaView} onChange={(e) => setMediaView(e.target.value)}
+            className="ml-2 rounded-xl border border-black/10 bg-white px-3 py-2 text-sm">
+            <option value="all">All image statuses</option>
+            <option value="saved">Photos saved</option>
+            <option value="drive_link_pending">Drive link, not synced</option>
+            <option value="no_source_link">No Drive link</option>
+          </select>
+        </label>
+        <span className="self-center text-xs text-black/40">Showing {visible.length} of {rows.length}</span>
       </div>
       {error && <p role="alert" className="px-5 pb-3 text-sm text-red-600">{error}</p>}
-      <div className="max-h-[420px] overflow-auto border-t border-black/10">
-        <table className="min-w-[670px] w-full text-left text-xs sm:text-sm">
-          <thead className="sticky top-0 bg-[#FAF7F3] text-black/60"><tr>
-            <th className="p-3">SKU</th><th className="p-3">Product / Box</th>
-            <th className="p-3">Status</th><th className="p-3">What is missing</th>
+      <div className="max-h-[480px] overflow-auto border-t border-black/10">
+        <table className="min-w-[900px] w-full text-left text-xs sm:text-sm">
+          <thead className="sticky top-0 z-10 bg-[#FAF7F3] text-black/60"><tr>
+            <th className="p-3">Image</th><th className="p-3">SKU</th><th className="p-3">Product / Box</th>
+            <th className="p-3">Readiness</th><th className="p-3">What is missing</th>
           </tr></thead>
           <tbody>
-            {visible.map((row) => <tr key={row.rowKey} className="border-t border-black/5 align-top">
-              <td className="p-3 font-semibold">{row.externalSku || `Row ${row.rowNumber}`}</td>
-              <td className="p-3">{row.name || "Unnamed"}<span className="ml-2 text-black/40">{row.recordType}</span></td>
-              <td className="p-3 font-semibold">{row.state === "ready" ? "Ready" : "Archive"}</td>
-              <td className="p-3 text-black/60">{row.reasons?.join(" · ") || "—"}</td>
-            </tr>)}
-            {!visible.length && <tr><td colSpan={4} className="p-6 text-center text-black/40">No records in this view</td></tr>}
+            {visible.map((row) => {
+              const photos = row.images || [];
+              return <tr key={row.rowKey} className="border-t border-black/5 align-top">
+                <td className="p-3">
+                  {photos.length > 0 ? (
+                    <button type="button" onClick={() => { setGallery(row); setGalleryIndex(0); }}
+                      aria-label={`View ${row.name} image gallery`} className="group flex flex-col items-start gap-1 text-left">
+                      <img src={photos[0].url} alt={`${row.name} preview`} loading="lazy"
+                        className="h-20 w-20 rounded-xl border border-black/10 bg-white object-contain p-1 transition group-hover:border-orange-400" />
+                      <span className="text-[10px] font-semibold text-emerald-700">{photos.length} photo(s) · View</span>
+                    </button>
+                  ) : row.hasDriveLink ? (
+                    <div className="flex flex-col gap-1">
+                      <span className="flex h-20 w-20 items-center justify-center rounded-xl border border-amber-200 bg-amber-50 p-2 text-center text-[10px] text-amber-800">Not synced</span>
+                      <a href={row.sourceImageUrl} target="_blank" rel="noopener noreferrer"
+                        className="text-[10px] font-semibold text-orange-700 underline">Open Drive folder</a>
+                    </div>
+                  ) : (
+                    <span className="flex h-20 w-20 items-center justify-center rounded-xl border border-dashed border-black/10 bg-gray-50 p-2 text-center text-[10px] text-black/40">No image link</span>
+                  )}
+                </td>
+                <td className="p-3 font-semibold">{row.externalSku || `Row ${row.rowNumber}`}</td>
+                <td className="p-3">{row.name || "Unnamed"}<span className="ml-2 text-black/40">{row.recordType}</span></td>
+                <td className="p-3 font-semibold">{row.state === "ready" ? "Ready" : "Archive"}</td>
+                <td className="p-3 text-black/60">{row.reasons?.join(" · ") || "—"}</td>
+              </tr>;
+            })}
+            {!visible.length && <tr><td colSpan={5} className="p-6 text-center text-black/40">No records in this view</td></tr>}
           </tbody>
         </table>
       </div>
-      <p className="p-4 text-xs text-black/45">All original Excel fields are saved in the backend archive collection. This table shows a readiness summary only.</p>
+      <p className="p-4 text-xs text-black/45">Images shown here come from MongoDB product/box/SKU galleries. Drive folder links are source references only; incomplete items remain hidden from customer catalogue.</p>
+      {gallery && (
+        <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/75 p-4"
+          role="dialog" aria-modal="true" aria-label={`Images of ${gallery.name}`}>
+          <div className="w-full max-w-3xl rounded-2xl bg-white p-4 sm:p-6">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div><p className="font-bold">{gallery.name}</p>
+                <p className="text-xs text-black/50">SKU {gallery.externalSku} · Image {galleryIndex + 1}/{gallery.images.length}</p></div>
+              <button type="button" onClick={() => setGallery(null)} className="rounded-lg border px-4 py-2 text-sm">Close</button>
+            </div>
+            <img src={gallery.images[galleryIndex]?.url} alt={`${gallery.name} view ${galleryIndex + 1}`}
+              className="h-[55vh] w-full rounded-xl bg-gray-50 object-contain" />
+            {gallery.images.length > 1 && (
+              <div className="mt-4 flex items-center justify-between gap-3">
+                <button type="button" className="rounded-lg border px-4 py-2" onClick={() => setGalleryIndex((index) => (index - 1 + gallery.images.length) % gallery.images.length)}>Previous</button>
+                <span className="text-sm">{galleryIndex + 1} / {gallery.images.length}</span>
+                <button type="button" className="rounded-lg border px-4 py-2" onClick={() => setGalleryIndex((index) => (index + 1) % gallery.images.length)}>Next</button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -619,7 +689,7 @@ const ProductMasterImport = () => {
       )}
       {/* Image sync changes media only; refresh archive after it completes. */}
       <div className="mt-8">
-        <ProductMasterImageSyncPanel />
+        <ProductMasterImageSyncPanel onComplete={() => setArchiveReload((count) => count + 1)} />
       </div>
       <ProductMasterArchivePanel reloadKey={archiveReload} />
       <div className="mt-8 grid gap-3 sm:grid-cols-3">
