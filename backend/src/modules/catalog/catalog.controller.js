@@ -7995,7 +7995,9 @@ export const getProductMasterArchive = asyncHandler(async (req, res) => {
     const excelImageLink = Object.entries(rawData).find(([key]) =>
       ["imageasseturl", "imageurl"].includes(String(key).toLowerCase().replace(/[^a-z0-9]/g, ""))
     )?.[1];
-    const sourceImageUrl = String(excelImageLink || "").trim();
+    const sourceImageUrl = String(
+      excelImageLink || row.sourceImageUrl || row.imageUrl || ""
+    ).trim();
     const hasDriveLink = Boolean(parseDriveAssetLink(sourceImageUrl));
     const imageState = images.length > 0
       ? "saved"
@@ -8020,6 +8022,7 @@ export const getProductMasterArchive = asyncHandler(async (req, res) => {
   const noSourceLinkRows = records.filter((row) => row.imageState === "no_source_link").length;
   res.status(200).json({
     success: true,
+    imageAuditVersion: "V14-link-audit",
     summary: {
       total: records.length, ready, archive: records.length - ready,
       savedImageRows, pendingDriveRows, noSourceLinkRows,
@@ -10070,6 +10073,25 @@ export const prepareProductMasterImageSync = asyncHandler(async (req, res) => {
   if (!entries.length) {
     return res.status(422).json({ success: false, message: "No supported Google Drive links were found in Product Master, Hamper Master or Decoration Master" });
   }
+  // Image-only preparation also repairs the archive's missing source-link metadata.
+  // Never changes Product/SKU/Component/Container/prices or the original Excel.
+  // Only match existing imported archive rows; no upsert is performed here.
+  const linkOperations = entries.map((entry) => ({
+    updateMany: {
+      filter: {
+        externalSku: String(entry.externalSku),
+        sourceSheetName: String(entry.sourceSheetName),
+      },
+      update: { $set: { "rawExcelData.imageasseturl": entry.imageUrl } },
+      upsert: false,
+    },
+  }));
+  let archiveRowsMatched = 0;
+  if (linkOperations.length) {
+    const backfill = await ProductMasterArchive.bulkWrite(linkOperations, { ordered: false });
+    archiveRowsMatched = Number(backfill.matchedCount || 0);
+  }
+  console.info(`[ImageSync] prepared ${entries.length} Drive links; matched ${archiveRowsMatched} archive rows`);
   const job = await ProductMasterImageSyncJob.create({
     entries,
     expiresAt: new Date(Date.now() + 72 * 60 * 60 * 1000),
@@ -10078,7 +10100,9 @@ export const prepareProductMasterImageSync = asyncHandler(async (req, res) => {
     success: true,
     jobId: String(job._id),
     total: entries.length,
-    message: "Image-only sync prepared. No existing catalogue records were changed.",
+    archiveRowsMatched,
+    imageSyncVersion: "V14-single-folder-test",
+    message: "Image-only sync prepared. Test one Drive folder first, then continue if it succeeds. No catalogue records were deleted.",
   });
 });
 

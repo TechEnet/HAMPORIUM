@@ -12,106 +12,140 @@ function ProductMasterImageSyncPanel({ onComplete }) {
   const [jobId, setJobId] = useState(() => localStorage.getItem(KEY) || "");
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState({ nextOffset: 0, total: 0 });
-  const [summary, setSummary] = useState(null);
   const [results, setResults] = useState([]);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const stop = useRef(false);
 
   useEffect(() => () => { stop.current = true; }, []);
 
-  const run = async (id) => {
+  const run = async (id, { testOnly = false } = {}) => {
     setBusy(true);
-    stop.current = false;
     setError("");
+    stop.current = false;
     try {
+      let processedThisTime = 0;
       while (!stop.current) {
-        const response = await api.post(`${ROOT}/next`, { jobId: id, batchSize: 1 });
+        const response = await api.post(`${ROOT}/next`, { jobId: id });
         const data = response.data || {};
+        if (data.busy) throw new Error(data.message || "Another batch is running. Retry shortly.");
+        if (!data.success) throw new Error(data.message || "Image sync failed");
         setProgress({ nextOffset: data.nextOffset || 0, total: data.total || 0 });
-        setSummary(data.summary || null);
-        if (Array.isArray(data.batchResults)) setResults((old) => [...old, ...data.batchResults]);
+        if (Array.isArray(data.batchResults)) {
+          setResults((old) => [...old, ...data.batchResults]);
+          processedThisTime += data.batchResults.length;
+          // Refresh image/link counters even after a one-folder test.
+          onComplete?.();
+          const firstError = data.batchResults.find((item) => ["failed", "not_found"].includes(item.status));
+          if (firstError) {
+            setError(`Stopped at SKU ${firstError.sku}: ${firstError.message}. Fix this before continuing.`);
+            break;
+          }
+        }
         if (data.done) {
           if (Array.isArray(data.results)) setResults(data.results);
           localStorage.removeItem(KEY);
           setJobId("");
+          setNotice("Image sync completed. Check Updated/Failed below and refresh the Archive report.");
           onComplete?.();
           break;
         }
-        if (data.busy) { setError("Another image batch is running. Retry in a moment."); break; }
-        if (!data.success) throw new Error(data.message || "Image sync failed");
+        if (testOnly && processedThisTime >= 1) {
+          setNotice("One folder tested. If its status is Updated or Unchanged, press Continue remaining folders.");
+          break;
+        }
       }
     } catch (requestError) {
-      setError(requestError.response?.data?.message || requestError.message || "Image sync interrupted. Use Resume.");
+      setError(requestError.response?.data?.message || requestError.message || "Image sync interrupted. Resume when ready.");
     } finally {
       setBusy(false);
     }
   };
 
   const prepare = async () => {
-    if (!file) { setError("Select the original Excel .xlsx file first."); return; }
-    stop.current = false;
-    setBusy(true);
-    setError("");
-    setResults([]);
-    setSummary(null);
+    if (!file) { setError("Select the original Excel first."); return; }
+    setBusy(true); setError(""); setNotice(""); setResults([]);
     setProgress({ nextOffset: 0, total: 0 });
     try {
-      const body = new FormData();
-      body.append("file", file);
-      const response = await api.post(`${ROOT}/prepare`, body);
+      const form = new FormData();
+      form.append("file", file);
+      const response = await api.post(`${ROOT}/prepare`, form);
       const id = response.data?.jobId;
-      if (!id) throw new Error("Sync job ID missing");
+      if (!id) throw new Error("Backend did not return an image-sync job ID");
       localStorage.setItem(KEY, id);
       setJobId(id);
-      setProgress({ nextOffset: 0, total: response.data.total || 0 });
+      setProgress({ nextOffset: 0, total: Number(response.data?.total || 0) });
+      setNotice(`${response.data?.total || 0} Drive folders found; ${response.data?.archiveRowsMatched ?? "?"} archive rows linked.`);
+      onComplete?.(); // preparation backfills original Excel Drive links in archive metadata
       setBusy(false);
-      await run(id);
+      await run(id, { testOnly: true });
     } catch (requestError) {
-      setError(requestError.response?.data?.message || requestError.message || "Unable to prepare image sync");
+      setError(requestError.response?.data?.message || requestError.message || "Unable to start image sync");
       setBusy(false);
     }
   };
 
   const resume = async () => {
     if (!jobId) return;
+    setError(""); setNotice("");
     try {
-      const statusResponse = await api.get(`${ROOT}/status/${jobId}`);
-      const data = statusResponse.data;
+      const response = await api.get(`${ROOT}/status/${jobId}`);
+      const data = response.data || {};
+      const previous = data.results || [];
       setProgress({ nextOffset: data.nextOffset || 0, total: data.total || 0 });
-      setResults(data.results || []);
-      if (data.done) { setJobId(""); localStorage.removeItem(KEY); onComplete?.(); return; }
+      setResults(previous);
+      if (data.done) {
+        setJobId(""); localStorage.removeItem(KEY);
+        setNotice("This sync job has already finished."); onComplete?.();
+        return;
+      }
       await run(jobId);
     } catch (requestError) {
       setError(requestError.response?.data?.message || requestError.message || "Unable to resume image sync");
     }
   };
 
-  const failed = results.filter((result) => result.status === "failed" || result.status === "not_found");
-
+  const counts = {
+    updated: results.filter((item) => item.status === "updated").length,
+    unchanged: results.filter((item) => item.status === "unchanged").length,
+    failed: results.filter((item) => item.status === "failed").length,
+    notFound: results.filter((item) => item.status === "not_found").length,
+  };
+  const last = results[results.length - 1];
   return (
-    <section className="rounded-2xl border border-[#DED4C5] bg-[#FCFAF6] p-5 text-[#201C17] shadow-sm" aria-label="Google Drive multiple image sync">
-      <h2 className="text-xl font-bold">Sync Google Drive product images</h2>
-      <p className="mt-2 text-sm text-[#5E574E]">Use your unchanged Product Master Excel. Reads each product's Google Drive folder, imports all supported pictures into Cloudinary, and adds them to the existing catalogue without changing prices, stock or box dimensions.</p>
+    <section className="rounded-2xl border-2 border-orange-200 bg-[#FCFAF6] p-5 text-[#201C17] shadow-sm" aria-label="Google Drive multiple image sync">
+      <p className="text-xs font-bold uppercase tracking-wider text-orange-700">Step 1: Run this separately from normal Excel Analyze/Import</p>
+      <h2 className="mt-1 text-xl font-bold">Google Drive images → Cloudinary → Catalogue</h2>
+      <p className="mt-2 text-sm text-[#5E574E]">Your Excel has Drive folder links. Choose the same workbook here and test one folder first. Normal Confirm Import and Refresh readiness do NOT download images.</p>
       <div className="mt-4 flex flex-wrap items-center gap-3">
-        <input type="file" accept=".xlsx,.xlsm,.xls" onChange={(e) => setFile(e.target.files?.[0] || null)}
-          disabled={busy} aria-label="Select original Excel workbook" className="max-w-full text-sm" />
+        <input type="file" accept=".xlsx,.xlsm,.xls" onChange={(event) => setFile(event.target.files?.[0] || null)} disabled={busy}
+          aria-label="Select Excel for image-only sync" className="max-w-full text-sm" />
         <button type="button" onClick={prepare} disabled={busy || !file}
           className="rounded-full bg-[#D86B18] px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">
-          {busy ? "Syncing..." : "Start image-only sync"}
+          {busy ? "Processing..." : "Start image sync — test 1 folder"}
         </button>
-        {busy && <button type="button" onClick={() => { stop.current = true; }} className="rounded-full border px-4 py-2 text-sm">Pause after current batch</button>}
-        {!busy && jobId && <button type="button" onClick={resume} className="rounded-full border border-[#B86B2F] px-4 py-2 text-sm font-semibold">Resume last sync</button>}
+        {!busy && jobId && <button type="button" onClick={resume}
+          className="rounded-full border border-[#B86B2F] px-4 py-2 text-sm font-bold">Continue remaining folders</button>}
+        {busy && <button type="button" onClick={() => { stop.current = true; }} className="rounded-full border px-4 py-2 text-sm">Pause</button>}
       </div>
       {progress.total > 0 && <div className="mt-4" aria-live="polite">
-        <div className="flex justify-between text-sm"><span>{progress.nextOffset} / {progress.total} folders processed</span><span>{Math.floor((progress.nextOffset / progress.total) * 100)}%</span></div>
-        <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#E6DED3]"><div className="h-full bg-[#D86B18] transition-all" style={{ width: `${progress.nextOffset / progress.total * 100}%` }} /></div>
-        {summary && <p className="mt-2 text-sm">Updated: {summary.updated} · Unchanged: {summary.unchanged} · Failed: {summary.failed} · SKU not found: {summary.notFound}</p>}
+        <p className="text-sm font-semibold">{progress.nextOffset} / {progress.total} Drive folders tested or synced</p>
+        <div className="mt-2 h-2 rounded-full bg-[#E6DED3]"><div className="h-full rounded-full bg-[#D86B18]" style={{ width: `${progress.nextOffset / progress.total * 100}%` }} /></div>
+        <p className="mt-2 text-sm">Updated: {counts.updated} · Unchanged: {counts.unchanged} · Failed: {counts.failed} · SKU not found: {counts.notFound}</p>
       </div>}
-      {error && <p role="alert" className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-      {failed.length > 0 && <details className="mt-4 rounded-lg border p-3 text-sm"><summary className="cursor-pointer font-semibold">{failed.length} folder(s) need attention</summary>
-        <div className="mt-2 max-h-44 overflow-y-auto">{failed.map((item, index) => <p key={`${item.sku}-${index}`} className="mb-2"><strong>{item.sku}</strong> {item.name}: {item.message}</p>)}</div>
+      {last && <div className="mt-3 rounded-xl border border-black/10 bg-white p-3 text-sm">
+        <strong>Last folder: SKU {last.sku} — {last.status}</strong>
+        <p className="mt-1 break-words text-black/65">{last.message || `${last.count || 0} image(s)`}</p>
+      </div>}
+      {notice && <p role="status" className="mt-3 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
+      {error && <p role="alert" className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+      {results.length > 0 && <details className="mt-3 rounded-xl border border-black/10 bg-white p-3 text-sm">
+        <summary className="cursor-pointer font-bold">View results for {results.length} processed folders</summary>
+        <div className="mt-2 max-h-56 space-y-2 overflow-y-auto">
+          {results.map((result, i) => <p key={`${result.sku}-${i}`} className="border-t pt-2"><strong>{result.sku} — {result.status}</strong> · {result.message}</p>)}
+        </div>
       </details>}
-      <p className="mt-3 text-xs text-[#827465]">This tool does not replace or delete product records. Rows with no image URL cannot be synced. Keep this tab open until complete; you can also resume later.</p>
+      <p className="mt-3 text-xs text-[#827465]">Safe image-only sync: does not re-import or delete products. A public folder link does not guarantee Google Drive API access; any 403/404 will appear above.</p>
     </section>
   );
 }
@@ -133,8 +167,10 @@ function ProductMasterArchivePanel({ reloadKey = 0 }) {
     setError("");
     try {
       const response = await api.get("/catalog/admin/import/product-master/archive?limit=500");
-      setRows(response.data?.records || []);
-      setSummary(response.data?.summary || null);
+      const payload = response.data || {};
+      const incomingRows = Array.isArray(payload.records) ? payload.records : [];
+      setRows(incomingRows);
+      setSummary({ ...(payload.summary || {}), imageAuditVersion: payload.imageAuditVersion || "" });
     } catch (requestError) {
       setError(requestError.response?.data?.message || "Unable to load archive");
     } finally {
@@ -148,6 +184,13 @@ function ProductMasterArchivePanel({ reloadKey = 0 }) {
     (view === "all" || row.state === view) &&
     (mediaView === "all" || row.imageState === mediaView)
   );
+  const imageAuditCurrent = summary?.imageAuditVersion === "V14-link-audit";
+  const imageTotals = {
+    saved: rows.filter((row) => row.imageState === "saved").length,
+    pending: rows.filter((row) => row.imageState === "drive_link_pending").length,
+    missing: rows.filter((row) => row.imageState === "no_source_link").length,
+  };
+  const imageStateUnclassified = rows.length - imageTotals.saved - imageTotals.pending - imageTotals.missing;
 
   return (
     <section className="mt-8 overflow-hidden rounded-3xl border border-black/10 bg-white" aria-label="Product Master archive">
@@ -155,6 +198,7 @@ function ProductMasterArchivePanel({ reloadKey = 0 }) {
         <div>
           <p className="text-xs font-bold uppercase tracking-wide text-[#F97316]">Admin only</p>
           <h2 className="mt-1 text-xl font-bold">Catalogue readiness & image audit</h2>
+          <p className="text-[11px] text-black/40">Backend audit version: {summary?.imageAuditVersion || "OLD / not updated"}</p>
           <p className="mt-2 text-sm text-black/55">
             Archived products remain visible here to admins, including saved photos.
             A Google Drive folder link is not a displayable image until image-only sync succeeds.
@@ -169,10 +213,15 @@ function ProductMasterArchivePanel({ reloadKey = 0 }) {
         <span className="rounded-xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">Ready: {summary?.ready ?? 0}</span>
         <span className="rounded-xl bg-orange-50 px-4 py-3 text-sm font-semibold text-orange-800">Archive: {summary?.archive ?? 0}</span>
         <span className="rounded-xl bg-black/[0.04] px-4 py-3 text-sm font-semibold">Total: {summary?.total ?? 0}</span>
-        <span className="rounded-xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">Photos saved: {summary?.savedImageRows ?? 0}</span>
-        <span className="rounded-xl bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">Drive links pending: {summary?.pendingDriveRows ?? 0}</span>
-        <span className="rounded-xl bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-600">No image link: {summary?.noSourceLinkRows ?? 0}</span>
+        <span className="rounded-xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">Photos saved: {imageTotals.saved}</span>
+        <span className="rounded-xl bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">Drive links pending: {imageTotals.pending}</span>
+        <span className="rounded-xl bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-600">No image link: {imageTotals.missing}</span>
       </div>
+      {(!imageAuditCurrent || imageStateUnclassified !== 0) && <p role="alert" className="mx-5 mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+        {!imageAuditCurrent ? "Backend controller is not yet V14. Replace/deploy V14 controller and refresh. " : ""}
+        {imageStateUnclassified > 0 ? `${imageStateUnclassified} archived records have no image audit state. ` : ""}
+        The image-only sync above must be run separately from normal Excel import.
+      </p>}
       <div className="flex flex-wrap gap-3 px-5 pb-5">
         <label className="text-xs font-semibold text-black/60">Readiness
           <select aria-label="Filter readiness" value={view} onChange={(e) => setView(e.target.value)}
