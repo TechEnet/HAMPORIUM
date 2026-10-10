@@ -88,6 +88,7 @@ import {
   prepareProductMasterImageSync,
   advanceProductMasterImageSync,
   getProductMasterImageSyncStatus,
+  getProductMasterArchive,
 
 } from "./catalog.controller.js";
 
@@ -473,6 +474,7 @@ router.post(
   runProductMasterExclusive("image-sync", advanceProductMasterImageSync)
 );
 router.get("/admin/import/product-master/images/status/:jobId", getProductMasterImageSyncStatus);
+router.get("/admin/import/product-master/archive", getProductMasterArchive);
 
 router.get("/admin/categories", getAdminCategories);
 

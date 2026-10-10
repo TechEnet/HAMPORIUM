@@ -115,6 +115,77 @@ function ProductMasterImageSyncPanel() {
   );
 }
 
+// Admin-only live readiness report. Rechecking after image sync immediately updates
+// pending/ready counts; it does not call the destructive Excel import endpoint.
+function ProductMasterArchivePanel({ reloadKey = 0 }) {
+  const [rows, setRows] = useState([]);
+  const [summary, setSummary] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [view, setView] = useState("archive");
+
+  const refresh = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const response = await api.get("/catalog/admin/import/product-master/archive?limit=500");
+      setRows(response.data?.records || []);
+      setSummary(response.data?.summary || null);
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || "Unable to load archive");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { void refresh(); }, [reloadKey]);
+  const visible = rows.filter((row) => view === "all" || row.state === view);
+
+  return (
+    <section className="mt-8 overflow-hidden rounded-3xl border border-black/10 bg-white" aria-label="Product Master archive">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-black/10 p-5 sm:p-6">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wide text-[#F97316]">Admin only</p>
+          <h2 className="mt-1 text-xl font-bold">Catalogue readiness & archive</h2>
+          <p className="mt-2 text-sm text-black/55">Missing image, price or required fields = archived from customers, not deleted. Click Refresh after image sync.</p>
+        </div>
+        <button type="button" onClick={refresh} disabled={loading}
+          className="rounded-xl border border-black/15 px-4 py-2 text-sm font-semibold disabled:opacity-50">
+          {loading ? "Checking..." : "Refresh readiness"}
+        </button>
+      </div>
+      <div className="flex flex-wrap items-center gap-3 p-5">
+        <span className="rounded-xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">Ready: {summary?.ready ?? 0}</span>
+        <span className="rounded-xl bg-orange-50 px-4 py-3 text-sm font-semibold text-orange-800">Archive: {summary?.archive ?? 0}</span>
+        <span className="rounded-xl bg-black/[0.04] px-4 py-3 text-sm font-semibold">Total saved: {summary?.total ?? 0}</span>
+        <select aria-label="Filter archive" value={view} onChange={(e) => setView(e.target.value)}
+          className="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm">
+          <option value="archive">Needs attention</option><option value="ready">Ready</option><option value="all">All</option>
+        </select>
+      </div>
+      {error && <p role="alert" className="px-5 pb-3 text-sm text-red-600">{error}</p>}
+      <div className="max-h-[420px] overflow-auto border-t border-black/10">
+        <table className="min-w-[670px] w-full text-left text-xs sm:text-sm">
+          <thead className="sticky top-0 bg-[#FAF7F3] text-black/60"><tr>
+            <th className="p-3">SKU</th><th className="p-3">Product / Box</th>
+            <th className="p-3">Status</th><th className="p-3">What is missing</th>
+          </tr></thead>
+          <tbody>
+            {visible.map((row) => <tr key={row.rowKey} className="border-t border-black/5 align-top">
+              <td className="p-3 font-semibold">{row.externalSku || `Row ${row.rowNumber}`}</td>
+              <td className="p-3">{row.name || "Unnamed"}<span className="ml-2 text-black/40">{row.recordType}</span></td>
+              <td className="p-3 font-semibold">{row.state === "ready" ? "Ready" : "Archive"}</td>
+              <td className="p-3 text-black/60">{row.reasons?.join(" · ") || "—"}</td>
+            </tr>)}
+            {!visible.length && <tr><td colSpan={4} className="p-6 text-center text-black/40">No records in this view</td></tr>}
+          </tbody>
+        </table>
+      </div>
+      <p className="p-4 text-xs text-black/45">All original Excel fields are saved in the backend archive collection. This table shows a readiness summary only.</p>
+    </section>
+  );
+}
+
 const ACTION_STYLES = {
   CREATE: "border-emerald-200 bg-emerald-50 text-emerald-700",
   CREATED: "border-emerald-200 bg-emerald-50 text-emerald-700",
@@ -183,6 +254,7 @@ const ProductMasterImport = () => {
     useState(null);
   const [reviewForm, setReviewForm] = useState(null);
   const [reviewSaving, setReviewSaving] = useState(false);
+  const [archiveReload, setArchiveReload] = useState(0);
   const currentData = importResult || preview;
   const previewCreateCount = Number(preview?.summary?.create || 0);
   const previewUpdateCount = Number(preview?.summary?.update || 0);
@@ -209,6 +281,7 @@ const ProductMasterImport = () => {
     : previewRawSheetErrorCount;
   const previewBlockingCount =
     previewBlockingRowCount + previewSheetErrorCount;
+  const archiveMode = preview?.importMode === "archive_upsert";
   const replaceMode = preview?.importMode === "replace_product_master";
   const partialImportMode =
     replaceMode && preview?.allowPartialImport === true;
@@ -218,9 +291,9 @@ const ProductMasterImport = () => {
     !analyzing &&
     !importing &&
     !reviewSaving &&
-    previewBlockingCount === 0 &&
+    (archiveMode || previewBlockingCount === 0) &&
     previewImportableCount > 0 &&
-    (replaceMode || legacyMergeHasChanges);
+    (archiveMode || replaceMode || legacyMergeHasChanges);
   const summaryCards = useMemo(() => {
     if (!currentData?.summary) return [];
     if (importResult) {
@@ -322,11 +395,12 @@ const ProductMasterImport = () => {
     const importableCount = Number(
       preview.summary?.importable ?? createCount + updateCount
     );
+    const isArchiveMode = preview.importMode === "archive_upsert";
     const isReplaceMode =
       preview.importMode === "replace_product_master";
     const isPartialReplace =
       isReplaceMode && preview.allowPartialImport === true;
-    if (blockingRows.length > 0 || sheetErrorCount > 0) {
+    if (!isArchiveMode && (blockingRows.length > 0 || sheetErrorCount > 0)) {
       setError(
         "Resolve the blocking REVIEW/ERROR items before importing. The existing catalogue has not been changed."
       );
@@ -338,16 +412,18 @@ const ProductMasterImport = () => {
       );
       return;
     }
-    if (!isReplaceMode && createCount + updateCount === 0) {
+    if (!isArchiveMode && !isReplaceMode && createCount + updateCount === 0) {
       setError(
-        "The backend is still using the old merge importer. Deploy the latest catalog.controller.js, analyze the file again, and then Confirm Import will replace the previous Product Master catalogue."
+        "This import page needs the V12 archive backend. Deploy the matching files, then Analyze again."
       );
       return;
     }
     const skippedIssueCount =
       nonBlockingRows.length + (isPartialReplace ? rawSheetErrorCount : 0);
     const confirmed = window.confirm(
-      isPartialReplace
+      isArchiveMode
+        ? `Save ${importableCount} valid rows without deleting the catalogue? All ${totalRows} Excel rows will be preserved in the admin archive. Incomplete rows will stay hidden from customers until ready.`
+        : isPartialReplace
         ? `Replace the current Product Master catalogue with ${importableCount} valid row(s) from this workbook? ${skippedIssueCount} incomplete REVIEW/ERROR item(s) or helper-sheet issue(s) will be skipped safely. Previous Product Master Products, SKUs, Components and Containers will be removed before the valid rows are imported. Users, orders, payments and partners are not deleted.`
         : isReplaceMode
           ? `Replace the current Product Master catalogue with this workbook (${totalRows} rows)? Previous Product Master Products, SKUs, Components and Containers will be removed, then this workbook will become the current catalogue. Users, orders, payments and partners are not deleted.`
@@ -362,6 +438,7 @@ const ProductMasterImport = () => {
         "/catalog/admin/import/product-master/confirm"
       );
       setImportResult(data);
+      setArchiveReload((value) => value + 1);
       setNotice(
         data.message || "Product Master import completed"
       );
@@ -510,8 +587,9 @@ const ProductMasterImport = () => {
             Product Master Import
           </h1>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-black/50">
-            Analyze the workbook safely, then replace the previous Product Master
-            catalogue with the approved file without modifying the source Excel.
+            Import every valid Excel record without deleting existing catalogue IDs.
+            Missing images, prices and incomplete rows remain in Admin Archive,
+            hidden from customers until ready.
           </p>
         </div>
         {(file || preview || importResult) && (
@@ -539,10 +617,11 @@ const ProductMasterImport = () => {
           {notice}
         </div>
       )}
-      {/* Image-only sync uses its own routes. It never calls Confirm Import or replaces catalogue records. */}
+      {/* Image sync changes media only; refresh archive after it completes. */}
       <div className="mt-8">
         <ProductMasterImageSyncPanel />
       </div>
+      <ProductMasterArchivePanel reloadKey={archiveReload} />
       <div className="mt-8 grid gap-3 sm:grid-cols-3">
         <WorkflowStep
           number="01"
@@ -627,7 +706,7 @@ const ProductMasterImport = () => {
           <div className="mt-5 grid gap-3 md:grid-cols-3">
             <InfoCard
               title="Read-only Preview"
-              text="Analyze never changes MongoDB. Only Confirm Import can replace the current Product Master catalogue."
+              text="Analyze never changes MongoDB. Safe Import upserts valid rows and archives incomplete rows."
             />
             <InfoCard
               title="Source Protected"
@@ -680,21 +759,27 @@ const ProductMasterImport = () => {
                 >
                   {importing
                     ? "Importing..."
-                    : "Confirm Import"}
+                    : archiveMode
+                      ? "Save & Archive Incomplete"
+                      : "Confirm Import"}
                 </button>
               )}
             </div>
             {!importResult && preview && (
               <div
                 className={`border-b px-5 py-3 text-xs font-semibold sm:px-6 ${
-                  replaceMode
+                  archiveMode
+                    ? "border-emerald-100 bg-emerald-50 text-emerald-700"
+                    : replaceMode
                     ? "border-emerald-100 bg-emerald-50 text-emerald-700"
                     : legacyMergeHasChanges
                       ? "border-amber-100 bg-amber-50 text-amber-700"
                       : "border-red-100 bg-red-50 text-red-700"
                 }`}
               >
-                {replaceMode
+                {archiveMode
+                  ? "Safe archive mode: all Excel rows are preserved; only complete records can appear publicly. Existing IDs and Cloudinary galleries are kept."
+                  : replaceMode
                   ? partialImportMode
                     ? previewBlockingCount === 0
                       ? `Safe partial replace ready: ${previewImportableCount} valid row(s) will become the current catalogue. ${previewNonBlockingIssueCount + previewRawSheetErrorCount} non-blocking incomplete item(s) / helper-sheet issue(s) will be skipped.`

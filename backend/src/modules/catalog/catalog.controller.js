@@ -19,6 +19,15 @@ import {
   PRODUCT_STATUS,
 } from "../../constants/statuses.js";
 import uploadFile, { deleteFile } from "../../helpers/uploadFile.js";
+import ProductMasterArchive from "./productMasterArchive.model.js";
+import {
+  componentArchiveReasons,
+  containerArchiveReasons,
+  hamperArchiveReasons,
+  buildComponentPublicFilter,
+  buildContainerPublicFilter,
+  websiteImageMongoFilter,
+} from "./catalogReadiness.service.js";
 import { ProductMasterImageSyncJob } from "./productMasterImageSync.model.js";
 import { syncProductMasterImageEntry, parseDriveAssetLink } from "./productMasterImages.service.js";
 import {
@@ -5701,6 +5710,7 @@ const analyzeProductMasterBuffer = async (
     compositionErrors: allSheetErrors,
     summary,
     results,
+    sourceRows: rowMeta.map(({ row, rowKey }) => ({ rowKey, row })),
     replaceMode,
   };
 };
@@ -5778,35 +5788,87 @@ const parseContainerReviewCompletion = (raw) => {
   }
 };
 
-const replaceProductMasterCatalog = async () => {
-  /*
-   * SAFE CATALOGUE CORE REPLACE
-   * -------------------------------------------------------
-   * Products/SKUs/Components/Containers are replaced by the selected workbook.
-   * Category and Collection documents are deliberately preserved during the
-   * destructive phase. New ready-made products reuse matching categories, and
-   * orphaned Product-Master categories are cleaned only after a successful
-   * import. This prevents navigation from going blank if a runtime row fails.
-   */
-
-  const skuDelete = await SKU.deleteMany({});
-  const productDelete = await Product.deleteMany({});
-  const componentDelete = await Component.deleteMany({});
-  const containerDelete = await Container.deleteMany({});
-
-  return {
-    products: productDelete.deletedCount || 0,
-    skus: skuDelete.deletedCount || 0,
-    components: componentDelete.deletedCount || 0,
-    containers: containerDelete.deletedCount || 0,
-    categories: 0,
-  };
+// V12: NEVER delete products/SKUs/components/containers on Excel import.
+// Existing orders/cart references and manually managed items must survive.
+const retireMissingImportedRows = async (ids) => {
+  const selectors = [
+    [Component, ids.components, { isActive: false, customerSelectable: false }],
+    [Container, ids.containers, { isActive: false, customerSelectable: false }],
+    [Product, ids.products, { status: PRODUCT_STATUS.DRAFT }],
+    [SKU, ids.skus, { isActive: false }],
+  ];
+  for (const [Model, keep, fields] of selectors) {
+    await Model.updateMany(
+      { "source.type": "product_master", _id: { $nin: keep } },
+      { $set: fields }
+    );
+  }
 };
 
-const buildImportedBaseLookup = async () => {
+const preserveGalleryOnSpreadsheetUpdate = (payload) => {
+  const next = { ...payload };
+  // A folder link is not a display URL; don't clear existing Cloudinary images.
+  if (!Array.isArray(next.images) || next.images.length === 0) delete next.images;
+  return next;
+};
+
+const upsertImportedBaseRow = async (Model, payload, externalSku) => {
+  const code = String(payload.code || "").toUpperCase();
+  const manualConflict = await Model.findOne({
+    code,
+    "source.type": { $ne: "product_master" },
+  }).select("_id").lean();
+  if (manualConflict) throw new Error(`SKU ${code} belongs to a manual record; archived instead of overwriting it`);
+
+  return Model.findOneAndUpdate(
+    { "source.type": "product_master", "source.externalSku": externalSku },
+    { $set: preserveGalleryOnSpreadsheetUpdate(payload) },
+    { upsert: true, new: true, runValidators: true, setDefaultsOnInsert: true }
+  );
+};
+
+const archiveProductMasterSourceRows = async ({ analysis, results, importedAt, catalogRefs }) => {
+  const byKey = new Map(results.map((result) => [result.rowKey, result]));
+  const sourceByKey = new Map((analysis.sourceRows || []).map((item) => [item.rowKey, item.row]));
+  const operations = analysis.results.map((row) => {
+    const result = byKey.get(row.rowKey) || publicImportResult(row);
+    const imported = ["CREATED", "UPDATED", "SKIP"].includes(result.action);
+    const ref = catalogRefs.get(row.rowKey);
+    // Key by source SKU rather than sheet row position: moving rows in Excel
+    // must never overwrite a DIFFERENT product's archived original data.
+    const archiveKey = row.externalSku
+      ? `${row.sourceSheetName}:${row.recordType}:${row.externalSku}`
+      : `${row.rowKey}:missing-sku:${importedAt.getTime()}`;
+    return {
+      updateOne: {
+        filter: { rowKey: archiveKey },
+        update: { $set: {
+          rowKey: archiveKey,
+          sourceSheetName: row.sourceSheetName || "",
+          rowNumber: row.rowNumber,
+          externalSku: String(row.externalSku || ""),
+          name: String(row.name || ""),
+          recordType: String(row.recordType || ""),
+          sourceFilename: analysis.filename || "",
+          rawExcelData: sourceByKey.get(row.rowKey) || {},
+          status: imported ? "imported" : result.action === "ERROR" ? "import_error" : "needs_attention",
+          reasons: imported ? (result.warnings || []) : [result.reason || "Incomplete Excel row"],
+          catalogModel: ref?.model || "",
+          catalogId: ref?.id || null,
+          lastImportedAt: importedAt,
+        } },
+        upsert: true,
+      }
+    };
+  });
+  if (operations.length) await ProductMasterArchive.bulkWrite(operations, { ordered: false });
+  // Stale row snapshots remain archived for traceability, and never render publicly.
+};
+
+const buildImportedBaseLookup = async (importedAt) => {
   const [components, containers] = await Promise.all([
-    Component.find({ "source.type": "product_master" }).lean(),
-    Container.find({ "source.type": "product_master" }).lean(),
+    Component.find({ "source.type": "product_master", "source.lastSyncedAt": importedAt }).lean(),
+    Container.find({ "source.type": "product_master", "source.lastSyncedAt": importedAt }).lean(),
   ]);
 
   const componentsBySku = new Map();
@@ -5966,12 +6028,10 @@ export const previewProductMasterImport = asyncHandler(async (req, res) => {
   res.status(200).json({
     success: true,
     message: analysis.allowPartialImport
-      ? "Workbook analyzed successfully. This procurement-style workbook can import valid rows while incomplete rows stay in REVIEW/ERROR and are skipped safely."
-      : "Product Master analyzed successfully. Confirm Import will replace the previous Product Master catalogue with this workbook after all REVIEW/ERROR rows are resolved.",
-    importMode: "replace_product_master",
-    replacementStrategy: analysis.allowPartialImport
-      ? "safe_partial_hard_replace"
-      : "strict_hard_replace",
+      ? "Workbook analyzed. Valid records will upsert without deleting existing data; incomplete rows are preserved in Admin Archive."
+      : "Workbook analyzed. Valid rows will upsert and incomplete rows will be preserved in Admin Archive; nothing will be deleted.",
+    importMode: "archive_upsert",
+    replacementStrategy: "non_destructive_upsert_with_archive",
     workbookProfile: analysis.workbookProfile,
     allowPartialImport: analysis.allowPartialImport,
     filename: analysis.filename,
@@ -6306,14 +6366,8 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
     replaceMode: true,
   });
 
-  const blockingRows = preflight.results.filter(
-    (item) =>
-      ["ERROR", "REVIEW"].includes(item.action) &&
-      item.blocking !== false
-  );
-  const blockingSheetErrors = preflight.allowPartialImport
-    ? []
-    : preflight.compositionErrors;
+  // Incomplete/invalid rows will be archived with their original Excel fields,
+  // not discarded and not offered to the customer.
   const importableRows = preflight.results.filter((item) =>
     ["CREATE", "UPDATE"].includes(item.action)
   );
@@ -6321,63 +6375,11 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
     (item) => item.recordType !== "ready_made_hamper"
   );
 
-  if (blockingSheetErrors.length > 0 || blockingRows.length > 0) {
-    return res.status(409).json({
-      success: false,
-      message:
-        "Import was not started because this strict catalogue workbook still has blocking REVIEW/ERROR rows. No existing catalogue data was deleted.",
-      importMode: "replace_product_master",
-      replacementStrategy: "strict_hard_replace",
-      workbookProfile: preflight.workbookProfile,
-      allowPartialImport: preflight.allowPartialImport,
-      filename: preflight.filename,
-      sheetName: preflight.sheetName,
-      productHeaderRow: preflight.productHeaderRow,
-      hamperMasterSheetName: preflight.hamperMasterSheetName,
-      compositionSheetName: preflight.compositionSheetName,
-      containerSetupSheetName: preflight.containerSetupSheetName,
-      decorationSheetName: preflight.decorationSheetName,
-      compositionErrors: preflight.compositionErrors,
-      summary: preflight.summary,
-      results: preflight.results.map(publicImportResult),
-    });
-  }
-
   if (importableRows.length === 0 || importableBaseRows.length === 0) {
     return res.status(409).json({
       success: false,
       message:
         "Import was not started because no valid base Product Master rows were found. Existing catalogue data is unchanged.",
-      importMode: "replace_product_master",
-      workbookProfile: preflight.workbookProfile,
-      allowPartialImport: preflight.allowPartialImport,
-      filename: preflight.filename,
-      sheetName: preflight.sheetName,
-      compositionErrors: preflight.compositionErrors,
-      summary: preflight.summary,
-      results: preflight.results.map(publicImportResult),
-    });
-  }
-
-  const sourceReadyMadeRows = preflight.results.filter(
-    (item) => item.recordType === "ready_made_hamper"
-  );
-  const importableActiveReadyMade = sourceReadyMadeRows.filter(
-    (item) =>
-      ["CREATE", "UPDATE"].includes(item.action) &&
-      item._payload?.product?.status === PRODUCT_STATUS.ACTIVE
-  );
-
-  if (
-    preflight.allowPartialImport &&
-    preflight.hamperMasterSheetName &&
-    sourceReadyMadeRows.length > 0 &&
-    importableActiveReadyMade.length === 0
-  ) {
-    return res.status(409).json({
-      success: false,
-      message:
-        "Import was not started because this workbook contains ready-made hampers but none are currently importable as active storefront products. Existing catalogue data is unchanged.",
       importMode: "replace_product_master",
       workbookProfile: preflight.workbookProfile,
       allowPartialImport: preflight.allowPartialImport,
@@ -6397,9 +6399,12 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
    * and removes the highest memory spike from the old flow.
    */
   const analysis = preflight;
-  const removed = await replaceProductMasterCatalog();
+  // No hard replacement, no deleteMany, no source workbook modification.
+  const removed = { products: 0, skus: 0, components: 0, containers: 0, categories: 0 };
 
   const importedAt = new Date();
+  const kept = { products: [], skus: [], components: [], containers: [] };
+  const catalogRefs = new Map();
   const resultByKey = new Map();
   const summary = {
     totalRows: analysis.summary.totalRows,
@@ -6431,10 +6436,13 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
         },
       };
 
-      await Model.create(payload);
+      const old = await Model.findOne({ "source.type": "product_master", "source.externalSku": item.externalSku }).select("_id").lean();
+      const saved = await upsertImportedBaseRow(Model, payload, item.externalSku);
+      kept[item.recordType === "container" ? "containers" : "components"].push(saved._id);
+      catalogRefs.set(item.rowKey, { model: item.recordType === "container" ? "Container" : "Component", id: saved._id });
       resultByKey.set(item.rowKey, {
         ...publicImportResult(item),
-        action: "CREATED",
+        action: old ? "UPDATED" : "CREATED",
       });
     } catch (error) {
       resultByKey.set(item.rowKey, {
@@ -6452,7 +6460,7 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
       item.action === "ERROR"
   );
 
-  const baseLookup = await buildImportedBaseLookup();
+  const baseLookup = await buildImportedBaseLookup(importedAt);
 
   for (const item of analysis.results) {
     if (item.recordType !== "ready_made_hamper") continue;
@@ -6503,26 +6511,56 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
         { allowMissingContainer: analysis.allowPartialImport }
       );
 
-      const product = await Product.create({
-        ...productPayload,
-        slug: await ensureUniqueSlug(Product, productPayload.name),
-      });
+      const oldSku = await SKU.findOne({
+        "source.type": "product_master", "source.externalSku": item.externalSku,
+      }).select("_id product").lean();
+      const oldProduct = oldSku?.product
+        ? await Product.findById(oldSku.product).select("_id source").lean()
+        : await Product.findOne({
+            "source.type": "product_master", "source.externalSku": item.externalSku,
+          }).select("_id").lean();
+      if (oldProduct && oldProduct.source?.type !== "product_master") {
+        throw new Error("Existing product is manually owned; archived without overwrite");
+      }
+      const oldManualSku = await SKU.findOne({
+        code: skuPayload.code, "source.type": { $ne: "product_master" },
+      }).select("_id").lean();
+      if (oldManualSku) throw new Error("Manual SKU conflict; archived without overwrite");
 
-      try {
-        await SKU.create({
-          ...skuPayload,
-          product: product._id,
+      let product;
+      let productCreated = false;
+      if (oldProduct) {
+        product = await Product.findByIdAndUpdate(oldProduct._id,
+          { $set: preserveGalleryOnSpreadsheetUpdate(productPayload) },
+          { new: true, runValidators: true });
+      } else {
+        product = await Product.create({
+          ...productPayload,
+          slug: await ensureUniqueSlug(Product, productPayload.name),
         });
+        productCreated = true;
+      }
+
+      let sku;
+      try {
+        sku = await SKU.findOneAndUpdate(
+          { "source.type": "product_master", "source.externalSku": item.externalSku },
+          { $set: { ...preserveGalleryOnSpreadsheetUpdate(skuPayload), product: product._id } },
+          { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
+        );
       } catch (error) {
-        await Product.findByIdAndDelete(product._id);
+        if (productCreated) await Product.findByIdAndDelete(product._id);
         throw error;
       }
 
       await syncProductPriceRange(product._id);
+      kept.products.push(product._id);
+      kept.skus.push(sku._id);
+      catalogRefs.set(item.rowKey, { model: "Product", id: product._id });
 
       resultByKey.set(item.rowKey, {
         ...publicImportResult(item),
-        action: "CREATED",
+        action: oldProduct ? "UPDATED" : "CREATED",
       });
     } catch (error) {
       resultByKey.set(item.rowKey, {
@@ -6537,6 +6575,12 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
   const results = analysis.results.map(
     (item) => resultByKey.get(item.rowKey) || publicImportResult(item)
   );
+
+  // Archived snapshot of EACH workbook row includes all original Excel columns.
+  // Persist first: if it fails, do not retire formerly visible records.
+  await archiveProductMasterSourceRows({ analysis, results, importedAt, catalogRefs });
+  await retireMissingImportedRows(kept);
+
 
   for (const item of results) {
     if (item.action === "CREATED") summary.created += 1;
@@ -6554,10 +6598,8 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
       Container.countDocuments({}),
     ]);
 
-  let cleanedCategories = 0;
-  if (databaseProducts > 0) {
-    cleanedCategories = await cleanupOrphanedProductMasterCategories();
-  }
+  // Never delete Product Master categories during a non-destructive import.
+  const cleanedCategories = 0;
 
   const databaseState = {
     products: databaseProducts,
@@ -6574,18 +6616,10 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
     : summary.errors === 0 && summary.review === 0;
 
   res.status(200).json({
-    success,
-    message: analysis.allowPartialImport
-      ? partialIssues > 0
-        ? `Real/master workbook imported ${importedCount} valid rows. ${partialIssues} incomplete or invalid rows were left out safely and are listed for review.`
-        : "Real/master workbook imported successfully."
-      : summary.errors === 0
-        ? "Previous Product Master catalogue was replaced successfully with the new workbook"
-        : "Previous Product Master catalogue was cleared and the new import completed with row errors",
-    importMode: "replace_product_master",
-    replacementStrategy: analysis.allowPartialImport
-      ? "safe_partial_hard_replace"
-      : "strict_hard_replace",
+    success: true,
+    message: `Saved ${importedCount} valid rows without deleting records. ${partialIssues} review/error issue(s) preserved in Admin Archive. Customer website only shows fully ready records.`,
+    importMode: "archive_upsert",
+    replacementStrategy: "non_destructive_upsert_with_archive",
     workbookProfile: analysis.workbookProfile,
     allowPartialImport: analysis.allowPartialImport,
     databaseState,
@@ -7047,18 +7081,20 @@ export const getComponents = asyncHandler(async (req, res) => {
     });
   }
 
-  const filter = {
-    isActive: true,
-    type: { $in: PUBLIC_COMPONENT_TYPES },
-  };
-
-  // Normal storefront APIs stay strict. The custom-builder catalogue mode is
-  // intentionally broader so every imported Excel item can be shown with a
-  // readiness reason instead of disappearing from the UI.
-  if (!includeBuilderCatalogue) {
-    filter.customerSelectable = true;
-    filter.sellingPrice = { $gt: 0 };
-  }
+  const filter = buildComponentPublicFilter();
+  // builderCatalog=1 no longer bypasses publication readiness. The Admin
+  // Archive API is the only way to inspect incomplete imported records.
+  filter.$and = [{ $or: [
+    { hamperRole: "decoration" },
+    {
+      hamperRole: { $in: ["content", null] },
+      hamperUse: { $ne: false },
+      "dimensions.length": { $gt: 0 },
+      "dimensions.width": { $gt: 0 },
+      "dimensions.height": { $gt: 0 },
+      "weight.value": { $gt: 0 },
+    },
+  ] }];
 
   if (type) {
     if (!PUBLIC_COMPONENT_TYPES.includes(type)) {
@@ -7090,42 +7126,25 @@ export const getComponents = asyncHandler(async (req, res) => {
         ],
       };
 
-      if (includeBuilderCatalogue) {
-        filter.$and = [contentRoleFilter];
-      } else {
-        filter.hamperUse = { $ne: false };
-        filter.$and = [contentRoleFilter];
-      }
+      filter.hamperUse = { $ne: false };
+      filter.$and.push(contentRoleFilter);
     }
   } else {
-    filter.$and = [
-      {
-        $or: [
-          { hamperRole: "decoration" },
-          includeBuilderCatalogue
-            ? {
-                $or: [
-                  { hamperRole: "content" },
-                  { hamperRole: { $exists: false } },
-                  { hamperRole: null },
-                ],
-              }
-            : {
-                hamperUse: { $ne: false },
-                $or: [
-                  { hamperRole: "content" },
-                  { hamperRole: { $exists: false } },
-                  { hamperRole: null },
-                ],
-              },
-        ],
-      },
-    ];
+    filter.$and.push({
+      $or: [
+        { hamperRole: "decoration" },
+        { hamperUse: { $ne: false }, $or: [
+          { hamperRole: "content" },
+          { hamperRole: { $exists: false } },
+          { hamperRole: null },
+        ] },
+      ],
+    });
   }
 
   // In builder catalogue mode we do not hide rows merely because a channel
   // flag is missing. The row is returned with a builderStatus reason instead.
-  if (channel && !includeBuilderCatalogue) {
+  if (channel) {
     if (!CHANNEL_KEYS.includes(channel)) {
       return res.status(400).json({
         success: false,
@@ -7134,11 +7153,6 @@ export const getComponents = asyncHandler(async (req, res) => {
     }
 
     filter[`channels.${channel}`] = true;
-  } else if (channel && !CHANNEL_KEYS.includes(channel)) {
-    return res.status(400).json({
-      success: false,
-      message: "Invalid channel",
-    });
   }
 
   if (category?.trim()) filter.category = category.trim();
@@ -7227,29 +7241,14 @@ export const getContainers = asyncHandler(async (req, res) => {
 
   const includeBuilderCatalogue = isBuilderCatalogRequest(builderCatalog);
 
-  const filter = {
-    isActive: true,
-  };
-
-  if (!includeBuilderCatalogue) {
-    filter.customerSelectable = true;
-    filter.hamperUse = { $ne: false };
-    filter.sellingPrice = { $gt: 0 };
-    filter["innerDimensions.length"] = { $gt: 0 };
-    filter["innerDimensions.width"] = { $gt: 0 };
-    filter["innerDimensions.height"] = { $gt: 0 };
-    filter["maxContentWeight.value"] = { $gt: 0 };
-    filter.usableVolumePercent = { $gte: 1, $lte: 100 };
-  }
+  const filter = buildContainerPublicFilter();
 
   if (channel) {
     if (!CHANNEL_KEYS.includes(channel)) {
       return res.status(400).json({ success: false, message: "Invalid channel" });
     }
 
-    if (!includeBuilderCatalogue) {
-      filter[`channels.${channel}`] = true;
-    }
+    filter[`channels.${channel}`] = true;
   }
 
   if (category?.trim()) filter.category = category.trim();
@@ -7350,9 +7349,7 @@ export const validateConfiguration = asyncHandler(async (req, res) => {
 
   const containerFilter = {
     _id: containerId,
-    isActive: true,
-    customerSelectable: true,
-    hamperUse: { $ne: false },
+    ...buildContainerPublicFilter(),
   };
 
   if (channel) containerFilter[`channels.${channel}`] = true;
@@ -7366,6 +7363,10 @@ export const validateConfiguration = asyncHandler(async (req, res) => {
       success: false,
       message: "Selectable container not found",
     });
+  }
+
+  if (containerArchiveReasons(container).length > 0) {
+    return res.status(409).json({ success: false, message: "Selected box is incomplete; finish its Admin Archive requirements" });
   }
 
   const normalizedItems = normalizeConfigurationItems(items);
@@ -7404,11 +7405,7 @@ export const validateConfiguration = asyncHandler(async (req, res) => {
     ]),
   ];
 
-  const componentFilter = {
-    isActive: true,
-    customerSelectable: true,
-    type: { $in: PUBLIC_COMPONENT_TYPES },
-  };
+  const componentFilter = buildComponentPublicFilter();
 
   if (channel) componentFilter[`channels.${channel}`] = true;
   if (allIds.length > 0) componentFilter._id = { $in: allIds };
@@ -7420,7 +7417,9 @@ export const validateConfiguration = asyncHandler(async (req, res) => {
     .lean();
 
   const componentMap = new Map(
-    baseComponents.map((component) => [String(component._id), component])
+    baseComponents
+      .filter((component) => componentArchiveReasons(component).length === 0)
+      .map((component) => [String(component._id), component])
   );
 
   for (const selectedId of selectedIds) {
@@ -7665,9 +7664,15 @@ export const getProducts = asyncHandler(async (req, res) => {
   } = req.query;
 
   const { page, limit, skip } = getPagination(req.query);
+  const activePricedProducts = await SKU.distinct("product", {
+    isActive: true, price: { $gt: 0 },
+  });
   const filter = {
     status: PRODUCT_STATUS.ACTIVE,
-    minPrice: { $ne: null },
+    minPrice: { $gt: 0 },
+    category: { $exists: true, $ne: null },
+    ...websiteImageMongoFilter(),
+    _id: { $in: activePricedProducts },
   };
 
   if (search?.trim()) {
@@ -7839,6 +7844,9 @@ export const getProductBySlug = asyncHandler(async (req, res) => {
   const product = await Product.findOne({
     slug: String(slug).trim().toLowerCase(),
     status: PRODUCT_STATUS.ACTIVE,
+    minPrice: { $gt: 0 },
+    category: { $exists: true, $ne: null },
+    ...websiteImageMongoFilter(),
   })
     .populate("category", "name slug description")
     .populate("collections", "name slug")
@@ -7851,6 +7859,7 @@ export const getProductBySlug = asyncHandler(async (req, res) => {
   const rawSkus = await SKU.find({
     product: product._id,
     isActive: true,
+    price: { $gt: 0 },
   })
     .select(
       "product code name optionValues baseSellingPrice mrp taxEnabled taxPercent hsnSac discount price compareAtPrice images container hamperContents internalMaterials decorations packagedDimensions packagedWeight productionLeadTime defaultCourierDays earliestExpiryDate isActive sortOrder createdAt updatedAt"
@@ -7872,6 +7881,10 @@ export const getProductBySlug = asyncHandler(async (req, res) => {
     })
     .sort({ sortOrder: 1, price: 1 })
     .lean();
+
+  if (rawSkus.length === 0) {
+    return res.status(404).json({ success: false, message: "Product is not ready for sale" });
+  }
 
   const skus = await Promise.all(
     rawSkus.map(async (sku) => {
@@ -7905,6 +7918,66 @@ export const getProductBySlug = asyncHandler(async (req, res) => {
   });
 });
 
+
+/* =========================================================
+   ADMIN PRODUCT MASTER ARCHIVE / READINESS
+========================================================= */
+
+export const getProductMasterArchive = asyncHandler(async (req, res) => {
+  const limit = Math.min(500, Math.max(1, Number(req.query.limit) || 200));
+  const [sourceRows, components, containers, products, skus] = await Promise.all([
+    ProductMasterArchive.find().sort({ lastImportedAt: -1, rowNumber: 1 }).limit(limit).lean(),
+    Component.find({ "source.type": "product_master" }).lean(),
+    Container.find({ "source.type": "product_master" }).lean(),
+    Product.find({ "source.type": "product_master" }).lean(),
+    SKU.find({ "source.type": "product_master" }).lean(),
+  ]);
+  const bySku = (rows) => new Map(rows.map((row) => [String(row.source?.externalSku || ""), row]));
+  const componentBySku = bySku(components);
+  const containerBySku = bySku(containers);
+  const productBySku = bySku(products);
+  const skuByProduct = new Map();
+  for (const sku of skus) {
+    const key = String(sku.product || "");
+    if (!skuByProduct.has(key)) skuByProduct.set(key, []);
+    skuByProduct.get(key).push(sku);
+  }
+  const records = sourceRows.map((row) => {
+    const code = String(row.externalSku || "");
+    let reasons = [];
+    let found = false;
+    if (row.recordType === "container") {
+      const record = containerBySku.get(code);
+      found = Boolean(record);
+      reasons = record ? containerArchiveReasons(record) : row.reasons;
+    } else if (row.recordType === "ready_made_hamper") {
+      const record = productBySku.get(code);
+      found = Boolean(record);
+      reasons = record
+        ? hamperArchiveReasons(record, skuByProduct.get(String(record._id)) || [])
+        : row.reasons;
+    } else {
+      const record = componentBySku.get(code);
+      found = Boolean(record);
+      reasons = record ? componentArchiveReasons(record) : row.reasons;
+    }
+    // Invalid rows remain archived even when they cannot enter a strict schema.
+    if (!found && reasons.length === 0) reasons = ["Row needs review before catalogue creation"];
+    return {
+      rowKey: row.rowKey, rowNumber: row.rowNumber,
+      externalSku: row.externalSku, name: row.name,
+      recordType: row.recordType, sourceSheetName: row.sourceSheetName,
+      importedToCatalog: found, state: found && reasons.length === 0 ? "ready" : "archive",
+      reasons,
+    };
+  });
+  const ready = records.filter((row) => row.state === "ready").length;
+  res.status(200).json({
+    success: true,
+    summary: { total: records.length, ready, archive: records.length - ready },
+    records,
+  });
+});
 
 /* =========================================================
    IMAGE UPLOAD
