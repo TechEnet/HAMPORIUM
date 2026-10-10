@@ -4528,15 +4528,7 @@ const V11ContainerDetailsModal = ({
               <div className="border-b border-black/[0.07] bg-[#F7F2EB] p-5 lg:border-b-0 lg:border-r lg:p-6">
                 <div className="overflow-hidden rounded-[20px] border border-black/[0.06] bg-white shadow-[0_12px_30px_rgba(0,0,0,.04)]">
                   <div className="aspect-[4/3] bg-[#FBF8F4]">
-                    {container.images?.[0]?.url ? (
-                      <img
-                        src={container.images[0].url}
-                        alt={container.name}
-                        className="h-full w-full object-contain p-4"
-                      />
-                    ) : (
-                      <NoImage />
-                    )}
+                    <CatalogGalleryImage images={container.images} name={container.name} imageClassName="h-full w-full object-contain p-4" />
                   </div>
                 </div>
 
@@ -4685,18 +4677,7 @@ const V7ContainerCard = ({ container, active, onClick }) => {
       >
         {/* FULL-BLEED IMAGE · NO CARD BORDER */}
         <div className="relative aspect-[4/3] w-full overflow-hidden bg-[#F1ECE5]">
-          {container.images?.[0]?.url ? (
-            <img
-              src={
-                container.images[0]
-                  .url
-              }
-              alt={container.name}
-              className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.035]"
-            />
-          ) : (
-            <NoImage />
-          )}
+          <CatalogGalleryImage images={container.images} name={container.name} imageClassName="h-full w-full object-cover transition duration-500 group-hover:scale-[1.035]" />
 
           {popularityLabel && (
             <span
@@ -5016,15 +4997,7 @@ const V10ProductDetailsModal = ({
               <div className="border-b border-black/[0.07] bg-[#F7F2EB] p-5 lg:border-b-0 lg:border-r lg:p-6">
                 <div className="overflow-hidden rounded-[20px] border border-black/[0.06] bg-white shadow-[0_12px_30px_rgba(0,0,0,.04)]">
                   <div className="aspect-square bg-[#FBF8F4]">
-                    {component.images?.[0]?.url ? (
-                      <img
-                        src={component.images[0].url}
-                        alt={component.name}
-                        className="h-full w-full object-contain p-4"
-                      />
-                    ) : (
-                      <NoImage />
-                    )}
+                    <CatalogGalleryImage images={component.images} name={component.name} imageClassName="h-full w-full object-contain p-4" />
                   </div>
                 </div>
 
@@ -5247,15 +5220,7 @@ const V7ProductCard = ({
       >
         <div className="relative overflow-hidden rounded-[11px] bg-[#F4EFE8]">
           <div className="aspect-[5/4]">
-            {component.images?.[0]?.url ? (
-              <img
-                src={component.images[0].url}
-                alt={component.name}
-                className="h-full w-full object-contain p-1.5 transition duration-500 group-hover:scale-[1.035] sm:p-2"
-              />
-            ) : (
-              <NoImage />
-            )}
+            <CatalogGalleryImage images={component.images} name={component.name} imageClassName="h-full w-full object-contain p-1.5 transition duration-500 group-hover:scale-[1.035] sm:p-2" />
           </div>
 
 
@@ -5419,15 +5384,7 @@ const V7DecorationCard = ({
           }`}
         >
           <div className="aspect-square">
-            {component.images?.[0]?.url ? (
-              <img
-                src={component.images[0].url}
-                alt={component.name}
-                className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.035]"
-              />
-            ) : (
-              <V7DecorPlaceholder component={component} />
-            )}
+            <CatalogGalleryImage images={component.images} name={component.name} imageClassName="h-full w-full object-cover transition duration-500 group-hover:scale-[1.035]" fallback={<V7DecorPlaceholder component={component} />} />
           </div>
 
 
@@ -7315,6 +7272,37 @@ const V7Empty = ({ children }) => (
     {children}
   </div>
 );
+
+// All imported views share this lightweight image switcher. No change to packing/fit logic.
+const CatalogGalleryImage = ({ images = [], name = "Product", imageClassName = "h-full w-full object-contain", fallback = null }) => {
+  const pictures = (Array.isArray(images) ? images : [])
+    .map((image) => typeof image === "string" ? image : image?.url)
+    .filter((url) => typeof url === "string" && /^https?:\/\//i.test(url));
+  const [index, setIndex] = useState(0);
+  const safeIndex = pictures.length ? index % pictures.length : 0;
+  const current = pictures[safeIndex] || "";
+  const go = (event, direction) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setIndex((previous) => (previous + direction + pictures.length) % pictures.length);
+  };
+  return (
+    <div className="relative h-full w-full overflow-hidden">
+      {current ? <img src={current} alt={`${name} - image ${safeIndex + 1}`} loading="lazy" className={imageClassName} /> : fallback || <NoImage />}
+      {pictures.length > 1 && (
+        <>
+          <div className="pointer-events-none absolute inset-x-1 top-1/2 z-10 flex -translate-y-1/2 justify-between">
+            <button type="button" onClick={(event) => go(event, -1)} aria-label={`Previous ${name} image`}
+              className="pointer-events-auto flex h-7 w-7 items-center justify-center rounded-full bg-[#171717]/80 text-[19px] text-white shadow-md transition hover:bg-[#F47822]">‹</button>
+            <button type="button" onClick={(event) => go(event, 1)} aria-label={`Next ${name} image`}
+              className="pointer-events-auto flex h-7 w-7 items-center justify-center rounded-full bg-[#171717]/80 text-[19px] text-white shadow-md transition hover:bg-[#F47822]">›</button>
+          </div>
+          <span className="pointer-events-none absolute bottom-1 right-1 z-10 rounded-full bg-black/70 px-2 py-0.5 text-[10px] font-bold text-white">{safeIndex + 1} / {pictures.length}</span>
+        </>
+      )}
+    </div>
+  );
+};
 
 const NoImage = () => (
   <div className="flex h-full items-center justify-center bg-gradient-to-br from-[#F1ECE5] to-[#E8DFD4] text-[12px] font-bold uppercase tracking-[0.1em] text-black/25">
