@@ -19,6 +19,8 @@ import {
   PRODUCT_STATUS,
 } from "../../constants/statuses.js";
 import uploadFile, { deleteFile } from "../../helpers/uploadFile.js";
+import { ProductMasterImageSyncJob } from "./productMasterImageSync.model.js";
+import { syncProductMasterImageEntry, parseDriveAssetLink } from "./productMasterImages.service.js";
 import {
   calculateCatalogPricing,
   normalizeDiscountConfig,
@@ -9864,4 +9866,166 @@ export const deleteSKU = asyncHandler(async (req, res) => {
   await syncProductPriceRange(productId);
 
   res.status(200).json({ success: true, message: "SKU deleted successfully" });
+});
+
+
+/* =========================================================
+   IMAGE-ONLY GOOGLE DRIVE GALLERY SYNC (SAFE / RESUMABLE)
+
+   The original importer is intentionally left unchanged. Its Confirm action
+   clears the existing catalogue; this separate route NEVER does that.
+   Upload the unmodified Excel once, then sync 3-5 image folders per call.
+========================================================= */
+
+const getImageSyncRowsFromWorkbook = async (file) => {
+  const source = getProductMasterUploadSource(file);
+  if (!source) {
+    const error = new Error("Excel file is required");
+    error.statusCode = 400;
+    throw error;
+  }
+  const extension = String(file?.originalname || "").toLowerCase();
+  let workbook;
+  if (typeof source === "string" && /\.(xlsx|xlsm)$/.test(extension)) {
+    const { compactBuffer } = await compactProductMasterFromZip(source, file.originalname || "");
+    workbook = readWorkbookSource(compactBuffer, { dense: false, cellDates: false });
+  } else {
+    workbook = readWorkbookSource(source, { dense: false, cellDates: false });
+  }
+
+  try {
+    const sheetGroups = [
+      {
+        aliases: PRODUCT_MASTER_SHEET_ALIASES,
+        requiredAliasGroups: [["Product SKU", "SKU", "Product SKU (10 digits numeric — immutable)"], ["Product Name", "Name"]],
+        skuAliases: ["Product SKU", "SKU", "Product SKU (10 digits numeric — immutable)"],
+        nameAliases: ["Product Name", "Name"],
+      },
+      {
+        aliases: HAMPER_MASTER_SHEET_ALIASES,
+        requiredAliasGroups: [["Hamper Code", "Hamper SKU", "Product SKU"], ["Hamper Name", "Product Name", "Name"]],
+        skuAliases: ["Hamper Code", "Hamper SKU", "Product SKU"],
+        nameAliases: ["Hamper Name", "Product Name", "Name"],
+      },
+      {
+        aliases: [DECORATION_MASTER_SHEET, "Decorations"],
+        requiredAliasGroups: [["Decoration SKU", "Product SKU", "SKU"], ["Decoration Name", "Product Name", "Name"]],
+        skuAliases: ["Decoration SKU", "Product SKU", "SKU"],
+        nameAliases: ["Decoration Name", "Product Name", "Name"],
+      },
+    ];
+    const found = new Map();
+    const seenSheets = new Set();
+    for (const group of sheetGroups) {
+      const sheetName = findWorkbookSheet(workbook, group.aliases);
+      if (!sheetName || seenSheets.has(sheetName)) continue;
+      seenSheets.add(sheetName);
+      const extracted = readWorksheetObjects(workbook.Sheets[sheetName], {
+        requiredAliasGroups: group.requiredAliasGroups,
+        includeRow: (row) => Boolean(masterText(row, group.skuAliases)),
+      });
+      for (const { row, rowNumber } of extracted.rows) {
+        const externalSku = masterText(row, group.skuAliases);
+        const imageUrl = masterText(row, ["Image / Asset URL", "Image URL"]);
+        const name = masterText(row, group.nameAliases);
+        if (!externalSku || !imageUrl || !parseDriveAssetLink(imageUrl)) continue;
+        if (!found.has(externalSku)) {
+          found.set(externalSku, { externalSku, imageUrl, name, rowNumber, sourceSheetName: sheetName });
+        }
+      }
+    }
+    return [...found.values()];
+  } finally {
+    releaseWorkbookSheets(workbook);
+  }
+};
+
+export const prepareProductMasterImageSync = asyncHandler(async (req, res) => {
+  if (!process.env.GOOGLE_DRIVE_API_KEY) {
+    return res.status(503).json({ success: false, message: "Set GOOGLE_DRIVE_API_KEY on the backend before syncing images" });
+  }
+  const entries = await getImageSyncRowsFromWorkbook(req.file);
+  if (!entries.length) {
+    return res.status(422).json({ success: false, message: "No supported Google Drive links were found in Product Master, Hamper Master or Decoration Master" });
+  }
+  const job = await ProductMasterImageSyncJob.create({
+    entries,
+    expiresAt: new Date(Date.now() + 72 * 60 * 60 * 1000),
+  });
+  res.status(201).json({
+    success: true,
+    jobId: String(job._id),
+    total: entries.length,
+    message: "Image-only sync prepared. No existing catalogue records were changed.",
+  });
+});
+
+export const advanceProductMasterImageSync = asyncHandler(async (req, res) => {
+  const jobId = String(req.body?.jobId || "");
+  if (!mongoose.isValidObjectId(jobId)) return res.status(400).json({ success: false, message: "Valid jobId is required" });
+  const batchSize = 1; // One full folder per HTTP call prevents large Render timeouts.
+  const job = await ProductMasterImageSyncJob.findOneAndUpdate(
+    { _id: jobId, expiresAt: { $gt: new Date() }, $or: [
+      { status: "ready" },
+      { status: "running", startedAt: { $lt: new Date(Date.now() - 20 * 60 * 1000) } },
+    ] },
+    { $set: { status: "running", startedAt: new Date() } },
+    { new: true }
+  );
+  if (!job) {
+    const state = await ProductMasterImageSyncJob.findById(jobId).select("status cursor entries results").lean();
+    return res.status(state?.status === "running" ? 409 : state ? 200 : 404).json({
+      success: Boolean(state),
+      busy: state?.status === "running",
+      done: state?.status === "done",
+      nextOffset: state?.cursor || 0,
+      total: state?.entries?.length || 0,
+      results: state?.results || [],
+      message: state ? "Job is already running or finished" : "Image sync job was not found",
+    });
+  }
+
+  try {
+    const next = job.entries.slice(job.cursor, job.cursor + batchSize);
+    const batchResults = [];
+    for (const entry of next) batchResults.push(await syncProductMasterImageEntry(entry));
+    job.results.push(...batchResults);
+    job.cursor += next.length;
+    const done = job.cursor >= job.entries.length;
+    job.status = done ? "done" : "ready";
+    job.startedAt = null;
+    await job.save();
+    res.json({
+      success: true,
+      done,
+      jobId: String(job._id),
+      nextOffset: job.cursor,
+      total: job.entries.length,
+      batchResults,
+      summary: {
+        updated: job.results.filter((r) => r.status === "updated").length,
+        unchanged: job.results.filter((r) => r.status === "unchanged").length,
+        failed: job.results.filter((r) => r.status === "failed").length,
+        notFound: job.results.filter((r) => r.status === "not_found").length,
+      },
+      results: done ? job.results : undefined,
+    });
+  } catch (error) {
+    job.status = "ready";
+    job.startedAt = null;
+    await job.save().catch(() => {});
+    throw error;
+  }
+});
+
+export const getProductMasterImageSyncStatus = asyncHandler(async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.jobId)) {
+    return res.status(400).json({ success: false, message: "Invalid jobId" });
+  }
+  const job = await ProductMasterImageSyncJob.findById(req.params.jobId)
+    .select("cursor status entries results")
+    .lean();
+  if (!job) return res.status(404).json({ success: false, message: "Image sync job not found" });
+  res.json({ success: true, jobId: String(job._id), done: job.status === "done",
+    busy: job.status === "running", nextOffset: job.cursor, total: job.entries.length, results: job.results });
 });
