@@ -2999,6 +2999,44 @@ const masterNumber = (row, aliases, label, errors) => {
   return value;
 };
 
+// Product Master unit-aware capacity parser.
+// Procurement Excel may hold "4kg" or "4.5 kg" in the otherwise numeric
+// "Max Safe Load kg" column. Previously these rows became ERROR, so even a
+// valid Target Sell Price was never saved to the container catalogue.
+// Only apply this parser to the capacity field: prices/tax/other numeric fields
+// must continue using their existing strict validation rules.
+const parseMasterWeightKg = (raw) => {
+  if (raw === undefined || raw === null || raw === "") return null;
+  if (typeof raw === "number") return Number.isFinite(raw) && raw >= 0 ? raw : NaN;
+
+  const source = String(raw).replace(/\u00a0/g, " ").trim();
+  if (!source) return null;
+
+  const matched = source.match(
+    /^([+]?(?:\d+(?:\.\d*)?|\.\d+))\s*(kg|kgs|kilograms?|g|grams?)?$/i
+  );
+  if (!matched) return NaN;
+
+  const value = Number(matched[1]);
+  if (!Number.isFinite(value)) return NaN;
+
+  const unit = String(matched[2] || "kg").toLowerCase();
+  return unit === "g" || unit === "gram" || unit === "grams"
+    ? value / 1000
+    : value;
+};
+
+const masterWeightKg = (row, aliases, label, errors) => {
+  const raw = getMasterValue(row, aliases);
+  const value = parseMasterWeightKg(raw);
+  if (value === null) return null;
+  if (!Number.isFinite(value)) {
+    errors.push(`${label} must be a numeric weight in kg (example: 4, 4kg or 4.5 kg)`);
+    return null;
+  }
+  return value;
+};
+
 const masterPercentNumber = (row, aliases, label, errors) => {
   const raw = getMasterValue(row, aliases);
 
@@ -4011,7 +4049,7 @@ const buildContainerMasterPayload = (row, setupEntry = null, { allowIncompleteCa
   const warnings = [];
   const common = buildMasterCommonFields(row, errors);
 
-  const maxSafeLoadKg = masterNumber(
+  const maxSafeLoadKg = masterWeightKg(
     row,
     ["Max Safe Load kg (Container Only)", "Max Content Weight kg (Container Only)"],
     "Max Safe Load kg",
