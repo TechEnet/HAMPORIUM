@@ -159,6 +159,10 @@ const Containers = () => {
   const [error, setError] =
     useState("");
 
+  // Open one box's validation details at a time.
+  const [openVisibilityId, setOpenVisibilityId] = useState(null);
+  const [enablingId, setEnablingId] = useState(null);
+
   const activePackagingComponents =
     useMemo(
       () =>
@@ -670,6 +674,31 @@ const Containers = () => {
     }
   };
 
+  const enableCustomerSelection = async (container) => {
+    if (!container?.websiteVisibility?.canEnableCustomerSelection) return;
+    if (!window.confirm(`Enable ${container.name} for customer selection?`)) return;
+
+    setEnablingId(container._id);
+    setError("");
+    try {
+      // PATCH only the publish flag: do not overwrite price, images, fit data
+      // or supplier provenance while turning on customer selection.
+      await api.patch(
+        `/catalog/admin/containers/${container._id}`,
+        { customerSelectable: true }
+      );
+      await loadContainers();
+    } catch (requestError) {
+      setError(
+        requestError.response?.data?.message ||
+        requestError.message ||
+        "Unable to enable customer selection"
+      );
+    } finally {
+      setEnablingId(null);
+    }
+  };
+
   const editContainer = (
     container
   ) => {
@@ -958,6 +987,13 @@ const Containers = () => {
         container.customerSelectable
     ).length;
 
+  const readyCount = containers.filter(
+    (container) => container.websiteVisibility?.ready === true
+  ).length;
+  const blockedCount = containers.filter(
+    (container) => container.websiteVisibility?.ready === false
+  ).length;
+
   return (
     <div className="mx-auto w-full max-w-[1600px] pb-12">
       <PageHeader
@@ -966,7 +1002,9 @@ const Containers = () => {
         description="Manage physical hamper boxes, true inner dimensions, capacity limits and packing configuration."
         stats={[
           ["Total", containers.length],
-          ["Custom", customCount],
+          ["Selected", customCount],
+          ["Ready", readyCount],
+          ["Hidden", blockedCount],
         ]}
       />
 
@@ -1954,7 +1992,7 @@ const Containers = () => {
               </h2>
 
               <p className="mt-1 text-sm text-black/40">
-                Browse and manage all available hamper boxes.
+                Browse all imported boxes. The visibility report below each box explains exactly why it is or is not available in Custom Hamper.
               </p>
             </div>
 
@@ -2114,6 +2152,96 @@ const Containers = () => {
                             </InfoPill>
                           )}
                         </div>
+
+                        {/* Server-calculated eligibility, using the same gates
+                            as the customer-facing containers catalogue. */}
+                        {container.websiteVisibility ? (
+                          <div className="mt-3 max-w-[820px] rounded-xl border border-black/[0.08] bg-[#FAFAF9] p-3 text-xs">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className={`rounded-full px-2.5 py-1 font-extrabold ${
+                                container.websiteVisibility.ready
+                                  ? "bg-emerald-100 text-emerald-800"
+                                  : "bg-amber-100 text-amber-800"
+                              }`}>
+                                {container.websiteVisibility.ready
+                                  ? "Ready for default builder"
+                                  : "Hidden from customers"}
+                              </span>
+                              <button
+                                type="button"
+                                className="font-bold text-[#F97316] underline underline-offset-2"
+                                onClick={() => setOpenVisibilityId((previous) =>
+                                  previous === container._id ? null : container._id
+                                )}
+                              >
+                                {openVisibilityId === container._id
+                                  ? "Hide validation" : "Why? View validation"}
+                              </button>
+                            </div>
+
+                            {!container.websiteVisibility.ready && (
+                              <p className="mt-2 leading-5 text-amber-900">
+                                <strong>Blocking reason: </strong>
+                                {container.websiteVisibility.reasons.join(" · ")}
+                              </p>
+                            )}
+
+                            {container.websiteVisibility.canEnableCustomerSelection && (
+                              <button
+                                type="button"
+                                disabled={enablingId === container._id}
+                                onClick={() => enableCustomerSelection(container)}
+                                className="mt-2 rounded-lg bg-[#171717] px-3 py-2 font-bold text-white transition hover:bg-[#F97316] disabled:opacity-50"
+                              >
+                                {enablingId === container._id
+                                  ? "Enabling..." : "Enable for customers"}
+                              </button>
+                            )}
+
+                            {openVisibilityId === container._id && (
+                              <div className="mt-3 border-t border-black/10 pt-3">
+                                <p className="mb-2 font-bold text-[#171717]">Customer visibility checklist</p>
+                                <div className="grid gap-1.5 sm:grid-cols-2">
+                                  {container.websiteVisibility.checks.map((check) => (
+                                    <div key={check.key} className="flex items-start gap-2">
+                                      <span className={`font-bold ${check.passed ? "text-emerald-700" : "text-red-600"}`}>
+                                        {check.passed ? "✓" : "×"}
+                                      </span>
+                                      <span className={check.passed ? "text-black/65" : "font-semibold text-red-700"}>
+                                        {check.label}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                                <p className="mt-3 font-bold text-[#171717]">Channel availability</p>
+                                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                                  {Object.entries(container.websiteVisibility.channels || {}).map(([channelName, data]) => (
+                                    <span
+                                      key={channelName}
+                                      className={`rounded-md px-2 py-1 font-semibold ${
+                                        data.visible
+                                          ? "bg-emerald-50 text-emerald-800"
+                                          : "bg-black/[0.05] text-black/55"
+                                      }`}
+                                    >
+                                      {channelName}: {data.visible ? "Visible" : data.enabled ? "Blocked by checklist" : "Channel off"}
+                                    </span>
+                                  ))}
+                                </div>
+                                <p className="mt-2 text-black/45">
+                                  Default Custom Hamper has no channel requirement; special campaign routes may pass a channel.
+                                </p>
+                                {(container.websiteVisibility.warnings || []).map((warning, index) => (
+                                  <p key={index} className="mt-1.5 text-amber-800">Note: {warning}</p>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <p className="mt-2 text-xs text-amber-700">
+                            Visibility check unavailable: deploy the V18 backend together with this frontend.
+                          </p>
+                        )}
                       </div>
                     </div>
 

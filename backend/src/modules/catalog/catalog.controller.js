@@ -27,6 +27,7 @@ import {
   buildComponentPublicFilter,
   buildContainerPublicFilter,
   websiteImageMongoFilter,
+  inspectContainerWebsiteVisibility,
 } from "./catalogReadiness.service.js";
 import { ProductMasterImageSyncJob } from "./productMasterImageSync.model.js";
 import { syncProductMasterImageEntry, parseDriveAssetLink } from "./productMasterImages.service.js";
@@ -9066,6 +9067,7 @@ export const getAdminContainers = asyncHandler(async (req, res) => {
     containers: containers.map((container) => ({
       ...container,
       capacity: calculateContainerCapacity(container),
+      websiteVisibility: inspectContainerWebsiteVisibility(container),
     })),
     pagination: getPaginationMeta(total, page, limit),
   });
@@ -9088,7 +9090,11 @@ export const getAdminContainerById = asyncHandler(async (req, res) => {
 
   res.status(200).json({
     success: true,
-    container: { ...container, capacity: calculateContainerCapacity(container) },
+    container: {
+      ...container,
+      capacity: calculateContainerCapacity(container),
+      websiteVisibility: inspectContainerWebsiteVisibility(container),
+    },
   });
 });
 

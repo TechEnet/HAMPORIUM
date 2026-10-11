@@ -98,3 +98,85 @@ export function buildContainerPublicFilter() {
     usableVolumePercent: { $gte: 1, $lte: 100 },
   };
 }
+
+
+/* =========================================================
+   ADMIN CONTAINER WEBSITE VISIBILITY DIAGNOSTICS — V18
+   Keep these gates synchronized with buildContainerPublicFilter().
+   This is read-only; visibility is never auto-enabled by an import.
+========================================================= */
+
+const CONTAINER_CHANNELS = ["corporate", "wedding", "diwali", "hamperOne"];
+
+export function inspectContainerWebsiteVisibility(box) {
+  const required = [
+    ["active", "Catalogue active", box?.isActive === true,
+      "Inactive: turn on Active in the container editor"],
+    ["hamperUse", "Allowed for hampers", box?.hamperUse !== false,
+      "Hamper usage disabled: enable 'Can be used for hampers'"],
+    ["customerSelectable", "Customer selection enabled", box?.customerSelectable === true,
+      "Customer selection disabled: enable 'Available in custom hamper builder'"],
+    ["sellingPrice", "Positive base selling price", positive(box?.sellingPrice),
+      "Selling price missing: enter Base Selling Price (Pre-GST)"],
+    ["image", "Displayable image saved", hasWebsiteImage(box?.images),
+      "Display image missing: sync/upload a website image (not only a Drive link)"],
+    ["outerDimensions", "Outer length, width and height", hasDimensions(box?.outerDimensions),
+      "Outer dimensions missing: fill all three positive measurements"],
+    ["innerDimensions", "True inner length, width and height", hasDimensions(box?.innerDimensions),
+      "Inner dimensions missing: fill all three true usable measurements"],
+    ["maxContentWeight", "Maximum content weight", positive(box?.maxContentWeight?.value),
+      "Maximum content weight missing: enter a positive weight capacity"],
+    ["usableVolumePercent", "Usable volume 1–100%",
+      box?.usableVolumePercent !== null &&
+      box?.usableVolumePercent !== undefined &&
+      box?.usableVolumePercent !== "" &&
+      Number.isFinite(Number(box.usableVolumePercent)) &&
+      Number(box.usableVolumePercent) >= 1 &&
+      Number(box.usableVolumePercent) <= 100,
+      "Usable volume percent missing or outside 1–100%"],
+  ];
+
+  const checks = required.map(([key, label, passed, reason]) => ({
+    key, label, passed: Boolean(passed), reason: passed ? "" : reason,
+  }));
+  const reasons = checks.filter((check) => !check.passed).map((check) => check.reason);
+  const ready = reasons.length === 0;
+  const enabledChannels = CONTAINER_CHANNELS.filter((channel) =>
+    box?.channels?.[channel] === true
+  );
+  const channels = Object.fromEntries(CONTAINER_CHANNELS.map((channel) => [
+    channel,
+    {
+      enabled: box?.channels?.[channel] === true,
+      visible: ready && box?.channels?.[channel] === true,
+      reason: box?.channels?.[channel] === true
+        ? ""
+        : `Not enabled for ${channel} channel`,
+    },
+  ]));
+
+  const warnings = [];
+  if (!enabledChannels.length) {
+    warnings.push("No special channel enabled. Default builder may show this box, but channel-specific pages will not.");
+  }
+  const toCm = (d, k) => Number(d?.[k]) * (d?.unit === "mm" ? 0.1 : 1);
+  if (hasDimensions(box?.outerDimensions) && hasDimensions(box?.innerDimensions) &&
+    ["length", "width", "height"].some((k) =>
+      toCm(box.innerDimensions, k) > toCm(box.outerDimensions, k) + 0.0001
+    )) {
+    warnings.push("Inner dimensions are larger than outer dimensions. Recheck physical measurements before customer use.");
+  }
+  if (box?.availability?.status === "out_of_stock") {
+    warnings.push("Marked out of stock; website availability/purchase logic may restrict this box.");
+  }
+
+  return {
+    ready, visibleWithoutChannel: ready,
+    reasons, checks, warnings,
+    enabledChannels, channels,
+    canEnableCustomerSelection: !ready &&
+      box?.customerSelectable === false &&
+      checks.every((check) => check.key === "customerSelectable" || check.passed) &&
+      !warnings.some((w) => w.startsWith("Inner dimensions are larger")),
+  };
+}
