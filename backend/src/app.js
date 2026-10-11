@@ -1,3 +1,4 @@
+
 import "dotenv/config";
 
 import express from "express";
@@ -12,73 +13,88 @@ import paymentWebhook from "./modules/payments/payment.webhook.js";
 const app = express();
 
 /* =========================================================
-   CORS
+   CORS CONFIGURATION
+   HAMPORIUM - PRODUCTION + DEVELOPMENT
 ========================================================= */
 
-const allowedOrigins = [
+const allowedOrigins = new Set([
+  // Official production domain
+  "https://hamporium.in",
+  "https://www.hamporium.in",
+
+  // Existing Vercel deployment
   "https://hamporium.vercel.app",
+
+  // Local development
   "http://localhost:5173",
   "http://127.0.0.1:5173",
-];
+]);
 
 /*
- * Optional environment URL.
+ * Additional frontend URLs can be configured
+ * from Render environment variables.
+ *
  * Example:
- * CLIENT_URL=https://hamporium.vercel.app
+ * CLIENT_URL=https://hamporium.in,https://www.hamporium.in
  */
+
 if (process.env.CLIENT_URL) {
   const envOrigins = process.env.CLIENT_URL
     .split(",")
-    .map((origin) => origin.trim())
+    .map((origin) => origin.trim().replace(/\/+$/, ""))
     .filter(Boolean);
 
-  allowedOrigins.push(...envOrigins);
+  envOrigins.forEach((origin) => {
+    allowedOrigins.add(origin);
+  });
 }
 
-app.use(
-  cors({
-    origin(origin, callback) {
-      /*
-       * Requests without Origin are allowed.
-       * Examples:
-       * - server-to-server
-       * - health checks
-       * - Postman
-       */
-      if (!origin) {
-        return callback(null, true);
-      }
+const corsOptions = {
+  origin(origin, callback) {
+    /*
+     * Allow requests without an Origin header.
+     * Examples:
+     * - Server-to-server requests
+     * - Health checks
+     * - Postman
+     */
 
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
+    if (!origin) {
+      return callback(null, true);
+    }
 
-      console.warn(`CORS blocked origin: ${origin}`);
+    if (allowedOrigins.has(origin)) {
+      return callback(null, true);
+    }
 
-      return callback(
-        new Error("Origin is not allowed by CORS")
-      );
-    },
+    console.warn(`[CORS] Blocked origin: ${origin}`);
 
-    credentials: true,
+    return callback(
+      new Error("Origin is not allowed by CORS")
+    );
+  },
 
-    methods: [
-      "GET",
-      "POST",
-      "PUT",
-      "PATCH",
-      "DELETE",
-      "OPTIONS",
-    ],
+  credentials: true,
 
-    allowedHeaders: [
-      "Content-Type",
-      "Authorization",
-      "X-Requested-With",
-      "Accept",
-    ],
-  })
-);
+  methods: [
+    "GET",
+    "POST",
+    "PUT",
+    "PATCH",
+    "DELETE",
+    "OPTIONS",
+  ],
+
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "X-Requested-With",
+    "Accept",
+  ],
+};
+
+// Apply CORS globally
+app.use(cors(corsOptions));
 
 /* =========================================================
    SECURITY
@@ -90,9 +106,10 @@ app.use(helmet());
    RAZORPAY WEBHOOK
 
    IMPORTANT:
-   This must stay BEFORE express.json().
-   Razorpay signs the exact raw request body, so parsing JSON
-   first breaks webhook signature verification.
+   This must remain BEFORE express.json().
+
+   Razorpay uses the exact raw request body
+   for webhook signature verification.
 ========================================================= */
 
 app.post(
@@ -141,7 +158,7 @@ app.get("/", (req, res) => {
 app.use("/api", routes);
 
 /* =========================================================
-   404
+   404 HANDLER
 ========================================================= */
 
 app.use((req, res) => {
@@ -152,7 +169,7 @@ app.use((req, res) => {
 });
 
 /* =========================================================
-   ERROR HANDLER
+   GLOBAL ERROR HANDLER
 ========================================================= */
 
 app.use(errorHandler);
