@@ -922,17 +922,34 @@ const validateAndNormalizeMaterialItems = async (
    CONTAINER HELPERS
 ========================================================= */
 
-const normalizeContainerDimensions = (dimensions = {}) => ({
-  length: Number(dimensions.length),
-  width: Number(dimensions.width),
-  height: Number(dimensions.height),
-  unit: DIMENSION_UNITS.includes(dimensions.unit) ? dimensions.unit : "cm",
-});
+// Incomplete procurement boxes are legitimate Admin/Archive records.
+// Do NOT convert missing capacity to 0 or NaN in MongoDB.
+const normalizeContainerDimensions = (dimensions) => {
+  if (!dimensions) return undefined;
+  const fields = [dimensions.length, dimensions.width, dimensions.height];
+  if (fields.some((value) => value === undefined || value === null || value === "")) {
+    return undefined;
+  }
+  const [length, width, height] = fields.map(Number);
+  if (![length, width, height].every((value) => Number.isFinite(value) && value > 0)) {
+    return undefined;
+  }
+  return {
+    length,
+    width,
+    height,
+    unit: DIMENSION_UNITS.includes(dimensions.unit) ? dimensions.unit : "cm",
+  };
+};
 
-const normalizeWeightCapacity = (weight = {}) => ({
-  value: Number(weight.value),
-  unit: WEIGHT_UNITS.includes(weight.unit) ? weight.unit : "kg",
-});
+const normalizeWeightCapacity = (weight) => {
+  if (!weight || weight.value === undefined || weight.value === null || weight.value === "") {
+    return undefined;
+  }
+  const value = Number(weight.value);
+  if (!Number.isFinite(value) || value <= 0) return undefined;
+  return { value, unit: WEIGHT_UNITS.includes(weight.unit) ? weight.unit : "kg" };
+};
 
 const validateProductionLeadTime = (leadTime = {}) => {
   for (const field of ["personalizationDays", "assemblyDays", "packingDays"]) {
@@ -965,6 +982,7 @@ const validateContainerPayload = ({
   defaultCourierDays,
   channels,
   hamperUse,
+  customerSelectable,
   productPriority,
   mrp,
   sellingPrice,
@@ -976,51 +994,66 @@ const validateContainerPayload = ({
   leadTimeDays,
   source,
 }) => {
-  for (const group of [
-    { label: "Outer", data: outerDimensions },
-    { label: "Inner", data: innerDimensions },
-  ]) {
-    if (!group.data) return `${group.label} dimensions are required`;
-
-    if (group.data.unit && !DIMENSION_UNITS.includes(group.data.unit)) {
-      return `${group.label} dimension unit must be mm or cm`;
+  // Customer-selectable boxes need verified physical capacity. Admin-only
+  // boxes may be stored and edited while supplier capacity fields are missing.
+  const selectable = parseBoolean(customerSelectable) === true;
+  const checkDimensions = (label, data, required) => {
+    if (!data) return required ? `${label} dimensions are required` : null;
+    const values = [data.length, data.width, data.height];
+    const anyEntered = values.some((value) => value !== undefined && value !== null && value !== "");
+    if (!anyEntered && !required) return null;
+    if (data.unit && !DIMENSION_UNITS.includes(data.unit)) {
+      return `${label} dimension unit must be mm or cm`;
     }
-
     for (const key of ["length", "width", "height"]) {
-      const value = Number(group.data[key]);
-      if (!Number.isFinite(value) || value <= 0) {
-        return `${group.label} ${key} must be greater than 0`;
+      const raw = data[key];
+      if (raw === undefined || raw === null || raw === "" || !Number.isFinite(Number(raw)) || Number(raw) <= 0) {
+        return `${label} ${key} must be greater than 0`;
       }
     }
+    return null;
+  };
+
+  const outerError = checkDimensions("Outer", outerDimensions, true);
+  if (outerError) return outerError;
+  const innerError = checkDimensions("Inner", innerDimensions, selectable);
+  if (innerError) return innerError;
+
+  const hasInner = Boolean(
+    innerDimensions &&
+    [innerDimensions.length, innerDimensions.width, innerDimensions.height].every(
+      (value) => value !== undefined && value !== null && value !== "" && Number(value) > 0
+    )
+  );
+  if (hasInner) {
+    const outerUnit = outerDimensions.unit || "cm";
+    const innerUnit = innerDimensions.unit || "cm";
+    const outerLength = dimensionToCm(outerDimensions.length, outerUnit);
+    const outerWidth = dimensionToCm(outerDimensions.width, outerUnit);
+    const outerHeight = dimensionToCm(outerDimensions.height, outerUnit);
+    const innerLength = dimensionToCm(innerDimensions.length, innerUnit);
+    const innerWidth = dimensionToCm(innerDimensions.width, innerUnit);
+    const innerHeight = dimensionToCm(innerDimensions.height, innerUnit);
+    if (innerLength > outerLength || innerWidth > outerWidth || innerHeight > outerHeight) {
+      return "Inner dimensions cannot be larger than outer dimensions";
+    }
   }
 
-  const outerUnit = outerDimensions.unit || "cm";
-  const innerUnit = innerDimensions.unit || "cm";
-
-  const outerLength = dimensionToCm(outerDimensions.length, outerUnit);
-  const outerWidth = dimensionToCm(outerDimensions.width, outerUnit);
-  const outerHeight = dimensionToCm(outerDimensions.height, outerUnit);
-  const innerLength = dimensionToCm(innerDimensions.length, innerUnit);
-  const innerWidth = dimensionToCm(innerDimensions.width, innerUnit);
-  const innerHeight = dimensionToCm(innerDimensions.height, innerUnit);
-
-  if (
-    innerLength > outerLength ||
-    innerWidth > outerWidth ||
-    innerHeight > outerHeight
-  ) {
-    return "Inner dimensions cannot be larger than outer dimensions";
-  }
-
-  if (!maxContentWeight) return "Maximum content weight is required";
-
-  const weightValue = Number(maxContentWeight.value);
-  if (!Number.isFinite(weightValue) || weightValue <= 0) {
-    return "Maximum content weight must be greater than 0";
-  }
-
-  if (maxContentWeight.unit && !WEIGHT_UNITS.includes(maxContentWeight.unit)) {
-    return "Weight unit must be g or kg";
+  const weightEntered = Boolean(
+    maxContentWeight &&
+    maxContentWeight.value !== undefined &&
+    maxContentWeight.value !== null &&
+    maxContentWeight.value !== ""
+  );
+  if (selectable && !weightEntered) return "Maximum content weight is required";
+  if (weightEntered) {
+    const weightValue = Number(maxContentWeight.value);
+    if (!Number.isFinite(weightValue) || weightValue <= 0) {
+      return "Maximum content weight must be greater than 0";
+    }
+    if (maxContentWeight.unit && !WEIGHT_UNITS.includes(maxContentWeight.unit)) {
+      return "Weight unit must be g or kg";
+    }
   }
 
   const percentage = Number(usableVolumePercent);
@@ -1086,7 +1119,7 @@ const calculateContainerCapacity = (container) => {
   const width = dimensionToCm(dimensions.width, dimensions.unit);
   const height = dimensionToCm(dimensions.height, dimensions.unit);
 
-  if (![length, width, height].every(Number.isFinite)) return null;
+  if (![length, width, height].every((value) => Number.isFinite(value) && value > 0)) return null;
 
   const totalVolume = length * width * height;
   const percentage = Number(container.usableVolumePercent);
@@ -9129,6 +9162,7 @@ export const createContainer = asyncHandler(async (req, res) => {
     productionLeadTime,
     defaultCourierDays,
     hamperUse: finalHamperUse,
+    customerSelectable: finalSelectable,
   });
 
   if (validationError) {
@@ -9290,6 +9324,7 @@ export const updateContainer = asyncHandler(async (req, res) => {
     productionLeadTime: nextLeadTime,
     defaultCourierDays: nextCourierDays,
     hamperUse: nextHamperUse,
+    customerSelectable: nextSelectable,
   });
 
   if (validationError) {

@@ -19,6 +19,8 @@ const createEmptyForm = () => ({
   description: "",
   image: "",
   imagePublicId: "",
+  // Keep the complete gallery from Cloudinary, not just the cover image.
+  images: [],
 
   externalSku: "",
   skuBarcode: "",
@@ -103,6 +105,14 @@ const nullableNumber = (value) =>
   value === "" || value === null
     ? null
     : Number(value);
+
+const positiveNumber = (value) =>
+  value !== "" && value !== undefined && value !== null &&
+  Number.isFinite(Number(value)) && Number(value) > 0;
+
+const hasCompleteInnerDimensions = (dimensions) =>
+  Boolean(dimensions &&
+    [dimensions.length, dimensions.width, dimensions.height].every(positiveNumber));
 
 const toInputDate = (value) => {
   if (!value) return "";
@@ -320,9 +330,6 @@ const Containers = () => {
     let uploadedImage = null;
     let saved = false;
 
-    const oldPublicId =
-      form.imagePublicId;
-
     try {
       const invalidMaterial =
         form.packingMaterials.some(
@@ -335,6 +342,25 @@ const Containers = () => {
         throw new Error(
           "Select a valid packaging component and quantity for every packing material row"
         );
+      }
+
+      const capacityRequired = form.hamperUse && form.customerSelectable;
+      const innerValues = [
+        form.innerDimensions.length,
+        form.innerDimensions.width,
+        form.innerDimensions.height,
+      ];
+      const partialInner = innerValues.some((value) => value !== "" && value !== null) &&
+        !hasCompleteInnerDimensions(form.innerDimensions);
+      if (partialInner) {
+        throw new Error("Enter all three positive inner dimensions or leave all blank for an archived box");
+      }
+      if (capacityRequired && (
+        !hasCompleteInnerDimensions(form.innerDimensions) ||
+        !positiveNumber(form.maxContentWeight.value) ||
+        !positiveNumber(form.sellingPrice)
+      )) {
+        throw new Error("Customer-selectable boxes need a positive selling price, true inner dimensions and max content weight. Uncheck 'Available in custom hamper builder' to save incomplete boxes in Admin.");
       }
 
       if (imageFile) {
@@ -364,15 +390,22 @@ const Containers = () => {
         material: form.material,
         description: form.description,
 
-        images: imageUrl
-          ? [
-              {
-                url: imageUrl,
-                publicId: imagePublicId,
-                alt: form.name,
-              },
-            ]
-          : [],
+        // Existing image galleries are preserved unless a NEW image is added.
+        // Do not transmit "images: []" during a normal Edit.
+        ...(uploadedImage
+          ? {
+              images: [
+                {
+                  url: imageUrl,
+                  publicId: imagePublicId,
+                  alt: form.name,
+                },
+                ...(form.images || []).filter((image) => image?.url && image.url !== imageUrl),
+              ],
+            }
+          : editingId
+            ? {}
+            : { images: [] }),
 
         source: {
           externalSku:
@@ -408,10 +441,8 @@ const Containers = () => {
         mrp:
           nullableNumber(form.mrp),
 
-        sellingPrice:
-          nullableNumber(
-            form.sellingPrice
-          ),
+        // The source price is preserved on ordinary edits. A deliberate
+        // price change is applied below, after the payload is constructed.
 
         latestUnitCost:
           nullableNumber(
@@ -439,8 +470,7 @@ const Containers = () => {
           value: Number(form.discount?.value || 0),
         },
 
-        pricingSource: "manual",
-        taxSource: "manual",
+        // Preserve the source provenance when only unrelated fields change.
 
         leadTimeDays:
           nullableNumber(
@@ -464,31 +494,26 @@ const Containers = () => {
             form.outerDimensions.unit,
         },
 
-        innerDimensions: {
-          length: Number(
-            form.innerDimensions.length
-          ),
-
-          width: Number(
-            form.innerDimensions.width
-          ),
-
-          height: Number(
-            form.innerDimensions.height
-          ),
-
-          unit:
-            form.innerDimensions.unit,
-        },
-
-        maxContentWeight: {
-          value: Number(
-            form.maxContentWeight.value
-          ),
-
-          unit:
-            form.maxContentWeight.unit,
-        },
+        // Incomplete archived containers may have no measured usable capacity.
+        // Omit missing fields instead of converting empty strings to zeros.
+        ...(hasCompleteInnerDimensions(form.innerDimensions)
+          ? {
+              innerDimensions: {
+                length: Number(form.innerDimensions.length),
+                width: Number(form.innerDimensions.width),
+                height: Number(form.innerDimensions.height),
+                unit: form.innerDimensions.unit,
+              },
+            }
+          : {}),
+        ...(positiveNumber(form.maxContentWeight.value)
+          ? {
+              maxContentWeight: {
+                value: Number(form.maxContentWeight.value),
+                unit: form.maxContentWeight.unit,
+              },
+            }
+          : {}),
 
         usableVolumePercent:
           Number(
@@ -584,6 +609,23 @@ const Containers = () => {
           form.internalNotes,
       };
 
+      // "Target Sell Price" maps to container.sellingPrice (pre-GST).
+      // Existing values and Cloudinary photos are never erased by blank fields.
+      const current = editingId
+        ? containers.find((item) => item._id === editingId)
+        : null;
+      const nextSellingPrice = nullableNumber(form.sellingPrice);
+      const priceChanged = form.sellingPrice !== "" && (
+        !editingId ||
+        current?.sellingPrice == null ||
+        Number(current.sellingPrice) !== nextSellingPrice
+      );
+      if (priceChanged) {
+        payload.sellingPrice = nextSellingPrice;
+        payload.pricingSource = "manual";
+      }
+      if (!editingId) payload.taxSource = "manual";
+
       if (editingId) {
         await api.patch(
           `/catalog/admin/containers/${editingId}`,
@@ -598,23 +640,8 @@ const Containers = () => {
 
       saved = true;
 
-      if (
-        uploadedImage &&
-        oldPublicId &&
-        oldPublicId !==
-          uploadedImage.publicId
-      ) {
-        try {
-          await deleteCatalogImage(
-            oldPublicId
-          );
-        } catch (cleanupError) {
-          console.error(
-            "Old container image cleanup failed:",
-            cleanupError
-          );
-        }
-      }
+      // The original Cloudinary image is intentionally retained because
+      // it may still be used by an order, existing SKU or older gallery.
 
       resetForm();
       await loadContainers();
@@ -669,6 +696,7 @@ const Containers = () => {
       imagePublicId:
         container.images?.[0]
           ?.publicId || "",
+      images: Array.isArray(container.images) ? container.images : [],
 
       externalSku:
         container.source
@@ -1093,6 +1121,11 @@ const Containers = () => {
                 file={imageFile}
                 onFileChange={setImageFile}
               />
+              {editingId && form.images?.length > 0 && (
+                <p className="mt-2 text-xs text-black/50">
+                  {form.images.length} saved photo(s) will be preserved when editing.
+                </p>
+              )}
             </div>
           </FormSection>
 
@@ -1372,6 +1405,7 @@ const Containers = () => {
               <DimensionGroup
                 title="Inner Dimensions"
                 important
+                required={form.hamperUse && form.customerSelectable}
                 value={
                   form.innerDimensions
                 }
@@ -1396,7 +1430,7 @@ const Containers = () => {
                 label="Max Content Weight"
                 type="number"
                 min="0.001"
-                required
+                required={form.hamperUse && form.customerSelectable}
                 value={
                   form.maxContentWeight
                     .value
@@ -2099,6 +2133,16 @@ const Containers = () => {
                               )
                             : "Not set"}
                         </p>
+                        {container.sellingPrice == null && container.source?.type === "product_master" && (
+                          <p className="mt-1 text-[10px] text-amber-700">
+                            Target Sell Price pending in Excel
+                          </p>
+                        )}
+                        {container.mrp != null && (
+                          <p className="mt-1 text-[10px] text-black/40">
+                            MRP {formatCurrency(container.mrp)}
+                          </p>
+                        )}
                       </div>
 
                       <div className="flex gap-2">
@@ -2229,6 +2273,7 @@ const DimensionGroup = ({
   value,
   onChange,
   important = false,
+  required = !important,
 }) => (
   <div
     className={`rounded-2xl border p-5 ${
@@ -2254,7 +2299,7 @@ const DimensionGroup = ({
         label="Length"
         type="number"
         min="0.001"
-        required
+        required={required}
         value={value.length}
         onChange={(next) =>
           onChange("length", next)
@@ -2265,7 +2310,7 @@ const DimensionGroup = ({
         label="Width"
         type="number"
         min="0.001"
-        required
+        required={required}
         value={value.width}
         onChange={(next) =>
           onChange("width", next)
@@ -2276,7 +2321,7 @@ const DimensionGroup = ({
         label="Height"
         type="number"
         min="0.001"
-        required
+        required={required}
         value={value.height}
         onChange={(next) =>
           onChange("height", next)
