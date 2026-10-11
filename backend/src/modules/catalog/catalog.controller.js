@@ -3395,6 +3395,9 @@ const buildMasterCommonFields = (row, errors) => {
   );
   const productPriority = masterPriorityNumber(row, ["Product Priority"]);
   const mrp = masterNumber(row, ["Retail MRP"], "Retail MRP", errors);
+  // The ONLY source of website sellingPrice is Excel Target Sell Price (AE).
+  // Never take Retail MRP (AD) as a substitute. When Target Sell Price is
+  // empty, omit sellingPrice from the update so an existing admin price stays.
   const sellingPrice = masterNumber(row, ["Target Sell Price"], "Target Sell Price", errors);
   const latestUnitCost = masterNumber(row, ["Latest Unit Cost"], "Latest Unit Cost", errors);
   const actualLandedCost = masterNumber(row, ["Actual Landed Cost"], "Actual Landed Cost", errors);
@@ -5606,6 +5609,7 @@ const analyzeProductMasterBuffer = async (
         : existingContext.containersBySku;
     const existing = getLookupRecord(ownMap, externalSku);
     const conflicting = getLookupRecord(otherMap, externalSku);
+    built.payload = preserveManualPriceWhenTargetBlank(built.payload, existing);
 
     const reviewMessages = [...(built.review || [])];
 
@@ -5809,6 +5813,15 @@ const publicImportResult = (result) => ({
   changedFields: result.changedFields || [],
   compositionSummary: result.compositionSummary || null,
   reviewData: buildContainerReviewData(result),
+  priceAudit: result.recordType === "container" || result.recordType === "component"
+    ? {
+        targetSellPrice: result._payload?.sellingPrice ?? null,
+        mrp: result._payload?.mrp ?? null,
+        priceSource: "Target Sell Price",
+        // Null is genuinely blank in the source; existing DB value is retained.
+        blankTargetPreservesExisting: result._payload?.sellingPrice == null,
+      }
+    : null,
 });
 
 const parseContainerReviewCompletion = (raw) => {
@@ -5843,6 +5856,21 @@ const retireMissingImportedRows = async (ids) => {
   }
 };
 
+// V16: keep an existing price entered by an admin when Excel Target Sell
+// Price is blank. A nonblank Target Sell Price always overwrites the old price.
+// This NEVER derives a selling price from Retail MRP.
+const preserveManualPriceWhenTargetBlank = (payload, existing) => {
+  const next = { ...payload };
+  if (
+    !Object.prototype.hasOwnProperty.call(next, "sellingPrice") &&
+    Number(existing?.sellingPrice) > 0
+  ) {
+    // Otherwise a blank Excel cell would disable an already configured box.
+    delete next.customerSelectable;
+  }
+  return next;
+};
+
 const preserveGalleryOnSpreadsheetUpdate = (payload) => {
   const next = { ...payload };
   // A folder link is not a display URL; don't clear existing Cloudinary images.
@@ -5851,17 +5879,38 @@ const preserveGalleryOnSpreadsheetUpdate = (payload) => {
 };
 
 const upsertImportedBaseRow = async (Model, payload, externalSku) => {
-  const code = String(payload.code || "").toUpperCase();
+  const code = String(payload.code || "").trim().toUpperCase();
+  const canonicalSku = String(externalSku || "").trim();
   const manualConflict = await Model.findOne({
     code,
     "source.type": { $ne: "product_master" },
   }).select("_id").lean();
-  if (manualConflict) throw new Error(`SKU ${code} belongs to a manual record; archived instead of overwriting it`);
+  if (manualConflict) {
+    throw new Error(`SKU ${code} belongs to a manual record; archived instead of overwriting it`);
+  }
+
+  // Older imports sometimes recorded the code but not the normalized source
+  // SKU. Reuse that SAME document to avoid duplicate boxes and stale prices.
+  const existing = await Model.findOne({
+    "source.type": "product_master",
+    $or: [
+      { "source.externalSku": canonicalSku },
+      { code },
+    ],
+  }).select("_id sellingPrice customerSelectable").lean();
+
+  const safePayload = preserveGalleryOnSpreadsheetUpdate(
+    preserveManualPriceWhenTargetBlank(payload, existing)
+  );
+
+  const filter = existing
+    ? { _id: existing._id }
+    : { "source.type": "product_master", "source.externalSku": canonicalSku };
 
   return Model.findOneAndUpdate(
-    { "source.type": "product_master", "source.externalSku": externalSku },
-    { $set: preserveGalleryOnSpreadsheetUpdate(payload) },
-    { upsert: true, new: true, runValidators: true, setDefaultsOnInsert: true }
+    filter,
+    { $set: safePayload },
+    { upsert: !existing, new: true, runValidators: true, setDefaultsOnInsert: true }
   );
 };
 
@@ -5870,7 +5919,7 @@ const archiveProductMasterSourceRows = async ({ analysis, results, importedAt, c
   const sourceByKey = new Map((analysis.sourceRows || []).map((item) => [item.rowKey, item.row]));
   const operations = analysis.results.map((row) => {
     const result = byKey.get(row.rowKey) || publicImportResult(row);
-    const imported = ["CREATED", "UPDATED", "SKIP"].includes(result.action);
+    const imported = ["CREATED", "UPDATED", "SKIP", "UNCHANGED"].includes(result.action);
     const ref = catalogRefs.get(row.rowKey);
     // Key by source SKU rather than sheet row position: moving rows in Excel
     // must never overwrite a DIFFERENT product's archived original data.
@@ -6060,7 +6109,7 @@ export const previewProductMasterImport = asyncHandler(async (req, res) => {
   }
 
   const analysis = await analyzeUploadedProductMaster(req.file, {
-    replaceMode: true,
+    replaceMode: false,
   });
 
   res.status(200).json({
@@ -6401,13 +6450,13 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
   }
 
   const preflight = await analyzeUploadedProductMaster(req.file, {
-    replaceMode: true,
+    replaceMode: false,
   });
 
   // Incomplete/invalid rows will be archived with their original Excel fields,
   // not discarded and not offered to the customer.
   const importableRows = preflight.results.filter((item) =>
-    ["CREATE", "UPDATE"].includes(item.action)
+    ["CREATE", "UPDATE", "SKIP"].includes(item.action)
   );
   const importableBaseRows = importableRows.filter(
     (item) => item.recordType !== "ready_made_hamper"
@@ -6430,11 +6479,9 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
   }
 
   /*
-   * IMPORTANT: do not parse the workbook a second time after clearing the
-   * catalogue. replaceMode analysis already uses an empty catalogue context,
-   * so the preflight payloads are exactly the payloads needed for the fresh
-   * import. Reusing them cuts Confirm Import workbook parsing roughly in half
-   * and removes the highest memory spike from the old flow.
+   * IMPORTANT: reuse the already parsed workbook rather than parsing it
+   * again. V16 preflight checks the EXISTING DB and updates by immutable SKU.
+   * No collection is cleared; empty Excel fields do not erase saved prices.
    */
   const analysis = preflight;
   // No hard replacement, no deleteMany, no source workbook modification.
@@ -6457,7 +6504,7 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
   for (const item of analysis.results) {
     if (item.recordType === "ready_made_hamper") continue;
 
-    if (!["CREATE", "UPDATE"].includes(item.action)) {
+    if (!["CREATE", "UPDATE", "SKIP"].includes(item.action)) {
       resultByKey.set(item.rowKey, publicImportResult(item));
       continue;
     }
@@ -6474,13 +6521,16 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
         },
       };
 
-      const old = await Model.findOne({ "source.type": "product_master", "source.externalSku": item.externalSku }).select("_id").lean();
+      const old = await Model.findOne({
+        "source.type": "product_master",
+        $or: [{ "source.externalSku": item.externalSku }, { code: String(payload.code || "").toUpperCase() }],
+      }).select("_id").lean();
       const saved = await upsertImportedBaseRow(Model, payload, item.externalSku);
       kept[item.recordType === "container" ? "containers" : "components"].push(saved._id);
       catalogRefs.set(item.rowKey, { model: item.recordType === "container" ? "Container" : "Component", id: saved._id });
       resultByKey.set(item.rowKey, {
         ...publicImportResult(item),
-        action: old ? "UPDATED" : "CREATED",
+        action: old ? (item.action === "SKIP" ? "UNCHANGED" : "UPDATED") : "CREATED",
       });
     } catch (error) {
       resultByKey.set(item.rowKey, {
@@ -6503,7 +6553,7 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
   for (const item of analysis.results) {
     if (item.recordType !== "ready_made_hamper") continue;
 
-    if (!["CREATE", "UPDATE"].includes(item.action)) {
+    if (!["CREATE", "UPDATE", "SKIP"].includes(item.action)) {
       resultByKey.set(item.rowKey, publicImportResult(item));
       continue;
     }
@@ -6598,7 +6648,7 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
 
       resultByKey.set(item.rowKey, {
         ...publicImportResult(item),
-        action: oldProduct ? "UPDATED" : "CREATED",
+        action: oldProduct ? (item.action === "SKIP" ? "UNCHANGED" : "UPDATED") : "CREATED",
       });
     } catch (error) {
       resultByKey.set(item.rowKey, {
@@ -6617,13 +6667,16 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
   // Archived snapshot of EACH workbook row includes all original Excel columns.
   // Persist first: if it fails, do not retire formerly visible records.
   await archiveProductMasterSourceRows({ analysis, results, importedAt, catalogRefs });
-  await retireMissingImportedRows(kept);
+  // Never bulk-retire products omitted from a later supplier workbook.
+  // Such rows remain in MongoDB for admin/history; publication is managed
+  // separately. The previous retireMissingImportedRows call could also
+  // deactivate unchanged SKIP entries during an ordinary re-import.
 
 
   for (const item of results) {
     if (item.action === "CREATED") summary.created += 1;
     else if (item.action === "UPDATED") summary.updated += 1;
-    else if (item.action === "SKIP") summary.skipped += 1;
+    else if (item.action === "SKIP" || item.action === "UNCHANGED") summary.skipped += 1;
     else if (item.action === "REVIEW") summary.review += 1;
     else if (item.action === "ERROR") summary.errors += 1;
   }
@@ -6655,7 +6708,7 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
 
   res.status(200).json({
     success: true,
-    message: `Saved ${importedCount} valid rows without deleting records. ${partialIssues} review/error issue(s) preserved in Admin Archive. Customer website only shows fully ready records.`,
+    message: `Saved ${importedCount} new/updated rows; ${summary.skipped} unchanged rows preserved. ${partialIssues} review/error issue(s) preserved in Admin Archive. Customer website only shows fully ready records.`,
     importMode: "archive_upsert",
     replacementStrategy: "non_destructive_upsert_with_archive",
     workbookProfile: analysis.workbookProfile,
