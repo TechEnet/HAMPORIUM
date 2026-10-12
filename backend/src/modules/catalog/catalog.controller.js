@@ -4841,7 +4841,12 @@ const buildReadyMadeMasterPayload = async (
   if (!common.externalSku) errors.push("Product SKU is required");
   if (!common.name) errors.push("Product Name is required");
   if (!categoryName) errors.push("Website Category / Category is required for ready-made hampers");
-  if (common.sellingPrice === null) errors.push("Target Sell Price is required for ready-made hampers");
+  // V20: blank supplier selling price means an incomplete DRAFT, not a corrupt
+  // workbook. Keep the row, SKU and composition in the Admin Archive. Never
+  // invent price from MRP/COGS. Customer visibility is disabled until ready.
+  if (common.sellingPrice === null) {
+    review.push("Target Sell Price missing — saved as inactive Admin Draft");
+  }
 
   const containerEntries = effectiveCompositionEntries.filter(
     (entry) => entry.role === "container"
@@ -5519,6 +5524,7 @@ const analyzeProductMasterBuffer = async (
           `Product SKU is already owned by a manual ${componentConflict ? "component" : "container"} record`
         );
       }
+      const archiveOnlyManualConflict = Boolean(manualCrossConflict);
 
       if (built.errors.length > 0) {
         results.push({
@@ -5572,6 +5578,10 @@ const analyzeProductMasterBuffer = async (
             categoryName: built.categoryName,
             categoryId: built.categoryId,
           },
+          // Never create/overwrite a ready-made SKU that is manually owned.
+          _archiveOnly: archiveOnlyManualConflict ||
+            (existingSku && existingSku?.source?.type !== "product_master") ||
+            (existingProduct && existingProduct?.source?.type !== "product_master"),
         });
         continue;
       }
@@ -5810,7 +5820,7 @@ const analyzeProductMasterBuffer = async (
 
   return {
     filename,
-    parserVersion: "zip-direct-v19-procurement-taxonomy-roles",
+    parserVersion: "zip-direct-v20-ready-made-draft-upsert",
     sheetName,
     productHeaderRow: productSheet.headerRow,
     workbookProfile,
@@ -6038,7 +6048,11 @@ const buildImportedBaseLookup = async (importedAt) => {
   return { componentsBySku, containersBySku };
 };
 
-const resolveReadyMadeReferences = (skuPayload, baseLookup, { allowMissingContainer = false } = {}) => {
+const resolveReadyMadeReferences = (
+  skuPayload,
+  baseLookup,
+  { allowMissingContainer = false, allowMissingItems = false } = {}
+) => {
   const resolved = {
     ...skuPayload,
     hamperContents: [],
@@ -6066,9 +6080,11 @@ const resolveReadyMadeReferences = (skuPayload, baseLookup, { allowMissingContai
   for (const item of skuPayload.hamperContents || []) {
     const component = getLookupRecord(baseLookup.componentsBySku, item.component);
     if (!component) {
+      if (allowMissingItems) continue; // Incomplete Admin Draft; never public.
       throw new Error(`Content SKU ${item.component} was not imported`);
     }
     if (component.type === "packaging" || (component.hamperRole || "content") === "decoration") {
+      if (allowMissingItems) continue;
       throw new Error(`${component.name} is not valid ready-made hamper content`);
     }
 
@@ -6086,9 +6102,11 @@ const resolveReadyMadeReferences = (skuPayload, baseLookup, { allowMissingContai
   for (const item of skuPayload.internalMaterials || []) {
     const component = getLookupRecord(baseLookup.componentsBySku, item.component);
     if (!component) {
+      if (allowMissingItems) continue;
       throw new Error(`Packaging SKU ${item.component} was not imported`);
     }
     if (component.type !== "packaging") {
+      if (allowMissingItems) continue;
       throw new Error(`${component.name} is not an internal packaging component`);
     }
 
@@ -6101,9 +6119,11 @@ const resolveReadyMadeReferences = (skuPayload, baseLookup, { allowMissingContai
   for (const item of skuPayload.decorations || []) {
     const component = getLookupRecord(baseLookup.componentsBySku, item.component);
     if (!component) {
+      if (allowMissingItems) continue;
       throw new Error(`Decoration SKU ${item.component} was not imported`);
     }
     if ((component.hamperRole || "content") !== "decoration") {
+      if (allowMissingItems) continue;
       throw new Error(`${component.name} is not a decoration component`);
     }
 
@@ -6622,10 +6642,16 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
 
   const baseLookup = await buildImportedBaseLookup(importedAt);
 
+  let draftHampersSaved = 0;
   for (const item of analysis.results) {
     if (item.recordType !== "ready_made_hamper") continue;
 
-    if (!["CREATE", "UPDATE", "SKIP"].includes(item.action)) {
+    const saveAsDraft = analysis.allowPartialImport &&
+      item.action === "REVIEW" && Boolean(item._payload) &&
+      !item._archiveOnly;
+    const saveAsComplete = ["CREATE", "UPDATE", "SKIP"].includes(item.action);
+
+    if (!saveAsDraft && !saveAsComplete) {
       resultByKey.set(item.rowKey, publicImportResult(item));
       continue;
     }
@@ -6649,6 +6675,8 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
       const productPayload = {
         ...item._payload.product,
         category: category._id,
+        // Incomplete hamper is retained in MongoDB but cannot reach customers.
+        ...(saveAsDraft ? { status: PRODUCT_STATUS.DRAFT } : {}),
         source: {
           ...(item._payload.product.source || {}),
           type: "product_master",
@@ -6660,6 +6688,7 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
       const skuPayload = resolveReadyMadeReferences(
         {
           ...item._payload.sku,
+          ...(saveAsDraft ? { isActive: false } : {}),
           source: {
             ...(item._payload.sku.source || {}),
             type: "product_master",
@@ -6668,7 +6697,10 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
           },
         },
         baseLookup,
-        { allowMissingContainer: analysis.allowPartialImport }
+        {
+          allowMissingContainer: analysis.allowPartialImport,
+          allowMissingItems: saveAsDraft,
+        }
       );
 
       const oldSku = await SKU.findOne({
@@ -6686,6 +6718,30 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
         code: skuPayload.code, "source.type": { $ne: "product_master" },
       }).select("_id").lean();
       if (oldManualSku) throw new Error("Manual SKU conflict; archived without overwrite");
+
+      if (saveAsDraft && oldSku) {
+        // Blank supplier cells do not erase a previously saved manual price.
+        const previousSku = await SKU.findById(oldSku._id).lean();
+        if (previousSku) {
+          const originalPrice = item._payload?.sku?.baseSellingPrice;
+          if (!(Number(originalPrice) > 0) && Number(previousSku.baseSellingPrice) > 0) {
+            skuPayload.baseSellingPrice = previousSku.baseSellingPrice;
+            skuPayload.price = previousSku.price;
+            skuPayload.compareAtPrice = previousSku.compareAtPrice ?? null;
+            skuPayload.pricingSource = previousSku.pricingSource || skuPayload.pricingSource;
+          }
+          // If supplier omits recipe/box in an incomplete row, keep historical
+          // composition links instead of wiping the admin's previous setup.
+          for (const key of ["hamperContents", "internalMaterials", "decorations"]) {
+            if (!(skuPayload[key] || []).length && (previousSku[key] || []).length) {
+              delete skuPayload[key];
+            }
+          }
+          if (!skuPayload.container && previousSku.container) {
+            delete skuPayload.container;
+          }
+        }
+      }
 
       let product;
       let productCreated = false;
@@ -6718,9 +6774,17 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
       kept.skus.push(sku._id);
       catalogRefs.set(item.rowKey, { model: "Product", id: product._id });
 
+      if (saveAsDraft) draftHampersSaved += 1;
       resultByKey.set(item.rowKey, {
         ...publicImportResult(item),
-        action: oldProduct ? (item.action === "SKIP" ? "UNCHANGED" : "UPDATED") : "CREATED",
+        // REVIEW stays REVIEW so Admin Archive retains exact missing fields;
+        // database product + SKU IDs have nevertheless been saved as DRAFT.
+        action: saveAsDraft
+          ? "REVIEW"
+          : oldProduct ? (item.action === "SKIP" ? "UNCHANGED" : "UPDATED") : "CREATED",
+        ...(saveAsDraft ? {
+          reason: `${item.reason}; saved as inactive MongoDB Product + SKU (Admin-only)`,
+        } : {}),
       });
     } catch (error) {
       resultByKey.set(item.rowKey, {
@@ -6774,13 +6838,14 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
 
   const importedCount = summary.created + summary.updated;
   const partialIssues = summary.review + summary.errors + analysis.compositionErrors.length;
+  summary.archivedDraftHampers = draftHampersSaved;
   const success = analysis.allowPartialImport
     ? importedCount > 0
     : summary.errors === 0 && summary.review === 0;
 
   res.status(200).json({
     success: true,
-    message: `Saved ${importedCount} new/updated rows; ${summary.skipped} unchanged rows preserved. ${partialIssues} review/error issue(s) preserved in Admin Archive. Customer website only shows fully ready records.`,
+    message: `Saved ${importedCount} new/updated complete rows and ${draftHampersSaved} inactive draft hamper(s); ${summary.skipped} unchanged. ${partialIssues} issue(s) retained in Admin Archive. Missing prices are never guessed and incomplete hampers are hidden from customers.`,
     importMode: "archive_upsert",
     replacementStrategy: "non_destructive_upsert_with_archive",
     workbookProfile: analysis.workbookProfile,
