@@ -3265,6 +3265,17 @@ const getMasterBuilderSection = (row) =>
     .trim()
     .toLowerCase();
 
+// V19: Procurement workbook has reliable Category Code even when the optional
+// Builder Section / Decoration Master columns are absent. Use these source
+// taxonomy codes, not fragile product-name keyword guesses.
+const getProcurementBuilderRole = (row) => {
+  const code = masterText(row, ["Category Code (3 digits)", "Category Code"])
+    .trim().replace(/\.0+$/, "");
+  if (code === "102" || code === "103") return "decoration";
+  if (code === "101") return "packaging";
+  return null;
+};
+
 const isMasterDecorationRow = (row, decorationMasterEntry = null) => {
   const builderSection = getMasterBuilderSection(row);
   const decorationType =
@@ -3276,6 +3287,7 @@ const isMasterDecorationRow = (row, decorationMasterEntry = null) => {
   );
 
   return (
+    getProcurementBuilderRole(row) === "decoration" ||
     builderSection.includes("decoration") ||
     Boolean(decorationType) ||
     selectable === true
@@ -3284,6 +3296,7 @@ const isMasterDecorationRow = (row, decorationMasterEntry = null) => {
 
 const getMasterComponentType = (row, { decoration = false } = {}) => {
   if (decoration) return "non_food";
+  if (getProcurementBuilderRole(row) === "packaging") return "packaging";
 
   const productType = masterText(row, ["Product Type"]).toLowerCase();
   const category = masterText(row, ["Category"]).toLowerCase();
@@ -3928,6 +3941,12 @@ const buildComponentMasterPayload = (
   const decoration = isMasterDecorationRow(row, decorationMasterEntry);
   const type = getMasterComponentType(row, { decoration });
   const hamperRole = decoration ? "decoration" : "content";
+  if (getProcurementBuilderRole(row) === "decoration") {
+    warnings.push("Recognized as a decorative finish from procurement Category Code 102/103");
+  }
+  if (getProcurementBuilderRole(row) === "packaging") {
+    warnings.push("Recognized as internal packing material from procurement Category Code 101");
+  }
 
   if (!common.externalSku) errors.push("Product SKU is required");
   if (!common.name) errors.push("Product Name is required");
@@ -4386,7 +4405,7 @@ const collectChangedFields = (current, incoming, prefix = "") => {
   return changes;
 };
 
-const parseHamperCompositionSheet = (workbook) => {
+const parseHamperCompositionSheet = (workbook, procurementRoleBySku = new Map()) => {
   const sheetName = findWorkbookSheet(workbook, HAMPER_RECIPE_SHEET_ALIASES);
 
   if (!sheetName) {
@@ -4467,6 +4486,16 @@ const parseHamperCompositionSheet = (workbook) => {
     else if (roleRaw.includes("decoration") || builderSection.includes("decoration")) {
       role = "decoration";
     } else if (roleRaw.includes("pack") || roleRaw.includes("material")) {
+      role = "packaging";
+    }
+
+    // V19: Some supplier recipes label ribbons/florals as "Product".
+    // Reconcile against the Product Master category for the very same SKU.
+    // Ambiguous category items retain their original recipe role.
+    const procurementRole = procurementRoleBySku.get(String(childSku));
+    if (procurementRole === "decoration" && role !== "container") {
+      role = "decoration";
+    } else if (procurementRole === "packaging" && role !== "container") {
       role = "packaging";
     }
 
@@ -5303,7 +5332,16 @@ const analyzeProductMasterBuffer = async (
     throw error;
   }
 
-  const composition = parseHamperCompositionSheet(workbook);
+  const procurementRoleBySku = new Map();
+  for (const { row } of productSheet.rows) {
+    if (getMasterRecordType(row) !== "component") continue;
+    const sku = masterText(row, [
+      "Product SKU (10 digits numeric — immutable)", "Product SKU", "SKU",
+    ]);
+    const role = getProcurementBuilderRole(row);
+    if (sku && role) procurementRoleBySku.set(String(sku), role);
+  }
+  const composition = parseHamperCompositionSheet(workbook, procurementRoleBySku);
   const containerSetup = parseContainerSetupSheet(workbook);
   const decorationMaster = parseDecorationMasterSheet(workbook);
   const procurementHampers =
@@ -5772,7 +5810,7 @@ const analyzeProductMasterBuffer = async (
 
   return {
     filename,
-    parserVersion: "zip-direct-v9-data-mapping",
+    parserVersion: "zip-direct-v19-procurement-taxonomy-roles",
     sheetName,
     productHeaderRow: productSheet.headerRow,
     workbookProfile,
