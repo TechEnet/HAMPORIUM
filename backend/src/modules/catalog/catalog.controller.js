@@ -6541,9 +6541,12 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
     });
   }
 
+  const confirmStartedAt = Date.now();
+  console.info(`[ProductMaster] confirm:start file=${req.file?.originalname || "unknown"} bytes=${req.file?.size || 0}`);
   const preflight = await analyzeUploadedProductMaster(req.file, {
     replaceMode: false,
   });
+  console.info(`[ProductMaster] confirm:analyzed rows=${preflight.results.length} elapsedMs=${Date.now() - confirmStartedAt}`);
 
   // Incomplete/invalid rows will be archived with their original Excel fields,
   // not discarded and not offered to the customer.
@@ -6593,14 +6596,26 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
     removed,
   };
 
-  for (const item of analysis.results) {
-    if (item.recordType === "ready_made_hamper") continue;
+  // V21: bounded concurrent MongoDB writes. Previous implementation awaited
+  // 2-3 round trips for every base SKU sequentially. A supplier workbook can
+  // have 180+ SKUs, causing HTTP proxy timeouts / ECONNRESET on Render.
+  // Concurrency is deliberately small so memory/DB connection pool stay safe.
+  const baseRows = analysis.results.filter(
+    (item) => item.recordType !== "ready_made_hamper"
+  );
+  const baseConcurrency = Math.max(
+    1,
+    Math.min(6, Number(process.env.PRODUCT_MASTER_IMPORT_CONCURRENCY) || 5)
+  );
+  let nextBaseIndex = 0;
+  const baseStartedAt = Date.now();
+  console.info(`[ProductMaster] confirm:base-start rows=${baseRows.length} concurrency=${baseConcurrency}`);
 
+  const importBaseRow = async (item) => {
     if (!["CREATE", "UPDATE", "SKIP"].includes(item.action)) {
       resultByKey.set(item.rowKey, publicImportResult(item));
-      continue;
+      return;
     }
-
     try {
       const Model = item.recordType === "container" ? Container : Component;
       const payload = {
@@ -6612,19 +6627,25 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
           lastSyncedAt: importedAt,
         },
       };
-
       const old = await Model.findOne({
         "source.type": "product_master",
-        $or: [{ "source.externalSku": item.externalSku }, { code: String(payload.code || "").toUpperCase() }],
+        $or: [
+          { "source.externalSku": item.externalSku },
+          { code: String(payload.code || "").toUpperCase() },
+        ],
       }).select("_id").lean();
       const saved = await upsertImportedBaseRow(Model, payload, item.externalSku);
       kept[item.recordType === "container" ? "containers" : "components"].push(saved._id);
-      catalogRefs.set(item.rowKey, { model: item.recordType === "container" ? "Container" : "Component", id: saved._id });
+      catalogRefs.set(item.rowKey, {
+        model: item.recordType === "container" ? "Container" : "Component",
+        id: saved._id,
+      });
       resultByKey.set(item.rowKey, {
         ...publicImportResult(item),
         action: old ? (item.action === "SKIP" ? "UNCHANGED" : "UPDATED") : "CREATED",
       });
     } catch (error) {
+      console.error(`[ProductMaster] base row failed SKU=${item.externalSku}:`, error?.message);
       resultByKey.set(item.rowKey, {
         ...publicImportResult(item),
         action: "ERROR",
@@ -6632,7 +6653,23 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
         reason: error.message || "Unable to import this row",
       });
     }
-  }
+  };
+
+  const baseWorker = async () => {
+    while (nextBaseIndex < baseRows.length) {
+      const index = nextBaseIndex++;
+      await importBaseRow(baseRows[index]);
+      if ((index + 1) % 25 === 0 || index + 1 === baseRows.length) {
+        console.info(
+          `[ProductMaster] confirm:base-progress ${index + 1}/${baseRows.length} elapsedMs=${Date.now() - baseStartedAt}`
+        );
+      }
+    }
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(baseConcurrency, baseRows.length) }, () => baseWorker())
+  );
+  console.info(`[ProductMaster] confirm:base-done elapsedMs=${Date.now() - baseStartedAt}`);
 
   const runtimeBaseErrors = [...resultByKey.values()].filter(
     (item) =>
@@ -6802,7 +6839,9 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
 
   // Archived snapshot of EACH workbook row includes all original Excel columns.
   // Persist first: if it fails, do not retire formerly visible records.
+  console.info(`[ProductMaster] confirm:archive-start rows=${results.length} elapsedMs=${Date.now() - confirmStartedAt}`);
   await archiveProductMasterSourceRows({ analysis, results, importedAt, catalogRefs });
+  console.info(`[ProductMaster] confirm:archive-done elapsedMs=${Date.now() - confirmStartedAt}`);
   // Never bulk-retire products omitted from a later supplier workbook.
   // Such rows remain in MongoDB for admin/history; publication is managed
   // separately. The previous retireMissingImportedRows call could also
@@ -6843,6 +6882,7 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
     ? importedCount > 0
     : summary.errors === 0 && summary.review === 0;
 
+  console.info(`[ProductMaster] confirm:complete elapsedMs=${Date.now() - confirmStartedAt} created=${summary.created} updated=${summary.updated} errors=${summary.errors}`);
   res.status(200).json({
     success: true,
     message: `Saved ${importedCount} new/updated complete rows and ${draftHampersSaved} inactive draft hamper(s); ${summary.skipped} unchanged. ${partialIssues} issue(s) retained in Admin Archive. Missing prices are never guessed and incomplete hampers are hidden from customers.`,
