@@ -1,4 +1,3 @@
-
 import "dotenv/config";
 
 import express from "express";
@@ -9,169 +8,55 @@ import helmet from "helmet";
 import routes from "./routes.js";
 import errorHandler from "./middlewares/error.middleware.js";
 import paymentWebhook from "./modules/payments/payment.webhook.js";
+import customerIntelligenceRoutes from "./modules/customerIntelligence/customerIntelligence.routes.js";
+import { captureAuthActivity } from "./modules/customerIntelligence/customerIntelligence.controller.js";
 
 const app = express();
 
-/* =========================================================
-   CORS CONFIGURATION
-   HAMPORIUM - PRODUCTION + DEVELOPMENT
-========================================================= */
-
+// Existing production and development origins; additional URLs via CLIENT_URL.
 const allowedOrigins = new Set([
-  // Official production domain
   "https://hamporium.in",
   "https://www.hamporium.in",
-
-  // Existing Vercel deployment
   "https://hamporium.vercel.app",
-
-  // Local development
   "http://localhost:5173",
   "http://127.0.0.1:5173",
 ]);
 
-/*
- * Additional frontend URLs can be configured
- * from Render environment variables.
- *
- * Example:
- * CLIENT_URL=https://hamporium.in,https://www.hamporium.in
- */
-
 if (process.env.CLIENT_URL) {
-  const envOrigins = process.env.CLIENT_URL
-    .split(",")
-    .map((origin) => origin.trim().replace(/\/+$/, ""))
-    .filter(Boolean);
-
-  envOrigins.forEach((origin) => {
-    allowedOrigins.add(origin);
-  });
+  process.env.CLIENT_URL.split(",").map((x) => x.trim().replace(/\/+$/, ""))
+    .filter(Boolean).forEach((x) => allowedOrigins.add(x));
 }
 
-const corsOptions = {
+app.use(cors({
   origin(origin, callback) {
-    /*
-     * Allow requests without an Origin header.
-     * Examples:
-     * - Server-to-server requests
-     * - Health checks
-     * - Postman
-     */
-
-    if (!origin) {
-      return callback(null, true);
-    }
-
-    if (allowedOrigins.has(origin)) {
-      return callback(null, true);
-    }
-
+    if (!origin || allowedOrigins.has(origin)) return callback(null, true);
     console.warn(`[CORS] Blocked origin: ${origin}`);
-
-    return callback(
-      new Error("Origin is not allowed by CORS")
-    );
+    return callback(new Error("Origin is not allowed by CORS"));
   },
-
   credentials: true,
-
-  methods: [
-    "GET",
-    "POST",
-    "PUT",
-    "PATCH",
-    "DELETE",
-    "OPTIONS",
-  ],
-
-  allowedHeaders: [
-    "Content-Type",
-    "Authorization",
-    "X-Requested-With",
-    "Accept",
-  ],
-};
-
-// Apply CORS globally
-app.use(cors(corsOptions));
-
-/* =========================================================
-   SECURITY
-========================================================= */
-
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
+}));
 app.use(helmet());
 
-/* =========================================================
-   RAZORPAY WEBHOOK
+// Must remain BEFORE express.json() for Razorpay signature verification.
+app.post("/api/payments/webhook", express.raw({ type: "application/json", limit: "1mb" }), paymentWebhook);
 
-   IMPORTANT:
-   This must remain BEFORE express.json().
-
-   Razorpay uses the exact raw request body
-   for webhook signature verification.
-========================================================= */
-
-app.post(
-  "/api/payments/webhook",
-  express.raw({
-    type: "application/json",
-    limit: "1mb",
-  }),
-  paymentWebhook
-);
-
-/* =========================================================
-   BODY PARSERS
-========================================================= */
-
-app.use(
-  express.json({
-    limit: "2mb",
-  })
-);
-
-app.use(
-  express.urlencoded({
-    extended: true,
-    limit: "2mb",
-  })
-);
-
+app.use(express.json({ limit: "2mb" }));
+app.use(express.urlencoded({ extended: true, limit: "2mb" }));
 app.use(cookieParser());
 
-/* =========================================================
-   HEALTH / ROOT
-========================================================= */
+app.get("/", (req, res) => res.json({ success: true, message: "Welcome to HAMPORIUM API" }));
 
-app.get("/", (req, res) => {
-  res.json({
-    success: true,
-    message: "Welcome to HAMPORIUM API",
-  });
-});
+// Inspect only successful responses from existing auth routes, without changing auth logic.
+app.use("/api/auth", captureAuthActivity);
 
-/* =========================================================
-   API ROUTES
-========================================================= */
+// New Customer 360 endpoints. The admin branch requires a verified admin JWT.
+app.use("/api/customer-intelligence", customerIntelligenceRoutes);
 
+// Preserve every existing HAMPORIUM API.
 app.use("/api", routes);
 
-/* =========================================================
-   404 HANDLER
-========================================================= */
-
-app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    message: "API route not found",
-  });
-});
-
-/* =========================================================
-   GLOBAL ERROR HANDLER
-========================================================= */
-
+app.use((req, res) => res.status(404).json({ success: false, message: "API route not found" }));
 app.use(errorHandler);
-
 export default app;

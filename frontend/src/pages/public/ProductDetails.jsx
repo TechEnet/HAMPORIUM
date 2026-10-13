@@ -1,3 +1,5 @@
+// EXACT PATH: frontend/src/pages/public/ProductDetails.jsx
+// ACTION: REPLACE - CUSTOMER 360 FRONTEND V1
 import { useEffect, useRef, useState, } from "react";
 import { Link, useLocation, useNavigate, useParams, } from "react-router-dom";
 import api from "../../api/api.js";
@@ -6,6 +8,7 @@ import { useAuth, } from "../../context/AuthContext.jsx";
 import { useCart, } from "../../context/CartContext.jsx";
 import { useDeliveryLocation, } from "../../context/LocationContext.jsx";
 import { trackProductView, } from "../../utils/analytics.js";
+import { trackCustomerActivity } from "../../utils/customerActivity.js";
 import { saveBuyNowIntent, } from "../../utils/buyNow.js";
 import { clearStoredPartnerReferral, getStoredPartnerReferral, storePartnerReferral, } from "../../utils/partnerReferral.js";
 import ProductReviewsSection from "../../components/reviews/ProductReviewsSection.jsx";
@@ -381,6 +384,7 @@ const ProductDetails = () => {
         }
         trackedProductRef.current =
             viewKey;
+        void trackCustomerActivity("product_viewed", { productId: product._id, skuId: selectedSku?._id, path: location.pathname });
         void trackProductView({
             productId: product._id,
             skuId: selectedSku?._id,

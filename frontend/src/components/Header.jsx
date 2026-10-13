@@ -1,3 +1,5 @@
+// EXACT PATH: frontend/src/components/Header.jsx
+// ACTION: REPLACE - CUSTOMER 360 FRONTEND V1
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -7,6 +9,7 @@ import { useAuth } from "../context/AuthContext.jsx";
 import { useCart } from "../context/CartContext.jsx";
 import { useDeliveryLocation } from "../context/LocationContext.jsx";
 import { trackSearchAnalytics } from "../utils/analytics.js";
+import { trackCustomerActivity } from "../utils/customerActivity.js";
 import HeaderNotifications from "./HeaderNotifications.jsx";
 
 import logoLight from "../assets/images/logo_dark.jpeg";
@@ -594,6 +597,7 @@ const Header = () => {
       visibleResultCount: searchLoading ? null : searchResults.length,
       pagePath: currentPagePath, location: deliveryLocation,
     });
+    void trackCustomerActivity("search_submitted", { query, path: currentPagePath });
     closePanel(false);
     navigate(`/gifts?search=${encodeURIComponent(query)}`);
   };
