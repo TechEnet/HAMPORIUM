@@ -2839,6 +2839,145 @@ const CustomHamper = () => {
           .v83-media .v83-photo img.v91-card-photo-layer { transition: none !important; }
         }
 
+        /* V93 | RESTORE THE ORIGINAL V91 CARD HEIGHT, THEN REALLOCATE 60/40.
+           Calculate total height from the ORIGINAL image aspect (mobile 2:1,
+           desktop 3:2) plus the original compact details height. This prevents
+           the fixed 430/470px V92 cards from becoming unnecessarily tall.
+           cqw measures the exact grid width, including inside the builder sidebar. */
+        [data-hamper-boxes-grid="true"],
+        [data-hamper-products-grid="true"],
+        [data-hamper-decorations-grid="true"] {
+          container-type: inline-size;
+          --v93-cols: 2;
+          --v93-gap: 10px;
+          --v93-original-aspect: .5;
+          --v93-original-details: 156px;
+        }
+        @media (min-width: 400px) and (max-width: 767px) {
+          [data-hamper-boxes-grid="true"],
+          [data-hamper-products-grid="true"],
+          [data-hamper-decorations-grid="true"] { --v93-original-details: 162px; }
+        }
+        @media (min-width: 640px) {
+          [data-hamper-boxes-grid="true"],
+          [data-hamper-products-grid="true"],
+          [data-hamper-decorations-grid="true"] {
+            --v93-cols: 3;
+            --v93-gap: 14px;
+          }
+        }
+        @media (min-width: 768px) {
+          [data-hamper-boxes-grid="true"],
+          [data-hamper-products-grid="true"],
+          [data-hamper-decorations-grid="true"] {
+            --v93-original-aspect: .6666667;
+            --v93-original-details: 162px;
+          }
+        }
+        @media (min-width: 1024px) {
+          [data-hamper-products-grid="true"],
+          [data-hamper-decorations-grid="true"] { --v93-cols: 4; }
+        }
+        @media (min-width: 1536px) {
+          [data-hamper-boxes-grid="true"] { --v93-cols: 4; }
+          [data-hamper-products-grid="true"],
+          [data-hamper-decorations-grid="true"] { --v93-cols: 5; }
+        }
+        .v83-card {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr);
+          grid-template-rows: minmax(0, 3fr) minmax(0, 2fr);
+          /* Same height as original compact card at this responsive width. */
+          height: calc(
+            (100cqw - (var(--v93-cols) - 1) * var(--v93-gap))
+              / var(--v93-cols) * var(--v93-original-aspect)
+              + var(--v93-original-details)
+          );
+          min-height: 0;
+        }
+        .v83-card > .v83-media {
+          grid-column: 1;
+          grid-row: 1;
+          min-width: 0;
+          min-height: 0;
+          height: 100%;
+          overflow: hidden;
+        }
+        .v83-card > .v83-content {
+          grid-column: 1;
+          grid-row: 2;
+          min-width: 0;
+          min-height: 0;
+          height: 100%;
+          overflow: hidden;
+          padding: 6px 9px;
+        }
+        .v83-card .v83-photo,
+        .v83-card.v85-box-card .v83-photo,
+        .v83-card.v83-decor .v83-photo {
+          aspect-ratio: auto;
+          width: 100%;
+          height: 100%;
+          overflow: hidden;
+        }
+        .v83-card .v83-photo img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          object-position: center;
+          padding: 0;
+        }
+        /* Compact the EXISTING content, not the card; every label/action stays. */
+        .v83-card .v83-topline { min-height: 11px; margin-bottom: 2px; }
+        .v83-card .v83-category { font-size: 9px; line-height: 1.1; }
+        .v83-card .v83-topline-star { font-size: 11px; line-height: 1; }
+        .v83-card .v83-title { min-height: 0; font-size: 12px; line-height: 1.2; }
+        .v83-card .v83-price-row { padding-top: 3px; }
+        .v83-card .v83-price { font-size: 17px; line-height: 1.08; }
+        .v83-card .v83-mrp { font-size: 9px; }
+        .v83-card .v83-rule { margin: 3px 0; }
+        .v83-card .v83-actions { gap: 5px; }
+        .v83-card .v83-btn { min-height: 32px; padding: 4px 3px; font-size: 10px; }
+        .v83-card .v83-qty { min-height: 32px; grid-template-columns: 27px minmax(0, 1fr) 27px; }
+        .v83-card.v83-decor .v83-title { min-height: 0; }
+        .v83-card.v83-decor .v83-content { padding-bottom: 6px; }
+        .v83-card.v83-decor .v83-qty { grid-template-columns: 27px minmax(0, 1fr) 27px; }
+        @media (max-width: 399px) {
+          .v83-card > .v83-content { padding: 4px 6px; }
+          .v83-card .v83-topline { min-height: 9px; margin-bottom: 1px; }
+          .v83-card .v83-category { font-size: 8px; line-height: 1; }
+          .v83-card .v83-title { font-size: 10px; line-height: 1.14; }
+          .v83-card .v83-price-row { padding-top: 1px; }
+          .v83-card .v83-price { font-size: 15px; line-height: 1.05; }
+          .v83-card .v83-rule { margin: 2px 0; }
+          .v83-card .v83-actions { gap: 4px; }
+          .v83-card .v83-btn { min-height: 27px; padding: 3px 2px; font-size: 9px; }
+          .v83-card .v83-qty, .v83-card.v83-decor .v83-qty {
+            min-height: 27px;
+            grid-template-columns: 23px minmax(0, 1fr) 23px;
+          }
+          .v83-card.v83-decor .v83-content { padding-bottom: 4px; }
+        }
+        /* At very narrow 280-319px widths, keep the product name on one
+           readable line instead of letting it collide with the price. The
+           full name remains accessible through Details and the title tooltip. */
+        @media (max-width: 319px) {
+          .v83-card .v83-title {
+            display: block;
+            min-height: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+        }
+        @media (min-width: 768px) {
+          .v83-card > .v83-content { padding: 8px 10px; }
+          .v83-card .v83-title { font-size: 13px; line-height: 1.2; }
+          .v83-card .v83-price { font-size: 18px; }
+          .v83-card .v83-btn, .v83-card .v83-qty { min-height: 34px; }
+          .v83-card.v83-decor .v83-content { padding-bottom: 8px; }
+        }
+
         /* V82: layered photo crossfade; reduced-motion override below. */
         @keyframes v82GalleryFadeIn { from { opacity: 0; } to { opacity: 1; } }
         .v82-gallery-fade { animation: v82GalleryFadeIn .42s cubic-bezier(.22,1,.36,1) both; }
@@ -3426,8 +3565,10 @@ const CustomHamper = () => {
       <section className="mx-auto w-full max-w-[1920px] px-3 sm:px-5 lg:px-6 xl:px-7 2xl:px-8">
         <div
           ref={mobileFlowRef}
-          className="mb-2 grid scroll-mt-[76px] grid-cols-1 gap-2 sm:mb-4 sm:scroll-mt-[108px] sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center sm:gap-3"
+          className={`scroll-mt-[76px] sm:scroll-mt-[108px] ${mobileStep === 1 ? "mb-2 grid grid-cols-1 gap-2 sm:mb-4 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center sm:gap-3" : ""}`}
         >
+          {mobileStep === 1 && (
+            <>
           <h1
             style={{ fontFamily: DISPLAY_FONT }}
             className="min-w-0 text-[28px] font-semibold leading-[.96] tracking-[-.04em] text-[#171717] sm:col-start-1 sm:text-[34px] lg:text-[38px]"
@@ -3452,6 +3593,8 @@ const CustomHamper = () => {
           </div>
 
           <div aria-hidden="true" className="hidden sm:block sm:col-start-3 sm:row-start-1" />
+            </>
+          )}
         </div>
 
         <div
@@ -3514,7 +3657,7 @@ const CustomHamper = () => {
                 {containers.length === 0 ? (
                   <V7Empty>No custom hamper boxes are available right now.</V7Empty>
                 ) : (
-                  <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3.5 lg:grid-cols-3 2xl:grid-cols-4">
+                  <div data-hamper-boxes-grid="true" className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3.5 lg:grid-cols-3 2xl:grid-cols-4">
                     {containers.map((container) => (
                       <div key={container._id} className="min-w-0">
                         <V7ContainerCard
