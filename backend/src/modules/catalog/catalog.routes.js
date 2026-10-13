@@ -1,5 +1,5 @@
 // PATH: backend/src/modules/catalog/catalog.routes.js
-// HAMPORIUM V26 FULL REPLACEMENT
+// HAMPORIUM V26.1 FULL REPLACEMENT - ARCHIVE ROUTE RESTORED
 import { Router } from "express";
 
 import fs from "node:fs";
@@ -107,6 +107,7 @@ import {
   prepareProductMasterImageSync,
   advanceProductMasterImageSync,
   getProductMasterImageSyncStatus,
+  getProductMasterArchive,
 
 } from "./catalog.controller.js";
 
@@ -589,6 +590,10 @@ router.post(
   runProductMasterExclusive("image-sync", advanceProductMasterImageSync)
 );
 router.get("/admin/import/product-master/images/status/:jobId", getProductMasterImageSyncStatus);
+
+// V26.1: restores the catalogue readiness and image audit endpoint.
+// Admin auth is enforced above by router.use("/admin", protect, adminAccess).
+router.get("/admin/import/product-master/archive", getProductMasterArchive);
 
 router.get("/admin/categories", getAdminCategories);
 
