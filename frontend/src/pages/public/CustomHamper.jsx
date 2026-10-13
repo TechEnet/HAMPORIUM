@@ -2699,6 +2699,151 @@ const CustomHamper = () => {
         .v10-primary-cta::after { content: ""; position: absolute; inset: -60% auto -60% -34%; width: 22%; background: linear-gradient(90deg, transparent, rgba(255,255,255,.38), transparent); transform: skewX(-18deg); pointer-events: none; }
         .v10-primary-cta:hover::after { animation: v10Shimmer .8s cubic-bezier(.16,1,.3,1); }
 
+
+        /* V83 | COLLECTABLE GIFT CARDS. Scope strictly to builder catalogue cards. */
+        .v83-card {
+          position: relative; isolation: isolate; display: flex; flex-direction: column;
+          height: 100%; min-width: 0; overflow: hidden;
+          border: 1px solid var(--v83-border); border-radius: 19px;
+          background: linear-gradient(154deg,#fff 10%,var(--v83-soft) 100%);
+          box-shadow: 0 6px 17px rgba(39,23,16,.055),0 1px 2px rgba(33,24,19,.045);
+          transition: transform .36s cubic-bezier(.22,1,.36,1), box-shadow .36s ease, border-color .3s;
+          -webkit-tap-highlight-color: transparent;
+        }
+        .v83-card:hover { transform: translateY(-5px); border-color:var(--v83-accent); box-shadow: 0 18px 35px var(--v83-shadow),0 5px 12px rgba(35,25,20,.08); }
+        .v83-card.is-selected { border-color: var(--v83-accent); box-shadow:0 0 0 2px var(--v83-accent),0 13px 29px var(--v83-shadow); }
+        .v83-card, .v83-card:hover, .v83-card.is-selected { border-top-color: rgba(64,48,42,.12); }
+        .v83-card:focus-visible { outline: 3px solid var(--v83-accent); outline-offset: 3px; }
+        .v83-media { position: relative; overflow: hidden; flex: none; background: var(--v83-soft); }
+        .v83-media .v83-photo { position: relative; z-index: 0; aspect-ratio: 3 / 2; }
+        .v83-media .v83-photo img { transition: transform .62s cubic-bezier(.22,1,.36,1); }
+        .v83-card:hover .v83-photo img { transform: scale(1.045); }
+        .v83-recommend, .v83-quantity-badge, .v83-pending {
+          position:absolute; z-index:4; top:10px; padding:6px 9px; border-radius:999px;
+          font-size:10px; line-height:1.15; letter-spacing:.015em; font-weight:900;
+          box-shadow:0 5px 15px rgba(0,0,0,.14); backdrop-filter: blur(9px);
+        }
+        .v83-recommend { left:8px; color:white; background:linear-gradient(110deg,var(--v83-accent),var(--v83-deep)); max-width:80%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .v83-pending { left:8px; color:#865410; background:rgba(255,248,226,.96); border:1px solid #f7d17e; }
+        .v83-quantity-badge { right:8px; background:rgba(18,22,26,.86); color:#fff; }
+        .v83-content { display:flex; flex:1; flex-direction:column; gap:0; min-width:0; padding:10px 12px 10px; }
+        .v83-topline { display:flex; align-items:center; justify-content:space-between; gap:6px; min-height:18px; margin-bottom:4px; }
+        .v83-category { min-width:0; max-width:100%; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:9px; line-height:1.35; font-weight:900; letter-spacing:.08em; color:var(--v83-deep); text-transform:uppercase; }
+        .v83-topline-star { flex:0 0 auto; font-size:13px; color:var(--v83-accent); opacity:.78; }
+        .v83-title { margin:0; min-height:36px; overflow:hidden; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; font-size:13px; line-height:1.48; font-weight:850; letter-spacing:-.018em; color:#282027; }
+        .v83-price-row { display:flex; align-items:baseline; gap:7px; flex-wrap:wrap; margin-top:auto; padding-top:8px; }
+        .v83-price { font-size:19px; font-weight:950; letter-spacing:-.045em; color:var(--v83-deep); line-height:1.15; }
+        .v83-mrp { color:#8d8584; font-size:10px; font-weight:700; text-decoration:line-through; }
+        .v83-rule { height:1px; margin:8px 0 8px; background:linear-gradient(90deg,var(--v83-border),transparent); }
+        .v83-actions { display:grid; grid-template-columns:minmax(0,.92fr) minmax(0,1.08fr); align-items:stretch; gap:7px; }
+        .v83-btn { position:relative; min-width:0; min-height:37px; border-radius:10px; padding:6px 5px; font-size:11px; font-weight:900; line-height:1.1; transition:transform .25s,background .25s,box-shadow .25s; }
+        .v83-btn:focus-visible, .v83-qty button:focus-visible { outline:2px solid var(--v83-accent); outline-offset:2px; }
+        .v83-btn:active:not(:disabled) { transform:scale(.97); }
+        .v83-btn-details { border:1px solid var(--v83-border); color:var(--v83-deep); background:rgba(255,255,255,.83); }
+        .v83-btn-details:hover { background:#fff; box-shadow:0 3px 12px var(--v83-shadow); }
+        .v83-btn-add { border:1px solid transparent; color:white; background:linear-gradient(117deg,var(--v83-accent),var(--v83-deep)); box-shadow:0 4px 10px var(--v83-shadow); }
+        .v83-btn-add:hover:not(:disabled) { box-shadow:0 6px 15px var(--v83-shadow); filter:brightness(1.06); }
+        .v83-btn:disabled { cursor:not-allowed; box-shadow:none; background:#ece9e5; border-color:#e4dfdb; color:#98918d; filter:none; }
+        .v83-qty { display:grid; min-width:0; grid-template-columns:32px minmax(0,1fr) 32px; min-height:37px; overflow:hidden; border:1px solid var(--v83-border); border-radius:10px; background:rgba(255,255,255,.9); }
+        .v83-qty button { min-width:0; border:0; background:transparent; color:var(--v83-deep); font-size:16px; font-weight:900; transition:background .2s; }
+        .v83-qty button:hover:not(:disabled) { background:var(--v83-tint); }
+        .v83-qty button:disabled { opacity:.3; cursor:not-allowed; }
+        .v83-qty strong { display:flex; align-items:center; justify-content:center; font-size:11px; color:#2f2630; border-left:1px solid var(--v83-border); border-right:1px solid var(--v83-border); }
+        /* V85: gift box selection cards use the same colourful system. */
+        .v85-box-card .v83-photo { aspect-ratio: 3 / 2; }
+        .v85-box-selected { border:1px solid var(--v83-border); color:var(--v83-deep); background:var(--v83-tint); cursor:default; }
+        .v85-box-selected:hover { background:var(--v83-tint); }
+        .v83-decor .v83-photo { aspect-ratio:3 / 2; }
+        .v83-decor .v83-title { min-height:36px; }
+        .v83-decor .v83-content { padding-bottom:10px; }
+        .v83-decor-footer { margin-top:7px; display:flex; align-items:center; justify-content:space-between; gap:5px; }
+        .v83-decor-detail { min-width:0; color:var(--v83-deep); font-size:10px; font-weight:850; white-space:nowrap; }
+        .v83-decor .v83-qty { margin-top:0; grid-template-columns:32px minmax(0,1fr) 32px; }
+        @media(max-width:399px) {
+          .v83-card { border-radius:15px; }
+          .v83-content { padding:9px 8px 9px; }
+          .v83-title { font-size:12px; min-height:36px; }
+          .v83-price { font-size:17px; }
+          .v83-btn { font-size:10px; min-height:35px; }
+          .v83-actions { gap:5px; }
+          .v83-qty { grid-template-columns:26px minmax(0,1fr) 26px; min-height:35px; }
+          .v83-decor .v83-qty { grid-template-columns:28px minmax(0,1fr) 28px; }
+          .v83-recommend, .v83-quantity-badge, .v83-pending { font-size:9px; padding:5px 6px; top:8px; }
+        }
+        @media(prefers-reduced-motion:reduce) {
+          .v83-card,.v83-media .v83-photo img,.v83-btn,.v83-qty button { transition:none!important; transform:none!important; }
+        }
+
+        /* V87: mobile cards ~10% shorter, same full-cover photo and controls. */
+        @media (max-width: 767px) {
+          .v83-card .v83-photo { aspect-ratio: 2 / 1; }
+        }
+
+        /* V88 · SPOTLIGHT HOVER. No detached popup, always aligned to its card. */
+        .v83-media {
+          transform-origin: center 43%;
+          transition: box-shadow .45s ease, border-radius .45s ease;
+        }
+        .v83-photo::after {
+          content: ""; position: absolute; inset: 0; z-index: 2;
+          pointer-events: none; opacity: 0;
+          background: linear-gradient(117deg, transparent 24%, rgba(255,255,255,.17) 43%, transparent 60%);
+          transform: translateX(-110%);
+        }
+        @media (min-width: 900px) and (hover:hover) and (pointer:fine) {
+          .v83-card:hover { z-index: 3; transform: translateY(-5px) scale(1.012); }
+          .v83-card .v83-media { border-radius: 18px 18px 0 0; }
+          .v83-card:hover .v83-media {
+            overflow: hidden;
+            box-shadow: inset 0 0 0 2px rgba(255,255,255,.22);
+          }
+          .v83-card:hover .v83-photo img {
+            transform: scale(1.14);
+            filter: saturate(1.05) contrast(1.01);
+          }
+          .v83-card:hover .v83-photo::after {
+            opacity: 1; animation: v88SpotlightSweep .85s ease-out .08s 1 both;
+          }
+        }
+        @keyframes v88SpotlightSweep {
+          from { transform: translateX(-110%); }
+          to { transform: translateX(125%); }
+        }
+        @media (max-width: 899px), (hover:none), (pointer:coarse) {
+          .v83-card:hover .v83-media { transform:none; box-shadow:none; }
+        }
+        @media (prefers-reduced-motion:reduce) {
+          .v83-media, .v83-photo::after { transition:none!important; animation:none!important; }
+          .v83-card:hover .v83-media, .v83-card:hover .v83-photo img { transform:none!important; }
+          .v83-card:hover .v83-photo img { filter:none!important; }
+        }
+
+        /* V85: selected gift thumbnails fill their entire miniature packing frame. */
+        .v60-live-stage .v20-pack-card { overflow:hidden; }
+        .v60-live-stage .v20-pack-image {
+          display:block; width:100%; height:100%; padding:0 !important;
+          object-fit:cover !important; object-position:center;
+          border-radius:inherit; background:transparent;
+        }
+        /* V91: compositor-friendly two-layer card slideshow. Neither photo
+           is recreated on every transition; only their opacity swaps. */
+        .v83-media .v83-photo img.v91-card-photo-layer {
+          transition: opacity .72s cubic-bezier(.4,0,.2,1), transform .62s cubic-bezier(.22,1,.36,1);
+          backface-visibility: hidden;
+          -webkit-backface-visibility: hidden;
+        }
+        @media (hover:hover) and (pointer:fine) {
+          .v83-card:hover .v91-card-photo-layer { will-change: opacity, transform; }
+        }
+        @media (prefers-reduced-motion:reduce) {
+          .v83-media .v83-photo img.v91-card-photo-layer { transition: none !important; }
+        }
+
+        /* V82: layered photo crossfade; reduced-motion override below. */
+        @keyframes v82GalleryFadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .v82-gallery-fade { animation: v82GalleryFadeIn .42s cubic-bezier(.22,1,.36,1) both; }
+        @media (prefers-reduced-motion: reduce) { .v82-gallery-fade { animation: none !important; } }
+
         @keyframes v13ModalBackdropIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes v13ModalPanelIn { from { opacity: 0; transform: translateY(16px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
         .v13-modal-backdrop { animation: v13ModalBackdropIn .18s ease-out both; }
@@ -3369,7 +3514,7 @@ const CustomHamper = () => {
                 {containers.length === 0 ? (
                   <V7Empty>No custom hamper boxes are available right now.</V7Empty>
                 ) : (
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+                  <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3.5 lg:grid-cols-3 2xl:grid-cols-4">
                     {containers.map((container) => (
                       <div key={container._id} className="min-w-0">
                         <V7ContainerCard
@@ -4644,130 +4789,113 @@ const V11ContainerDetailsModal = ({
   );
 };
 
-const V7ContainerCard = ({ container, active, onClick }) => {
-  const [detailsOpen, setDetailsOpen] =
-    useState(false);
+// V88: Responsive Spotlight Hover is CSS-only and anchored to the card itself.
+// No fixed-position photo portal, viewport calculations or extra image requests.
+// Full product photos and manual controls remain in the existing Details modal.
 
-  const hasPrice =
-    container.sellingPrice !== null &&
-    container.sellingPrice !== undefined;
+const V7ContainerCard = ({ container, active, onClick }) => {
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  // V89: Run this card's photo slideshow only while a real pointer hovers it.
+  const [photoHovered, setPhotoHovered] = useState(false);
+  const beginPhotoHover = (event) => {
+    if (event.pointerType === "mouse" || event.pointerType === "pen") {
+      setPhotoHovered(true);
+    }
+  };
+  const endPhotoHover = () => setPhotoHovered(false);
+  const hasPrice = container.sellingPrice !== null && container.sellingPrice !== undefined;
   const builderReady = container.builderStatus?.selectable !== false;
   const builderReasons = Array.isArray(container.builderStatus?.reasons)
-    ? container.builderStatus.reasons
-    : [];
+    ? container.builderStatus.reasons : [];
   const popularity = container.popularity || null;
   const popularityLabel = popularity?.label || "";
   const hamperSoldCount = Number(popularity?.soldCount || 0);
 
   const handleCardClick = (event) => {
-    if (
-      event.target.closest("button")
-    ) {
-      return;
-    }
-
+    if (event.target.closest("button")) return;
     setDetailsOpen(true);
   };
 
   return (
     <>
       <article
+        className={`v83-card v85-box-card group cursor-pointer ${active ? "is-selected" : ""}`}
+        style={v83CardTheme(container)}
+        onPointerEnter={beginPhotoHover}
+        onPointerLeave={endPhotoHover}
         onClick={handleCardClick}
-        className="group min-w-0 cursor-pointer"
+        onKeyDown={(event) => {
+          if (event.target !== event.currentTarget) return;
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            setDetailsOpen(true);
+          }
+        }}
+        tabIndex={0}
+        aria-label={`${container.name}. Click for box details.`}
       >
-        {/* FULL-BLEED IMAGE · NO CARD BORDER */}
-        <div className="relative aspect-[4/3] w-full overflow-hidden bg-[#F1ECE5]">
-          <CatalogGalleryImage images={container.images} name={container.name} imageClassName="h-full w-full object-cover transition duration-500 group-hover:scale-[1.035]" />
-
+        <div className="v83-media">
+          <div className="v83-photo">
+            <CatalogGalleryImage
+              images={container.images}
+              name={container.name}
+              imageClassName="h-full w-full object-cover"
+              autoPlay={photoHovered && !detailsOpen}
+              showControls={false}
+            />
+          </div>
           {popularityLabel && (
-            <span
-              className="absolute left-2.5 top-2.5 z-10 inline-flex items-center gap-1 rounded-full border border-[#E9C861]/45 bg-[#171717]/92 px-2.5 py-1 text-[12px] font-black uppercase tracking-[0.06em] text-[#F4D778] shadow-[0_7px_18px_rgba(0,0,0,.16)] backdrop-blur-sm"
-              title={`${popularityLabel}${hamperSoldCount > 0 ? ` · ${hamperSoldCount} hampers chosen` : ""}`}
-            >
-              <span aria-hidden="true">★</span>
-              {popularityLabel}
+            <span className="v83-recommend" title={`${popularityLabel}${hamperSoldCount > 0 ? ` · ${hamperSoldCount} hampers chosen` : ""}`}>
+              ★ {popularityLabel}
             </span>
           )}
-
           {!builderReady && (
-            <span
-              className={`absolute left-2.5 z-10 max-w-[78%] truncate rounded-full border border-amber-200 bg-amber-50/95 px-2.5 py-1 text-[12px] font-black text-amber-700 shadow-sm backdrop-blur-sm ${
-                popularityLabel ? "top-10" : "top-2.5"
-              }`}
-              title={builderReasons.join(", ")}
-            >
-              Data pending: {builderReasons[0] || "builder setup incomplete"}
+            <span className="v83-pending" style={popularityLabel ? { top: "42px" } : undefined} title={builderReasons.join(", ")}>
+              Data pending
             </span>
           )}
-
-          {active && (
-            <>
-              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[3px] bg-[#F47822]" />
-
-              <span className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-[#F47822] text-[14px] font-black text-white shadow-[0_8px_22px_rgba(244,120,34,.30)]">
-                ✓
-              </span>
-            </>
-          )}
+          {active && <span className="v83-quantity-badge">✓ Selected</span>}
         </div>
-
-        {/* DETAILS DIRECTLY UNDER IMAGE */}
-        <div className="pt-3">
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0 flex-1">
-              <p className="line-clamp-2 min-h-[38px] text-[13px] font-black leading-[1.4] text-[#171717]">
-                {container.name}
-              </p>
-
-            </div>
-
-            <span className="shrink-0 text-[15px] font-black text-[#171717]">
-              {hasPrice
-                ? formatCurrency(
-                    container.sellingPrice
-                  )
-                : "Price pending"}
+        <div className="v83-content">
+          <div className="v83-topline">
+            <span className="v83-category" title={container.material || "Hamper box"}>
+              {container.material || "Hamper box"}
+            </span>
+            <span className="v83-topline-star" aria-hidden="true">✦</span>
+          </div>
+          <p className="v83-title" title={container.name}>{container.name}</p>
+          <div className="v83-price-row">
+            <span className="v83-price">
+              {hasPrice ? formatCurrency(container.sellingPrice) : "Price pending"}
             </span>
           </div>
-
-          <div className="mt-3 flex items-center justify-end gap-2">
+          <div className="v83-rule" aria-hidden="true" />
+          <div className="v83-actions" onClick={(event) => event.stopPropagation()}>
             <button
               type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                setDetailsOpen(true);
-              }}
-              className="h-9 rounded-lg border border-black/[0.08] bg-white px-3.5 text-[11px] font-black text-black/55 transition hover:border-black/20 hover:text-[#171717] active:scale-[.98] sm:text-[12px]"
+              className="v83-btn v83-btn-details"
+              onClick={(event) => { event.stopPropagation(); setDetailsOpen(true); }}
+              aria-label={`View details for ${container.name}`}
             >
-              Details
+              Details ↗
             </button>
-
             <button
               type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                if (!active) onClick();
-              }}
-              className={`h-9 rounded-lg px-4 text-[11px] font-black transition active:scale-[.98] sm:text-[12px] ${
-                active
-                  ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
-                  : "bg-[#171717] text-white hover:bg-[#9A7316]"
-              }`}
+              className={`v83-btn ${active ? "v85-box-selected" : "v83-btn-add"}`}
+              onClick={(event) => { event.stopPropagation(); if (!active) onClick(); }}
+              aria-label={`${active ? "Selected" : builderReady ? "Select" : "Preview"} ${container.name}`}
             >
               {active ? "✓ Selected" : builderReady ? "Select" : "Preview"}
             </button>
           </div>
         </div>
       </article>
-
       {detailsOpen && (
         <V11ContainerDetailsModal
           container={container}
           active={active}
           onSelect={onClick}
-          onClose={() =>
-            setDetailsOpen(false)
-          }
+          onClose={() => setDetailsOpen(false)}
         />
       )}
     </>
@@ -4908,47 +5036,58 @@ const V10ProductDetailsModal = ({
     component.mrp !== undefined &&
     Number(component.mrp) > Number(component.sellingPrice);
 
-  const isFood = component.type === "food";
-  const expiryValue = component.expiryDate
-    ? formatDate(component.expiryDate)
-    : component.expiryTracked === false
-      ? "Not expiry tracked"
-      : "Not specified";
+  // V82: Only show meaningful facts actually supplied for this product.
+  // Non-food gifts never show the food-only expiry/shelf-life/dietary slots.
+  const productType = String(component.type || "").trim().toLowerCase();
+  const foodCategory = `${component.category || ""} ${component.subcategory || ""}`.toLowerCase();
+  const explicitlyNonFood = /non[\s-]?food/.test(`${productType} ${foodCategory}`);
+  const isFood = !explicitlyNonFood && (
+    productType === "food" ||
+    /food|edible|snack|sweet|chocolate|bakery|beverage|drink|gourmet/.test(foodCategory)
+  );
 
-  const shelfLifeValue =
-    component.shelfLifeDays !== null &&
-    component.shelfLifeDays !== undefined
-      ? `${component.shelfLifeDays} days`
-      : "Not specified";
+  const useful = (value) => {
+    if (value === undefined || value === null || value === "") return false;
+    if (typeof value === "number") return Number.isFinite(value) && value > 0;
+    if (typeof value !== "string") return false;
+    const text = value.trim().toLowerCase();
+    return Boolean(text) && ![
+      "—", "-", "n/a", "na", "not applicable", "not specified",
+      "not provided", "not available", "none", "null", "undefined",
+      "unknown", "not expiry tracked", "not tracked",
+    ].includes(text);
+  };
 
-  const details = [
-    ["Brand", component.brand || "HAMPORIUM selection"],
-    ["Code / SKU", component.code],
-    ["Category", component.category],
-    ["Subcategory", component.subcategory],
-    ["Segment", component.segment],
-    ["Size / pack", formatPackSize(component)],
-    ["Weight", formatWeight(component.weight)],
-    ["Dimensions", formatDimensions(component.dimensions)],
-    ["Expiry", expiryValue],
-    ["Shelf life", shelfLifeValue],
-    ["Dietary", component.dietary],
-    [
-      "Fragile",
-      component.fragile === true
-        ? "Yes"
-        : component.fragile === false
-          ? "No"
-          : "Not specified",
-    ],
-    [
-      "Personalisation",
-      component.personalizable
-        ? component.personalizationMethod || "Available"
-        : "Not available",
-    ],
-    ["GST", missingPrice ? "Not specified" : taxLabel(component)],
-  ];
+  const details = [];
+  const include = (label, value) => {
+    if (useful(value)) details.push([label, String(value).trim()]);
+  };
+
+  include("Brand", component.brand);
+  include("Code / SKU", component.code);
+  include("Category", component.category);
+  include("Subcategory", component.subcategory);
+  include("Size / pack", formatPackSize(component));
+  include("Weight", formatWeight(component.weight));
+  include("Dimensions", formatDimensions(component.dimensions));
+
+  if (isFood) {
+    if (component.expiryTracked !== false && component.expiryDate && formatDate(component.expiryDate) !== "—") {
+      include("Expiry", formatDate(component.expiryDate));
+    }
+    if (Number(component.shelfLifeDays) > 0) {
+      include("Shelf life", `${component.shelfLifeDays} days`);
+    }
+    include("Dietary", component.dietary);
+  }
+
+  // Display meaningful handling and customisation options, not a grid of "No".
+  if (component.fragile === true) include("Handling", "Fragile – handle with care");
+  if (component.personalizable === true) {
+    include("Personalisation", component.personalizationMethod || "Available");
+  }
+  // The price area already communicates GST; do not duplicate unavailable tax data.
+  const hasFoodFreshness = isFood && details.some(([label]) => label === "Expiry" || label === "Shelf life");
 
   return (
     <DetailModalPortal onClose={onClose}>
@@ -4997,7 +5136,7 @@ const V10ProductDetailsModal = ({
               <div className="border-b border-black/[0.07] bg-[#F7F2EB] p-5 lg:border-b-0 lg:border-r lg:p-6">
                 <div className="overflow-hidden rounded-[20px] border border-black/[0.06] bg-white shadow-[0_12px_30px_rgba(0,0,0,.04)]">
                   <div className="aspect-square bg-[#FBF8F4]">
-                    <CatalogGalleryImage images={component.images} name={component.name} imageClassName="h-full w-full object-contain p-4" />
+                    <CatalogGalleryImage images={component.images} name={component.name} imageClassName="h-full w-full object-contain" allowZoom />
                   </div>
                 </div>
 
@@ -5041,16 +5180,18 @@ const V10ProductDetailsModal = ({
                   </span>
                 </div>
 
-                <div className="mt-3 grid gap-x-7 sm:grid-cols-2">
-                  {details.map(([label, value]) => (
-                    <V10DetailRow
-                      key={label}
-                      label={label}
-                      value={value}
-                      accent={label === "Expiry" && Boolean(component.expiryDate)}
-                    />
-                  ))}
-                </div>
+                {details.length > 0 && (
+                  <div className="mt-3 grid gap-x-7 sm:grid-cols-2">
+                    {details.map(([label, value]) => (
+                      <V10DetailRow
+                        key={label}
+                        label={label}
+                        value={value}
+                        accent={label === "Expiry" && Boolean(component.expiryDate)}
+                      />
+                    ))}
+                  </div>
+                )}
 
                 {builderBlocked && (
                   <div className="mt-5 rounded-[16px] border border-amber-200 bg-amber-50 px-4 py-3">
@@ -5065,7 +5206,7 @@ const V10ProductDetailsModal = ({
                   </div>
                 )}
 
-                {component.description && (
+                {useful(component.description) && (
                   <div className="mt-5 rounded-[16px] bg-[#FAF8F5] p-4">
                     <p className="text-[11px] font-black uppercase tracking-[0.1em] text-black/32">
                       Description
@@ -5076,7 +5217,7 @@ const V10ProductDetailsModal = ({
                   </div>
                 )}
 
-                {isFood && (
+                {hasFoodFreshness && (
                   <div className="mt-4 flex items-start gap-3 border-l-[3px] border-[#D4AF37] bg-[#FFFCF5] px-4 py-3.5">
                     <span className="mt-0.5 text-[#9A7316]">✦</span>
                     <div>
@@ -5155,6 +5296,31 @@ const V10ProductDetailsModal = ({
   );
 };
 
+// V83 - palette is stable for each SKU, keeping a colourful collection without
+// changing actual product photos or any price/stock/cart calculation.
+const V83_CARD_THEMES = [
+  { accent: "#DA5278", deep: "#983452", second: "#F4B381", soft: "#FFF1F4", tint: "#FCE0E9", border: "#F5C9D5", shadow: "rgba(177,64,105,.18)" },
+  { accent: "#7562D9", deep: "#4D3DA8", second: "#C19DFF", soft: "#F3F0FF", tint: "#E7E1FF", border: "#D9D0FF", shadow: "rgba(106,82,196,.18)" },
+  { accent: "#168F7C", deep: "#0D665B", second: "#79D7B7", soft: "#EEFAF5", tint: "#D6F3E6", border: "#C4E9DB", shadow: "rgba(28,132,105,.17)" },
+  { accent: "#DB762F", deep: "#A94B23", second: "#F4C46E", soft: "#FFF6EB", tint: "#FDE7CF", border: "#F4D8BE", shadow: "rgba(181,102,39,.18)" },
+  { accent: "#347DD2", deep: "#25589B", second: "#8FC9F0", soft: "#EFF8FF", tint: "#DCEEFF", border: "#C7E2F7", shadow: "rgba(49,110,174,.17)" },
+  { accent: "#B45BA8", deep: "#813E82", second: "#E6A1D0", soft: "#FCF0F9", tint: "#F5DDF0", border: "#E9C9E4", shadow: "rgba(157,75,137,.18)" },
+];
+
+const v83CardTheme = (component) => {
+  const key = String(component?._id || component?.code || component?.name || "gift");
+  const palette = V83_CARD_THEMES[v7Hash(key) % V83_CARD_THEMES.length];
+  return {
+    "--v83-accent": palette.accent,
+    "--v83-deep": palette.deep,
+    "--v83-second": palette.second,
+    "--v83-soft": palette.soft,
+    "--v83-tint": palette.tint,
+    "--v83-border": palette.border,
+    "--v83-shadow": palette.shadow,
+  };
+};
+
 const V7ProductCard = ({
   component,
   quantity,
@@ -5167,204 +5333,123 @@ const V7ProductCard = ({
   onPlus,
 }) => {
   const [detailsOpen, setDetailsOpen] = useState(false);
-
-  const missingPrice =
-    component.sellingPrice === null ||
-    component.sellingPrice === undefined;
+  // V89: Run this card's photo slideshow only while a real pointer hovers it.
+  const [photoHovered, setPhotoHovered] = useState(false);
+  const beginPhotoHover = (event) => {
+    if (event.pointerType === "mouse" || event.pointerType === "pen") {
+      setPhotoHovered(true);
+    }
+  };
+  const endPhotoHover = () => setPhotoHovered(false);
+  const missingPrice = component.sellingPrice === null || component.sellingPrice === undefined;
   const builderBlocked = component.builderStatus?.selectable === false;
   const builderReasons = Array.isArray(component.builderStatus?.reasons)
-    ? component.builderStatus.reasons
-    : [];
-  const recommendationLabel =
-    recommendation?.source === "container"
-      ? Number(recommendation?.rank || 0) === 1
-        ? "Top pick"
-        : "Recommended"
-      : recommendation?.source === "overall"
-        ? "Popular"
-        : "";
+    ? component.builderStatus.reasons : [];
+  const recommendationLabel = recommendation?.source === "container"
+    ? Number(recommendation?.rank || 0) === 1 ? "Top pick" : "Recommended"
+    : recommendation?.source === "overall" ? "Popular" : "";
   const recommendationPickedCount = Number(recommendation?.pickedCount || 0);
-
-  const cannotIncrease =
-    checking || missingPrice || builderBlocked || locked || quantity >= 99;
-
-  const hasMrp =
-    !missingPrice &&
-    component.mrp !== null &&
-    component.mrp !== undefined &&
+  const cannotIncrease = checking || missingPrice || builderBlocked || locked || quantity >= 99;
+  const hasMrp = !missingPrice && component.mrp !== null && component.mrp !== undefined &&
     Number(component.mrp) > Number(component.sellingPrice);
-
   const handleCardClick = (event) => {
     if (event.target.closest("button")) return;
     setDetailsOpen(true);
   };
-
-  const actionLabel = checking
-    ? "Checking"
-    : missingPrice || builderBlocked
-      ? "Pending"
-      : Number(fitLeft || 0) <= 0
-        ? "No fit"
-        : "+ Add";
+  const actionLabel = checking ? "Checking" : missingPrice || builderBlocked
+    ? "Pending" : Number(fitLeft || 0) <= 0 ? "No fit" : "+ Add";
 
   return (
     <>
       <article
+        className={`v83-card group cursor-pointer ${selected ? "is-selected" : ""}`}
+        style={v83CardTheme(component)}
+        onPointerEnter={beginPhotoHover}
+        onPointerLeave={endPhotoHover}
         onClick={handleCardClick}
-        className={`group min-w-0 cursor-pointer rounded-[14px] border bg-white p-2 shadow-[0_7px_22px_rgba(45,31,17,.035)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(45,31,17,.075)] ${
-          selected
-            ? "border-[#F47822]/35 ring-2 ring-[#F47822]/70 ring-offset-2 ring-offset-[#F6F1E9]"
-            : "border-black/[0.065] hover:border-[#D4AF37]/35"
-        }`}
+        onKeyDown={(event) => {
+          if (event.target !== event.currentTarget) return;
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault(); setDetailsOpen(true);
+          }
+        }}
+        tabIndex={0}
         aria-label={`${component.name}. Click for details.`}
       >
-        <div className="relative overflow-hidden rounded-[11px] bg-[#F4EFE8]">
-          <div className="aspect-[5/4]">
-            <CatalogGalleryImage images={component.images} name={component.name} imageClassName="h-full w-full object-contain p-1.5 transition duration-500 group-hover:scale-[1.035] sm:p-2" />
+        <div className="v83-media">
+          <div className="v83-photo">
+            <CatalogGalleryImage images={component.images} name={component.name}
+              imageClassName="h-full w-full object-cover" autoPlay={photoHovered && !detailsOpen} showControls={false} />
           </div>
-
-
           {recommendationLabel && !builderBlocked && (
-            <span
-              className="absolute left-1.5 top-1.5 z-10 max-w-[78%] truncate rounded-full border border-[#E7C65D]/45 bg-[#171717]/92 px-2.5 py-1 text-[12px] font-black text-[#F3D677] shadow-[0_6px_16px_rgba(0,0,0,.14)] backdrop-blur-sm sm:text-[12px]"
-              title={`${recommendationLabel}${recommendationPickedCount > 0 ? ` · ${recommendationPickedCount} picked with this box` : ""}`}
-            >
-              ★ {recommendationLabel}
+            <span className="v83-recommend" title={`${recommendationLabel}${recommendationPickedCount > 0 ? ` · ${recommendationPickedCount} picked with this box` : ""}`}>
+              ✦ {recommendationLabel}
             </span>
           )}
-
-          {selected && (
-            <span className="absolute right-1.5 top-1.5 rounded-full bg-[#171717] px-2.5 py-1 text-[12px] font-black text-white shadow-lg sm:text-[12px]">
-              ×{quantity}
-            </span>
-          )}
-
           {builderBlocked && (
-            <span
-              className="absolute left-1.5 top-1.5 max-w-[72%] truncate rounded-full border border-amber-200 bg-amber-50/95 px-2.5 py-1 text-[12px] font-black text-amber-700 shadow-sm backdrop-blur-sm sm:text-[12px]"
-              title={builderReasons.join(", ")}
-            >
-              Data pending
-            </span>
+            <span className="v83-pending" title={builderReasons.join(", ")}>Data pending</span>
           )}
+          {selected && <span className="v83-quantity-badge">✓ {quantity} added</span>}
         </div>
-
-        <div className="px-0.5 pb-0.5 pt-2">
-          <p className="line-clamp-2 min-h-[40px] text-[14px] font-extrabold leading-[1.35] text-[#171717] sm:text-[14px]">
-            {component.name}
-          </p>
-
-
-          <div className="mt-2 flex min-w-0 items-baseline gap-1.5 pt-1">
-            <span className="truncate text-[16px] font-black text-[#171717] sm:text-[16px]">
-              {missingPrice
-                ? "Price pending"
-                : formatCurrency(component.sellingPrice)}
+        <div className="v83-content">
+          <div className="v83-topline">
+            <span className="v83-category" title={component.subcategory || component.category || "Gift collection"}>
+              {component.subcategory || component.category || "Gift collection"}
             </span>
-            {hasMrp && (
-              <span className="hidden text-[11px] font-semibold text-black/30 line-through sm:inline">
-                {formatCurrency(component.mrp)}
-              </span>
-            )}
+            <span className="v83-topline-star" aria-hidden="true">✦</span>
           </div>
-
-          <div
-            className="mt-2 grid grid-cols-[minmax(0,.9fr)_minmax(0,1.1fr)] gap-1.5 sm:flex sm:items-center sm:gap-2"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                setDetailsOpen(true);
-              }}
-              className="flex h-9 min-w-0 items-center justify-center rounded-[9px] border border-black/[0.09] bg-white px-2 text-[12px] font-black text-black/60 transition hover:border-black/20 hover:bg-black/[0.025] hover:text-[#171717] sm:h-10 sm:min-w-[72px]"
-              aria-label={`View details for ${component.name}`}
-            >
-              Details
+          <p className="v83-title" title={component.name}>{component.name}</p>
+          <div className="v83-price-row">
+            <span className="v83-price">{missingPrice ? "Price pending" : formatCurrency(component.sellingPrice)}</span>
+            {hasMrp && <span className="v83-mrp">{formatCurrency(component.mrp)}</span>}
+          </div>
+          <div className="v83-rule" aria-hidden="true" />
+          <div className="v83-actions" onClick={(event) => event.stopPropagation()}>
+            <button type="button" className="v83-btn v83-btn-details"
+              onClick={(event) => { event.stopPropagation(); setDetailsOpen(true); }}
+              aria-label={`View details for ${component.name}`}>
+              Details ↗
             </button>
-
             {quantity > 0 ? (
-              <div className="grid h-9 min-w-0 grid-cols-[30px_1fr_30px] overflow-hidden rounded-[9px] border border-[#F47822]/25 bg-[#FFF8F2] sm:h-10 sm:w-[102px] sm:grid-cols-[32px_1fr_32px]">
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onMinus();
-                  }}
-                  className="text-sm font-black transition hover:bg-black/[0.04]"
-                  aria-label={`Remove ${component.name}`}
-                >
-                  −
-                </button>
-
-                <span className="flex items-center justify-center border-x border-[#F47822]/15 text-[12px] font-black">
-                  {quantity}
-                </span>
-
-                <button
-                  type="button"
-                  disabled={cannotIncrease}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onPlus();
-                  }}
-                  className="text-sm font-black text-[#F47822] transition hover:bg-[#F47822] hover:text-white disabled:cursor-not-allowed disabled:opacity-25"
-                  aria-label={`Add ${component.name}`}
-                >
-                  +
-                </button>
+              <div className="v83-qty">
+                <button type="button" onClick={(event) => { event.stopPropagation(); onMinus(); }} aria-label={`Remove ${component.name}`}>−</button>
+                <strong>{quantity}</strong>
+                <button type="button" disabled={cannotIncrease} onClick={(event) => { event.stopPropagation(); onPlus(); }} aria-label={`Add ${component.name}`}>+</button>
               </div>
             ) : (
-              <button
-                type="button"
-                disabled={cannotIncrease}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onPlus();
-                }}
-                className="flex h-9 min-w-0 items-center justify-center rounded-[9px] bg-[#F47822] px-2 text-[12px] font-black text-white transition hover:bg-[#171717] disabled:cursor-not-allowed disabled:bg-black/[0.08] disabled:text-black/28 sm:h-10 sm:min-w-[78px]"
-              >
+              <button type="button" disabled={cannotIncrease} className="v83-btn v83-btn-add"
+                onClick={(event) => { event.stopPropagation(); onPlus(); }}>
                 {actionLabel}
               </button>
             )}
           </div>
         </div>
       </article>
-
       {detailsOpen && (
-        <V10ProductDetailsModal
-          component={component}
-          quantity={quantity}
-          cannotIncrease={cannotIncrease}
-          onMinus={onMinus}
-          onPlus={onPlus}
-          onClose={() => setDetailsOpen(false)}
-        />
+        <V10ProductDetailsModal component={component} quantity={quantity}
+          cannotIncrease={cannotIncrease} onMinus={onMinus} onPlus={onPlus}
+          onClose={() => setDetailsOpen(false)} />
       )}
     </>
   );
 };
 
-const V7DecorationCard = ({
-  component,
-  quantity,
-  onMinus,
-  onPlus,
-}) => {
+const V7DecorationCard = ({ component, quantity, onMinus, onPlus }) => {
   const [detailsOpen, setDetailsOpen] = useState(false);
+  // V89: Run this card's photo slideshow only while a real pointer hovers it.
+  const [photoHovered, setPhotoHovered] = useState(false);
+  const beginPhotoHover = (event) => {
+    if (event.pointerType === "mouse" || event.pointerType === "pen") {
+      setPhotoHovered(true);
+    }
+  };
+  const endPhotoHover = () => setPhotoHovered(false);
   const selected = quantity > 0;
-
-  const missingPrice =
-    component.sellingPrice === null ||
-    component.sellingPrice === undefined;
+  const missingPrice = component.sellingPrice === null || component.sellingPrice === undefined;
   const builderBlocked = component.builderStatus?.selectable === false;
   const builderReasons = Array.isArray(component.builderStatus?.reasons)
-    ? component.builderStatus.reasons
-    : [];
-
+    ? component.builderStatus.reasons : [];
   const cannotIncrease = missingPrice || builderBlocked || quantity >= 99;
-
   const handleCardClick = (event) => {
     if (event.target.closest("button")) return;
     setDetailsOpen(true);
@@ -5372,105 +5457,63 @@ const V7DecorationCard = ({
 
   return (
     <>
-      <article
-        onClick={handleCardClick}
-        className="group min-w-0 cursor-pointer"
-      >
-        <div
-          className={`relative overflow-hidden bg-[#F3EEE7] transition duration-300 ${
-            selected
-              ? "ring-2 ring-[#D4AF37]/70 ring-offset-2 ring-offset-white"
-              : ""
-          }`}
-        >
-          <div className="aspect-square">
-            <CatalogGalleryImage images={component.images} name={component.name} imageClassName="h-full w-full object-cover transition duration-500 group-hover:scale-[1.035]" fallback={<V7DecorPlaceholder component={component} />} />
+      <article className={`v83-card v83-decor group cursor-pointer ${selected ? "is-selected" : ""}`}
+        style={v83CardTheme(component)} onPointerEnter={beginPhotoHover} onPointerLeave={endPhotoHover} onClick={handleCardClick}
+        onKeyDown={(event) => {
+          if (event.target !== event.currentTarget) return;
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault(); setDetailsOpen(true);
+          }
+        }}
+        tabIndex={0} aria-label={`${component.name}. Click for details.`}>
+        <div className="v83-media">
+          <div className="v83-photo">
+            <CatalogGalleryImage images={component.images} name={component.name}
+              imageClassName="h-full w-full object-cover"
+              fallback={<V7DecorPlaceholder component={component} />} autoPlay={photoHovered && !detailsOpen} showControls={false} />
           </div>
-
-
-          {selected && (
-            <span className="absolute right-2 top-2 rounded-full bg-[#171717] px-2 py-1 text-[11px] font-black text-white shadow-lg">
-              ×{quantity}
-            </span>
-          )}
+          {builderBlocked && <span className="v83-pending" title={builderReasons.join(", ")}>Data pending</span>}
+          {selected && <span className="v83-quantity-badge">✓ {quantity} added</span>}
         </div>
-
-        <div className="pt-3">
-          <p className="line-clamp-2 min-h-[30px] text-[12px] font-extrabold leading-[1.35] text-[#171717] sm:min-h-0 sm:truncate sm:text-[13px]">
-            {component.name}
-          </p>
-
-          {builderBlocked && (
-            <p
-              className="mt-1.5 line-clamp-2 text-[11px] font-bold leading-4 text-amber-700"
-              title={builderReasons.join(", ")}
-            >
-              Unavailable
-            </p>
-          )}
-
-          <div className="mt-1 flex items-center justify-between gap-2">
-            <p className="text-[13px] font-black text-[#9B7616] sm:text-[14px]">
-              {missingPrice
-                ? "Price pending"
-                : formatCurrency(component.sellingPrice)}
-            </p>
+        <div className="v83-content">
+          <div className="v83-topline"><span className="v83-category">{component.subcategory || component.category || "The final touch"}</span><span className="v83-topline-star" aria-hidden="true">✦</span></div>
+          <p className="v83-title" title={component.name}>{component.name}</p>
+          <div className="v83-price-row">
+            <span className="v83-price">{missingPrice ? "Price pending" : formatCurrency(component.sellingPrice)}</span>
           </div>
-
-
-          <div
-            className="mt-2 grid h-9 grid-cols-[32px_1fr_32px] overflow-hidden rounded-[8px] border border-[#D4AF37]/18 bg-[#FFFCF7] sm:mt-3 sm:grid-cols-[36px_1fr_36px] sm:rounded-none sm:border-x-0"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <button
-              type="button"
-              disabled={quantity <= 0}
-              onClick={(event) => {
-                event.stopPropagation();
-                onMinus();
-              }}
-              className="text-sm disabled:opacity-20"
-              aria-label={`Remove ${component.name}`}
-            >
-              −
+          <div className="v83-rule" aria-hidden="true" />
+          <div className="v83-actions" onClick={(event) => event.stopPropagation()}>
+            <button type="button" className="v83-btn v83-btn-details"
+              onClick={(event) => { event.stopPropagation(); setDetailsOpen(true); }}
+              aria-label={`View details for ${component.name}`}>
+              Details ↗
             </button>
-
-            <span className="flex items-center justify-center border-x border-[#D4AF37]/15 text-[11px] font-black">
-              {quantity}
-            </span>
-
-            <button
-              type="button"
-              disabled={cannotIncrease}
-              onClick={(event) => {
-                event.stopPropagation();
-                onPlus();
-              }}
-              className="text-sm font-black text-[#9B7616] transition hover:bg-[#D4AF37] hover:text-[#171717] disabled:opacity-20"
-              aria-label={`Add ${component.name}`}
-            >
-              +
-            </button>
+            {quantity > 0 ? (
+              <div className="v83-qty">
+                <button type="button" onClick={(event) => { event.stopPropagation(); onMinus(); }}
+                  aria-label={`Remove ${component.name}`}>−</button>
+                <strong>{quantity}</strong>
+                <button type="button" disabled={cannotIncrease}
+                  onClick={(event) => { event.stopPropagation(); onPlus(); }}
+                  aria-label={`Add ${component.name}`}>+</button>
+              </div>
+            ) : (
+              <button type="button" disabled={cannotIncrease} className="v83-btn v83-btn-add"
+                onClick={(event) => { event.stopPropagation(); onPlus(); }}>
+                + Add
+              </button>
+            )}
           </div>
         </div>
       </article>
-
       {detailsOpen && (
-        <V10ProductDetailsModal
-          component={component}
-          quantity={quantity}
-          cannotIncrease={cannotIncrease}
-          onMinus={onMinus}
-          onPlus={onPlus}
-          onClose={() => setDetailsOpen(false)}
-          eyebrow="Finishing details"
-          addLabel="+ Add finishing"
-        />
+        <V10ProductDetailsModal component={component} quantity={quantity}
+          cannotIncrease={cannotIncrease} onMinus={onMinus} onPlus={onPlus}
+          onClose={() => setDetailsOpen(false)} eyebrow="Finishing details" addLabel="+ Add finishing" />
       )}
     </>
   );
 };
-
 const V7DecorPlaceholder = ({ component }) => {
   const name = String(component?.name || "").toLowerCase();
 
@@ -7273,23 +7316,268 @@ const V7Empty = ({ children }) => (
   </div>
 );
 
+// V91: The two image nodes stay mounted and swap opacity instead of being
+// replaced on each slide. The next photo has already been decoded by the
+// CatalogGalleryImage hover timer before it arrives as `src` here.
+const StableHoverCardPhoto = ({ src, name, imageClassName }) => {
+  const [layers, setLayers] = useState(() => ({
+    sources: [src, ""],
+    active: 0,
+    pending: null,
+  }));
+
+  useEffect(() => {
+    setLayers((before) => {
+      if (before.sources[before.active] === src && before.pending === null) {
+        return before;
+      }
+      const target = 1 - before.active;
+      if (before.pending === target && before.sources[target] === src) {
+        return before;
+      }
+      const sources = [...before.sources];
+      sources[target] = src;
+      return { ...before, sources, pending: target };
+    });
+  }, [src]);
+
+  useEffect(() => {
+    if (layers.pending === null) return undefined;
+    // First paint the predecoded next photo underneath at opacity 0,
+    // then crossfade it over the outgoing image in the following frame.
+    let secondFrame = 0;
+    const firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => {
+        setLayers((before) => before.pending === null
+          ? before
+          : { ...before, active: before.pending, pending: null });
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      window.cancelAnimationFrame(secondFrame);
+    };
+  }, [layers.pending, layers.sources[0], layers.sources[1]]);
+
+  return (
+    <div className="relative h-full w-full" role="img" aria-label={`${name} product photo`}>
+      {layers.sources.map((photo, slot) => photo ? (
+        <img
+          key={slot}
+          src={photo}
+          alt=""
+          aria-hidden="true"
+          loading="eager"
+          decoding="async"
+          draggable={false}
+          className={`v91-card-photo-layer pointer-events-none absolute inset-0 ${imageClassName}`}
+          style={{ opacity: layers.active === slot ? 1 : 0 }}
+        />
+      ) : null)}
+    </div>
+  );
+};
+
 // All imported views share this lightweight image switcher. No change to packing/fit logic.
-const CatalogGalleryImage = ({ images = [], name = "Product", imageClassName = "h-full w-full object-contain", fallback = null }) => {
-  const pictures = (Array.isArray(images) ? images : [])
-    .map((image) => typeof image === "string" ? image : image?.url)
-    .filter((url) => typeof url === "string" && /^https?:\/\//i.test(url));
-  const [index, setIndex] = useState(0);
-  const safeIndex = pictures.length ? index % pictures.length : 0;
-  const current = pictures[safeIndex] || "";
+// V89: Only hovered cards cycle. Details remain manual with a full-size viewer.
+// The previous image remains underneath until the next image has faded in.
+const CatalogGalleryImage = ({
+  images = [],
+  name = "Product",
+  imageClassName = "h-full w-full object-contain",
+  fallback = null,
+  autoPlay = false,
+  allowZoom = false,
+  showControls = true,
+}) => {
+  const pictures = useMemo(() => {
+    const entries = Array.isArray(images) ? images : [];
+    return [...new Set(entries
+      .map((image) => typeof image === "string"
+        ? image
+        : image?.url || image?.secure_url || image?.src || image?.location)
+      .filter((url) => typeof url === "string" && /^https?:\/\//i.test(url)))];
+  }, [images]);
+
+  const galleryRef = useRef(null);
+  const decodedImagesRef = useRef(new Map());
+  const [slide, setSlide] = useState({ index: 0, previous: null });
+  const [visible, setVisible] = useState(false);
+  const [zoomed, setZoomed] = useState(false);
+  const count = pictures.length;
+  const currentIndex = count ? slide.index % count : 0;
+  const previousIndex = count && slide.previous !== null ? slide.previous % count : null;
+  const current = pictures[currentIndex] || "";
+  // Stable even when the API supplies a new array with the same photo URLs.
+  const gallerySignature = pictures.join("\u001f");
+
+  useEffect(() => {
+    decodedImagesRef.current.clear();
+    setSlide({ index: 0, previous: null });
+    setZoomed(false);
+  }, [gallerySignature]);
+
+  useEffect(() => {
+    if (!autoPlay || count < 2) return undefined;
+    const target = galleryRef.current;
+    if (!target) return undefined;
+    if (typeof IntersectionObserver === "undefined") {
+      setVisible(true);
+      return undefined;
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => setVisible(entry.isIntersecting),
+      { rootMargin: "100px 0px" }
+    );
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [autoPlay, count]);
+
+  const changeSlide = (direction) => {
+    if (count < 2) return;
+    setSlide((before) => ({
+      index: (before.index + direction + count) % count,
+      previous: before.index % count,
+    }));
+  };
+
+  useEffect(() => {
+    if (!autoPlay || count < 2 || !visible || zoomed) return undefined;
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) return undefined;
+    // V90: Quick hover slideshow with decoded-image handoff, preventing
+    // blank flashes if the next Cloudinary photo is not ready yet.
+    let cancelled = false;
+    let timer = 0;
+    let position = currentIndex;
+
+    const ensureDecoded = (url) => {
+      const cached = decodedImagesRef.current.get(url);
+      if (cached) return cached;
+
+      const ready = new Promise((resolve) => {
+        const image = new Image();
+        image.decoding = "async";
+        image.onload = async () => {
+          try { await image.decode?.(); } catch { /* onload already succeeded */ }
+          resolve(true);
+        };
+        image.onerror = () => resolve(false);
+        image.src = url;
+      });
+      decodedImagesRef.current.set(url, ready);
+      return ready;
+    };
+
+    const advance = async () => {
+      if (cancelled) return;
+      if (document.visibilityState !== "visible") {
+        timer = window.setTimeout(advance, 350);
+        return;
+      }
+      const next = (position + 1) % count;
+      const ready = await ensureDecoded(pictures[next]);
+      if (cancelled) return;
+
+      // Skip an unavailable URL rather than displaying a blank image.
+      position = next;
+      if (ready) {
+        setSlide((before) => ({
+          index: next,
+          previous: before.index % count,
+        }));
+      }
+      // Keep one image warmed up ahead of the current photo.
+      void ensureDecoded(pictures[(position + 1) % count]);
+      timer = window.setTimeout(advance, 1600);
+    };
+
+    void ensureDecoded(pictures[(position + 1) % count]);
+    timer = window.setTimeout(advance, 450);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [autoPlay, count, visible, zoomed, gallerySignature]);
+
+  // When hover ends, display the default product image again. Other cards never rotate.
+  useEffect(() => {
+    if (autoPlay) return;
+    setSlide((before) =>
+      before.index === 0 && before.previous === null
+        ? before
+        : { index: 0, previous: before.index === 0 ? null : before.index }
+    );
+  }, [autoPlay]);
+
+  // Capture zoom keyboard input before the outer modal's Escape handler runs.
+  useEffect(() => {
+    if (!zoomed) return undefined;
+    const onKey = (event) => {
+      if (!["Escape", "ArrowLeft", "ArrowRight"].includes(event.key)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation?.();
+      if (event.key === "Escape") setZoomed(false);
+      if (event.key === "ArrowLeft") changeSlide(-1);
+      if (event.key === "ArrowRight") changeSlide(1);
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [zoomed, count]);
+
   const go = (event, direction) => {
     event.preventDefault();
     event.stopPropagation();
-    setIndex((previous) => (previous + direction + pictures.length) % pictures.length);
+    changeSlide(direction);
   };
+
+  const galleryPhoto = current ? (
+    !showControls && !allowZoom ? (
+      <StableHoverCardPhoto src={current} name={name} imageClassName={imageClassName} />
+    ) : (
+      <>
+        {previousIndex !== null && pictures[previousIndex] !== current && (
+          <img
+            key={`prev-${pictures[previousIndex]}`}
+            src={pictures[previousIndex]}
+            alt=""
+            aria-hidden="true"
+            className={`pointer-events-none absolute inset-0 ${imageClassName}`}
+            loading="lazy"
+            decoding="async"
+          />
+        )}
+        <img
+          key={current}
+          src={current}
+          alt={`${name} - image ${currentIndex + 1}`}
+          loading="lazy"
+          decoding="async"
+          className={`pointer-events-none absolute inset-0 ${imageClassName} ${previousIndex !== null ? "v82-gallery-fade" : ""}`}
+        />
+      </>
+    )
+  ) : fallback || <NoImage />;
+
   return (
-    <div className="relative h-full w-full overflow-hidden">
-      {current ? <img src={current} alt={`${name} - image ${safeIndex + 1}`} loading="lazy" className={imageClassName} /> : fallback || <NoImage />}
-      {pictures.length > 1 && (
+    <div
+      ref={galleryRef}
+      className="relative h-full w-full overflow-hidden"
+    >
+      {allowZoom && current ? (
+        <button
+          type="button"
+          onClick={(event) => { event.preventDefault(); event.stopPropagation(); setZoomed(true); }}
+          className="absolute inset-0 h-full w-full cursor-zoom-in overflow-hidden"
+          title={`View a larger photo of ${name}`}
+          aria-label={`Enlarge ${name} image`}
+        >
+          {galleryPhoto}
+          <span className="absolute right-2 top-2 z-10 rounded-full bg-[#171717]/75 px-2.5 py-1 text-[10px] font-bold text-white">⤢ Enlarge</span>
+        </button>
+      ) : galleryPhoto}
+
+      {showControls && count > 1 && (
         <>
           <div className="pointer-events-none absolute inset-x-1 top-1/2 z-10 flex -translate-y-1/2 justify-between">
             <button type="button" onClick={(event) => go(event, -1)} aria-label={`Previous ${name} image`}
@@ -7297,8 +7585,45 @@ const CatalogGalleryImage = ({ images = [], name = "Product", imageClassName = "
             <button type="button" onClick={(event) => go(event, 1)} aria-label={`Next ${name} image`}
               className="pointer-events-auto flex h-7 w-7 items-center justify-center rounded-full bg-[#171717]/80 text-[19px] text-white shadow-md transition hover:bg-[#F47822]">›</button>
           </div>
-          <span className="pointer-events-none absolute bottom-1 right-1 z-10 rounded-full bg-black/70 px-2 py-0.5 text-[10px] font-bold text-white">{safeIndex + 1} / {pictures.length}</span>
+          <span className="pointer-events-none absolute bottom-1 right-1 z-10 rounded-full bg-black/70 px-2 py-0.5 text-[10px] font-bold text-white">{currentIndex + 1} / {count}</span>
         </>
+      )}
+      {zoomed && current && typeof document !== "undefined" && createPortal(
+        <div
+          className="fixed inset-0 flex items-center justify-center bg-black/95 p-3 sm:p-8"
+          style={{ zIndex: 100010 }}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${name} large image viewer`}
+          onMouseDown={(event) => { if (event.currentTarget === event.target) setZoomed(false); }}
+        >
+          <img
+            key={`zoom-${current}`}
+            src={current}
+            alt={`${name} - image ${currentIndex + 1} of ${count}`}
+            className="max-h-[88dvh] max-w-[94vw] select-none object-contain"
+            draggable={false}
+          />
+          <button
+            type="button"
+            className="absolute right-4 top-4 flex h-11 w-11 items-center justify-center rounded-full bg-white/15 text-2xl text-white hover:bg-white/25"
+            aria-label="Close enlarged image"
+            onClick={() => setZoomed(false)}
+          >×</button>
+          {count > 1 && (
+            <>
+              <button type="button" onClick={(event) => go(event, -1)}
+                className="absolute left-2 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/15 text-3xl text-white hover:bg-white/25 sm:left-6"
+                aria-label="Previous photo">‹</button>
+              <button type="button" onClick={(event) => go(event, 1)}
+                className="absolute right-2 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/15 text-3xl text-white hover:bg-white/25 sm:right-6"
+                aria-label="Next photo">›</button>
+            </>
+          )}
+          <span className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-white/15 px-4 py-2 text-[12px] font-semibold text-white">
+            {currentIndex + 1} / {count}
+          </span>
+        </div>, document.body
       )}
     </div>
   );
