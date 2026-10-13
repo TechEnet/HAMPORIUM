@@ -1,3 +1,5 @@
+// EXACT PATH: frontend/src/App.jsx
+// ACTION: REPLACE - CUSTOMER 360 FRONTEND V1
 import { useLayoutEffect } from "react";
 
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
@@ -21,6 +23,7 @@ import PartnerReferralCapture from "./components/PartnerReferralCapture.jsx";
 import { LocationProvider } from "./context/LocationContext.jsx";
 
 import { PartnerProvider } from "./context/PartnerContext.jsx";
+import CustomerActivityBridge from "./components/CustomerActivityBridge.jsx";
 
 // Public
 
@@ -43,7 +46,9 @@ import Cart from "./pages/public/Cart.jsx";
 import Checkout from "./pages/public/Checkout.jsx";
 
 import OrderSuccess from "./pages/public/OrderSuccess.jsx";
+
 // Public contact page - accessible without login
+
 import Contact from "./pages/public/Contact.jsx";
 
 // Customer auth
@@ -127,6 +132,8 @@ import AccountQuoteDetails from "./pages/account/corporate/QuoteDetails.jsx";
 // Admin
 
 import AdminDashboard from "./pages/admin/Dashboard.jsx";
+import AdminCustomers from "./pages/admin/customerIntelligence/Customers.jsx";
+import AdminCustomerDetail from "./pages/admin/customerIntelligence/CustomerDetail.jsx";
 
 import Products from "./pages/admin/catalog/Products.jsx";
 
@@ -201,58 +208,95 @@ import ShowcaseAccess from "./pages/showcase/ShowcaseAccess.jsx";
 import ShowcaseView from "./pages/showcase/ShowcaseView.jsx";
 
 const ScrollToTop = () => {
+
   const location = useLocation();
 
   useLayoutEffect(() => {
+
     if ("scrollRestoration" in window.history) window.history.scrollRestoration = "manual";
+
   }, []);
 
   useLayoutEffect(() => {
+
     let raf1 = 0;
+
     let raf2 = 0;
+
     let timeoutId = 0;
+
     const resetScroll = () => {
+
       const html = document.documentElement;
+
       const body = document.body;
+
       const previousHtmlBehavior = html.style.scrollBehavior;
+
       const previousBodyBehavior = body.style.scrollBehavior;
+
       html.style.scrollBehavior = "auto";
+
       body.style.scrollBehavior = "auto";
+
       window.scrollTo(0, 0);
 
       const scrollingElement = document.scrollingElement;
+
       if (scrollingElement) {
+
         scrollingElement.scrollTop = 0;
+
         scrollingElement.scrollLeft = 0;
+
       }
+
       html.scrollTop = 0;
+
       html.scrollLeft = 0;
+
       body.scrollTop = 0;
+
       body.scrollLeft = 0;
+
       const root = document.getElementById("root");
 
       if (root) {
+
         root.scrollTop = 0;
+
         root.scrollLeft = 0;
+
       }
+
       document.querySelectorAll("body *").forEach((element) => {
+
         if (!(element instanceof HTMLElement)) return;
+
         if (element.scrollTop <= 0 && element.scrollLeft <= 0) return;
+
         const styles = window.getComputedStyle(element);
 
         const canScrollY = ["auto", "scroll"].includes(styles.overflowY) && element.scrollHeight > element.clientHeight;
+
         const canScrollX = ["auto", "scroll"].includes(styles.overflowX) && element.scrollWidth > element.clientWidth;
+
         if (canScrollY) element.scrollTop = 0;
+
         if (canScrollX) element.scrollLeft = 0;
+
       });
 
       html.style.scrollBehavior = previousHtmlBehavior;
+
       body.style.scrollBehavior = previousBodyBehavior;
+
     };
 
     resetScroll();
 
     raf1 = requestAnimationFrame(() => {
+
       resetScroll();
 
       raf2 = requestAnimationFrame(resetScroll);
@@ -262,6 +306,7 @@ const ScrollToTop = () => {
     timeoutId = window.setTimeout(resetScroll, 80);
 
     return () => {
+
       cancelAnimationFrame(raf1);
 
       cancelAnimationFrame(raf2);
@@ -273,148 +318,290 @@ const ScrollToTop = () => {
   }, [location.pathname, location.search, location.hash, location.key]);
 
   return null;
+
 };
 
 const NotFound = () => (
+
   <div className="flex min-h-screen items-center justify-center bg-gray-50 px-6">
+
     <div className="text-center">
+
       <h1 className="text-7xl font-bold text-[#F26522]">404</h1>
+
       <p className="mt-4 text-xl font-semibold">Page not found</p>
+
       <p className="mt-2 text-gray-500">The page you are looking for does not exist.</p>
+
     </div>
+
   </div>
+
 );
 
 const App = () => (
+
   <LocationProvider>
+
     <ScrollToTop />
+
     <PartnerReferralCapture />
+    <CustomerActivityBridge />
+
     <Routes>
+
       <Route element={<PublicLayout />}>
+
         <Route index element={<Home />} />
+
         <Route path="/gifts" element={<Gifts />} />
+
         <Route path="/collections/:slug" element={<Collection />} />
+
         <Route path="/products/:slug" element={<ProductDetails />} />
+
         <Route path="/custom-hamper" element={<CustomHamper />} />
+
         <Route path="/hamper-one" element={<HamperOne />} />
+
         <Route path="/event-partners" element={<EventPartners />} />
+
         <Route path="/contact" element={<Contact />} />
+
         <Route path="/partners" element={<Navigate to="/event-partners" replace />} />
+
         <Route path="/corporate" element={<Navigate to="/custom-hamper?mode=bulk&purpose=corporate" replace />} />
+
         <Route path="/weddings" element={<Navigate to="/custom-hamper?mode=bulk&purpose=wedding" replace />} />
+
         <Route path="/diwali" element={<Navigate to="/gifts?category=diwali-hampers" replace />} />
+
         <Route path="/login" element={<Login />} />
+
         <Route path="/signup" element={<Signup />} />
+
         <Route path="/verify-email" element={<VerifyEmail />} />
+
         <Route path="/forgot-password" element={<ForgotPassword />} />
+
         <Route path="/verify-otp" element={<VerifyOTP />} />
+
         <Route path="/partner/login" element={<PartnerLogin />} />
+
         <Route path="/partner/register" element={<PartnerRegister />} />
+
       </Route>
+
       <Route element={<ProtectedRoute />}>
+
         <Route element={<PublicLayout />}>
+
           <Route path="/cart" element={<Cart />} />
+
           <Route path="/checkout" element={<Checkout />} />
+
           <Route path="/order-success/:orderId" element={<OrderSuccess />} />
+
         </Route>
+
         <Route path="/account" element={<AccountLayout />}>
+
           <Route index element={<AccountDashboard />} />
+
           <Route path="profile" element={<Profile />} />
+
           <Route path="addresses" element={<Addresses />} />
+
           <Route path="orders" element={<Orders />} />
+
           <Route path="orders/:orderId" element={<OrderDetails />} />
+
           <Route path="payments" element={<Payments />} />
+
           <Route path="payments/:paymentId" element={<PaymentDetails />} />
+
           <Route path="notifications" element={<Navigate to="/account" replace />} />
+
           <Route path="refunds" element={<Refunds />} />
+
           <Route path="reviews" element={<MyReviews />} />
+
           <Route path="support" element={<Support />} />
+
           <Route path="support/:ticketId" element={<SupportTicketDetails />} />
+
           <Route path="rfqs" element={<Navigate to="/account/corporate/rfqs" replace />} />
+
           <Route path="quotes" element={<Navigate to="/account/corporate/quotes" replace />} />
+
           <Route path="corporate" element={<Navigate to="/account/corporate/rfqs" replace />} />
+
           <Route path="corporate/campaigns" element={<Navigate to="/account/corporate/rfqs" replace />} />
+
           <Route path="corporate/campaigns/:id" element={<Navigate to="/account/corporate/rfqs" replace />} />
+
           <Route path="corporate/campaigns/:id/recipients" element={<Navigate to="/account/corporate/rfqs" replace />} />
+
           <Route path="corporate/rfqs" element={<AccountRFQs />} />
+
           <Route path="corporate/rfqs/new" element={<Navigate to="/custom-hamper?mode=bulk" replace />} />
+
           <Route path="corporate/rfqs/:id" element={<AccountRFQDetails />} />
+
           <Route path="corporate/quotes" element={<AccountQuotes />} />
+
           <Route path="corporate/quotes/:id" element={<AccountQuoteDetails />} />
+
           <Route path="weddings" element={<Navigate to="/custom-hamper?mode=bulk&purpose=wedding" replace />} />
+
           <Route path="weddings/brief" element={<Navigate to="/custom-hamper?mode=bulk&purpose=wedding" replace />} />
+
           <Route path="weddings/:id/edit" element={<Navigate to="/account/corporate/rfqs" replace />} />
+
           <Route path="weddings/:id" element={<Navigate to="/account/corporate/rfqs" replace />} />
+
           <Route path="weddings/:id/concepts" element={<Navigate to="/account/corporate/rfqs" replace />} />
+
           <Route path="weddings/:id/quotes" element={<Navigate to="/account/corporate/quotes" replace />} />
+
           <Route path="weddings/:id/approvals" element={<Navigate to="/account/corporate/rfqs" replace />} />
+
           <Route path="weddings/:id/guests" element={<Navigate to="/account/corporate/rfqs" replace />} />
+
           <Route path="partner" element={<Navigate to="/event-partners" replace />} />
+
         </Route>
+
       </Route>
+
       <Route element={<PartnerRoute requireApproved={false} />}>
+
         <Route path="/partner" element={<PartnerProvider><PartnerLayout /></PartnerProvider>}>
+
           <Route index element={<PartnerDashboard />} />
+
           <Route path="status" element={<PartnerApplicationStatus />} />
+
           <Route path="projects" element={<PartnerProjects />} />
+
           <Route path="projects/:id" element={<PartnerProjectDetails />} />
+
           <Route path="showcases" element={<PartnerShowcases />} />
+
           <Route path="client-actions" element={<PartnerClientActions />} />
+
           <Route path="orders" element={<PartnerOrders />} />
+
           <Route path="commissions" element={<PartnerCommissions />} />
+
           <Route path="payouts" element={<PartnerPayouts />} />
+
           <Route path="supply" element={<PartnerSupply />} />
+
           <Route path="analytics" element={<PartnerAnalytics />} />
+
           <Route path="documents" element={<PartnerDocuments />} />
+
           <Route path="profile" element={<PartnerProfile />} />
+
         </Route>
+
       </Route>
+
       <Route element={<ProtectedRoute allowedRoles={["admin", "operations"]} />}>
+
         <Route path="/admin" element={<AdminLayout />}>
+
           <Route index element={<AdminDashboard />} />
+          <Route path="customers" element={<AdminCustomers />} />
+          <Route path="customers/:customerId" element={<AdminCustomerDetail />} />
+
           <Route path="analytics/search" element={<AdminSearchAnalytics />} />
+
           <Route path="catalog/products" element={<Products />} />
+
           <Route path="catalog/products/new" element={<ProductForm />} />
+
           <Route path="catalog/products/:productId/edit" element={<ProductForm />} />
+
           <Route path="catalog/categories" element={<Categories />} />
+
           <Route path="catalog/collections" element={<Collections />} />
+
           <Route path="catalog/components" element={<Components />} />
+
           <Route path="catalog/containers" element={<Containers />} />
+
           <Route path="catalog/product-master-import" element={<ProductMasterImport />} />
+
           <Route path="master-control" element={<AdminMasterControl />} />
+
           <Route path="orders" element={<AdminOrders />} />
+
           <Route path="orders/:orderId" element={<AdminOrderDetails />} />
+
           <Route path="payments" element={<AdminPayments />} />
+
           <Route path="payments/:paymentId" element={<AdminPaymentDetails />} />
+
           <Route path="refunds" element={<AdminRefunds />} />
+
           <Route path="reviews" element={<AdminReviews />} />
+
           <Route path="support" element={<AdminSupportTickets />} />
+
           <Route path="support/:ticketId" element={<AdminSupportTicketDetails />} />
+
           <Route path="rfqs" element={<AdminRFQs />} />
+
           <Route path="rfqs/:id" element={<AdminRFQDetails />} />
+
           <Route path="quotes" element={<AdminQuotes />} />
+
           <Route path="quotes/:id" element={<AdminQuoteDetails />} />
+
           <Route path="approvals" element={<AdminApprovals />} />
+
           <Route path="corporate" element={<AdminCorporate />} />
+
           <Route path="corporate/:id" element={<AdminCorporateDetails />} />
+
           <Route path="weddings" element={<AdminWeddings />} />
+
           <Route path="weddings/:id" element={<AdminWeddingDetails />} />
+
           <Route path="partners" element={<AdminPartners />} />
+
           <Route path="partners/:id" element={<AdminPartnerDetails />} />
+
           <Route path="partner-showcases" element={<AdminPartnerShowcases />} />
+
           <Route path="commissions" element={<AdminCommissions />} />
+
           <Route path="payouts" element={<AdminPayouts />} />
+
           <Route path="production" element={<AdminProduction />} />
+
           <Route path="fulfilment" element={<AdminFulfilment />} />
+
         </Route>
+
       </Route>
+
       <Route path="/showcase/:token" element={<ShowcaseLayout />}>
+
         <Route index element={<ShowcaseAccess />} />
+
         <Route path="view" element={<ShowcaseView />} />
+
       </Route>
+
       <Route path="*" element={<NotFound />} />
+
     </Routes>
+
   </LocationProvider>
+
 );
 
 export default App;
