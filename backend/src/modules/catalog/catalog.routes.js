@@ -1,3 +1,5 @@
+// PATH: backend/src/modules/catalog/catalog.routes.js
+// HAMPORIUM V26 FULL REPLACEMENT
 import { Router } from "express";
 
 import fs from "node:fs";
@@ -7,6 +9,9 @@ import os from "node:os";
 import path from "node:path";
 
 import multer from "multer";
+import { optimizeProductMasterImage } from "./productMasterImages.service.js";
+
+
 
 import {
 
@@ -24,6 +29,8 @@ import {
 
   validateConfiguration,
 
+
+
   getAdminCategories,
 
   createCategory,
@@ -32,6 +39,8 @@ import {
 
   deleteCategory,
 
+
+
   getAdminCollections,
 
   createCollection,
@@ -39,6 +48,8 @@ import {
   updateCollection,
 
   deleteCollection,
+
+
 
   getAdminComponents,
 
@@ -50,6 +61,8 @@ import {
 
   deleteComponent,
 
+
+
   getAdminContainers,
 
   getAdminContainerById,
@@ -59,6 +72,8 @@ import {
   updateContainer,
 
   deleteContainer,
+
+
 
   getAdminProducts,
 
@@ -70,11 +85,15 @@ import {
 
   deleteProduct,
 
+
+
   createSKU,
 
   updateSKU,
 
   deleteSKU,
+
+
 
   uploadCatalogImage,
 
@@ -88,9 +107,10 @@ import {
   prepareProductMasterImageSync,
   advanceProductMasterImageSync,
   getProductMasterImageSyncStatus,
-  getProductMasterArchive,
 
 } from "./catalog.controller.js";
+
+
 
 import protect from "../../middlewares/auth.middleware.js";
 
@@ -98,19 +118,25 @@ import { allowRoles } from "../../middlewares/access.middleware.js";
 
 import { ROLES } from "../../constants/roles.js";
 
+
+
 const router = Router();
 
 const adminAccess = allowRoles(ROLES.ADMIN, ROLES.OPERATIONS);
+
+
 
 const upload = multer({
 
   storage: multer.memoryStorage(),
 
-  limits: { fileSize: 8 * 1024 * 1024, files: 1 },
+  limits: { fileSize: 32 * 1024 * 1024, files: 1 },
 
   fileFilter: (req, file, cb) => {
 
     const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/avif"];
+
+
 
     if (!allowedTypes.includes(file.mimetype)) {
 
@@ -122,17 +148,23 @@ const upload = multer({
 
     }
 
+
+
     cb(null, true);
 
   },
 
 });
 
+
+
 /* =========================================================
 
    PRODUCT MASTER EXCEL UPLOAD - DISK + STREAM-DIRECT PARSE
 
 \========================================================= */
+
+
 
 /*
 
@@ -166,17 +198,19 @@ const productMasterTempDir = path.join(
 
 fs.mkdirSync(productMasterTempDir, { recursive: true });
 
+
+
 const excelUpload = multer({
 
   dest: productMasterTempDir,
 
   limits: {
 
-    // Current real workbook is ~9 MB. Keep a defensive ceiling so a very large
+    // Current Excel (7) workbook is about 20 MB. Keep a ceiling so a very large
 
     // workbook cannot unexpectedly consume hundreds of MB while parsing.
 
-    fileSize: 15 * 1024 * 1024,
+    fileSize: 30 * 1024 * 1024,
 
     files: 1,
 
@@ -194,6 +228,8 @@ const excelUpload = multer({
 
       name.endsWith(".xlsm");
 
+
+
     if (!validExtension) {
 
       const error = new Error("Only Excel .xlsx, .xls or .xlsm files are allowed");
@@ -204,15 +240,21 @@ const excelUpload = multer({
 
     }
 
+
+
     cb(null, true);
 
   },
 
 });
 
+
+
 let activeProductMasterOperation = null;
 
 const PRODUCT_MASTER_OPERATION_MAX_MS = 3 * 60 * 1000;
+
+
 
 /*
 
@@ -240,9 +282,13 @@ const releaseStaleProductMasterOperation = (now = Date.now()) => {
 
   if (!activeProductMasterOperation) return;
 
+
+
   const ageMs = now - activeProductMasterOperation.startedAt;
 
   if (ageMs < PRODUCT_MASTER_OPERATION_MAX_MS) return;
+
+
 
   console.warn(
 
@@ -252,15 +298,21 @@ const releaseStaleProductMasterOperation = (now = Date.now()) => {
 
   );
 
+
+
   activeProductMasterOperation = null;
 
 };
+
+
 
 const runProductMasterExclusive = (type, handler) => async (req, res, next) => {
 
   const now = Date.now();
 
   releaseStaleProductMasterOperation(now);
+
+
 
   if (activeProductMasterOperation) {
 
@@ -271,6 +323,8 @@ const runProductMasterExclusive = (type, handler) => async (req, res, next) => {
       Math.round((now - activeProductMasterOperation.startedAt) / 1000)
 
     );
+
+
 
     res.setHeader("Retry-After", "2");
 
@@ -290,6 +344,8 @@ const runProductMasterExclusive = (type, handler) => async (req, res, next) => {
 
   }
 
+
+
   const token = Symbol(`product-master-${type}`);
 
   activeProductMasterOperation = {
@@ -302,7 +358,11 @@ const runProductMasterExclusive = (type, handler) => async (req, res, next) => {
 
   };
 
+
+
   console.info(`[ProductMaster] operation-lock:acquired (${type})`);
+
+
 
   try {
 
@@ -326,9 +386,13 @@ const runProductMasterExclusive = (type, handler) => async (req, res, next) => {
 
 };
 
+
+
 const cleanupProductMasterUpload = (req, res, next) => {
 
   let cleaned = false;
+
+
 
   const cleanup = () => {
 
@@ -336,9 +400,13 @@ const cleanupProductMasterUpload = (req, res, next) => {
 
     cleaned = true;
 
+
+
     const tempPath = req.file?.path;
 
     if (!tempPath) return;
+
+
 
     fs.promises.unlink(tempPath).catch((error) => {
 
@@ -356,6 +424,8 @@ const cleanupProductMasterUpload = (req, res, next) => {
 
   };
 
+
+
   // File cleanup is independent from the concurrency lock. It is safe to wait
 
   // for response/socket completion here because stale cleanup cannot block the
@@ -370,17 +440,25 @@ const cleanupProductMasterUpload = (req, res, next) => {
 
   req.once("aborted", cleanup);
 
+
+
   next();
 
 };
 
+
+
 console.info("[ProductMaster] route-lock=handler-finally-v9-data-mapping");
+
+
 
 /* =========================================================
 
    PUBLIC
 
 \========================================================= */
+
+
 
 router.get("/categories", getCategories);
 
@@ -396,13 +474,19 @@ router.get("/products", getProducts);
 
 router.get("/products/:slug", getProductBySlug);
 
+
+
 /* =========================================================
 
    ADMIN PROTECTION
 
 \========================================================= */
 
+
+
 router.use("/admin", protect, adminAccess);
+
+
 
 /* =========================================================
 
@@ -410,15 +494,38 @@ router.use("/admin", protect, adminAccess);
 
 \========================================================= */
 
-router.post("/admin/upload-image", upload.single("image"), uploadCatalogImage);
+
+
+// Existing catalog controller still sees a normal req.file.buffer, but now it
+// contains a small high-quality WebP even when admin selected a 10-30MB PNG.
+const optimizeCatalogImageUpload = async (req, res, next) => {
+  if (!req.file?.buffer) return next();
+  try {
+    const optimized = await optimizeProductMasterImage(req.file.buffer);
+    req.file.buffer = optimized.buffer;
+    req.file.size = optimized.optimizedBytes;
+    req.file.mimetype = "image/webp";
+    req.file.originalname = String(req.file.originalname || "catalog-image").replace(/\.[^.]+$/, "") + ".webp";
+    return next();
+  } catch (error) {
+    error.statusCode = 400;
+    return next(error);
+  }
+};
+
+router.post("/admin/upload-image", upload.single("image"), optimizeCatalogImageUpload, uploadCatalogImage);
 
 router.delete("/admin/upload-image", deleteCatalogImage);
+
+
 
 /* =========================================================
 
    ADMIN PRODUCT MASTER IMPORT
 
 \========================================================= */
+
+
 
 router.post(
 
@@ -432,6 +539,8 @@ router.post(
 
 );
 
+
+
 router.post(
 
   "/admin/import/product-master/confirm",
@@ -443,6 +552,8 @@ router.post(
   runProductMasterExclusive("import", confirmProductMasterImport)
 
 );
+
+
 
 router.post(
 
@@ -456,11 +567,15 @@ router.post(
 
 );
 
+
+
 /* =========================================================
 
    ADMIN CATEGORIES
 
 \========================================================= */
+
+
 
 // Image-only import: upload Excel once, then sync a few Drive folders per request.
 router.post(
@@ -474,7 +589,6 @@ router.post(
   runProductMasterExclusive("image-sync", advanceProductMasterImageSync)
 );
 router.get("/admin/import/product-master/images/status/:jobId", getProductMasterImageSyncStatus);
-router.get("/admin/import/product-master/archive", getProductMasterArchive);
 
 router.get("/admin/categories", getAdminCategories);
 
@@ -484,11 +598,15 @@ router.patch("/admin/categories/:categoryId", updateCategory);
 
 router.delete("/admin/categories/:categoryId", deleteCategory);
 
+
+
 /* =========================================================
 
    ADMIN COLLECTIONS
 
 \========================================================= */
+
+
 
 router.get("/admin/collections", getAdminCollections);
 
@@ -498,11 +616,15 @@ router.patch("/admin/collections/:collectionId", updateCollection);
 
 router.delete("/admin/collections/:collectionId", deleteCollection);
 
+
+
 /* =========================================================
 
    ADMIN COMPONENTS
 
 \========================================================= */
+
+
 
 router.get("/admin/components", getAdminComponents);
 
@@ -514,11 +636,15 @@ router.patch("/admin/components/:componentId", updateComponent);
 
 router.delete("/admin/components/:componentId", deleteComponent);
 
+
+
 /* =========================================================
 
    ADMIN CONTAINERS
 
 \========================================================= */
+
+
 
 router.get("/admin/containers", getAdminContainers);
 
@@ -530,11 +656,15 @@ router.patch("/admin/containers/:containerId", updateContainer);
 
 router.delete("/admin/containers/:containerId", deleteContainer);
 
+
+
 /* =========================================================
 
    ADMIN PRODUCTS
 
 \========================================================= */
+
+
 
 router.get("/admin/products", getAdminProducts);
 
@@ -546,16 +676,22 @@ router.patch("/admin/products/:productId", updateProduct);
 
 router.delete("/admin/products/:productId", deleteProduct);
 
+
+
 /* =========================================================
 
    ADMIN SKUS
 
 \========================================================= */
 
+
+
 router.post("/admin/products/:productId/skus", createSKU);
 
 router.patch("/admin/skus/:skuId", updateSKU);
 
 router.delete("/admin/skus/:skuId", deleteSKU);
+
+
 
 export default router;

@@ -1,152 +1,343 @@
+// EXACT PATH: frontend/src/pages/admin/catalog/ProductMasterImport.jsx
+// HAMPORIUM V24 - FULL REPLACEMENT FILE
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import api from "../../../api/api.js";
 // Image sync UI is included below to avoid a missing-component import.
 // Self-contained Google Drive image sync panel (no extra JSX import needed).
-const KEY = "hamporium:image-sync-job";
-const ROOT = "/catalog/admin/import/product-master/images";
+// V25: Image sync is a resumable admin-only job. No normal Excel import here.
+// IMPORTANT: the V24 button processed ONE folder as a test, then waited for
+// a separate Continue click. V25 makes the complete run the primary action.
+const IMAGE_SYNC_KEY = "hamporium:image-sync-job";
+const IMAGE_SYNC_ROOT = "/catalog/admin/import/product-master/images";
 
-// Add <ProductMasterImageSyncPanel /> to an ADMIN-only catalogue import page.
-// It never calls the destructive Product Master "Confirm Import" endpoint.
+const imageSyncCount = (rows, status) => rows.filter((item) => item.status === status).length;
+
 function ProductMasterImageSyncPanel({ onComplete }) {
   const [file, setFile] = useState(null);
-  const [jobId, setJobId] = useState(() => localStorage.getItem(KEY) || "");
+  const [scope, setScope] = useState("hampers");
+  const [jobId, setJobId] = useState(() => {
+    try { return window.localStorage.getItem(IMAGE_SYNC_KEY) || ""; }
+    catch { return ""; }
+  });
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState({ nextOffset: 0, total: 0 });
   const [results, setResults] = useState([]);
-  const [error, setError] = useState("");
+  const [preparedSkus, setPreparedSkus] = useState([]);
   const [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
   const stop = useRef(false);
+  const running = useRef(false);
 
-  useEffect(() => () => { stop.current = true; }, []);
+  const saveJobId = (value) => {
+    setJobId(value);
+    try {
+      if (value) window.localStorage.setItem(IMAGE_SYNC_KEY, value);
+      else window.localStorage.removeItem(IMAGE_SYNC_KEY);
+    } catch { /* private mode: job still works while page is open */ }
+  };
+
+  // Restore the actual server-side cursor and per-SKU results after page refresh.
+  useEffect(() => {
+    if (!jobId) return undefined;
+    let alive = true;
+    api.get(`${IMAGE_SYNC_ROOT}/status/${jobId}`).then(({ data }) => {
+      if (!alive || running.current) return;
+      setProgress({ nextOffset: Number(data?.nextOffset || 0), total: Number(data?.total || 0) });
+      setResults(Array.isArray(data?.results) ? data.results : []);
+      if (data?.done) {
+        saveJobId("");
+        setNotice("Previous image-sync job finished. See the SKU-wise results below.");
+      }
+    }).catch((requestError) => {
+      if (alive && requestError.response?.status === 404) {
+        saveJobId("");
+        setNotice("Previous job expired. Select the latest Excel and start again.");
+      }
+    });
+    return () => { alive = false; };
+  }, []);
 
   const run = async (id, { testOnly = false } = {}) => {
+    if (!id || running.current) return;
+    running.current = true;
+    stop.current = false;
     setBusy(true);
     setError("");
-    stop.current = false;
+    let countThisRun = 0;
+    let hadFailures = false;
     try {
-      let processedThisTime = 0;
       while (!stop.current) {
-        const response = await api.post(`${ROOT}/next`, { jobId: id });
+        const response = await api.post(`${IMAGE_SYNC_ROOT}/next`, { jobId: id });
         const data = response.data || {};
-        if (data.busy) throw new Error(data.message || "Another batch is running. Retry shortly.");
-        if (!data.success) throw new Error(data.message || "Image sync failed");
-        setProgress({ nextOffset: data.nextOffset || 0, total: data.total || 0 });
-        if (Array.isArray(data.batchResults)) {
-          setResults((old) => [...old, ...data.batchResults]);
-          processedThisTime += data.batchResults.length;
-          // Refresh image/link counters even after a one-folder test.
-          onComplete?.();
-          const firstError = data.batchResults.find((item) => ["failed", "not_found"].includes(item.status));
-          if (firstError) {
-            setError(`Stopped at SKU ${firstError.sku}: ${firstError.message}. Fix this before continuing.`);
-            break;
+        if (!data.success || data.busy) {
+          throw new Error(data.message || "This image sync is already running. Try Resume shortly.");
+        }
+
+        setProgress({ nextOffset: Number(data.nextOffset || 0), total: Number(data.total || 0) });
+        const batch = Array.isArray(data.batchResults) ? data.batchResults : [];
+        if (batch.length) {
+          setResults((old) => [...old, ...batch]);
+          countThisRun += batch.length;
+          if (batch.some((item) => item.status === "failed" || item.status === "not_found")) {
+            hadFailures = true;
           }
         }
+
         if (data.done) {
           if (Array.isArray(data.results)) setResults(data.results);
-          localStorage.removeItem(KEY);
-          setJobId("");
-          setNotice("Image sync completed. Check Updated/Failed below and refresh the Archive report.");
+          saveJobId("");
+          const final = Array.isArray(data.results) ? data.results : batch;
+          const errors = final.filter((row) => row.status === "failed" || row.status === "not_found");
+          if (errors.length) {
+            setNotice(`Image sync finished: ${final.length - errors.length} succeeded, ${errors.length} need attention. Open SKU-wise results below.`);
+          } else {
+            setNotice(`Image sync completed successfully for ${final.length} Drive folder(s).`);
+          }
           onComplete?.();
           break;
         }
-        if (testOnly && processedThisTime >= 1) {
-          setNotice("One folder tested. If its status is Updated or Unchanged, press Continue remaining folders.");
+        if (testOnly && countThisRun >= 1) {
+          setNotice(hadFailures
+            ? "First folder did not sync. Expand the SKU-wise report to see why; you can still continue the other folders."
+            : "First folder tested. Click 'Continue remaining folders' to sync the rest.");
+          onComplete?.();
           break;
         }
+        // Continue even if a single Drive folder has no access or the SKU is
+        // not yet imported. The backend advances the cursor and reports it.
+      }
+      if (stop.current) {
+        setNotice("Paused safely. Progress is saved. Click Continue remaining folders when ready.");
+        onComplete?.();
       }
     } catch (requestError) {
-      setError(requestError.response?.data?.message || requestError.message || "Image sync interrupted. Resume when ready.");
+      setError(requestError.response?.data?.message || requestError.message || "Image sync interrupted; retry Continue remaining folders.");
+      onComplete?.();
     } finally {
+      running.current = false;
       setBusy(false);
     }
   };
 
-  const prepare = async () => {
-    if (!file) { setError("Select the original Excel first."); return; }
-    setBusy(true); setError(""); setNotice(""); setResults([]);
+  const start = async (testOnly) => {
+    if (!file || busy || running.current) {
+      if (!file) setError("Choose the latest Excel (.xlsx) first.");
+      return;
+    }
+    stop.current = false;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    setResults([]);
+    setPreparedSkus([]);
     setProgress({ nextOffset: 0, total: 0 });
+
     try {
       const form = new FormData();
       form.append("file", file);
-      const response = await api.post(`${ROOT}/prepare`, form);
-      const id = response.data?.jobId;
-      if (!id) throw new Error("Backend did not return an image-sync job ID");
-      localStorage.setItem(KEY, id);
-      setJobId(id);
-      setProgress({ nextOffset: 0, total: Number(response.data?.total || 0) });
-      setNotice(`${response.data?.total || 0} Drive folders found; ${response.data?.archiveRowsMatched ?? "?"} archive rows linked.`);
-      onComplete?.(); // preparation backfills original Excel Drive links in archive metadata
+      form.append("scope", scope);
+      const { data } = await api.post(`${IMAGE_SYNC_ROOT}/prepare`, form);
+      const id = String(data?.jobId || "");
+      if (!id) throw new Error("Backend did not return a job ID.");
+      const total = Number(data?.total || 0);
+      const linkedSkus = Array.isArray(data?.readyMadeSkus) ? data.readyMadeSkus : [];
+      setPreparedSkus(linkedSkus);
+      setProgress({ nextOffset: 0, total });
+      saveJobId(id);
+      setNotice(`Excel detected ${total} valid Drive folder link(s)` +
+        (scope === "hampers" ? `: ${linkedSkus.join(", ") || "none"}.` : ".") +
+        (testOnly ? " Testing first folder..." : " Syncing ALL folders one by one..."));
       setBusy(false);
-      await run(id, { testOnly: true });
+      await run(id, { testOnly });
     } catch (requestError) {
-      setError(requestError.response?.data?.message || requestError.message || "Unable to start image sync");
+      setError(requestError.response?.data?.message || requestError.message || "Unable to prepare image sync.");
       setBusy(false);
     }
   };
 
   const resume = async () => {
-    if (!jobId) return;
-    setError(""); setNotice("");
+    if (!jobId || busy || running.current) return;
+    setError("");
     try {
-      const response = await api.get(`${ROOT}/status/${jobId}`);
-      const data = response.data || {};
-      const previous = data.results || [];
-      setProgress({ nextOffset: data.nextOffset || 0, total: data.total || 0 });
-      setResults(previous);
-      if (data.done) {
-        setJobId(""); localStorage.removeItem(KEY);
-        setNotice("This sync job has already finished."); onComplete?.();
+      const { data } = await api.get(`${IMAGE_SYNC_ROOT}/status/${jobId}`);
+      setProgress({ nextOffset: Number(data?.nextOffset || 0), total: Number(data?.total || 0) });
+      setResults(Array.isArray(data?.results) ? data.results : []);
+      if (data?.done) {
+        saveJobId("");
+        setNotice("This image-sync job is already complete. See results below.");
+        onComplete?.();
         return;
       }
       await run(jobId);
     } catch (requestError) {
-      setError(requestError.response?.data?.message || requestError.message || "Unable to resume image sync");
+      setError(requestError.response?.data?.message || requestError.message || "Unable to resume. Try again.");
     }
   };
 
   const counts = {
-    updated: results.filter((item) => item.status === "updated").length,
-    unchanged: results.filter((item) => item.status === "unchanged").length,
-    failed: results.filter((item) => item.status === "failed").length,
-    notFound: results.filter((item) => item.status === "not_found").length,
+    updated: imageSyncCount(results, "updated"),
+    unchanged: imageSyncCount(results, "unchanged"),
+    failed: imageSyncCount(results, "failed"),
+    notFound: imageSyncCount(results, "not_found"),
   };
   const last = results[results.length - 1];
+  const issues = results.filter((item) => ["failed", "not_found"].includes(item.status));
+  const currentPercent = progress.total > 0 ? Math.min(100, 100 * progress.nextOffset / progress.total) : 0;
+
   return (
-    <section className="rounded-2xl border-2 border-orange-200 bg-[#FCFAF6] p-5 text-[#201C17] shadow-sm" aria-label="Google Drive multiple image sync">
-      <p className="text-xs font-bold uppercase tracking-wider text-orange-700">Step 1: Run this separately from normal Excel Analyze/Import</p>
+    <section className="rounded-2xl border-2 border-orange-200 bg-[#FCFAF6] p-5 text-[#201C17] shadow-sm" aria-label="Google Drive image sync">
+      <p className="text-xs font-bold uppercase tracking-wider text-orange-700">Image-only sync · Does not change live/disabled status</p>
       <h2 className="mt-1 text-xl font-bold">Google Drive images → Cloudinary → Catalogue</h2>
-      <p className="mt-2 text-sm text-[#5E574E]">Your Excel has Drive folder links. Choose the same workbook here and test one folder first. Normal Confirm Import and Refresh readiness do NOT download images.</p>
-      <div className="mt-4 flex flex-wrap items-center gap-3">
-        <input type="file" accept=".xlsx,.xlsm,.xls" onChange={(event) => setFile(event.target.files?.[0] || null)} disabled={busy}
-          aria-label="Select Excel for image-only sync" className="max-w-full text-sm" />
-        <button type="button" onClick={prepare} disabled={busy || !file}
-          className="rounded-full bg-[#D86B18] px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">
-          {busy ? "Processing..." : "Start image sync — test 1 folder"}
-        </button>
-        {!busy && jobId && <button type="button" onClick={resume}
-          className="rounded-full border border-[#B86B2F] px-4 py-2 text-sm font-bold">Continue remaining folders</button>}
-        {busy && <button type="button" onClick={() => { stop.current = true; }} className="rounded-full border px-4 py-2 text-sm">Pause</button>}
+      <p className="mt-2 text-sm leading-6 text-[#5E574E]">
+        Select the latest supplier Excel. <strong>Sync all linked folders</strong> processes every linked hamper SKU;
+        the older Test 1 Folder action synced only the first hamper, not all of them.
+      </p>
+      <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900">
+        <strong>Excel (7) reference:</strong> SKU 510005–510011 have Drive folder URLs; 510001–510004 have no cover link.
+        The actual detected SKU list below is read from whichever workbook you upload. If a SKU is not yet imported,
+        it will be marked <strong>Not found</strong>; missing Drive permissions are reported separately.
       </div>
-      {progress.total > 0 && <div className="mt-4" aria-live="polite">
-        <p className="text-sm font-semibold">{progress.nextOffset} / {progress.total} Drive folders tested or synced</p>
-        <div className="mt-2 h-2 rounded-full bg-[#E6DED3]"><div className="h-full rounded-full bg-[#D86B18]" style={{ width: `${progress.nextOffset / progress.total * 100}%` }} /></div>
-        <p className="mt-2 text-sm">Updated: {counts.updated} · Unchanged: {counts.unchanged} · Failed: {counts.failed} · SKU not found: {counts.notFound}</p>
-      </div>}
-      {last && <div className="mt-3 rounded-xl border border-black/10 bg-white p-3 text-sm">
-        <strong>Last folder: SKU {last.sku} — {last.status}</strong>
-        <p className="mt-1 break-words text-black/65">{last.message || `${last.count || 0} image(s)`}</p>
-      </div>}
-      {notice && <p role="status" className="mt-3 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
-      {error && <p role="alert" className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-      {results.length > 0 && <details className="mt-3 rounded-xl border border-black/10 bg-white p-3 text-sm">
-        <summary className="cursor-pointer font-bold">View results for {results.length} processed folders</summary>
-        <div className="mt-2 max-h-56 space-y-2 overflow-y-auto">
-          {results.map((result, i) => <p key={`${result.sku}-${i}`} className="border-t pt-2"><strong>{result.sku} — {result.status}</strong> · {result.message}</p>)}
+      <div className="mt-4 flex flex-wrap items-end gap-3">
+        <label className="flex flex-col gap-1 text-xs font-bold text-[#5E574E]">
+          Which images to sync?
+          <select value={scope} onChange={(event) => setScope(event.target.value)} disabled={busy}
+            className="rounded-lg border border-orange-200 bg-white px-3 py-2 text-sm text-[#201C17]">
+            <option value="hampers">Ready-made hampers only</option>
+            <option value="all">All products (hampers first)</option>
+            <option value="products">Boxes, gift items &amp; decorations only</option>
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-xs font-bold text-[#5E574E]">
+          Latest supplier Excel
+          <input type="file" accept=".xlsx,.xlsm,.xls" onChange={(event) => setFile(event.target.files?.[0] || null)} disabled={busy}
+            aria-label="Select Excel for image-only sync" className="max-w-full rounded-lg border border-orange-200 bg-white px-3 py-2 text-xs" />
+        </label>
+        <button type="button" onClick={() => start(false)} disabled={busy || !file}
+          className="rounded-xl bg-[#171717] px-5 py-3 text-sm font-extrabold text-white transition hover:bg-[#D86B18] disabled:opacity-50">
+          {busy ? "Processing..." : "Sync ALL linked folders"}
+        </button>
+        <button type="button" onClick={() => start(true)} disabled={busy || !file}
+          className="rounded-xl border border-orange-300 bg-white px-4 py-3 text-sm font-bold text-[#8B420D] disabled:opacity-50">
+          Test first folder only
+        </button>
+        {!busy && jobId && (
+          <button type="button" onClick={resume}
+            className="rounded-xl border border-[#B86B2F] bg-white px-4 py-3 text-sm font-bold text-[#8B420D]">
+            Continue remaining folders
+          </button>
+        )}
+        {busy && (
+          <button type="button" onClick={() => { stop.current = true; }}
+            className="rounded-xl border border-black/20 px-4 py-3 text-sm font-bold">Pause after this folder</button>
+        )}
+      </div>
+      {preparedSkus.length > 0 && (
+        <p className="mt-3 text-xs leading-5 text-[#827465]">
+          <strong>Hamper SKUs detected:</strong> {preparedSkus.join(", ")}
+        </p>
+      )}
+      {progress.total > 0 && (
+        <div className="mt-4" aria-live="polite">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-bold">{progress.nextOffset} / {progress.total} Drive folder(s) processed</p>
+            <p className="text-xs font-semibold text-black/50">{Math.round(currentPercent)}%</p>
+          </div>
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#E6DED3]">
+            <div className="h-full rounded-full bg-[#D86B18] transition-all" style={{ width: `${currentPercent}%` }} />
+          </div>
+          <p className="mt-2 text-sm">
+            Updated: <strong>{counts.updated}</strong> · Unchanged: <strong>{counts.unchanged}</strong> · Failed: <strong>{counts.failed}</strong> · SKU not found: <strong>{counts.notFound}</strong>
+          </p>
         </div>
-      </details>}
-      <p className="mt-3 text-xs text-[#827465]">Safe image-only sync: does not re-import or delete products. A public folder link does not guarantee Google Drive API access; any 403/404 will appear above.</p>
+      )}
+      {last && (
+        <div className="mt-3 rounded-xl border border-black/10 bg-white p-3 text-sm">
+          <strong>Last SKU: {last.sku} — {last.status} ({last.count || 0} photo(s))</strong>
+          <p className="mt-1 break-words text-black/65">{last.message}</p>
+        </div>
+      )}
+      {notice && <p role="status" className="mt-3 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-900">{notice}</p>}
+      {error && <p role="alert" className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+      {results.length > 0 && (
+        <div className="mt-4 overflow-hidden rounded-xl border border-black/10 bg-white text-sm">
+          <div className="border-b border-black/10 px-4 py-3 font-extrabold">SKU-wise image-sync report</div>
+          <div className="max-h-72 overflow-y-auto">
+            {results.map((result, index) => (
+              <div key={`${result.sku}-${index}`} className="grid gap-1 border-b border-black/[0.07] px-4 py-3 sm:grid-cols-[110px_110px_1fr] sm:gap-3">
+                <strong>SKU {result.sku}</strong>
+                <span className={result.status === "failed" || result.status === "not_found"
+                  ? "font-bold text-red-700" : "font-bold text-emerald-700"}>
+                  {result.status === "not_found" ? "Not imported" : result.status} · {result.count || 0} photos
+                </span>
+                <span className="break-words text-black/60">{result.message || "No message"}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {issues.length > 0 && (
+        <p className="mt-3 text-xs leading-5 text-orange-800">
+          <strong>{issues.length} SKU(s) need attention.</strong> Missing SKU: import that hamper first. HTTP 403/404:
+          check the correct Drive folder sharing/API access. Other SKUs continue syncing even if one fails.
+        </p>
+      )}
+      <p className="mt-3 text-xs leading-5 text-[#827465]">
+        Image-only sync preserves existing Cloudinary galleries, prices, stock, and Admin publish/unpublish choices.
+        After completion, the Admin Archive refreshes. Photo sync does not automatically publish incomplete hampers.
+      </p>
     </section>
+  );
+}
+
+
+// Catalogue record type filters use V22 backend recordType values.
+// These filters only change what the admin sees; they NEVER limit an import.
+const PRODUCT_TYPE_OPTIONS = [
+  { value: "all", label: "All Products" },
+  { value: "boxes", label: "Boxes" },
+  { value: "items", label: "Gift Items" },
+  { value: "hampers", label: "Ready-made Hampers" },
+];
+
+const productTypeOf = (record) => {
+  const type = String(record?.recordType || "").trim().toLowerCase();
+  if (["container", "box", "boxes", "packaging_box"].includes(type)) return "boxes";
+  if (["ready_made_hamper", "ready-made-hamper", "ready_made", "hamper"].includes(type)) return "hampers";
+  return "items"; // Other regular catalogue products/components.
+};
+
+const countProductTypes = (records) => {
+  const counts = { all: records.length, boxes: 0, items: 0, hampers: 0 };
+  for (const row of records) counts[productTypeOf(row)] += 1;
+  return counts;
+};
+
+function ProductTypeFilter({ value, onChange, counts, label = "Product type" }) {
+  return (
+    <div aria-label={label} role="group" className="min-w-0">
+      <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.09em] text-black/45">{label}</p>
+      <div className="flex flex-wrap gap-2">
+        {PRODUCT_TYPE_OPTIONS.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            aria-pressed={value === option.value}
+            onClick={() => onChange(option.value)}
+            className={`inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-xs font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500 ${
+              value === option.value
+                ? "border-[#F97316] bg-[#FFF2E7] text-[#A94D0A]"
+                : "border-black/10 bg-white text-black/60 hover:border-[#F97316]/60 hover:text-[#A94D0A]"
+            }`}
+          >
+            {option.label}
+            <span className={`rounded-md px-1.5 py-0.5 text-[10px] tabular-nums ${
+              value === option.value ? "bg-orange-100 text-orange-800" : "bg-black/[0.045] text-black/45"
+            }`}>{counts[option.value] ?? 0}</span>
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -159,6 +350,7 @@ function ProductMasterArchivePanel({ reloadKey = 0 }) {
   const [error, setError] = useState("");
   const [view, setView] = useState("all");
   const [mediaView, setMediaView] = useState("all");
+  const [recordTypeView, setRecordTypeView] = useState("all");
   const [gallery, setGallery] = useState(null);
   const [galleryIndex, setGalleryIndex] = useState(0);
   const [publicationBusy, setPublicationBusy] = useState("");
@@ -222,11 +414,17 @@ function ProductMasterArchivePanel({ reloadKey = 0 }) {
 
   useEffect(() => { void refresh(); }, [reloadKey]);
 
-  const visible = rows.filter((row) =>
+  // Readiness and Images act first, then the product type selection.
+  // Counts reflect the current readiness + image filters, making combinations useful.
+  const statusMediaRows = rows.filter((row) =>
     (view === "all" || row.state === view) &&
     (mediaView === "all" || row.imageState === mediaView)
   );
-  const imageAuditCurrent = ["V14-link-audit", "V22-live-state-hyperlink"].includes(summary?.imageAuditVersion);
+  const typeCounts = countProductTypes(statusMediaRows);
+  const visible = statusMediaRows.filter((row) =>
+    recordTypeView === "all" || productTypeOf(row) === recordTypeView
+  );
+  const imageAuditCurrent = ["V14-link-audit", "V22-live-state-hyperlink", "V24-hamper-priority-drive-link"].includes(summary?.imageAuditVersion);
   const imageTotals = {
     saved: rows.filter((row) => row.imageState === "saved").length,
     pending: rows.filter((row) => row.imageState === "drive_link_pending").length,
@@ -261,7 +459,7 @@ function ProductMasterArchivePanel({ reloadKey = 0 }) {
         <span className="rounded-xl bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-600">No image link: {imageTotals.missing}</span>
       </div>
       {(!imageAuditCurrent || imageStateUnclassified !== 0) && <p role="alert" className="mx-5 mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-        {!imageAuditCurrent ? "Backend controller is not yet V14. Replace/deploy V14 controller and refresh. " : ""}
+        {!imageAuditCurrent ? "Backend image-audit controller is outdated; deploy V24 and refresh. " : ""}
         {imageStateUnclassified > 0 ? `${imageStateUnclassified} archived records have no image audit state. ` : ""}
         The image-only sync above must be run separately from normal Excel import.
       </p>}
@@ -281,7 +479,12 @@ function ProductMasterArchivePanel({ reloadKey = 0 }) {
             <option value="no_source_link">No Drive link</option>
           </select>
         </label>
-        <span className="self-center text-xs text-black/40">Showing {visible.length} of {rows.length}</span>
+      </div>
+      <div className="flex flex-wrap items-end justify-between gap-3 px-5 pb-5">
+        <ProductTypeFilter value={recordTypeView} onChange={setRecordTypeView} counts={typeCounts} label="Catalogue type" />
+        <span className="text-xs font-semibold text-black/45" aria-live="polite">
+          Showing {visible.length} of {rows.length} records
+        </span>
       </div>
       {error && <p role="alert" className="px-5 pb-3 text-sm text-red-600">{error}</p>}
       {publicationMessage && <p role="status" className="mx-5 mb-3 rounded-xl bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">{publicationMessage}</p>}
@@ -438,7 +641,13 @@ const ProductMasterImport = () => {
   const [reviewForm, setReviewForm] = useState(null);
   const [reviewSaving, setReviewSaving] = useState(false);
   const [archiveReload, setArchiveReload] = useState(0);
+  const [previewTypeView, setPreviewTypeView] = useState("all");
   const currentData = importResult || preview;
+  const previewRows = Array.isArray(currentData?.results) ? currentData.results : [];
+  const previewTypeCounts = countProductTypes(previewRows);
+  const visiblePreviewRows = previewRows.filter((row) =>
+    previewTypeView === "all" || productTypeOf(row) === previewTypeView
+  );
   const previewCreateCount = Number(preview?.summary?.create || 0);
   const previewUpdateCount = Number(preview?.summary?.update || 0);
   const previewImportableCount = Number(
@@ -503,6 +712,7 @@ const ProductMasterImport = () => {
     setFile(selected);
     setPreview(null);
     setImportResult(null);
+    setPreviewTypeView("all");
     setReviewingContainer(null);
     setReviewForm(null);
     setError("");
@@ -751,6 +961,7 @@ const ProductMasterImport = () => {
     setFile(null);
     setPreview(null);
     setImportResult(null);
+    setPreviewTypeView("all");
     setReviewingContainer(null);
     setReviewForm(null);
     setError("");
@@ -1017,6 +1228,15 @@ const ProductMasterImport = () => {
                 ) : null}
               </div>
             )}
+            <div className="flex flex-wrap items-end justify-between gap-3 border-b border-black/[0.06] px-5 py-4 sm:px-6">
+              <ProductTypeFilter value={previewTypeView} onChange={setPreviewTypeView} counts={previewTypeCounts} label="Preview by product type" />
+              <div className="text-right">
+                <p className="text-xs font-semibold text-black/55" aria-live="polite">
+                  Showing {visiblePreviewRows.length} of {previewRows.length} rows
+                </p>
+                <p className="mt-1 text-[11px] text-black/40">View-only filter. Import still processes the full Excel.</p>
+              </div>
+            </div>
             <div className="overflow-x-auto">
               <table className="min-w-[1100px] w-full text-left text-sm">
                 <thead className="sticky top-0 z-[1] bg-[#171717] text-[10px] uppercase tracking-[0.1em] text-white/60">
@@ -1031,7 +1251,7 @@ const ProductMasterImport = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {(currentData.results || []).map(
+                  {visiblePreviewRows.map(
                     (item, index) => (
                       <tr
                         key={`${item.rowNumber}-${item.externalSku}-${index}`}
@@ -1119,6 +1339,9 @@ const ProductMasterImport = () => {
                         </td>
                       </tr>
                     )
+                  )}
+                  {visiblePreviewRows.length === 0 && (
+                    <tr><td colSpan={7} className="px-4 py-8 text-center text-sm text-black/40">No records match this product type.</td></tr>
                   )}
                 </tbody>
               </table>
