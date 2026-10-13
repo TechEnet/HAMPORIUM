@@ -1,5 +1,7 @@
 // EXACT PATH: frontend/src/pages/account/Profile.jsx
-// ACTION: REPLACE - CUSTOMER 360 FRONTEND V1
+// ACTION: REPLACE existing file
+// CHANGE: Remove customer-facing Website activity insights panel
+
 import { useEffect, useMemo, useState } from "react";
 
 import api from "../../api/api.js";
@@ -7,7 +9,6 @@ import api from "../../api/api.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 
 import { AddressManager } from "./Addresses.jsx";
-import CustomerTrackingConsent from "../../components/CustomerTrackingConsent.jsx";
 
 const DISPLAY_FONT =
 
@@ -570,7 +571,6 @@ const Profile = () => {
       ===================================================== */}
 
         <AddressManager embedded />
-        <CustomerTrackingConsent />
 
     </main>
 
