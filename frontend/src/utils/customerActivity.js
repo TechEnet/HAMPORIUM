@@ -1,5 +1,6 @@
 // EXACT PATH: frontend/src/utils/customerActivity.js
-// ACTION: NEW - CUSTOMER 360 FRONTEND V1
+// REPLACE FILE
+
 import api from "../api/api.js";
 
 // Customer 360 only. Existing commerce analytics remains unchanged.
@@ -92,6 +93,11 @@ function schedule() {
 }
 export async function trackCustomerActivity(type, values = {}) {
   if (!currentUserId || !ALLOWED.has(type)) return;
+  // Search and product-view records are already sent by the original
+  // /analytics/search and /analytics/commerce/events/product-view requests.
+  // The backend mirrors these into CustomerActivity only for authenticated
+  // customers who opted in. Avoid double counting them here.
+  if (type === "search_submitted" || type === "product_viewed") return;
   const owner = currentUserId;
   const allowed = await readCustomerActivityConsent();
   if (!allowed || currentUserId !== owner) return;
