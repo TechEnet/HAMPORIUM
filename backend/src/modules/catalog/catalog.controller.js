@@ -24,6 +24,7 @@ import {
   componentArchiveReasons,
   containerArchiveReasons,
   hamperArchiveReasons,
+  hasWebsiteImage,
   buildComponentPublicFilter,
   buildContainerPublicFilter,
   websiteImageMongoFilter,
@@ -2789,8 +2790,60 @@ const parseCatalogueSheetXml = (xml, sharedStrings, role, sheetName) => {
   return {
     headerRowNumber,
     dataRows: keptDataRows.length,
+    dataRowNumbers: keptDataRows.map((item) => item.rowNumber),
     compactRows,
   };
+};
+
+// V22: Preserve embedded XLSX hyperlink TARGETS in the tiny compact workbook.
+// Visible cell text (e.g. "510005") is not an image URL; the real Drive
+// folder address lives in xl/worksheets/_rels/sheetN.xml.rels.
+// This parser only consults selected worksheets and does not inflate
+// unrelated operational sheets from the huge procurement workbook.
+const applyCompactWorksheetImageHyperlinks = (archive, sheet, sheetXml, parsed) => {
+  const imageColumn = (parsed.compactRows[parsed.headerRowNumber - 1] || [])
+    .findIndex((value) => ["imageasseturl", "imageurl"].includes(normalizeZipHeader(value)));
+  if (imageColumn < 0 || !parsed.dataRowNumbers?.length) return 0;
+
+  const slash = sheet.target.lastIndexOf("/");
+  const sheetDir = sheet.target.slice(0, slash + 1);
+  const sheetName = sheet.target.slice(slash + 1);
+  const relations = archive.readText(`${sheetDir}_rels/${sheetName}.rels`);
+  if (!relations) return 0;
+
+  const targets = new Map();
+  for (const match of relations.matchAll(/<Relationship\b([^>]*?)\/?\s*>/gi)) {
+    const attrs = match[1] || "";
+    if (!/\/hyperlink/i.test(xmlAttribute(attrs, "Type"))) continue;
+    if (xmlAttribute(attrs, "TargetMode").toLowerCase() !== "external") continue;
+    const url = xmlAttribute(attrs, "Target");
+    if (!/^https:\/\/drive\.google\.com\//i.test(url)) continue;
+    targets.set(xmlAttribute(attrs, "Id"), url);
+  }
+  if (!targets.size) return 0;
+
+  const rowPositions = new Map(parsed.dataRowNumbers.map((rowNo, index) => [
+    rowNo, parsed.headerRowNumber + index,
+  ]));
+  let updated = 0;
+  for (const match of (sheetXml || "").matchAll(/<hyperlink\b([^>]*?)\/?\s*>/gi)) {
+    const attrs = match[1] || "";
+    const reference = xmlAttribute(attrs, "ref").replace(/\$/g, "");
+    const cell = reference.match(/^([A-Z]+)(\d+)$/i);
+    const url = targets.get(xmlAttribute(attrs, "r:id"));
+    if (!cell || !url) continue;
+    if (columnIndexFromCellReference(reference) !== imageColumn) continue;
+    const destinationRow = rowPositions.get(Number(cell[2]));
+    if (destinationRow === undefined) continue;
+    const values = parsed.compactRows[destinationRow];
+    if (!values) continue;
+    const existing = String(values[imageColumn] || "").trim();
+    // Plain direct image URL or Drive link entered as visible text wins.
+    if (/^https?:\/\//i.test(existing)) continue;
+    values[imageColumn] = url;
+    updated += 1;
+  }
+  return updated;
 };
 
 const compactProductMasterFromZip = async (sourcePath, filename = "") => {
@@ -2853,6 +2906,13 @@ const compactProductMasterFromZip = async (sourcePath, filename = "") => {
         error.statusCode = 400;
         throw error;
       }
+
+      const hyperlinkCount = applyCompactWorksheetImageHyperlinks(
+        archive, sheet, sheetXml, parsed
+      );
+      if (hyperlinkCount) console.info(
+        `[ProductMaster] preserved ${hyperlinkCount} Excel image hyperlink target(s) from ${sheet.name}`
+      );
 
       const outputName = canonicalZipSheetName(sheet.role, sheet.name);
       const worksheet = XLSX.utils.aoa_to_sheet(parsed.compactRows, {
@@ -3223,6 +3283,16 @@ const isMasterContainerRow = (row) => {
 
   // Native catalogue files use Product Type = "Container".
   if (productType.includes("container") || recordType.includes("container")) {
+    return true;
+  }
+
+  // V22: Product Master rows 187/188 (8002024001 / 8002024002) are
+  // physically gift BOXES, even though their Category is the personalized
+  // product library. Product Type is more specific than merchandising category.
+  // Do not use the name keyword alone: a non-box gift could mention "box".
+  const normalizedType = normalizeMasterHeader(productType);
+  if (["box", "boxes", "giftbox", "giftboxes", "rigidbox", "rigidboxes",
+    "packagingbox", "packagingboxes"].includes(normalizedType)) {
     return true;
   }
 
@@ -5985,6 +6055,16 @@ const upsertImportedBaseRow = async (Model, payload, externalSku) => {
     preserveManualPriceWhenTargetBlank(payload, existing)
   );
 
+  // V22: Spreadsheet supply data must not flip an existing LIVE item OFF,
+  // nor silently revive a box the admin explicitly disabled. Publication is
+  // an admin decision, separate from upstream Excel Status/Hamper Use flags.
+  if (existing) {
+    delete safePayload.isActive;
+    delete safePayload.customerSelectable;
+    delete safePayload.hamperUse;
+    delete safePayload.channels;
+  }
+
   const filter = existing
     ? { _id: existing._id }
     : { "source.type": "product_master", "source.externalSku": canonicalSku };
@@ -6635,6 +6715,34 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
         ],
       }).select("_id").lean();
       const saved = await upsertImportedBaseRow(Model, payload, item.externalSku);
+      if (item.recordType === "container") {
+        // When correcting historical misclassification, carry the existing
+        // Cloudinary gallery over to the newly-recognized box. Do not erase
+        // the old source record or overwrite a gallery already on the box.
+        if (!Array.isArray(saved.images) || saved.images.length === 0) {
+          const previousWrongType = await Component.findOne({
+            "source.type": "product_master",
+            $or: [
+              { "source.externalSku": item.externalSku },
+              { code: String(payload.code || "").toUpperCase() },
+            ],
+          }).select("images").lean();
+          if (Array.isArray(previousWrongType?.images) && previousWrongType.images.length) {
+            await Container.updateOne({ _id: saved._id, "source.type": "product_master" },
+              { $set: { images: previousWrongType.images } });
+          }
+        }
+        // Retain old source record for audit/references, but stop showing an
+        // incorrectly imported box among customer gift components. Never
+        // touch manually owned components with a coincidentally matching code.
+        await Component.updateMany({
+          "source.type": "product_master",
+          $or: [
+            { "source.externalSku": item.externalSku },
+            { code: String(payload.code || "").toUpperCase() },
+          ],
+        }, { $set: { isActive: false, customerSelectable: false, hamperUse: false } });
+      }
       kept[item.recordType === "container" ? "containers" : "components"].push(saved._id);
       catalogRefs.set(item.rowKey, {
         model: item.recordType === "container" ? "Container" : "Component",
@@ -6751,6 +6859,10 @@ export const confirmProductMasterImport = asyncHandler(async (req, res) => {
       if (oldProduct && oldProduct.source?.type !== "product_master") {
         throw new Error("Existing product is manually owned; archived without overwrite");
       }
+      // V22: Even an incomplete supplier row never overrides Admin's
+      // published/draft choice for an EXISTING ready-made hamper.
+      if (oldProduct) delete productPayload.status;
+      if (oldSku) delete skuPayload.isActive;
       const oldManualSku = await SKU.findOne({
         code: skuPayload.code, "source.type": { $ne: "product_master" },
       }).select("_id").lean();
@@ -8210,7 +8322,13 @@ export const getProductMasterArchive = asyncHandler(async (req, res) => {
     if (!skuByProduct.has(key)) skuByProduct.set(key, []);
     skuByProduct.get(key).push(sku);
   }
-  const records = sourceRows.map((row) => {
+  const records = sourceRows.filter((row) => {
+    // Preserve historical archive documents, but don't display the old
+    // misclassified Component snapshot as a second gift after a source SKU
+    // has been positively identified as a Container in V22.
+    if (row.recordType !== "component") return true;
+    return !containerBySku.has(String(row.externalSku || ""));
+  }).map((row) => {
     const code = String(row.externalSku || "");
     let reasons = [];
     let found = false;
@@ -8271,9 +8389,29 @@ export const getProductMasterArchive = asyncHandler(async (req, res) => {
       ? "saved"
       : hasDriveLink ? "drive_link_pending" : "no_source_link";
 
+    const firstSku = productSkus[0] || null;
+    const published = row.recordType === "ready_made_hamper" &&
+      record?.status === PRODUCT_STATUS.ACTIVE && firstSku?.isActive === true;
+    const publicationBlockers = row.recordType === "ready_made_hamper" ? [
+      !record?.category ? "Website category missing" : null,
+      !hasWebsiteImage(record?.images) ? "Hamper cover image missing (sync/upload an actual photo)" : null,
+      !firstSku || !(Number(firstSku.price) > 0) ? "Positive selling price missing" : null,
+      !firstSku || !(firstSku.hamperContents || []).length
+        ? "Gift contents missing; cannot offer checkout for an empty hamper" : null,
+    ].filter(Boolean) : [];
+    // A hamper without actual gift contents is still an Admin DRAFT even if
+    // its old status/price/image fields happen to pass the generic check.
+    reasons = [...new Set([...reasons, ...publicationBlockers])];
+
     return {
       rowKey: row.rowKey, rowNumber: row.rowNumber,
       externalSku: row.externalSku, name: row.name,
+      ...(row.recordType === "ready_made_hamper" ? {
+        productId: record?._id || null,
+        skuId: firstSku?._id || null,
+        published,
+        publicationBlockers,
+      } : {}),
       recordType: row.recordType, sourceSheetName: row.sourceSheetName,
       importedToCatalog: found, state: found && reasons.length === 0 ? "ready" : "archive",
       reasons,
@@ -8290,7 +8428,7 @@ export const getProductMasterArchive = asyncHandler(async (req, res) => {
   const noSourceLinkRows = records.filter((row) => row.imageState === "no_source_link").length;
   res.status(200).json({
     success: true,
-    imageAuditVersion: "V14-link-audit",
+    imageAuditVersion: "V22-live-state-hyperlink",
     summary: {
       total: records.length, ready, archive: records.length - ready,
       savedImageRows, pendingDriveRows, noSourceLinkRows,

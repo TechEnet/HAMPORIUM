@@ -157,10 +157,52 @@ function ProductMasterArchivePanel({ reloadKey = 0 }) {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [view, setView] = useState("archive");
+  const [view, setView] = useState("all");
   const [mediaView, setMediaView] = useState("all");
   const [gallery, setGallery] = useState(null);
   const [galleryIndex, setGalleryIndex] = useState(0);
+  const [publicationBusy, setPublicationBusy] = useState("");
+  const [publicationMessage, setPublicationMessage] = useState("");
+
+  // Admin-only manual publication. The existing Product/SKU editor endpoints
+  // remain the authority, not the Excel Status column.
+  const changeHamperPublication = async (row) => {
+    if (!row.productId || !row.skuId || publicationBusy) return;
+    const enabling = !row.published;
+    if (enabling && row.publicationBlockers?.length) {
+      setPublicationMessage(
+        `${row.externalSku}: Cannot publish safely yet — ${row.publicationBlockers.join("; ")}`
+      );
+      return;
+    }
+    const agreed = window.confirm(
+      enabling
+        ? `Publish ${row.name} (${row.externalSku}) to customers? Confirm price, image and actual gift contents before making it orderable.`
+        : `Unpublish ${row.name} (${row.externalSku}) from customer catalogue? Existing orders remain unchanged.`
+    );
+    if (!agreed) return;
+    setPublicationBusy(row.externalSku);
+    setPublicationMessage("");
+    try {
+      // Publishing: make SKU available before product; unpublishing: hide
+      // Product first. This minimizes partial public visibility on failure.
+      if (enabling) {
+        await api.patch(`/catalog/admin/skus/${row.skuId}`, { isActive: true });
+        await api.patch(`/catalog/admin/products/${row.productId}`, { status: "active" });
+      } else {
+        await api.patch(`/catalog/admin/products/${row.productId}`, { status: "draft" });
+        await api.patch(`/catalog/admin/skus/${row.skuId}`, { isActive: false });
+      }
+      setPublicationMessage(`${row.externalSku}: ${enabling ? "Published" : "Unpublished"}.`);
+      await refresh();
+    } catch (requestError) {
+      setPublicationMessage(requestError.response?.data?.message ||
+        `${row.externalSku}: Could not update publication. Check Product & SKU status in Admin.`);
+      await refresh();
+    } finally {
+      setPublicationBusy("");
+    }
+  };
 
   const refresh = async () => {
     setLoading(true);
@@ -184,7 +226,7 @@ function ProductMasterArchivePanel({ reloadKey = 0 }) {
     (view === "all" || row.state === view) &&
     (mediaView === "all" || row.imageState === mediaView)
   );
-  const imageAuditCurrent = summary?.imageAuditVersion === "V14-link-audit";
+  const imageAuditCurrent = ["V14-link-audit", "V22-live-state-hyperlink"].includes(summary?.imageAuditVersion);
   const imageTotals = {
     saved: rows.filter((row) => row.imageState === "saved").length,
     pending: rows.filter((row) => row.imageState === "drive_link_pending").length,
@@ -202,6 +244,7 @@ function ProductMasterArchivePanel({ reloadKey = 0 }) {
           <p className="mt-2 text-sm text-black/55">
             Archived products remain visible here to admins, including saved photos.
             A Google Drive folder link is not a displayable image until image-only sync succeeds.
+            Excel re-import does not change an existing Admin Live/Disabled decision.
           </p>
         </div>
         <button type="button" onClick={refresh} disabled={loading}
@@ -241,11 +284,12 @@ function ProductMasterArchivePanel({ reloadKey = 0 }) {
         <span className="self-center text-xs text-black/40">Showing {visible.length} of {rows.length}</span>
       </div>
       {error && <p role="alert" className="px-5 pb-3 text-sm text-red-600">{error}</p>}
+      {publicationMessage && <p role="status" className="mx-5 mb-3 rounded-xl bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">{publicationMessage}</p>}
       <div className="max-h-[480px] overflow-auto border-t border-black/10">
         <table className="min-w-[900px] w-full text-left text-xs sm:text-sm">
           <thead className="sticky top-0 z-10 bg-[#FAF7F3] text-black/60"><tr>
             <th className="p-3">Image</th><th className="p-3">SKU</th><th className="p-3">Product / Box</th>
-            <th className="p-3">Readiness</th><th className="p-3">What is missing</th>
+            <th className="p-3">Readiness</th><th className="p-3">What is missing / Publish</th>
           </tr></thead>
           <tbody>
             {visible.map((row) => {
@@ -272,7 +316,27 @@ function ProductMasterArchivePanel({ reloadKey = 0 }) {
                 <td className="p-3 font-semibold">{row.externalSku || `Row ${row.rowNumber}`}</td>
                 <td className="p-3">{row.name || "Unnamed"}<span className="ml-2 text-black/40">{row.recordType}</span></td>
                 <td className="p-3 font-semibold">{row.state === "ready" ? "Ready" : "Archive"}</td>
-                <td className="p-3 text-black/60">{row.reasons?.join(" · ") || "—"}</td>
+                <td className="p-3 text-black/60">
+                  <p>{row.reasons?.join(" · ") || "—"}</p>
+                  {row.recordType === "ready_made_hamper" && (
+                    <div className="mt-3 flex flex-col items-start gap-2">
+                      <span className={`text-xs font-bold ${row.published ? "text-emerald-700" : "text-amber-700"}`}>
+                        {row.published ? "LIVE (Admin-approved)" : "NOT LIVE (Admin draft)"}
+                      </span>
+                      {row.productId && row.skuId ? (
+                        <button type="button" disabled={publicationBusy === row.externalSku ||
+                            (!row.published && (row.publicationBlockers || []).length > 0)}
+                          onClick={() => void changeHamperPublication(row)}
+                          className="rounded-lg bg-[#191817] px-3 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-40">
+                          {publicationBusy === row.externalSku ? "Saving..." : row.published ? "Unpublish" : "Publish Live"}
+                        </button>
+                      ) : <span className="text-xs text-red-600">Import SKU to enable publishing</span>}
+                      {!row.published && row.publicationBlockers?.length > 0 && (
+                        <p className="max-w-xs text-xs text-amber-700">Live blocked: {row.publicationBlockers.join("; ")}</p>
+                      )}
+                    </div>
+                  )}
+                </td>
               </tr>;
             })}
             {!visible.length && <tr><td colSpan={5} className="p-6 text-center text-black/40">No records in this view</td></tr>}
