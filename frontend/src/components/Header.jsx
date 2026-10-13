@@ -1,5 +1,5 @@
 // EXACT PATH: frontend/src/components/Header.jsx
-// ACTION: REPLACE - HAMPORIUM CENTERED HEADER V29
+// ACTION: REPLACE - HAMPORIUM HEADER V31 (STATIC MOBILE SEARCH ICON)
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -268,6 +268,17 @@ const SEARCH_MORPH_WORDS = ["Find", "Gifts", "Explore", "Search"];
 const useSearchMorph = (reduceMotion) => {
   const [stage, setStage] = useState({ phase: "icon", word: 0, letters: 0 });
 
+  // Restore the initial icon when switching from animated desktop to compact screens.
+  // Also prevents returning to a half-typed word when the desktop width returns.
+  useEffect(() => {
+    if (!reduceMotion) return;
+    setStage((previous) =>
+      previous.phase === "icon" && previous.word === 0 && previous.letters === 0
+        ? previous
+        : { phase: "icon", word: 0, letters: 0 }
+    );
+  }, [reduceMotion]);
+
   useEffect(() => {
     if (reduceMotion) return undefined;
     const currentWord = SEARCH_MORPH_WORDS[stage.word];
@@ -332,7 +343,10 @@ const Header = () => {
   const navigate = useNavigate();
   const desktop = useMediaQuery(DESKTOP_QUERY);
   const reduceMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
-  const searchMorph = useSearchMorph(reduceMotion);
+  // Static magnifying-glass icon on mobile/tablet (<1180px).
+  // Desktop retains the existing Find / Gifts / Explore typing animation.
+  // Disabling the hook also stops its animation timer on compact devices.
+  const searchMorph = useSearchMorph(reduceMotion || !desktop);
   const transparentLogo = useTransparentLogo(logoLight);
   const instanceId = useId().replace(/:/g, "");
   const panelId = `hh-panel-${instanceId}`;
@@ -347,6 +361,7 @@ const Header = () => {
   const hoverTimerRef = useRef(0);
   const scrollFrameRef = useRef(0);
   const lastScrollYRef = useRef(0);
+  const mobileScrollTravelRef = useRef(0);
   const restoreFocusRef = useRef(false);
   const notificationsRef = useRef(null);
   const notificationsPinnedRef = useRef(false);
@@ -438,6 +453,7 @@ const Header = () => {
     setHeaderHidden(false);
     notificationsPinnedRef.current = false;
     lastScrollYRef.current = Math.max(0, window.scrollY || 0);
+    mobileScrollTravelRef.current = 0;
   }, [location.pathname, location.search, clearHoverTimer]);
 
   // Close the outgoing viewport's panel before switching desktop/mobile layouts.
@@ -456,10 +472,29 @@ const Header = () => {
       const delta = y - lastScrollYRef.current;
       setScrolledPastHero(y > 585);
       const focusInside = headerRef.current?.contains(document.activeElement);
-      if (y <= 72 || renderedPanel || notificationsPinnedRef.current || focusInside) {
+      // On touchscreens a tapped header button can keep focus indefinitely.
+      // Do not let that stale focus pin the mobile header in view.
+      const mustStayVisible = y <= 76 || Boolean(renderedPanel) ||
+        notificationsPinnedRef.current || (desktop && focusInside);
+      if (mustStayVisible) {
+        mobileScrollTravelRef.current = 0;
         setHeaderHidden(false);
-      } else if (Math.abs(delta) >= 6) {
-        setHeaderHidden(delta > 0);
+      } else if (desktop) {
+        // Preserve the existing desktop behavior.
+        if (Math.abs(delta) >= 6) setHeaderHidden(delta > 0);
+      } else if (Math.abs(delta) >= 1) {
+        // Small directional threshold prevents mobile jitter on touch scroll.
+        const travel = mobileScrollTravelRef.current;
+        mobileScrollTravelRef.current =
+          (travel === 0 || Math.sign(travel) === Math.sign(delta))
+            ? travel + delta : delta;
+        if (mobileScrollTravelRef.current >= 12) {
+          setHeaderHidden(true);
+          mobileScrollTravelRef.current = 0;
+        } else if (mobileScrollTravelRef.current <= -9) {
+          setHeaderHidden(false);
+          mobileScrollTravelRef.current = 0;
+        }
       }
       lastScrollYRef.current = y;
     };
@@ -473,7 +508,7 @@ const Header = () => {
       window.cancelAnimationFrame(scrollFrameRef.current);
       scrollFrameRef.current = 0;
     };
-  }, [renderedPanel]);
+  }, [renderedPanel, desktop]);
 
   useEffect(() => {
     const onPointer = (event) => {
@@ -915,17 +950,47 @@ const HeaderImage = ({ src, alt }) => {
     : <span className="hh-image-placeholder" aria-label={alt}><Icon name="gift" /></span>;
 };
 
-const AccountPanel = ({ user, isAdmin, isPartner, partnerPortalPath, becomePartnerPath, handleLogout, logoutBusy, logoutError }) => (
-  <div className="hh-account-content">
-    {user ? <><div className="hh-account-profile"><span>{String(user.name || "H").slice(0, 1).toUpperCase()}</span><div><strong>{user.name || "My Account"}</strong>{user.email && <small>{user.email}</small>}</div></div>
-      <div className="hh-account-links">{[["/account", "My Account", "account"], ["/account/orders", "My Orders", "bag"], ["/account/addresses", "Saved Addresses", "pin"], ["/account/refunds", "Refunds", "refund"]].map(([to, label, icon]) => <Link key={to} to={to}><Icon name={icon} /><span>{label}</span><Icon name="arrow" /></Link>)}</div></>
-      : <><div className="hh-auth-actions"><Link to="/login" className="hh-secondary">Login</Link><Link to="/signup" className="hh-primary">Sign up <Icon name="arrow" /></Link></div></>}
-    <Link to={isPartner ? partnerPortalPath : becomePartnerPath} className="hh-partner-link"><Icon name="handshake" /><span><strong>{isPartner ? "Partner Portal" : "Become a Partner"}</strong><small>{isPartner ? "Your partnership with HAMPORIUM" : "Discover the HAMPORIUM partner program"}</small></span><Icon name="arrow" /></Link>
-    {isAdmin && <Link to="/admin" className="hh-admin-link">Admin Dashboard <Icon name="arrow" /></Link>}
-    {user && <button type="button" className="hh-logout" disabled={logoutBusy} onClick={handleLogout}>{logoutBusy ? "Signing out..." : "Logout"}<Icon name="logout" /></button>}
-    {logoutError && <p className="hh-error" role="alert">{logoutError}</p>}
-  </div>
-);
+const AccountPanel = ({ user, isAdmin, isPartner, partnerPortalPath, becomePartnerPath, handleLogout, logoutBusy, logoutError }) => {
+  const dashboardPath = isAdmin ? "/admin" : isPartner ? partnerPortalPath : "/account";
+  return (
+    <div className={`hh-account-content ${user ? "hh-account-compact" : ""}`}>
+      {user ? (
+        <>
+          <nav className="hh-account-quick-links" aria-label="Account shortcuts">
+            <Link to={dashboardPath} className="hh-account-quick-link hh-account-quick-dashboard">
+              <span className="hh-account-quick-icon"><Icon name="account" /></span>
+              <strong>{isAdmin ? "Admin Dashboard" : "My Dashboard"}</strong>
+              <Icon name="arrow" />
+            </Link>
+            <Link to={isPartner ? partnerPortalPath : becomePartnerPath} className="hh-account-quick-link hh-account-quick-partner">
+              <span className="hh-account-quick-icon"><Icon name="handshake" /></span>
+              <strong>{isPartner ? "Partner Portal" : "Become a Partner"}</strong>
+              <Icon name="arrow" />
+            </Link>
+          </nav>
+          <div className="hh-account-signout-wrap">
+            <button type="button" className="hh-account-signout" disabled={logoutBusy} onClick={handleLogout}>
+              <Icon name="logout" /> {logoutBusy ? "Signing out..." : "Sign out"}
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="hh-auth-actions">
+            <Link to="/login" className="hh-secondary">Login</Link>
+            <Link to="/signup" className="hh-primary">Sign up <Icon name="arrow" /></Link>
+          </div>
+          <Link to={becomePartnerPath} className="hh-partner-link">
+            <Icon name="handshake" />
+            <span><strong>Become a Partner</strong><small>Discover the HAMPORIUM partner program</small></span>
+            <Icon name="arrow" />
+          </Link>
+        </>
+      )}
+      {logoutError && <p className="hh-error" role="alert">{logoutError}</p>}
+    </div>
+  );
+};
 
 const MobileMenu = ({ notificationUnread, onUnreadChange, onSearch, ...accountProps }) => (
   <div className="hh-menu-content">
@@ -1146,6 +1211,22 @@ const HEADER_CSS = `
 .hh-partner-link { display:flex; align-items:center; gap:12px; border:1px solid #e3d3b6; border-radius:7px; padding:13px 12px; background:#f6efdf; }.hh-partner-link>.hh-icon { color:#9c793c; width:19px; height:19px; }.hh-partner-link>.hh-icon:last-child { width:14px; }.hh-partner-link>span { flex:1; }.hh-partner-link strong { display:block; font-size:13px; font-weight:600; }.hh-partner-link small { display:block; color:#837156; font-size:12px; line-height:1.5; margin-top:3px; }.hh-partner-link:hover { background:#efe2c9; }
 .hh-admin-link,.hh-logout { display:flex; justify-content:space-between; align-items:center; width:100%; border:0; border-top:1px solid var(--hh-line); padding:14px 3px 0; background:transparent; margin-top:15px; font-size:13px; }.hh-logout { color:#a05e32; }.hh-admin-link>.hh-icon,.hh-logout>.hh-icon { width:16px; height:16px; }
 
+/* V32 - Compact logged-in account: only two prominent actions. */
+.hh-account-compact { padding:18px 20px 12px; }
+.hh-account-quick-links { display:grid; gap:10px; }
+.hh-account-quick-link { display:flex; align-items:center; min-width:0; gap:13px; min-height:62px; padding:13px 14px; border:1px solid #e7ddca; border-radius:12px; background:#fffdf8; color:var(--hh-ink); transition:background .25s ease,border-color .25s ease,transform .25s var(--hh-ease); }
+.hh-account-quick-link:hover { transform:translateY(-2px); border-color:#caac75; background:#fff8eb; }
+.hh-account-quick-link strong { flex:1; min-width:0; font-size:14px; font-weight:700; line-height:1.3; }
+.hh-account-quick-icon { display:grid; place-items:center; width:37px; height:37px; flex:0 0 37px; border-radius:11px; background:#f4e9d6; color:#97702e; }
+.hh-account-quick-link>.hh-icon { width:17px; height:17px; color:#a48451; }
+.hh-account-quick-partner { background:#f5ecdc; border-color:#e3d2b2; }
+.hh-account-quick-partner .hh-account-quick-icon { background:#ead6b3; }
+.hh-account-signout-wrap { display:flex; justify-content:flex-end; padding-top:7px; }
+.hh-account-signout { display:inline-flex; align-items:center; justify-content:center; gap:7px; min-height:36px; border:0; border-radius:7px; padding:6px 9px; background:transparent; color:#8e8170; font-size:11px; font-weight:600; transition:color .2s ease,background .2s ease; }
+.hh-account-signout:hover { color:#9a6328; background:#f5ecdf; }
+.hh-account-signout .hh-icon { width:14px; height:14px; }
+.hh-menu-content>.hh-account-content.hh-account-compact { padding:14px 0 0; }
+
 /* Mobile navigation is a scrollable dialog, with all desktop routes retained. */
 .hh-menu-content { padding:0 22px 24px; }
 .hh-menu-search { display:flex; align-items:center; width:100%; gap:12px; min-height:48px; border:1px solid #e4d7c2; background:#f4ecdf; border-radius:8px; color:#76684f; padding:10px 12px; font-size:13px; margin:20px 0 9px; }.hh-menu-search>span { flex:1; text-align:left; }.hh-menu-search>.hh-icon:last-child { width:16px; }
@@ -1181,6 +1262,9 @@ const HEADER_CSS = `
   .hh-mobile-menu-trigger { display:flex; width:44px; height:44px; }
   .hh-brand-mark { width:59px; height:62px; }
   .hh-search-trigger { width:46px; flex-basis:46px; height:44px; }
+  /* Mobile/tablet: search is a fixed clickable icon, without typing or caret. */
+  .hh-search-morph-icon { animation:none; }
+  .hh-search-morph-word, .hh-search-morph-caret { display:none; }
   .hh-search-morph-word { font-size:11px; letter-spacing:-.035em; }
   .hh-search-morph-caret { height:13px; }
   .hh-search-trigger:hover,.hh-search-trigger.is-open { color:#9a6328; }
