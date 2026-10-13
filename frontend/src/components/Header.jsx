@@ -1,5 +1,5 @@
 // EXACT PATH: frontend/src/components/Header.jsx
-// ACTION: REPLACE - CUSTOMER 360 FRONTEND V1
+// ACTION: REPLACE - HAMPORIUM CENTERED HEADER V29
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -74,11 +74,6 @@ const getProductImage = (product) => {
       product?.thumbnail
   );
 };
-
-const normalizePincode = (value) =>
-  String(value || "")
-    .replace(/\D/g, "")
-    .slice(0, 6);
 
 // ======================================================
 // LOGO BACKGROUND REMOVE
@@ -266,6 +261,47 @@ const POPULAR_SEARCHES = [
   "Custom Hamper",
 ];
 
+// One search control, one morphing content slot: icon -> Find -> Gifts -> Explore.
+// No search bar, second label, or independent animated line in the header.
+const SEARCH_MORPH_WORDS = ["Find", "Gifts", "Explore", "Search"];
+
+const useSearchMorph = (reduceMotion) => {
+  const [stage, setStage] = useState({ phase: "icon", word: 0, letters: 0 });
+
+  useEffect(() => {
+    if (reduceMotion) return undefined;
+    const currentWord = SEARCH_MORPH_WORDS[stage.word];
+    const delay = stage.phase === "icon" ? 1750
+      : stage.phase === "typing" ? (stage.letters >= currentWord.length ? 1250 : 115)
+        : stage.letters > 0 ? 72 : 300;
+
+    const timer = window.setTimeout(() => {
+      setStage((previous) => {
+        const word = SEARCH_MORPH_WORDS[previous.word];
+        if (previous.phase === "icon") return { ...previous, phase: "typing", letters: 0 };
+        if (previous.phase === "typing") {
+          return previous.letters >= word.length
+            ? { ...previous, phase: "erasing" }
+            : { ...previous, letters: previous.letters + 1 };
+        }
+        return previous.letters > 0
+          ? { ...previous, letters: previous.letters - 1 }
+          : { phase: "icon", word: (previous.word + 1) % SEARCH_MORPH_WORDS.length, letters: 0 };
+      });
+    }, delay);
+
+    return () => window.clearTimeout(timer);
+  }, [reduceMotion, stage.phase, stage.word, stage.letters]);
+
+  if (reduceMotion || stage.phase === "icon") {
+    return { icon: true, text: "" };
+  }
+  return {
+    icon: false,
+    text: SEARCH_MORPH_WORDS[stage.word].slice(0, stage.letters),
+  };
+};
+
 // ======================================================
 // PEARL NAVIGATION
 // One responsive header and one active panel. Existing API contracts,
@@ -291,14 +327,12 @@ const useMediaQuery = (query) => {
 const Header = () => {
   const { user, partner, logout } = useAuth();
   const { cart } = useCart();
-  const {
-    deliveryLocation, locationLabel, locationLoading, locationError,
-    resolvePincode, detectCurrentLocation, clearDeliveryLocation, setLocationError,
-  } = useDeliveryLocation();
+  const { deliveryLocation } = useDeliveryLocation();
   const location = useLocation();
   const navigate = useNavigate();
   const desktop = useMediaQuery(DESKTOP_QUERY);
   const reduceMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
+  const searchMorph = useSearchMorph(reduceMotion);
   const transparentLogo = useTransparentLogo(logoLight);
   const instanceId = useId().replace(/:/g, "");
   const panelId = `hh-panel-${instanceId}`;
@@ -362,7 +396,6 @@ const Header = () => {
     notificationsPinnedRef.current = false;
     setHeaderHidden(false);
     setLogoutError("");
-    if (name === "location") setLocationError?.("");
     setPanel(name);
   };
 
@@ -655,7 +688,7 @@ const Header = () => {
   };
   const panelTitle = {
     hampers: "Find your kind of gift.", search: "A thoughtful gift starts here.",
-    location: "Where should we deliver?", account: user ? "Your account" : "Welcome to HAMPORIUM",
+    account: user ? "Your account" : "Welcome to HAMPORIUM",
     menu: "Explore HAMPORIUM",
   }[renderedPanel];
 
@@ -670,11 +703,7 @@ const Header = () => {
         onFocusCapture={() => setHeaderHidden(false)}
       >
         <div className="hh-bar">
-          <Link to="/" className="hh-brand" aria-label="HAMPORIUM home" onClick={() => closePanel(false)}>
-            <span className="hh-brand-mark"><img src={transparentLogo} alt="" /></span>
-            <span className="hh-wordmark">HAMPORIUM</span>
-          </Link>
-          {desktop && (
+          {desktop ? (
             <nav className="hh-nav" aria-label="Primary navigation">
               <button
                 ref={hamperTriggerRef} type="button"
@@ -693,24 +722,43 @@ const Header = () => {
                 <Icon name="spark" /><span>HAMPER <em>ONE</em><small>Private collection</small></span>
               </Link>
             </nav>
+          ) : (
+            <ActionButton label="Open menu" className="hh-mobile-menu-trigger" active={panel === "menu"}
+              controls={panel === "menu" ? panelId : undefined}
+              onClick={(event) => togglePanel("menu", event)}>
+              <Icon name={panel === "menu" ? "close" : "menu"} />
+            </ActionButton>
           )}
+
+          <Link to="/" className="hh-brand" aria-label="HAMPORIUM home" onClick={() => closePanel(false)}>
+            <span className="hh-brand-mark"><img src={transparentLogo} alt="HAMPORIUM" /></span>
+          </Link>
+
           <div className="hh-tools">
-            <button ref={searchTriggerRef} type="button" className={`hh-search-trigger ${panel === "search" ? "is-open" : ""}`}
-              aria-label="Search hampers" aria-expanded={panel === "search"} aria-controls={panel === "search" ? panelId : undefined}
+            <button ref={searchTriggerRef} type="button"
+              className={`hh-search-trigger ${panel === "search" ? "is-open" : ""}`}
+              aria-label="Find a gift - open search" aria-expanded={panel === "search"}
+              aria-controls={panel === "search" ? panelId : undefined}
               onClick={(event) => togglePanel("search", event)}>
-              <Icon name="search" /><span>Find a thoughtful gift</span><kbd aria-hidden="true">/</kbd>
+              <span className="hh-search-morph" aria-hidden="true">
+                {searchMorph.icon ? (
+                  <span className="hh-search-morph-icon" key="icon"><Icon name="search" /></span>
+                ) : (
+                  <span className="hh-search-morph-word" key="word">
+                    {searchMorph.text}<i className="hh-search-morph-caret" />
+                  </span>
+                )}
+              </span>
             </button>
-            {desktop && (
-              <button type="button" className={`hh-location-trigger ${panel === "location" ? "is-open" : ""}`}
-                aria-label="Select delivery location" aria-expanded={panel === "location"} aria-controls={panel === "location" ? panelId : undefined}
-                onClick={(event) => togglePanel("location", event)}>
-                <Icon name="pin" /><span><small>Deliver to</small><strong>{deliveryLocation ? locationLabel || deliveryLocation.pincode : "Select location"}</strong></span><Icon name="chevron" />
-              </button>
-            )}
-            <span className="hh-tools-divider" aria-hidden="true" />
-            {desktop && (
-              <ActionButton label="Account" active={panel === "account"} controls={panel === "account" ? panelId : undefined} onClick={(event) => togglePanel("account", event)}><Icon name="account" /></ActionButton>
-            )}
+
+            <button type="button" className={`hh-account-trigger hh-action ${panel === "account" ? "is-open" : ""}`}
+              aria-label={user ? "Account" : "Login"} aria-expanded={panel === "account"}
+              aria-controls={panel === "account" ? panelId : undefined}
+              onClick={(event) => togglePanel("account", event)}>
+              <Icon name="account" />
+              <span className="hh-account-label">{user ? "Account" : "Login"}</span>
+            </button>
+
             {user && (
               <div className="hh-notifications" ref={notificationsRef}
                 onPointerDownCapture={() => { closePanel(false); notificationsPinnedRef.current = true; setHeaderHidden(false); }}
@@ -718,11 +766,11 @@ const Header = () => {
                 <HeaderNotifications mobile={!desktop} darkContent={darkContent} unread={notificationUnread} onUnreadChange={setNotificationUnread} />
               </div>
             )}
+
             <Link to="/cart" className="hh-action hh-cart" aria-label={`Cart${cartCount ? `, ${cartCount} items` : ""}`} onClick={() => closePanel(false)}>
               <Icon name="bag" />
               {cartCount > 0 && <span className="hh-count" key={cartCount}>{cartCount > 99 ? "99+" : cartCount}</span>}
             </Link>
-            {!desktop && <ActionButton label="Open menu" active={panel === "menu"} controls={panel === "menu" ? panelId : undefined} onClick={(event) => togglePanel("menu", event)}><Icon name={panel === "menu" ? "close" : "menu"} /></ActionButton>}
           </div>
         </div>
       </header>
@@ -742,7 +790,7 @@ const Header = () => {
             }}
           >
             <div className="hh-panel-top">
-              <div><p className="hh-eyebrow">{renderedPanel === "hampers" ? "Gifting, your way" : renderedPanel === "search" ? "Discover HAMPORIUM" : renderedPanel === "location" ? "Delivery location" : renderedPanel === "menu" ? "The gifting edit" : "HAMPORIUM"}</p>
+              <div><p className="hh-eyebrow">{renderedPanel === "hampers" ? "Gifting, your way" : renderedPanel === "search" ? "Discover HAMPORIUM" : renderedPanel === "menu" ? "The gifting edit" : "HAMPORIUM"}</p>
                 <h2 id={`${panelId}-title`}>{panelTitle}</h2></div>
               <button type="button" className="hh-close" onClick={() => closePanel()} aria-label="Close panel"><Icon name="close" /></button>
             </div>
@@ -755,16 +803,11 @@ const Header = () => {
                 submitSearch={submitSearch} goToProduct={goToProduct} onPopular={handlePopularSearch}
                 id={instanceId}
               />}
-              {renderedPanel === "location" && <LocationPanel
-                location={deliveryLocation} loading={locationLoading} error={locationError}
-                resolvePincode={resolvePincode} detectCurrentLocation={detectCurrentLocation}
-                clearLocation={clearDeliveryLocation} clearError={() => setLocationError?.("")}
-                onComplete={() => closePanel()} id={instanceId}
-              />}
               {renderedPanel === "account" && <AccountPanel {...accountProps} />}
               {renderedPanel === "menu" && <MobileMenu
-                {...accountProps} location={deliveryLocation} locationLabel={locationLabel}
-                onLocation={() => openPanel("location")} onSearch={() => openPanel("search")}
+                {...accountProps}
+                notificationUnread={notificationUnread} onUnreadChange={setNotificationUnread}
+                onSearch={() => openPanel("search")}
               />}
             </div>
           </section>
@@ -774,8 +817,8 @@ const Header = () => {
   );
 };
 
-const ActionButton = ({ label, active, controls, onClick, children }) => (
-  <button type="button" className={`hh-action ${active ? "is-open" : ""}`} aria-label={label}
+const ActionButton = ({ label, className = "", active, controls, onClick, children }) => (
+  <button type="button" className={`hh-action ${className} ${active ? "is-open" : ""}`} aria-label={label}
     aria-expanded={Boolean(active)} aria-controls={controls} onClick={onClick}>{children}</button>
 );
 
@@ -872,46 +915,6 @@ const HeaderImage = ({ src, alt }) => {
     : <span className="hh-image-placeholder" aria-label={alt}><Icon name="gift" /></span>;
 };
 
-const LocationPanel = ({ location, loading, error, resolvePincode, detectCurrentLocation, clearLocation, clearError, onComplete, id }) => {
-  const [pincode, setPincode] = useState(location?.pincode || "");
-  const [localError, setLocalError] = useState("");
-  const [operation, setOperation] = useState("");
-  const mounted = useRef(true);
-  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
-  useEffect(() => setPincode(location?.pincode || ""), [location?.pincode]);
-  const busy = loading || Boolean(operation);
-  const displayError = localError || error;
-  const run = async (kind, task) => {
-    if (busy) return;
-    setLocalError(""); clearError?.(); setOperation(kind);
-    try { await task(); if (mounted.current) onComplete?.(); }
-    catch (requestError) { if (mounted.current) setLocalError(requestError?.response?.data?.message || requestError.message || "Unable to verify your location."); }
-    finally { if (mounted.current) setOperation(""); }
-  };
-  const submit = (event) => {
-    event.preventDefault();
-    if (!/^[1-9][0-9]{5}$/.test(pincode)) { setLocalError("Enter a valid 6-digit Indian pincode."); return; }
-    void run("pincode", () => resolvePincode(pincode));
-  };
-  return (
-    <div className="hh-location-content">
-      <div className="hh-location-intro"><span className="hh-location-emblem"><Icon name="pin" /></span><p>Find availability and delivery estimates<br />for your area.</p></div>
-      {location && <div className="hh-saved-location"><Icon name="check" /><div><small>Current delivery location</small><strong>{[location.city || location.district, location.state].filter(Boolean).join(", ") || "India"}</strong><span>{location.pincode}</span></div><button disabled={busy} type="button" onClick={() => { clearLocation(); clearError?.(); setPincode(""); setLocalError(""); }}>Clear</button></div>}
-      <form onSubmit={submit} noValidate className="hh-pincode-form">
-        <label htmlFor={`hh-pin-${id}`}>Pincode <span>6 digits</span></label>
-        <div className={`hh-pincode-field ${displayError ? "has-error" : ""}`}><Icon name="pin" />
-          <input id={`hh-pin-${id}`} value={pincode} onChange={(event) => { setPincode(normalizePincode(event.target.value)); setLocalError(""); clearError?.(); }} type="text" inputMode="numeric" autoComplete="postal-code" maxLength={6} placeholder="e.g. 226001" aria-invalid={Boolean(displayError)} aria-describedby={displayError ? `hh-pin-error-${id}` : undefined} />
-          <button type="submit" className="hh-primary" disabled={busy || pincode.length !== 6}>{operation === "pincode" ? "Checking..." : "Apply"}<Icon name={operation === "pincode" ? "loader" : "arrow"} /></button>
-        </div>
-        {displayError && <p className="hh-error" role="alert" id={`hh-pin-error-${id}`}>{displayError}</p>}
-      </form>
-      <div className="hh-or"><span />or<span /></div>
-      <button type="button" className="hh-detect" disabled={busy} onClick={() => void run("detect", detectCurrentLocation)}><Icon name={operation === "detect" ? "loader" : "locate"} /><span>{operation === "detect" ? "Detecting your location..." : "Use my current location"}</span><Icon name="arrow" /></button>
-      <p className="hh-location-note">Your browser will ask for location permission.</p>
-    </div>
-  );
-};
-
 const AccountPanel = ({ user, isAdmin, isPartner, partnerPortalPath, becomePartnerPath, handleLogout, logoutBusy, logoutError }) => (
   <div className="hh-account-content">
     {user ? <><div className="hh-account-profile"><span>{String(user.name || "H").slice(0, 1).toUpperCase()}</span><div><strong>{user.name || "My Account"}</strong>{user.email && <small>{user.email}</small>}</div></div>
@@ -924,7 +927,7 @@ const AccountPanel = ({ user, isAdmin, isPartner, partnerPortalPath, becomePartn
   </div>
 );
 
-const MobileMenu = ({ location, locationLabel, onLocation, onSearch, ...accountProps }) => (
+const MobileMenu = ({ notificationUnread, onUnreadChange, onSearch, ...accountProps }) => (
   <div className="hh-menu-content">
     <button type="button" onClick={onSearch} className="hh-menu-search"><Icon name="search" /><span>Search for the perfect gift</span><Icon name="arrow" /></button>
     <nav aria-label="Mobile primary navigation" className="hh-mobile-nav">
@@ -935,7 +938,12 @@ const MobileMenu = ({ location, locationLabel, onLocation, onSearch, ...accountP
       <Link to="/hamper-one" className="hh-mobile-private"><Icon name="spark" /><span><small>Private collection</small>HAMPER <em>ONE</em></span><Icon name="arrow" /></Link>
     </nav>
     <div className="hh-mobile-collections"><p className="hh-eyebrow">Explore the collections</p><div>{COLLECTIONS.map((item) => <Link key={item.to} to={item.to}>{item.label.replace(" Hampers", "")}<Icon name="arrow" /></Link>)}</div></div>
-    <button type="button" className="hh-menu-location" onClick={onLocation}><Icon name="pin" /><span><small>Deliver to</small><strong>{location ? locationLabel || location.pincode : "Select your location"}</strong></span><Icon name="arrow" /></button>
+    {accountProps.user && (
+      <div className="hh-menu-notifications">
+        <span>Notifications</span>
+        <HeaderNotifications mobile darkContent unread={notificationUnread} onUnreadChange={onUnreadChange} />
+      </div>
+    )}
     <AccountPanel {...accountProps} />
   </div>
 );
@@ -984,50 +992,51 @@ const HEADER_CSS = `
 .hh-hero { color:#fff8e7; background:linear-gradient(180deg,#0e0c0a70,#0e0c0a38); }
 @supports (backdrop-filter:blur(12px)) { .hh-header { backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); } }
 .hh-hidden { transform:translateY(-110%); pointer-events:none; }
-.hh-bar { width:100%; height:var(--hh-height); display:flex; align-items:center; gap:clamp(14px,1.6vw,32px); padding-inline:clamp(20px,2.4vw,56px); }
-.hh-brand { display:flex; align-items:center; gap:10px; flex:0 0 auto; }
-.hh-brand-mark { display:flex; width:54px; height:64px; align-items:center; justify-content:center; }
-.hh-brand-mark img { display:block; width:100%; height:100%; object-fit:contain; transition:transform .6s var(--hh-ease); }
-.hh-wordmark { font-family:'Cormorant Garamond',Georgia,serif; font-size:25px; letter-spacing:.065em; font-weight:600; line-height:1; white-space:nowrap; }
-/* Keep Hampers and HAMPER ONE close to the search box on desktop. */
-.hh-nav { display:flex; align-self:stretch; align-items:center; gap:clamp(14px,1.6vw,28px); margin-left:auto; }
-.hh-nav-link { position:relative; display:inline-flex; height:100%; align-items:center; gap:8px; padding:0 2px; border:0; color:inherit; background:transparent; font-weight:600!important; font-size:14px!important; white-space:nowrap; }
+/* True three-zone layout: left collections, perfectly centered emblem, right actions. */
+.hh-bar { position:relative; width:100%; height:var(--hh-height); display:flex; align-items:center; justify-content:space-between; gap:18px; padding-inline:clamp(22px,3vw,60px); }
+.hh-brand { position:absolute; z-index:2; left:50%; top:50%; transform:translate(-50%,-50%); display:flex; align-items:center; justify-content:center; flex:0 0 auto; }
+/* V29 logo: 20% larger than V28, centered without moving navigation. */
+.hh-brand-mark { display:flex; width:69px; height:70px; align-items:center; justify-content:center; }
+.hh-brand-mark img { display:block; width:calc(100% / 1.15); height:100%; object-fit:contain; transform:scale(1.2) scaleX(1.15); transform-origin:center; transition:transform .6s var(--hh-ease); }
+.hh-brand:hover img { transform:scale(1.235) scaleX(1.15); }
+.hh-nav { display:flex; align-self:stretch; align-items:center; gap:clamp(15px,2vw,29px); flex:0 1 auto; margin-left:0; position:relative; z-index:1; }
+.hh-nav-link { position:relative; display:inline-flex; height:100%; align-items:center; gap:8px; padding:0 2px; border:0; color:inherit; background:transparent; font-weight:650!important; font-size:14px!important; white-space:nowrap; }
 .hh-nav-link::after { content:''; position:absolute; bottom:17px; left:0; right:0; height:1px; transform:scaleX(0); transform-origin:left; background:var(--hh-orange); transition:transform .42s var(--hh-ease); }
 .hh-nav-link.is-current::after,.hh-nav-link:hover::after { transform:scaleX(1); }
 .hh-nav-link .hh-icon { width:14px; height:14px; }
 .hh-icon.hh-turn { transform:rotate(180deg); }
 .hh-private-link { display:flex; align-items:center; gap:9px; position:relative; padding-left:22px; border-left:1px solid #a8894f40; white-space:nowrap; }
 .hh-private-link>.hh-icon { width:17px; height:17px; color:#9b7422; }
-.hh-private-link>span { font-size:12px; font-weight:600; letter-spacing:.06em; line-height:1.2; }
+.hh-private-link>span { font-size:12px; font-weight:650; letter-spacing:.06em; line-height:1.2; }
 .hh-private-link em { color:#916b1b; font-family:Georgia,serif; font-size:15px; font-weight:400; }
 .hh-private-link small { display:block; margin-top:5px; color:var(--hh-muted); font-size:12px; font-weight:500; letter-spacing:.025em; }
 .hh-private-link.is-current>span { color:#977023; }
 .hh-hero .hh-private-link em,.hh-hero .hh-private-link>.hh-icon { color:#e0c173; }
 .hh-hero .hh-private-link small { color:#e9e1cfbf; }
-.hh-tools { min-width:0; display:flex; align-items:center; gap:6px; margin-left:0; }
-.hh-search-trigger { display:flex; align-items:center; gap:10px; min-width:0; width:clamp(240px,22vw,390px); height:44px; padding:0 12px; border:1px solid #e8dfd1; border-radius:9px; color:var(--hh-muted); background:#f5f0e8; transition:border-color .3s,background .3s,box-shadow .3s; }
-.hh-search-trigger>.hh-icon { width:18px; height:18px; color:#98732f; }
-.hh-search-trigger>span { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:13px; text-align:left; }
-.hh-search-trigger kbd { display:flex; align-items:center; justify-content:center; width:22px; height:24px; margin-left:auto; border:1px solid #d9cebc; border-radius:4px; font-family:inherit; font-size:12px; background:#fffaf2; }
-.hh-search-trigger:hover,.hh-search-trigger.is-open { border-color:#c5a76f; box-shadow:0 0 0 3px #bb904c0c; background:#fff9ef; }
-.hh-hero .hh-search-trigger { border-color:#ffffff30; background:#ffffff0b; color:#fff4e0; }
-.hh-hero .hh-search-trigger>.hh-icon { color:#e7c983; }
-.hh-hero .hh-search-trigger kbd { border-color:#ffffff25; background:#ffffff0b; }
-.hh-location-trigger { display:flex; align-items:center; min-width:0; width:clamp(145px,13vw,205px); gap:9px; height:44px; margin-left:6px; padding:0 10px; border:0; border-radius:9px; background:transparent; color:inherit; transition:background .3s; }
-.hh-location-trigger>.hh-icon:first-child { color:#a67b35; width:20px; }
-.hh-location-trigger>.hh-icon:last-child { width:13px; height:13px; }
-.hh-location-trigger>span { flex:1; min-width:0; text-align:left; line-height:1.3; }
-.hh-location-trigger small { display:block; font-size:12px; font-weight:500; color:var(--hh-muted); }
-.hh-location-trigger strong { display:block; margin-top:2px; font-size:13px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.hh-location-trigger:hover,.hh-location-trigger.is-open { background:#b9955320; }
-.hh-hero .hh-location-trigger small { color:#e8e0d0bd; }
-.hh-tools-divider { flex:0 0 1px; height:24px; margin-inline:5px; background:#aa8e5838; }
+.hh-tools { min-width:0; display:flex; align-items:center; gap:8px; margin-left:auto; position:relative; z-index:1; }
+/* One compact, clickable, morphing search symbol: never a pill, input or search bar. */
+.hh-search-trigger { display:flex; align-items:center; justify-content:center; flex:0 0 76px; width:76px; height:44px; padding:0; border:0!important; border-radius:0!important; color:inherit; background:transparent!important; box-shadow:none!important; outline-offset:4px; transition:color .3s var(--hh-ease); }
+.hh-search-morph { display:flex; align-items:center; justify-content:center; width:100%; height:44px; white-space:nowrap; }
+.hh-search-morph-icon { display:flex; align-items:center; justify-content:center; color:#a57a31; animation:hh-morph-appear .3s var(--hh-ease) both; }
+.hh-search-morph-icon>.hh-icon { width:22px; height:22px; }
+.hh-search-morph-word { display:inline-flex; align-items:center; justify-content:center; min-width:0; color:inherit; font-size:14px; line-height:1; font-weight:700; letter-spacing:.01em; animation:hh-morph-appear .26s var(--hh-ease) both; }
+.hh-search-morph-caret { display:inline-block; flex:0 0 2px; height:16px; width:2px; margin-left:2px; background:#b68033; animation:hh-morph-blink .75s steps(1,end) infinite; }
+.hh-search-trigger:hover,.hh-search-trigger.is-open { color:#a36b28; }
+.hh-search-trigger:hover .hh-search-morph-icon,.hh-search-trigger.is-open .hh-search-morph-icon { color:#c18a3c; }
+.hh-hero .hh-search-morph-icon { color:#edd092; }
+.hh-hero .hh-search-morph-caret { background:#f4d48b; }
+.hh-hero .hh-search-trigger:hover,.hh-hero .hh-search-trigger.is-open { color:#f4d48b; }
+@keyframes hh-morph-appear { from { opacity:.25; transform:translateY(3px); } to { opacity:1; transform:translateY(0); } }
+@keyframes hh-morph-blink { 0%,49% { opacity:1; } 50%,100% { opacity:0; } }
 .hh-action { position:relative; display:flex; align-items:center; justify-content:center; width:42px; height:44px; flex:0 0 auto; border:0; border-radius:50%; color:inherit; background:transparent; transition:background .3s,color .3s,transform .4s var(--hh-ease); }
 .hh-action:hover,.hh-action.is-open { color:#9a6328; background:#f1e5d1; }
 .hh-hero .hh-action:hover { color:#f3cf7c; background:#ffffff10; }
+.hh-account-trigger { width:auto; gap:7px; padding:0 10px; border-radius:99px; }
+.hh-account-label { font-size:13px; font-weight:650; white-space:nowrap; }
 .hh-count { position:absolute; top:0; right:-2px; display:grid; place-items:center; min-width:18px; height:18px; padding-inline:4px; border-radius:50px; background:#ec721c; color:white; font-size:11px; font-weight:700; line-height:1; animation:hh-count-in .35s var(--hh-ease); }
 .hh-notifications { display:flex; align-items:center; flex:0 0 auto; color:inherit; }
 .hh-notifications>button,.hh-notifications>div>button { min-width:40px; min-height:44px; }
+.hh-mobile-menu-trigger { display:none; }
 
 /* Shared panel positioning lives outside the transformed header. */
 .hh-overlay { position:fixed; inset:0; z-index:101; pointer-events:none; color:var(--hh-ink); }
@@ -1044,7 +1053,6 @@ const HEADER_CSS = `
 .hh-panel-search { max-width:920px; }
 .hh-panel-account { width:360px; left:auto; right:clamp(24px,4vw,90px); margin:0; }
 .hh-panel-account .hh-panel-top h2 { font-size:27px; }
-.hh-panel-location { max-width:530px; right:clamp(24px,4vw,90px); left:auto; margin:0; }
 .hh-panel-location .hh-panel-top h2 { font-size:32px; }
 .hh-overlay.is-leaving .hh-panel { animation:hh-panel-out .22s ease both; pointer-events:none; }
 .hh-overlay.is-leaving .hh-backdrop { animation:hh-fade-out .22s ease both; pointer-events:none; }
@@ -1128,21 +1136,9 @@ const HEADER_CSS = `
 .hh-search-skeleton { display:flex; align-items:center; gap:13px; padding:12px 8px; }.hh-search-skeleton>span { width:65px; height:70px; border-radius:5px; background:#ede3d3; }.hh-search-skeleton>div { flex:1; }.hh-search-skeleton i { display:block; height:9px; width:80%; border-radius:3px; background:#e7dccb; margin-bottom:10px; }.hh-search-skeleton i+i { width:48%; }.hh-search-skeleton { animation:hh-breathe 1.5s ease-in-out infinite alternate; }
 
 /* Location and account. */
-.hh-location-content { padding:24px 30px 28px; }
-.hh-location-intro { display:flex; align-items:center; gap:17px; padding-bottom:23px; }
-.hh-location-emblem { width:62px; height:62px; flex-shrink:0; border-radius:50%; display:grid; place-items:center; color:#a47a31; background:#f0e6d5; border:1px solid #dcc9a7; box-shadow:inset 0 0 0 6px #f9f3e9; }
-.hh-location-emblem>.hh-icon { width:26px; height:26px; }
-.hh-location-intro p { color:var(--hh-muted); font-size:13px; line-height:1.8; }
-.hh-saved-location { display:flex; align-items:center; gap:12px; padding:14px; background:#f0f2e9; border:1px solid #dce2d1; border-radius:7px; margin-bottom:24px; }.hh-saved-location>.hh-icon { color:#5b7555; width:18px; }.hh-saved-location>div { min-width:0; flex:1; }.hh-saved-location small { display:block; color:#53704d; font-size:12px; }.hh-saved-location strong { display:block; font-size:14px; font-weight:600; overflow-wrap:anywhere; margin-top:3px; }.hh-saved-location span { color:#6c7464; font-size:13px; }.hh-saved-location button { border:0; background:transparent; color:#597153; font-size:13px; }
-.hh-pincode-form label { display:flex; justify-content:space-between; font-size:13px; font-weight:600; margin-bottom:10px; }.hh-pincode-form label span { font-weight:400; color:#837869; font-size:12px; }
-.hh-pincode-field { display:flex; align-items:center; gap:10px; min-height:58px; border:1px solid #ddd0ba; border-radius:8px; padding:5px 6px 5px 12px; background:white; }.hh-pincode-field:focus-within { border-color:#aa8141; box-shadow:0 0 0 3px #a87b3a0c; }.hh-pincode-field.has-error { border-color:#bb5142; }
-.hh-pincode-field>.hh-icon { width:18px; color:#9d814f; }.hh-pincode-field input { width:100%; min-width:0; flex:1; border:0; outline:none; padding:6px 0; background:transparent; color:var(--hh-ink); font-size:17px; font-weight:500; letter-spacing:.05em; }.hh-pincode-field input:focus-visible { outline:none; }.hh-pincode-field input::placeholder { font-size:14px; letter-spacing:0; color:#9a8e7b; }
 .hh-primary,.hh-secondary { display:inline-flex; min-height:45px; align-items:center; justify-content:center; gap:12px; padding:11px 18px; border:1px solid #ba853e; border-radius:6px; font-size:13px; font-weight:600; color:#fff!important; background:#a57230; transition:background .3s,transform .35s var(--hh-ease); }
 .hh-primary:hover { background:#895a24; }.hh-primary>.hh-icon { width:15px; height:15px; }
 .hh-secondary { color:#554a39!important; background:transparent; border-color:#ddd1bd; }.hh-secondary:hover { background:#f0e4d0; }
-.hh-or { display:flex; align-items:center; gap:13px; margin-block:21px; color:#9a8b75; font-size:12px; }.hh-or>span { height:1px; background:#e6dac8; flex:1; }
-.hh-detect { display:flex; align-items:center; gap:12px; width:100%; min-height:50px; background:#f5ede0; padding:12px 15px; border:1px solid #e5d6bc; border-radius:7px; color:#796037; font-size:13px; font-weight:600; transition:background .3s; }.hh-detect:hover { background:#eddeca; }.hh-detect>span { flex:1; text-align:left; }.hh-detect>.hh-icon:last-child { width:17px; }
-.hh-location-note { margin-top:13px!important; font-size:12px; text-align:center; color:#887966; }
 .hh-error { margin-top:12px!important; color:#a02b24; font-size:13px; line-height:1.65; }
 .hh-account-content { padding:22px 25px; }.hh-account-profile { display:flex; align-items:center; gap:13px; padding-bottom:18px; border-bottom:1px solid var(--hh-line); }.hh-account-profile>span { display:grid; place-items:center; width:46px; height:46px; border-radius:50%; background:#eee1c9; color:#8f682d; font:400 26px Georgia,serif; flex-shrink:0; }.hh-account-profile>div { min-width:0; }.hh-account-profile strong { display:block; overflow-wrap:anywhere; font-weight:600; font-size:15px; }.hh-account-profile small { display:block; overflow-wrap:anywhere; color:#857663; font-size:12px; margin-top:3px; }
 .hh-account-links { padding-block:8px 12px; }.hh-account-links a { display:flex; align-items:center; gap:12px; min-height:47px; font-size:13px; border-radius:5px; padding:8px 2px; transition:background .3s; }.hh-account-links a:hover { background:#f5ecdd; }.hh-account-links a>span { flex:1; }.hh-account-links .hh-icon { width:17px; height:17px; color:#937b51; }.hh-account-links a>.hh-icon:last-child { width:14px; }
@@ -1157,7 +1153,8 @@ const HEADER_CSS = `
 .hh-mobile-build>div:first-child { border-bottom:0; }.hh-mobile-order-links { display:grid; grid-template-columns:1fr 1fr; gap:12px; padding:0 0 20px 27px; }.hh-mobile-order-links a { display:flex; align-items:center; justify-content:space-between; gap:7px; min-height:42px; padding:8px 0; color:#7b5e32; font-size:13px; border-top:1px solid var(--hh-line); }.hh-mobile-order-links a>.hh-icon { width:14px; height:14px; }
 .hh-mobile-private { display:flex; align-items:center; gap:14px; padding:18px; border:1px solid #d8c19a; border-radius:7px; background:linear-gradient(110deg,#f2e7d2,#fbf5e9); margin:0 0 25px; }.hh-mobile-private>span { flex:1; font-family:Georgia,serif; font-size:22px; letter-spacing:.03em; }.hh-mobile-private small { display:block; font-family:'Manrope',Arial,sans-serif; text-transform:uppercase; color:#8c703e; font-size:12px; letter-spacing:.10em; margin-bottom:4px; }.hh-mobile-private em { color:#997127; }.hh-mobile-private>.hh-icon { color:#ad8441; width:19px; height:19px; }.hh-mobile-private>.hh-icon:last-child { width:17px; }
 .hh-mobile-collections>div { display:grid; grid-template-columns:1fr 1fr; gap:0 22px; margin-top:10px; }.hh-mobile-collections a { display:flex; align-items:center; justify-content:space-between; min-height:45px; border-bottom:1px solid var(--hh-line); font-size:13px; }.hh-mobile-collections a>.hh-icon { width:14px; height:14px; color:#ae8b45; }
-.hh-menu-location { display:flex; align-items:center; gap:13px; width:100%; min-height:72px; border:0; border-block:1px solid #e1d4bc; padding:14px 0; background:transparent; margin-top:23px; color:var(--hh-ink); }.hh-menu-location>span { flex:1; text-align:left; min-width:0; }.hh-menu-location small { display:block; font-size:12px; color:#907c5d; }.hh-menu-location strong { display:block; font-size:13px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:4px; }.hh-menu-location>.hh-icon { color:#a58041; width:18px; }
+.hh-menu-notifications { display:none; align-items:center; justify-content:space-between; gap:12px; width:100%; padding:13px 0; border-block:1px solid var(--hh-line); margin-top:18px; }
+.hh-menu-notifications>span { font-size:13px; font-weight:600; }
 .hh-menu-content>.hh-account-content { padding:22px 0 0; }
 
 @keyframes hh-panel-in { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
@@ -1170,15 +1167,29 @@ const HEADER_CSS = `
 .hh-spin { animation:hh-spin .85s linear infinite; }
 
 @media (min-width:1180px) and (max-width:1319px) {
-  .hh-bar { gap:16px; padding-inline:24px; }.hh-wordmark { font-size:22px; }.hh-brand { gap:7px; }.hh-brand-mark { width:46px; height:60px; }.hh-nav { margin-left:auto; gap:17px; }.hh-private-link { padding-left:16px; }.hh-tools { gap:3px; }.hh-search-trigger { width:240px; }.hh-search-trigger kbd { display:none; }.hh-location-trigger { width:145px; margin-left:2px; padding-inline:7px; }.hh-tools-divider { margin-inline:3px; }.hh-action { width:40px; }
+  .hh-bar { gap:12px; padding-inline:24px; }
+  .hh-nav { gap:16px; }
+  .hh-private-link { padding-left:16px; }
+  .hh-tools { gap:3px; }
+  .hh-search-trigger { width:66px; flex-basis:66px; }
+  .hh-account-trigger { gap:5px; padding-inline:7px; }
+  .hh-action { width:40px; }
 }
 @media (max-width:1179px) {
   .hh-header,.hh-overlay { --hh-height:72px; }
-  .hh-bar { padding-inline:22px; gap:10px; }
-  .hh-wordmark { font-size:24px; }.hh-brand-mark { width:46px; height:56px; }
-  .hh-search-trigger { width:44px; height:44px; justify-content:center; padding:0; border:0; background:transparent; }.hh-search-trigger>span,.hh-search-trigger kbd,.hh-tools-divider { display:none; }.hh-search-trigger>.hh-icon { width:21px; height:21px; color:inherit; }
-  .hh-hero .hh-search-trigger { border:0; background:transparent; }.hh-hero .hh-search-trigger>.hh-icon { color:inherit; }
-  .hh-tools { margin-left:auto; gap:5px; }.hh-action { width:44px; height:44px; }.hh-notifications { max-width:46px; }
+  .hh-bar { padding-inline:20px; gap:10px; }
+  .hh-mobile-menu-trigger { display:flex; width:44px; height:44px; }
+  .hh-brand-mark { width:59px; height:62px; }
+  .hh-search-trigger { width:46px; flex-basis:46px; height:44px; }
+  .hh-search-morph-word { font-size:11px; letter-spacing:-.035em; }
+  .hh-search-morph-caret { height:13px; }
+  .hh-search-trigger:hover,.hh-search-trigger.is-open { color:#9a6328; }
+  .hh-hero .hh-search-trigger:hover { color:#f3cf7c; }
+  .hh-tools { margin-left:auto; gap:3px; }
+  .hh-action { width:44px; height:44px; }
+  .hh-account-trigger { padding:0; border-radius:50%; }
+  .hh-account-label { display:none; }
+  .hh-notifications { max-width:46px; }
   .hh-mobile-overlay .hh-backdrop { inset:0; background:#17130c65; }
   .hh-mobile-overlay .hh-panel { top:calc(var(--hh-height) + 10px); left:12px; right:12px; width:calc(100% - 24px); max-width:700px; max-height:calc(100dvh - var(--hh-height) - 26px); margin-inline:auto; border-radius:16px; }
   .hh-mobile-overlay.hh-overlay-menu .hh-panel { top:0; right:0; left:auto; width:min(100%,460px); height:100dvh; max-height:100dvh; margin:0; border-radius:0; animation:hh-drawer-in .42s var(--hh-ease) both; }
@@ -1191,19 +1202,41 @@ const HEADER_CSS = `
 @keyframes hh-drawer-in { from { opacity:.6; transform:translateX(35px); } to { opacity:1; transform:translateX(0); } }
 @keyframes hh-drawer-out { to { opacity:0; transform:translateX(24px); } }
 @media (max-width:639px) {
-  .hh-bar { padding-inline:14px; gap:8px; }.hh-brand { gap:6px; }.hh-brand-mark { width:38px; height:50px; }.hh-wordmark { font-size:19px; letter-spacing:.04em; }.hh-tools { gap:0; }
+  .hh-bar { padding-inline:13px; gap:6px; }
+  .hh-brand-mark { width:48px; height:55px; }
+  .hh-tools { gap:0; }
+  .hh-action { width:40px; height:44px; }
+  .hh-search-trigger { width:43px; flex-basis:43px; }
+  .hh-mobile-menu-trigger { width:40px; }
   .hh-panel-top { padding:22px 20px 18px; gap:12px; }.hh-panel-top h2 { font-size:28px; }.hh-panel-top .hh-eyebrow { font-size:12px; }.hh-panel-location .hh-panel-top h2 { font-size:29px; }
   .hh-close { width:36px; height:36px; }
   .hh-search-panel-content { padding:20px 17px 0; }.hh-search-form { gap:9px; min-height:54px; padding-left:12px; }.hh-search-form input { font-size:16px; }.hh-search-form input::placeholder { font-size:14px; }.hh-search-form>.hh-icon { width:18px; height:18px; }.hh-search-submit { width:36px; height:38px; }
   .hh-search-discover { grid-template-columns:1fr; gap:20px; padding-block:24px; }.hh-search-bespoke { border-left:0; border-top:1px solid var(--hh-line); padding:21px 0 0; }.hh-search-bespoke>.hh-icon { display:none; }.hh-search-bespoke strong { font-size:24px; }.hh-search-bespoke>span { margin-top:8px; }
   .hh-result-grid { grid-template-columns:1fr; gap:0; }.hh-result { padding-inline:0; }.hh-result-copy strong { font-size:14px; }.hh-result-copy small { font-size:12px; }.hh-result-price { font-size:13px; }.hh-search-meta { gap:8px; }.hh-search-meta .hh-eyebrow { font-size:12px; }.hh-view-results { width:calc(100% + 34px); margin-inline:-17px; padding:16px; }.hh-location-content { padding:21px 20px 24px; }.hh-location-intro { gap:13px; }.hh-location-intro p { font-size:13px; }.hh-location-emblem { width:52px; height:52px; }.hh-pincode-field { gap:7px; }.hh-pincode-field .hh-primary { gap:6px; padding-inline:14px; }.hh-primary { min-height:44px; }
 }
+@media (max-width:399px) {
+  .hh-header .hh-notifications { display:none; }
+  .hh-menu-notifications { display:flex; }
+}
 @media (max-width:389px) {
-  .hh-bar { padding-inline:12px; gap:4px; }.hh-wordmark { font-size:17px; }.hh-brand-mark { width:34px; height:46px; }.hh-action,.hh-search-trigger { width:40px; height:44px; }.hh-notifications { max-width:40px; }.hh-notifications>button,.hh-notifications>div>button { max-width:40px; min-width:36px; }.hh-brand { gap:5px; }
+  .hh-bar { padding-inline:11px; gap:4px; }
+  .hh-brand-mark { width:48px; height:55px; }
+  .hh-action { width:38px; height:44px; }
+  .hh-search-trigger { width:40px; flex-basis:40px; }
+  .hh-search-morph-word { font-size:10px; }
+  .hh-mobile-menu-trigger { width:38px; }
+  .hh-notifications { max-width:38px; }
+  .hh-notifications>button,.hh-notifications>div>button { max-width:38px; min-width:36px; }
   .hh-panel-top h2 { font-size:26px; }.hh-location-intro p br { display:none; }.hh-menu-content { padding-inline:18px; }.hh-mobile-order-links { gap:9px; }.hh-mobile-order-links a { font-size:12px; }.hh-mobile-major>span:nth-child(2),.hh-mobile-build>div:first-child>span:nth-child(2) { font-size:27px; }
 }
 @media (max-width:349px) {
-  .hh-brand-mark { display:none; }.hh-wordmark { font-size:17px; }.hh-bar { padding-inline:12px; }.hh-location-content { padding-inline:16px; }.hh-pincode-field .hh-primary { padding-inline:10px; }.hh-pincode-field>.hh-icon { display:none; }.hh-panel-top { padding-inline:16px; }.hh-mobile-order-links { grid-template-columns:1fr; gap:0; }.hh-mobile-order-links a { font-size:12px; }
+  .hh-bar { padding-inline:8px; }
+  .hh-brand-mark { width:46px; height:53px; }
+  .hh-search-trigger { width:38px; flex-basis:38px; }
+  .hh-search-morph-word { font-size:9.4px; }
+  .hh-panel-top { padding-inline:16px; }
+  .hh-mobile-order-links { grid-template-columns:1fr; gap:0; }
+  .hh-mobile-order-links a { font-size:12px; }
 }
 @media (prefers-reduced-motion:reduce) {
   .hh-header,.hh-header *,.hh-overlay *,.hh-header::after,.hh-overlay *::before,.hh-overlay *::after { animation:none!important; transition:none!important; scroll-behavior:auto!important; }
