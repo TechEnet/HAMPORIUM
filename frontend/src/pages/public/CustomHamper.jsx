@@ -3043,6 +3043,28 @@ const CustomHamper = () => {
           }
         }
 
+        /* V97: Center the actual v78 3D box on EVERY viewport, including desktop.
+           V95 removed Tailwind's -translate-x-1/2 from the box element to
+           avoid a doubled transform on mobile. Until now, the replacement
+           centering rule lived ONLY in the mobile media query, leaving the
+           desktop box pushed half its own width to the right. Keep the single
+           translateX(-50%) as the desktop/tablet default; V96's mobile rule
+           below continues to override it with translateX(-50%) scale(.82). */
+        .v60-live-stage > .v78-box-world {
+          translate: none;
+          transform: translateX(-50%);
+        }
+
+        /* V98: Desktop-only: remove the gap between the opened lid and the
+           hamper body. The lid ends at about 43% of the 3D world height;
+           the old body started at 47%, leaving a visible white band.
+           Mobile (<=767px) deliberately retains its V97 position/size. */
+        @media (min-width: 768px) {
+          .v60-live-stage > .v78-box-world .v98-box-body {
+            top: 43%;
+          }
+        }
+
         @media (max-width: 767px) {
           /* Keep the live packing box visible while the gift catalogue scrolls. */
           .v30-panel-mobile-sticky-safe { overflow: visible !important; }
@@ -3138,12 +3160,20 @@ const CustomHamper = () => {
             box-shadow: inset 0 1px 0 rgba(255,255,255,.98), 0 6px 16px rgba(39,27,14,.04);
           }
 
-          .v30-mobile-live .v60-box-world {
-            /* Keep the bottom satin ribbon fully visible inside the compact mobile preview. */
-            bottom: 10px !important;
-            height: 172px !important;
-            width: 91% !important;
-            max-width: 420px !important;
+          /* V96: stretch only the mobile box artwork vertically. The width,
+             15%-narrower horizontal scale and single centering translation
+             stay exactly as V95. A 187px canvas at .82 scale is 153.34px tall:
+             centered inside the same 165px preview with ~6px at each end. */
+          .v30-mobile-live .v78-box-world {
+            top: 6px !important;
+            bottom: auto !important;
+            left: 50% !important;
+            width: 99.5% !important;
+            max-width: 435px !important;
+            height: 187px !important;
+            translate: none !important;
+            transform: translateX(-50%) scale(.82) !important;
+            transform-origin: center top;
           }
 
           .v30-mobile-live .v60-packing-note {
@@ -7148,7 +7178,7 @@ const V7OpenTop3D = ({
       ) : (
         <div
           key={selectedContainer._id}
-          className={`v78-box-world absolute left-1/2 z-10 -translate-x-1/2 ${worldSize}`}
+          className={`v78-box-world absolute left-1/2 z-10 ${worldSize}`}
         >
           <div
             className={`relative h-full w-full [transform-style:preserve-3d] ${dropping ? "animate-[v79CenterFreeFall_.92s_cubic-bezier(.18,.88,.24,1.02)_both]" : ""} ${isShipping ? "animate-[v79ShipAway_1.45s_cubic-bezier(.3,.75,.18,1)_forwards]" : ""}`}
@@ -7157,7 +7187,7 @@ const V7OpenTop3D = ({
           <div aria-hidden="true" className="absolute bottom-[1%] left-1/2 h-[10%] w-[82%] -translate-x-1/2 rounded-full bg-black/30 blur-[14px]" />
 
           {/* BODY: shallow front wall, wide visible interior */}
-          <div className="absolute bottom-[10%] left-[5%] right-[5%] top-[47%] z-[24] overflow-visible rounded-[22px] border border-white/[0.07] bg-[linear-gradient(145deg,#1b1b1d_0%,#0d0d0f_48%,#070708_100%)] shadow-[0_20px_30px_rgba(0,0,0,.22),inset_0_1px_0_rgba(255,255,255,.06)]">
+          <div className="v98-box-body absolute bottom-[10%] left-[5%] right-[5%] top-[47%] z-[24] overflow-visible rounded-[22px] border border-white/[0.07] bg-[linear-gradient(145deg,#1b1b1d_0%,#0d0d0f_48%,#070708_100%)] shadow-[0_20px_30px_rgba(0,0,0,.22),inset_0_1px_0_rgba(255,255,255,.06)]">
             <div className="absolute inset-x-[2.8%] top-[5%] bottom-[24%] overflow-hidden rounded-[16px] border border-[#CBA34A]/30 bg-[radial-gradient(circle_at_50%_18%,rgba(210,168,83,.13),transparent_28%),linear-gradient(180deg,#171719_0%,#09090a_100%)] shadow-[inset_0_18px_34px_rgba(0,0,0,.48),inset_0_0_0_1px_rgba(255,255,255,.025)]">
               <div className="pointer-events-none absolute inset-[8px] rounded-[11px] border border-[#D4AF37]/14" />
 
