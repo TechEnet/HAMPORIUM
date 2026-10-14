@@ -1,5 +1,5 @@
 // EXACT PATH: frontend/src/components/Header.jsx
-// ACTION: REPLACE - HAMPORIUM COMMON HEADER V133 (static horse, logo 5px shorter)
+// ACTION: REPLACE - HAMPORIUM COMMON HEADER V139 (logo 20% smaller, click-pinned hampers menu, hamburger-style bow gift icon)
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -13,6 +13,10 @@ import { trackCustomerActivity } from "../utils/customerActivity.js";
 import HeaderNotifications from "./HeaderNotifications.jsx";
 
 import logoLight from "../assets/images/logo_dark.jpeg";
+import hamperOneLogo from "../assets/images/hamperone.jpeg";
+
+// Avoid flashing the original JPEG white background while the logo is processed.
+const TRANSPARENT_IMAGE = "data:image/svg+xml,%3Csvg%20xmlns%3D%22http://www.w3.org/2000/svg%22%20width%3D%221%22%20height%3D%221%22/%3E";
 
 // ======================================================
 // API HELPERS
@@ -198,6 +202,75 @@ const useTransparentLogo = (source) => {
   return processedLogo;
 };
 
+// V139: remove transparent margins from the already de-backed Hamper One JPEG.
+// Scaling its original, mostly empty canvas made the visible golden symbol
+// significantly smaller than the centered HAMPORIUM mark.
+const useTightlyCroppedLogo = (source) => {
+  const [croppedLogo, setCroppedLogo] = useState(null);
+
+  useEffect(() => {
+    if (!source) {
+      setCroppedLogo(null);
+      return undefined;
+    }
+
+    let cancelled = false;
+    const image = new Image();
+    image.onload = () => {
+      try {
+        const width = image.naturalWidth;
+        const height = image.naturalHeight;
+        if (!width || !height) throw new Error("Empty Hamper One logo");
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const context = canvas.getContext("2d", { willReadFrequently: true });
+        if (!context) throw new Error("Cannot crop logo");
+        context.drawImage(image, 0, 0);
+        const data = context.getImageData(0, 0, width, height).data;
+        let left = width;
+        let top = height;
+        let right = -1;
+        let bottom = -1;
+
+        // Ignore faint anti-aliased pixels so the actual mark defines bounds.
+        for (let y = 0; y < height; y += 1) {
+          for (let x = 0; x < width; x += 1) {
+            const i = (y * width + x) * 4;
+            if (data[i + 3] < 65) continue;
+            left = Math.min(left, x);
+            right = Math.max(right, x);
+            top = Math.min(top, y);
+            bottom = Math.max(bottom, y);
+          }
+        }
+        if (right < left || bottom < top) throw new Error("No visible Hamper One pixels");
+        const pad = Math.max(1, Math.round(Math.min(width, height) * 0.006));
+        left = Math.max(0, left - pad);
+        top = Math.max(0, top - pad);
+        right = Math.min(width - 1, right + pad);
+        bottom = Math.min(height - 1, bottom + pad);
+        const croppedCanvas = document.createElement("canvas");
+        croppedCanvas.width = right - left + 1;
+        croppedCanvas.height = bottom - top + 1;
+        const crop = croppedCanvas.getContext("2d");
+        if (!crop) throw new Error("Cannot render cropped logo");
+        crop.drawImage(canvas, left, top, croppedCanvas.width, croppedCanvas.height,
+          0, 0, croppedCanvas.width, croppedCanvas.height);
+        if (!cancelled) setCroppedLogo(croppedCanvas.toDataURL("image/png"));
+      } catch (error) {
+        if (!cancelled) setCroppedLogo(source);
+      }
+    };
+    image.onerror = () => { if (!cancelled) setCroppedLogo(source); };
+    image.src = source;
+    return () => { cancelled = true; image.onload = null; image.onerror = null; };
+  }, [source]);
+
+  return croppedLogo || source;
+};
+
 // ======================================================
 // NAVIGATION
 // ======================================================
@@ -335,45 +408,61 @@ const useMediaQuery = (query) => {
   return matches;
 };
 
-// V103 -- A satin-wrapped gift trigger. Reuses the existing Hampers menu logic.
+// V137: Gift-box / hamburger hybrid: 3 gilded bars on a real little gift
+// box, topped by a tied satin bow. Same desktop hover + click menu trigger.
 const GiftHamperArt = () => (
   <svg className="hh-gift-art" viewBox="0 0 80 74" aria-hidden="true" focusable="false">
     <defs>
-      <linearGradient id="hh-v103-box-face" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stopColor="#F7E7C6"/>
-        <stop offset=".52" stopColor="#D7B274"/>
-        <stop offset="1" stopColor="#AD7A37"/>
+      <linearGradient id="hh-v137-gift-face" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stopColor="#FAEACB" />
+        <stop offset=".55" stopColor="#E3BE7C" />
+        <stop offset="1" stopColor="#BD8545" />
       </linearGradient>
-      <linearGradient id="hh-v103-lid" x1="0" y1="0" x2=".9" y2="1">
-        <stop offset="0" stopColor="#FFF1D0"/>
-        <stop offset=".49" stopColor="#E6C487"/>
-        <stop offset="1" stopColor="#B3813B"/>
+      <linearGradient id="hh-v137-gift-lid" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stopColor="#FFF3D9" />
+        <stop offset=".55" stopColor="#EFCB8D" />
+        <stop offset="1" stopColor="#B98342" />
       </linearGradient>
-      <linearGradient id="hh-v103-band" x1="0" y1="0" x2="1" y2="0">
-        <stop offset="0" stopColor="#8E5B1D"/>
-        <stop offset=".35" stopColor="#F7E1A9"/>
-        <stop offset=".65" stopColor="#CD983F"/>
-        <stop offset="1" stopColor="#A26D22"/>
+      <linearGradient id="hh-v137-gift-gold" x1="0" y1="0" x2="1" y2=".6">
+        <stop offset="0" stopColor="#8E5727" />
+        <stop offset=".36" stopColor="#DDAE62" />
+        <stop offset=".67" stopColor="#FFF1C6" />
+        <stop offset="1" stopColor="#A56B30" />
       </linearGradient>
     </defs>
-    <ellipse cx="40" cy="67" rx="30" ry="4.5" fill="#4B3218" opacity=".14"/>
+    <ellipse cx="40" cy="68" rx="27" ry="3.5" fill="#080504" opacity=".2" />
     <g className="hh-gift-box">
-      <path d="M12 29 40 35 68 29v27L40 64 12 56Z" fill="url(#hh-v103-box-face)" stroke="#8F6632" strokeWidth="1.25" strokeLinejoin="round"/>
-      <path d="M40 35v29L12 56V29Z" fill="#F9E5BE" opacity=".40"/>
-      <path d="M35 34.3 45 34.3v28.5L40 64 35 62.6Z" fill="url(#hh-v103-band)"/>
-      <path d="M14 45 40 52 66 45v7L40 59 14 52Z" fill="url(#hh-v103-band)" opacity=".95"/>
+      <rect x="14" y="28" width="52" height="36" rx="4" fill="url(#hh-v137-gift-face)" stroke="#9A6934" strokeWidth="1.3" />
+      <path d="M18 31H62V35H18Z" fill="#FFF3D4" opacity=".32" />
+      <path d="M19 61H61" stroke="#94602C" strokeOpacity=".33" strokeWidth="1.2" />
+      <g className="hh-gift-hamburger-bars" strokeLinecap="round">
+        <path className="hh-gift-bar" d="M26 38H54" stroke="#8A572A" strokeWidth="5.8" />
+        <path className="hh-gift-bar" d="M26 38H54" stroke="#FFF0C4" strokeWidth="2.2" />
+        <path className="hh-gift-bar" d="M26 47H54" stroke="#8A572A" strokeWidth="5.8" />
+        <path className="hh-gift-bar" d="M26 47H54" stroke="#FFF0C4" strokeWidth="2.2" />
+        <path className="hh-gift-bar" d="M26 56H54" stroke="#8A572A" strokeWidth="5.8" />
+        <path className="hh-gift-bar" d="M26 56H54" stroke="#FFF0C4" strokeWidth="2.2" />
+      </g>
+      <path d="M17.5 34V58" stroke="#FFF9E5" strokeOpacity=".55" strokeWidth="1.4" strokeLinecap="round" />
     </g>
     <g className="hh-gift-lid">
-      <path d="m9 24 31 8 31-8-30-10Z" fill="url(#hh-v103-lid)" stroke="#A27536" strokeWidth="1.3" strokeLinejoin="round"/>
-      <path d="M9 24 40 32v8L9 31Z" fill="#D5AB6E" stroke="#9B7039" strokeWidth="1"/>
-      <path d="M40 32 71 24v7L40 40Z" fill="#B7833E" stroke="#8F6531" strokeWidth="1"/>
-      <path d="m33 29 7 3 7-3 1 8-8 3-7-3Z" fill="url(#hh-v103-band)"/>
-      <path d="M24 19c-9-4-9-14-1-14 8 0 14 14 17 20-8-2-13-4-16-6Z" fill="url(#hh-v103-band)" stroke="#8D611F" strokeWidth="1"/>
-      <path d="M56 19c9-4 9-14 1-14-8 0-14 14-17 20 8-2 13-4 16-6Z" fill="url(#hh-v103-band)" stroke="#8D611F" strokeWidth="1"/>
-      <path d="M25 11c6 2 10 9 15 14M55 11c-6 2-10 9-15 14" fill="none" stroke="#FFF3C9" strokeWidth="1.4" opacity=".73"/>
-      <ellipse cx="40" cy="25" rx="6.8" ry="4.8" fill="#E9BF70" stroke="#966422" strokeWidth="1.2"/>
+      <path d="M12 26Q12 23 16 23H64Q68 23 68 26V31Q68 33 65 33H15Q12 33 12 31Z"
+        fill="url(#hh-v137-gift-lid)" stroke="#95652D" strokeWidth="1.2" />
+      <path d="M16 25H64" stroke="#FFF5D5" strokeWidth="1.5" opacity=".8" strokeLinecap="round" />
+      <path d="M36 23H44V33H36Z" fill="url(#hh-v137-gift-gold)" opacity=".9" />
+      {/* Left bow loop, secured to lid with a polished center knot. */}
+      <path d="M40 20C35 17 26 18 23 15C17 10 18 4 24 5C32 5 36 15 40 20Z"
+        fill="url(#hh-v137-gift-gold)" stroke="#8C5A28" strokeWidth="1.1" />
+      <path d="M40 20C45 17 54 18 57 15C63 10 62 4 56 5C48 5 44 15 40 20Z"
+        fill="url(#hh-v137-gift-gold)" stroke="#8C5A28" strokeWidth="1.1" />
+      <path d="M26 9C33 10 35 16 39 19M54 9C47 10 45 16 41 19"
+        fill="none" stroke="#FFF7D9" strokeWidth="1.6" opacity=".8" strokeLinecap="round" />
+      <path d="M39 22C33 25 30 28 26 28L29 22L36 19Z" fill="#B4813B" stroke="#9A6B31" strokeWidth=".6" />
+      <path d="M41 22C47 25 50 28 54 28L51 22L44 19Z" fill="#C49247" stroke="#9A6B31" strokeWidth=".6" />
+      <path d="M36.7 18Q40 15.6 43.3 18L44.5 22Q40 25.5 35.5 22Z"
+        fill="url(#hh-v137-gift-gold)" stroke="#885521" strokeWidth="1.05" />
+      <path d="M37.5 19Q40 17.5 42.5 19" stroke="#FFF7DF" strokeWidth="1.15" fill="none" strokeLinecap="round" />
     </g>
-    <path d="M18 41 22 37" stroke="#FFF5D7" strokeWidth="1" opacity=".65"/>
   </svg>
 );
 
@@ -530,6 +619,156 @@ const HhCeremonialBow = () => (
   </span>
 );
 
+// V136: Extract the original HAMPORIUM logo into 2 clean layers:
+// 1) a correctly shaped orange shield silhouette
+// 2) the stationary white horse + HAMPORIUM lettering artwork
+// This avoids the distorted shield shape seen in V135.
+const useShieldOnlyLayers = (source) => {
+  const [layers, setLayers] = useState(null);
+
+  useEffect(() => {
+    if (!source) {
+      setLayers(null);
+      return undefined;
+    }
+
+    let cancelled = false;
+    const image = new Image();
+
+    image.onload = () => {
+      try {
+        const w = image.naturalWidth;
+        const h = image.naturalHeight;
+        if (!w || !h) throw new Error("Empty logo");
+
+        const sourceCanvas = document.createElement("canvas");
+        sourceCanvas.width = w;
+        sourceCanvas.height = h;
+
+        const sourceContext = sourceCanvas.getContext("2d", {
+          willReadFrequently: true,
+        });
+
+        if (!sourceContext) throw new Error("Canvas unavailable");
+
+        sourceContext.drawImage(image, 0, 0);
+        const input = sourceContext.getImageData(0, 0, w, h).data;
+
+        const shieldCanvas = document.createElement("canvas");
+        shieldCanvas.width = w;
+        shieldCanvas.height = h;
+
+        const artCanvas = document.createElement("canvas");
+        artCanvas.width = w;
+        artCanvas.height = h;
+
+        const shieldContext = shieldCanvas.getContext("2d");
+        const artContext = artCanvas.getContext("2d");
+
+        if (!shieldContext || !artContext) throw new Error("Canvas unavailable");
+
+        const shield = shieldContext.createImageData(w, h);
+        const art = artContext.createImageData(w, h);
+
+        let orangeR = 0;
+        let orangeG = 0;
+        let orangeB = 0;
+        let orangeCount = 0;
+        let solidPixelCount = 0;
+
+        const isOrangeShieldPixel = (r, g, b, a) => {
+          if (a < 40) return false;
+          return r > 150 && g > 50 && g < 210 && b < 150 && r > g + 35 && g > b + 8;
+        };
+
+        const isWhiteArtworkPixel = (r, g, b, a) => {
+          if (a < 40) return false;
+          const max = Math.max(r, g, b);
+          const min = Math.min(r, g, b);
+          return max > 182 && min > 132 && max - min < 78;
+        };
+
+        for (let i = 0; i < input.length; i += 4) {
+          const r = input[i];
+          const g = input[i + 1];
+          const b = input[i + 2];
+          const a = input[i + 3];
+
+          if (a > 28) {
+            solidPixelCount += 1;
+          }
+
+          if (isOrangeShieldPixel(r, g, b, a)) {
+            orangeR += r;
+            orangeG += g;
+            orangeB += b;
+            orangeCount += 1;
+          }
+        }
+
+        if (solidPixelCount < Math.max(50, w * h * 0.02) || orangeCount < Math.max(25, solidPixelCount * 0.08)) {
+          throw new Error("Shield color mask not identifiable");
+        }
+
+        const fillR = Math.round(orangeR / orangeCount);
+        const fillG = Math.round(orangeG / orangeCount);
+        const fillB = Math.round(orangeB / orangeCount);
+
+        for (let i = 0; i < input.length; i += 4) {
+          const r = input[i];
+          const g = input[i + 1];
+          const b = input[i + 2];
+          const a = input[i + 3];
+
+          if (a > 28) {
+            shield.data[i] = fillR;
+            shield.data[i + 1] = fillG;
+            shield.data[i + 2] = fillB;
+            shield.data[i + 3] = a;
+          }
+
+          if (isWhiteArtworkPixel(r, g, b, a)) {
+            art.data[i] = 255;
+            art.data[i + 1] = 252;
+            art.data[i + 2] = 242;
+            art.data[i + 3] = a;
+          }
+        }
+
+        shieldContext.putImageData(shield, 0, 0);
+        artContext.putImageData(art, 0, 0);
+
+        if (!cancelled) {
+          setLayers({
+            shield: shieldCanvas.toDataURL("image/png"),
+            artwork: artCanvas.toDataURL("image/png"),
+          });
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setLayers(null);
+        }
+      }
+    };
+
+    image.onerror = () => {
+      if (!cancelled) {
+        setLayers(null);
+      }
+    };
+
+    image.src = source;
+
+    return () => {
+      cancelled = true;
+      image.onload = null;
+      image.onerror = null;
+    };
+  }, [source]);
+
+  return layers;
+};
+
 const Header = () => {
   const { user, partner, logout } = useAuth();
   const { cart } = useCart();
@@ -543,6 +782,9 @@ const Header = () => {
   // Disabling the hook also stops its animation timer on compact devices.
   const searchMorph = useSearchMorph(reduceMotion || !desktop);
   const transparentLogo = useTransparentLogo(logoLight);
+  const processedHamperOneLogo = useTransparentLogo(hamperOneLogo);
+  const sizedHamperOneLogo = useTightlyCroppedLogo(processedHamperOneLogo);
+  const shieldLayers = useShieldOnlyLayers(transparentLogo);
   const [logoIntroStarted, setLogoIntroStarted] = useState(false);
   const [logoIntroDone, setLogoIntroDone] = useState(false);
   const logoPlayedRef = useRef(false);
@@ -557,6 +799,7 @@ const Header = () => {
   const hamperTriggerRef = useRef(null);
   const searchTriggerRef = useRef(null);
   const hoverTimerRef = useRef(0);
+  const hampersPinnedRef = useRef(false);
   const scrollFrameRef = useRef(0);
   const lastScrollYRef = useRef(0);
   const mobileScrollTravelRef = useRef(0);
@@ -592,23 +835,21 @@ const Header = () => {
   const introHidden = isHome && homeIntroActive;
   const isModal = !desktop && Boolean(renderedPanel);
 
-  // V133: bow unties, then the untouched original logo appears, followed by
-  // the existing final one-time spin. Horse is permanently static.
+  // V135: one shield-only spin when the logo's layers are ready.
+  // Horse/wordmark stay visible and fixed, even throughout the spin.
   useEffect(() => {
-    if (introHidden || reduceMotion || logoPlayedRef.current) return undefined;
+    if (introHidden || reduceMotion || logoPlayedRef.current || !shieldLayers?.shield) return undefined;
     logoPlayedRef.current = true;
     setLogoIntroStarted(true);
     return undefined;
-  }, [introHidden, reduceMotion]);
+  }, [introHidden, reduceMotion, shieldLayers?.shield]);
 
-  // Keep the final full original logo still after the single entrance.
   useEffect(() => {
     if (!logoIntroStarted) return undefined;
-    const timer = window.setTimeout(() => setLogoIntroDone(true), 6250);
+    const timer = window.setTimeout(() => setLogoIntroDone(true), 1800);
     return () => window.clearTimeout(timer);
   }, [logoIntroStarted]);
 
-  // Never hide the logo for people who prefer reduced motion.
   const headerIntroPhase = reduceMotion || logoIntroDone
     ? "hh-intro-done"
     : logoIntroStarted ? "hh-intro-running" : "hh-intro-pending";
@@ -619,12 +860,14 @@ const Header = () => {
 
   const closePanel = useCallback((restoreFocus = true) => {
     window.clearTimeout(hoverTimerRef.current);
+    hampersPinnedRef.current = false;
     restoreFocusRef.current = restoreFocus;
     setPanel(null);
   }, []);
 
   const openPanel = (name, element) => {
     clearHoverTimer();
+    if (name !== "hampers") hampersPinnedRef.current = false;
     if (element && !overlayRef.current?.contains(element)) triggerRef.current = element;
     restoreFocusRef.current = false;
     notificationsPinnedRef.current = false;
@@ -636,6 +879,20 @@ const Header = () => {
   const togglePanel = (name, event) => {
     if (panel === name) closePanel();
     else openPanel(name, event?.currentTarget || document.activeElement);
+  };
+
+  // Hover opens a temporary preview. A real click PINS the menu open, even
+  // when the pointer leaves the icon or the dropdown. Clicking again closes.
+  // If hover already opened it, first click pins rather than toggling closed.
+  const handleHamperMenuClick = (event) => {
+    event.preventDefault();
+    clearHoverTimer();
+    if (panel === "hampers" && hampersPinnedRef.current) {
+      closePanel(false);
+      return;
+    }
+    hampersPinnedRef.current = true;
+    openPanel("hampers", event.currentTarget);
   };
 
   // Keep the outgoing panel mounted just long enough for its exit transition.
@@ -663,6 +920,7 @@ const Header = () => {
 
   useEffect(() => {
     clearHoverTimer();
+    hampersPinnedRef.current = false;
     restoreFocusRef.current = false;
     setPanel(null);
     setRenderedPanel(null);
@@ -923,17 +1181,17 @@ const Header = () => {
   };
 
   const scheduleMenuOpen = (event) => {
-    if (!desktop || event.pointerType !== "mouse" || (panel && panel !== "hampers")) return;
+    if (!desktop || event.pointerType !== "mouse" || panel === "hampers" || (panel && panel !== "hampers")) return;
     clearHoverTimer();
     const element = event.currentTarget;
     hoverTimerRef.current = window.setTimeout(() => openPanel("hampers", element), 140);
   };
   const scheduleMenuClose = () => {
     clearHoverTimer();
-    if (panel !== "hampers") return;
+    if (panel !== "hampers" || hampersPinnedRef.current) return;
     hoverTimerRef.current = window.setTimeout(() => {
       // Keep keyboard-opened navigation visible while its links have focus.
-      if (!panelRef.current?.contains(document.activeElement)) closePanel(false);
+      if (!hampersPinnedRef.current && !panelRef.current?.contains(document.activeElement)) closePanel(false);
     }, 260);
   };
   const accountProps = {
@@ -957,32 +1215,24 @@ const Header = () => {
         onFocusCapture={() => setHeaderHidden(false)}
       >
         <div className="hh-bar">
-          <span className="hh-ribbon-stage" aria-hidden="true">
-            {/* Static wavy backing joins header surface to ribbon contour; never fades away. */}
-            <span className="hh-header-wave-left"><HhConnectedHeaderWave side="left" /></span>
-            <span className="hh-header-wave-right"><HhConnectedHeaderWave side="right" /></span>
-            <span className="hh-satin-ribbon-left"><HhSculptedRibbon side="left" /></span>
-            <span className="hh-satin-ribbon-right"><HhSculptedRibbon side="right" /></span>
-            <HhCeremonialBow />
-          </span>
           {desktop ? (
             <nav className="hh-nav" aria-label="Primary navigation">
               <button
                 ref={hamperTriggerRef} type="button"
-                className={`hh-nav-link hh-gift-trigger ${hamperMenuActive || panel === "hampers" ? "is-current is-open" : ""}`}
+                className={`hh-nav-link hh-gift-trigger ${hamperMenuActive ? "is-current" : ""} ${panel === "hampers" ? "is-open" : ""}`}
                 aria-expanded={panel === "hampers"} aria-controls={panel === "hampers" ? panelId : undefined}
-                onClick={(event) => togglePanel("hampers", event)}
+                onClick={handleHamperMenuClick}
                 onPointerEnter={scheduleMenuOpen} onPointerLeave={scheduleMenuClose}
                 onKeyDown={(event) => {
                   if (event.key === "ArrowDown") {
-                    event.preventDefault(); openPanel("hampers", event.currentTarget);
+                    event.preventDefault(); hampersPinnedRef.current = true; openPanel("hampers", event.currentTarget);
                     window.setTimeout(() => panelRef.current?.querySelector("a[href]")?.focus(), 40);
                   }
                 }}
                 aria-label="Browse hampers" title="Explore hampers"
               ><GiftHamperArt /><span className="hh-sr-only">Browse hampers</span></button>
-              <Link to="/hamper-one" className={`hh-private-link ${isHamperOne ? "is-current" : ""}`} aria-current={isHamperOne ? "page" : undefined} onClick={() => closePanel(false)}>
-                <Icon name="spark" /><span>HAMPER <em>ONE</em><small>Private collection</small></span>
+              <Link to="/hamper-one" className={`hh-private-link ${isHamperOne ? "is-current" : ""}`} aria-current={isHamperOne ? "page" : undefined} aria-label="Hamper One private collection" onClick={() => closePanel(false)}>
+                <img src={sizedHamperOneLogo || TRANSPARENT_IMAGE} className="hh-hamperone-image" alt="HAMPER ONE" loading="eager" draggable="false" />
               </Link>
             </nav>
           ) : (
@@ -999,9 +1249,14 @@ const Header = () => {
           >
             <span className="hh-brand-mark">
               <span className={`hh-logo-sequence ${headerIntroPhase === "hh-intro-running" ? "hh-logo-animating" : "hh-logo-idle"}`}>
-                <span className="hh-logo-artwork" aria-hidden="true">
-                  <span className="hh-logo-full"><img src={transparentLogo} alt="" draggable="false" /></span>
-                </span>
+                {shieldLayers?.shield && shieldLayers?.artwork ? (
+                  <span className="hh-logo-split" aria-hidden="true">
+                    <span className="hh-logo-shield"><img src={shieldLayers.shield} alt="" draggable="false" /></span>
+                    <span className="hh-logo-fixed-art"><img src={shieldLayers.artwork} alt="" draggable="false" /></span>
+                  </span>
+                ) : (
+                  <span className="hh-logo-full" aria-hidden="true"><img src={transparentLogo || logoLight} alt="" draggable="false" /></span>
+                )}
               </span>
             </span>
           </Link>
@@ -1077,6 +1332,7 @@ const Header = () => {
               />}
               {renderedPanel === "account" && <AccountPanel {...accountProps} />}
               {renderedPanel === "menu" && <MobileMenu
+                hamperOneLogoSrc={sizedHamperOneLogo || TRANSPARENT_IMAGE}
                 {...accountProps}
                 notificationUnread={notificationUnread} onUnreadChange={setNotificationUnread}
                 onSearch={() => openPanel("search")}
@@ -1229,7 +1485,7 @@ const AccountPanel = ({ user, isAdmin, isPartner, partnerPortalPath, becomePartn
   );
 };
 
-const MobileMenu = ({ notificationUnread, onUnreadChange, onSearch, ...accountProps }) => (
+const MobileMenu = ({ hamperOneLogoSrc, notificationUnread, onUnreadChange, onSearch, ...accountProps }) => (
   <div className="hh-menu-content">
     <button type="button" onClick={onSearch} className="hh-menu-search"><Icon name="search" /><span>Search for the perfect gift</span><Icon name="arrow" /></button>
     <nav aria-label="Mobile primary navigation" className="hh-mobile-nav">
@@ -1237,7 +1493,10 @@ const MobileMenu = ({ notificationUnread, onUnreadChange, onSearch, ...accountPr
       <div className="hh-mobile-build"><div><span className="hh-index">02</span><span>Build your own</span><Icon name="gift" /></div>
         <div className="hh-mobile-order-links">{BUILDER_OPTIONS.map((item) => <Link key={item.to} to={item.to}>{item.label}<Icon name="arrow" /></Link>)}</div>
       </div>
-      <Link to="/hamper-one" className="hh-mobile-private"><Icon name="spark" /><span><small>Private collection</small>HAMPER <em>ONE</em></span><Icon name="arrow" /></Link>
+      <Link to="/hamper-one" className="hh-mobile-private" aria-label="Hamper One private collection">
+        <img src={hamperOneLogoSrc} className="hh-hamperone-image hh-hamperone-mobile-image" alt="HAMPER ONE" loading="lazy" draggable="false" />
+        <Icon name="arrow" />
+      </Link>
     </nav>
     <div className="hh-mobile-collections"><p className="hh-eyebrow">Explore the collections</p><div>{COLLECTIONS.map((item) => <Link key={item.to} to={item.to}>{item.label.replace(" Hampers", "")}<Icon name="arrow" /></Link>)}</div></div>
     {accountProps.user && (
@@ -1303,7 +1562,7 @@ const HEADER_CSS = `
   --hh-v127-bow-offset:14px;
   --hh-connected-surface:#241913;
   position:fixed; inset:0 0 auto; width:100%; z-index:100;
-  overflow:visible; background:transparent; border:0; box-shadow:none;
+  overflow:visible; background:#241913; border:0; box-shadow:none;
   transition:transform .48s var(--hh-ease),background-color .35s ease,box-shadow .35s ease;
 }
 .hh-header::after { display:none !important; content:none !important; }
@@ -1313,7 +1572,7 @@ const HEADER_CSS = `
   --hh-connected-surface:#241913;
   --hh-ink:#f5e9d7;
   color:#f5e9d7;
-  background:transparent;
+  background:#241913;
   box-shadow:none;
 }
 .hh-header .hh-private-link { border-left-color:rgba(230,190,112,.32); }
@@ -1331,105 +1590,47 @@ const HEADER_CSS = `
 .hh-header .hh-account-label { color:#f5e9d7; }
 .hh-header .hh-search-trigger { color:#f5e9d7; }
 .hh-header .hh-count { background:#c87438; }
-/* Solid rectangular part ends INSIDE the curved edge; the SVG takes over
-   from this same point with identical surface fill (no fade or seam). */
-.hh-bar::before {
-  content:""; position:absolute; left:0; right:0; top:0; z-index:0;
-  height:calc(var(--hh-v113-top-pad) + var(--hh-v113-logo-height) - var(--hh-v113-ribbon-tuck) + env(safe-area-inset-top,0px) + 3px);
-  background:var(--hh-connected-surface);
-  pointer-events:none;
-  -webkit-mask-image:none; mask-image:none;
-}
-@supports (backdrop-filter:blur(12px)) {
-  .hh-header { backdrop-filter:none; -webkit-backdrop-filter:none; }
-  /* Avoid a separately blurred layer; that would bring back a visible seam. */
-  .hh-bar::before { backdrop-filter:none; -webkit-backdrop-filter:none; }
-}
+/* V135: ribbon, bow and curved backing completely removed.
+   A single solid espresso surface is the header's clean edge. */
+.hh-bar::before { content:none !important; display:none !important; }
 .hh-hidden { /* Hide the badge overhanging BELOW the standard height, too. */
   transform:translateY(calc(-110% - 125px)); pointer-events:none;
 }
 .hh-bar { position:relative; width:100%; height:var(--hh-height); display:flex; align-items:center; justify-content:space-between; gap:18px; padding-inline:clamp(22px,3vw,60px); }
-/* V126: original V125 V-notched ends; ribbon animates FIRST, logo appears after untie.
-   Two separate physical wings retain the original center untie movement. */
-.hh-ribbon-stage {
-  position:absolute; z-index:0; inset:0; pointer-events:none;
-  --hh-untie-distance:clamp(42px,5vw,74px);
-}
-/* Identical dimensions for fabric and attached header edge.
-   The static backing stays fixed while the ribbon's two sides untie. */
-.hh-satin-ribbon-left,.hh-satin-ribbon-right,
-.hh-header-wave-left,.hh-header-wave-right {
-  position:absolute; display:block;
-  top:calc(var(--hh-v113-top-pad) + var(--hh-v113-logo-height) - var(--hh-v113-ribbon-tuck) + env(safe-area-inset-top, 0px));
-  height:var(--hh-v127-ribbon-height);
-  width:50%;
-}
-.hh-header-wave-left { left:0; }
-.hh-header-wave-right { right:0; }
-.hh-connected-wave-art { display:block; width:100%; height:100%; overflow:visible; }
-.hh-connected-wave-fill { fill:var(--hh-connected-surface); }
-.hh-satin-ribbon-left,.hh-satin-ribbon-right {
-  will-change:transform;
-  filter:drop-shadow(0 2px 3px rgba(20,10,1,.34)) drop-shadow(0 5px 6px rgba(30,16,4,.13));
-}
-/* V126: static tied state. Only the first-show class triggers the untie. */
-.hh-satin-ribbon-left { left:0; transform:translateX(var(--hh-untie-distance)); }
-.hh-satin-ribbon-right { right:0; transform:translateX(calc(-1 * var(--hh-untie-distance))); }
-.hh-header.hh-intro-running .hh-satin-ribbon-left { animation:hh-v126-ribbon-left .98s cubic-bezier(.22,.72,.22,1) 1.16s both; }
-.hh-header.hh-intro-running .hh-satin-ribbon-right { animation:hh-v126-ribbon-right .98s cubic-bezier(.22,.72,.22,1) 1.16s both; }
-.hh-header.hh-intro-done .hh-satin-ribbon-left,.hh-header.hh-intro-done .hh-satin-ribbon-right { transform:translateX(0); }
-.hh-v111-scroll-art { display:block; width:100%; height:100%; overflow:visible; }
-.hh-v111-flipped { transform:scaleX(-1); }
-@keyframes hh-v126-ribbon-left {
-  0%,12% { transform:translateX(var(--hh-untie-distance)); }
-  100% { transform:translateX(0); }
-}
-@keyframes hh-v126-ribbon-right {
-  0%,12% { transform:translateX(calc(-1 * var(--hh-untie-distance))); }
-  100% { transform:translateX(0); }
-}
 
-/* The badge is ABOVE both satin halves. Its point is 5% of badge-height
-   beneath the top of the viewport, so the cone is never cropped at rest. */
+/* V138: anchor the visible orange shield close to the TOP of the header.
+   V137 reduced the badge artwork by 20% but retained the former, taller
+   logo's center coordinates; this accidentally pushed the visible shield
+   underneath the header's dark bottom edge. Keep the logo's dimensions,
+   header height, horizontal centering and shield-only spin unchanged.
+   The responsive optical lift compensates for the image's transparent top
+   padding and is scaled with the badge at each breakpoint. */
 .hh-brand { position:absolute; z-index:6; left:50%;
-  top:calc(var(--hh-v113-top-pad) + var(--hh-v113-logo-half-height) + env(safe-area-inset-top, 0px) - 10px);
+  --hh-logo-optical-lift:20px;
+  top:calc(var(--hh-v113-top-pad) + var(--hh-v113-logo-half-height) + env(safe-area-inset-top, 0px) - 10px - var(--hh-logo-optical-lift));
   transform:translate(-50%,-50%); display:flex; align-items:center;
   justify-content:center; flex:0 0 auto; isolation:isolate;
 }
 /* No artificial hanging strip above the logo. The ribbon disappears behind its LOWER EDGE. */
 .hh-brand::before,.hh-brand::after { content:none !important; display:none !important; }
-.hh-brand-mark { display:flex; position:relative; z-index:5; width:104.78px; height:136.96px; align-items:center; justify-content:center; overflow:visible; isolation:isolate; background:none; filter:drop-shadow(0 3px 4px #0a07081a); }
-/* V128: one stable composited badge, no layer switching or transparent
-   holes. Text is ALWAYS part of the still base image. Only the actual
-   white horse animates in place; the whole image rotates at the end. */
-.hh-logo-sequence,.hh-logo-artwork,.hh-logo-base,.hh-logo-horse,.hh-logo-full {
+.hh-brand-mark { display:flex; position:relative; z-index:5; width:83.824px; height:109.568px; align-items:center; justify-content:center; overflow:visible; isolation:isolate; background:none; filter:drop-shadow(0 3px 4px #0a07081a); }
+/* V136: correctly shaped shield alone turns. Horse and lettering remain FIXED.
+   Logo dimensions and header placement remain unchanged. */
+.hh-logo-sequence,.hh-logo-shield,.hh-logo-fixed-art,.hh-logo-full,.hh-logo-split {
   position:absolute; inset:0; display:block;
 }
-.hh-logo-sequence { position:relative; width:100%; height:100%; opacity:0; perspective:850px; }
+.hh-logo-sequence { position:relative; width:100%; height:100%; opacity:1; visibility:visible; perspective:850px; }
 .hh-logo-sequence img { display:block; width:100%; height:100%; object-fit:contain; }
-.hh-logo-artwork { transform-origin:50% 50%; transform-style:preserve-3d; }
-.hh-header.hh-intro-pending .hh-logo-sequence { opacity:0; visibility:hidden; }
-.hh-header.hh-intro-running .hh-logo-sequence {
-  visibility:visible;
-  animation:hh-v128-logo-enter .6s cubic-bezier(.2,.82,.3,1) 2.30s both;
+.hh-logo-split { isolation:isolate; }
+.hh-logo-shield { z-index:1; transform-origin:50% 50%; backface-visibility:visible; transform-style:preserve-3d; }
+.hh-logo-fixed-art { z-index:2; pointer-events:none; }
+.hh-logo-full { z-index:1; }
+.hh-header.hh-intro-running .hh-logo-shield {
+  animation:hh-v135-shield-spin 1.5s cubic-bezier(.3,.15,.2,1) .12s 1 both;
 }
-.hh-header.hh-intro-done .hh-logo-sequence { opacity:1; visibility:visible; }
-.hh-header.hh-intro-running .hh-logo-artwork {
-  animation:hh-v128-final-spin 1.05s cubic-bezier(.31,.10,.24,1) 4.66s both;
-}
-/* V133: the original white horse stays static inside the logo. */
-.hh-logo-horse { pointer-events:none; }
-.hh-original-horse-canvas { display:block; width:100%; height:100%; object-fit:contain; }
-@keyframes hh-v128-logo-enter {
-  0% { opacity:0; transform:translateY(18px) scale(.84); filter:blur(4px); }
-  68% { opacity:1; transform:translateY(-2px) scale(1.015); filter:blur(0); }
-  100% { opacity:1; transform:translateY(0) scale(1); filter:none; }
-}
-@keyframes hh-v128-final-spin {
+.hh-header.hh-intro-done .hh-logo-shield { transform:rotateY(360deg); }
+@keyframes hh-v135-shield-spin {
   0% { transform:rotateY(0deg); }
-  25% { transform:rotateY(90deg); }
-  50% { transform:rotateY(180deg); }
-  75% { transform:rotateY(270deg); }
   100% { transform:rotateY(360deg); }
 }
 
@@ -1507,12 +1708,14 @@ const HEADER_CSS = `
 .hh-nav-link.is-current::after,.hh-nav-link:hover::after { transform:scaleX(1); }
 .hh-nav-link .hh-icon { width:14px; height:14px; }
 .hh-icon.hh-turn { transform:rotate(180deg); }
-/* Graphic replaces the Hampers word; keeps original click, hover and keyboard menu events. */
+/* V137: hamburger-line gift box with luxe tied bow; click-pinned dropdown. */
 .hh-header .hh-gift-trigger { display:flex; align-items:center; justify-content:center; width:72px; min-width:72px; height:72px; padding:0; position:relative; margin-inline:-7px 0; border:0; background:transparent; outline-offset:2px; }
 .hh-gift-art { display:block; width:64px; height:60px; overflow:visible; filter:drop-shadow(0 2px 2px #3d26151c); transition:transform .5s var(--hh-ease); }
 .hh-gift-trigger:hover .hh-gift-art,.hh-gift-trigger:focus-visible .hh-gift-art,.hh-gift-trigger.is-open .hh-gift-art { transform:translateY(-3px) scale(1.045); }
-.hh-gift-lid { transform-origin:40px 32px; transition:transform .45s var(--hh-ease); }
-.hh-gift-trigger:hover .hh-gift-lid,.hh-gift-trigger:focus-visible .hh-gift-lid,.hh-gift-trigger.is-open .hh-gift-lid { transform:translateY(-6px) rotate(-5deg); }
+.hh-gift-lid { transform-origin:40px 25px; transition:transform .42s var(--hh-ease); }
+.hh-gift-trigger:hover .hh-gift-lid,.hh-gift-trigger:focus-visible .hh-gift-lid,.hh-gift-trigger.is-open .hh-gift-lid { transform:translateY(-2.5px); }
+.hh-gift-hamburger-bars { transform-origin:40px 47px; transition:transform .42s var(--hh-ease); }
+.hh-gift-trigger:hover .hh-gift-hamburger-bars,.hh-gift-trigger.is-open .hh-gift-hamburger-bars { transform:scaleX(1.07); }
 .hh-header .hh-gift-trigger::after { content:''; position:absolute; width:7px; height:7px; bottom:7px; border-radius:50%; background:#C39A52; box-shadow:0 0 0 4px #D2B37525; opacity:0; transform:scale(.4); transition:opacity .3s,transform .3s; }
 .hh-header .hh-gift-trigger.is-open::after { opacity:1; transform:scale(1); }
 .hh-header .hh-gift-trigger:hover::after,.hh-header .hh-gift-trigger.is-current::after { transform:scaleX(1); }
@@ -1526,6 +1729,11 @@ const HEADER_CSS = `
 .hh-private-link.is-current>span { color:#977023; }
 .hh-hero .hh-private-link em,.hh-hero .hh-private-link>.hh-icon { color:#e0c173; }
 .hh-hero .hh-private-link small { color:#e9e1cfbf; }
+.hh-header .hh-private-link { min-height:72px; padding-left:18px; }
+.hh-hamperone-image { display:block; width:clamp(118px,11vw,158px); height:65px; max-width:100%; object-fit:contain; object-position:center; border-radius:0; background:transparent; mix-blend-mode:normal; }
+.hh-header .hh-private-link:hover .hh-hamperone-image { filter:brightness(1.08); }
+.hh-mobile-private .hh-hamperone-mobile-image { width:min(210px,70%); height:85px; object-position:left center; }
+.hh-mobile-private { justify-content:space-between; }
 .hh-tools { min-width:0; display:flex; align-items:center; gap:8px; margin-left:auto; position:relative; z-index:1; }
 /* One compact, clickable, morphing search symbol: never a pill, input or search bar. */
 .hh-search-trigger { display:flex; align-items:center; justify-content:center; flex:0 0 76px; width:76px; height:44px; padding:0; border:0!important; border-radius:0!important; color:inherit; background:transparent!important; box-shadow:none!important; outline-offset:4px; transition:color .3s var(--hh-ease); }
@@ -1710,7 +1918,8 @@ const HEADER_CSS = `
   .hh-satin-ribbon-left,.hh-satin-ribbon-right,.hh-header-wave-left,.hh-header-wave-right { height:var(--hh-v127-ribbon-height); }
   .hh-bar { padding-inline:20px; gap:10px; }
   .hh-mobile-menu-trigger { display:flex; width:44px; height:44px; }
-  .hh-brand-mark { width:89.57px; height:120.06px; }
+  .hh-brand { --hh-logo-optical-lift:22px; }
+  .hh-brand-mark { width:71.656px; height:96.048px; }
   .hh-search-trigger { width:46px; flex-basis:46px; height:44px; }
   /* Mobile/tablet: search is a fixed clickable icon, without typing or caret. */
   .hh-search-morph-icon { animation:none; }
@@ -1742,7 +1951,8 @@ const HEADER_CSS = `
   .hh-bar { padding-inline:13px; gap:6px; }
   /* Small phones: avoid covering search/account controls with side loops. */
   .hh-ceremony-bow { width:102px; }
-  .hh-brand-mark { width:72.67px; height:106.54px; }
+  .hh-brand { --hh-logo-optical-lift:15.6px; }
+  .hh-brand-mark { width:58.136px; height:85.232px; }
   .hh-tools { gap:0; }
   .hh-action { width:40px; height:44px; }
   .hh-search-trigger { width:43px; flex-basis:43px; }
@@ -1759,7 +1969,8 @@ const HEADER_CSS = `
 }
 @media (max-width:389px) {
   .hh-bar { padding-inline:11px; gap:4px; }
-  .hh-brand-mark { width:72.67px; height:106.54px; }
+  .hh-brand { --hh-logo-optical-lift:15.6px; }
+  .hh-brand-mark { width:58.136px; height:85.232px; }
   .hh-action { width:38px; height:44px; }
   .hh-search-trigger { width:40px; flex-basis:40px; }
   .hh-search-morph-word { font-size:10px; }
@@ -1771,16 +1982,95 @@ const HEADER_CSS = `
 @media (max-width:349px) {
   .hh-header { --hh-v113-logo-height:108.16px; --hh-v113-logo-half-height:54.08px; --hh-v113-top-pad:5.5px; --hh-v113-ribbon-tuck:27.8px; --hh-v127-ribbon-height:14.7456px; --hh-v127-bow-offset:8px; }
   .hh-bar { padding-inline:8px; }
-  .hh-brand-mark { width:69.29px; height:103.16px; }
+  .hh-brand { --hh-logo-optical-lift:15px; }
+  .hh-brand-mark { width:55.432px; height:82.528px; }
   .hh-search-trigger { width:38px; flex-basis:38px; }
   .hh-search-morph-word { font-size:9.4px; }
   .hh-panel-top { padding-inline:16px; }
   .hh-mobile-order-links { grid-template-columns:1fr; gap:0; }
   .hh-mobile-order-links a { font-size:12px; }
 }
+/* V139: THREE MATCHED RESPONSIVE LOGO FOOTPRINTS.
+   The center badge stays exactly the same size/position as V138.
+   Hamper One artwork and the bow-topped gift burger share its breakpoint
+   width; neither is stretched nor allowed below the header edge. */
+.hh-header, .hh-overlay {
+  --hh-v139-logo-width:83.824px;
+  --hh-v139-logo-height:109.568px;
+  --hh-v139-side-height:min(calc(var(--hh-height) - 8px), var(--hh-v139-logo-height));
+}
+.hh-header .hh-brand-mark {
+  width:var(--hh-v139-logo-width);
+  height:var(--hh-v139-logo-height);
+}
+.hh-header .hh-gift-trigger {
+  width:var(--hh-v139-logo-width);
+  min-width:var(--hh-v139-logo-width);
+  height:var(--hh-height);
+  margin-inline:0;
+  padding:0;
+  flex:0 0 var(--hh-v139-logo-width);
+}
+.hh-header .hh-gift-trigger .hh-gift-art {
+  width:var(--hh-v139-logo-width);
+  height:var(--hh-v139-side-height);
+  max-height:calc(var(--hh-height) - 8px);
+  flex:0 0 auto;
+}
+.hh-header .hh-private-link {
+  min-height:var(--hh-height);
+  padding-left:clamp(10px,1.35vw,18px);
+}
+.hh-header .hh-private-link .hh-hamperone-image {
+  width:var(--hh-v139-logo-width);
+  height:var(--hh-v139-side-height);
+  max-height:calc(var(--hh-height) - 8px);
+  max-width:none;
+  object-fit:contain;
+  object-position:center;
+}
+@media (max-width:1179px) {
+  .hh-header, .hh-overlay {
+    --hh-v139-logo-width:71.656px;
+    --hh-v139-logo-height:96.048px;
+  }
+  .hh-header .hh-mobile-menu-trigger {
+    width:var(--hh-v139-logo-width);
+    min-width:var(--hh-v139-logo-width);
+    height:var(--hh-height);
+    flex:0 0 var(--hh-v139-logo-width);
+    padding:0;
+  }
+  .hh-header .hh-mobile-menu-trigger .hh-gift-art {
+    width:var(--hh-v139-logo-width);
+    height:var(--hh-v139-side-height);
+    max-height:calc(var(--hh-height) - 8px);
+    max-width:100%;
+  }
+  .hh-overlay .hh-mobile-private .hh-hamperone-mobile-image {
+    width:var(--hh-v139-logo-width);
+    height:var(--hh-v139-side-height);
+    max-width:100%;
+    object-fit:contain;
+    object-position:left center;
+  }
+}
+@media (max-width:639px) {
+  .hh-header, .hh-overlay {
+    --hh-v139-logo-width:58.136px;
+    --hh-v139-logo-height:85.232px;
+  }
+}
+@media (max-width:349px) {
+  .hh-header, .hh-overlay {
+    --hh-v139-logo-width:55.432px;
+    --hh-v139-logo-height:82.528px;
+  }
+}
+
 @media (prefers-reduced-motion:reduce) {
   .hh-logo-sequence { opacity:1!important; visibility:visible!important; transform:none!important; filter:none!important; }
-  .hh-logo-artwork { transform:none!important; }
+  .hh-logo-shield { animation:none!important; transform:none!important; }
   .hh-logo-horse { transform:none!important; }
   .hh-satin-ribbon-left,.hh-satin-ribbon-right { transform:none!important; }
   .hh-ceremony-bow { display:none!important; }
