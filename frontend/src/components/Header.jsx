@@ -1,5 +1,5 @@
 // EXACT PATH: frontend/src/components/Header.jsx
-// ACTION: REPLACE - HAMPORIUM HEADER V31 (STATIC MOBILE SEARCH ICON)
+// ACTION: REPLACE - HAMPORIUM COMMON HEADER V133 (static horse, logo 5px shorter)
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -80,7 +80,7 @@ const getProductImage = (product) => {
 // ======================================================
 
 const useTransparentLogo = (source) => {
-  const [processedLogo, setProcessedLogo] = useState(source);
+  const [processedLogo, setProcessedLogo] = useState(null);
 
   useEffect(() => {
     if (!source) return;
@@ -335,6 +335,201 @@ const useMediaQuery = (query) => {
   return matches;
 };
 
+// V103 -- A satin-wrapped gift trigger. Reuses the existing Hampers menu logic.
+const GiftHamperArt = () => (
+  <svg className="hh-gift-art" viewBox="0 0 80 74" aria-hidden="true" focusable="false">
+    <defs>
+      <linearGradient id="hh-v103-box-face" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stopColor="#F7E7C6"/>
+        <stop offset=".52" stopColor="#D7B274"/>
+        <stop offset="1" stopColor="#AD7A37"/>
+      </linearGradient>
+      <linearGradient id="hh-v103-lid" x1="0" y1="0" x2=".9" y2="1">
+        <stop offset="0" stopColor="#FFF1D0"/>
+        <stop offset=".49" stopColor="#E6C487"/>
+        <stop offset="1" stopColor="#B3813B"/>
+      </linearGradient>
+      <linearGradient id="hh-v103-band" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stopColor="#8E5B1D"/>
+        <stop offset=".35" stopColor="#F7E1A9"/>
+        <stop offset=".65" stopColor="#CD983F"/>
+        <stop offset="1" stopColor="#A26D22"/>
+      </linearGradient>
+    </defs>
+    <ellipse cx="40" cy="67" rx="30" ry="4.5" fill="#4B3218" opacity=".14"/>
+    <g className="hh-gift-box">
+      <path d="M12 29 40 35 68 29v27L40 64 12 56Z" fill="url(#hh-v103-box-face)" stroke="#8F6632" strokeWidth="1.25" strokeLinejoin="round"/>
+      <path d="M40 35v29L12 56V29Z" fill="#F9E5BE" opacity=".40"/>
+      <path d="M35 34.3 45 34.3v28.5L40 64 35 62.6Z" fill="url(#hh-v103-band)"/>
+      <path d="M14 45 40 52 66 45v7L40 59 14 52Z" fill="url(#hh-v103-band)" opacity=".95"/>
+    </g>
+    <g className="hh-gift-lid">
+      <path d="m9 24 31 8 31-8-30-10Z" fill="url(#hh-v103-lid)" stroke="#A27536" strokeWidth="1.3" strokeLinejoin="round"/>
+      <path d="M9 24 40 32v8L9 31Z" fill="#D5AB6E" stroke="#9B7039" strokeWidth="1"/>
+      <path d="M40 32 71 24v7L40 40Z" fill="#B7833E" stroke="#8F6531" strokeWidth="1"/>
+      <path d="m33 29 7 3 7-3 1 8-8 3-7-3Z" fill="url(#hh-v103-band)"/>
+      <path d="M24 19c-9-4-9-14-1-14 8 0 14 14 17 20-8-2-13-4-16-6Z" fill="url(#hh-v103-band)" stroke="#8D611F" strokeWidth="1"/>
+      <path d="M56 19c9-4 9-14 1-14-8 0-14 14-17 20 8-2 13-4 16-6Z" fill="url(#hh-v103-band)" stroke="#8D611F" strokeWidth="1"/>
+      <path d="M25 11c6 2 10 9 15 14M55 11c-6 2-10 9-15 14" fill="none" stroke="#FFF3C9" strokeWidth="1.4" opacity=".73"/>
+      <ellipse cx="40" cy="25" rx="6.8" ry="4.8" fill="#E9BF70" stroke="#966422" strokeWidth="1.2"/>
+    </g>
+    <path d="M18 41 22 37" stroke="#FFF5D7" strokeWidth="1" opacity=".65"/>
+  </svg>
+);
+
+// V133: original horse is static within the authentic logo image.
+// V111: sculpted satin scroll with physical rolled ends and flowing edges.
+// Kept as vectors so the ribbon remains sharp on retina/mobile screens.
+// V120: Full-bleed gold silk reaches both viewport edges, backed by a precisely matching static wave.
+// It fills the space between the main header and every ribbon dip, so the
+// header and ribbon look like ONE continuous, wavy piece of fabric.
+// It intentionally does not move with the untie animation.
+const HhConnectedHeaderWave = ({ side = "left" }) => (
+  <svg className={`hh-connected-wave-art ${side === "right" ? "hh-v111-flipped" : ""}`}
+    viewBox="0 0 900 150" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+    <path className="hh-connected-wave-fill"
+      d="M0 0 H900 V120
+         C753 90 659 91 553 118
+         C436 148 329 146 228 113
+         C165 94 123 94 87 105
+         C58 108 31 116 0 118 Z" />
+  </svg>
+);
+
+// V125: a genuine V-NOTCHED / fishtail cut in the fabric outline itself.
+// Both outer ends are mirrored by the existing flipped-right SVG class;
+// no painted-on arrow or folded-ring graphic at the ends.
+// The wave profile, width, thickness, colour and reveal animation stay V124.
+const HhSculptedRibbon = ({ side = "left" }) => {
+  const fillId = `hh-v125-silk-${side}`;
+  const foldId = `hh-v125-fold-${side}`;
+  const lightId = `hh-v125-glow-${side}`;
+  const clipId = `hh-v125-v-notch-clip-${side}`;
+  // Notice the LAST two segments: L78 81 L0 45.
+  // They cut a deep open V into the left outer edge; right edge is mirrored.
+  // Unlike the old V124 ornament, this V is cut from the real ribbon silhouette.
+  const bandD = `M0 45
+    C28 35 56 31 87 34 C132 29 169 44 236 64
+    C323 89 423 80 541 49 C655 18 741 18 900 48
+    L900 120 C753 90 659 91 553 118
+    C436 148 329 146 228 113 C165 94 123 94 87 105
+    C58 108 31 116 0 118
+    L78 81 Z`;
+
+  return (
+    <svg className={`hh-v111-scroll-art ${side === "right" ? "hh-v111-flipped" : ""}`}
+      viewBox="0 0 900 150" preserveAspectRatio="none" focusable="false" aria-hidden="true">
+      <defs>
+        <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#a66b27" />
+          <stop offset=".13" stopColor="#eed08a" />
+          <stop offset=".33" stopColor="#ffecad" />
+          <stop offset=".58" stopColor="#dca950" />
+          <stop offset=".82" stopColor="#b27b30" />
+          <stop offset="1" stopColor="#794916" />
+        </linearGradient>
+        <linearGradient id={foldId} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#734117" stopOpacity=".13" />
+          <stop offset=".50" stopColor="#85531e" stopOpacity=".36" />
+          <stop offset="1" stopColor="#fff0b7" stopOpacity=".14" />
+        </linearGradient>
+        <linearGradient id={lightId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#fff6d3" stopOpacity=".13" />
+          <stop offset=".38" stopColor="#fff7d0" stopOpacity=".27" />
+          <stop offset=".78" stopColor="#754415" stopOpacity=".12" />
+          <stop offset="1" stopColor="#4e2a11" stopOpacity=".18" />
+        </linearGradient>
+        <clipPath id={clipId}>
+          <path d={bandD} />
+        </clipPath>
+      </defs>
+      {/* The V is an actual transparent notch, with clean sharply-cut tips. */}
+      <path d={bandD} fill={`url(#${fillId})`}
+        stroke="#9b6426" strokeWidth="2.1" strokeLinejoin="round" />
+      <g clipPath={`url(#${clipId})`}>
+        <path d={bandD} fill={`url(#${lightId})`} />
+        {/* Satin pressed folds, restrained so the fishtail silhouette stays clear. */}
+        <path d="M0 45 Q46 48 94 64 L117 100 Q75 86 0 118 L78 81 Z"
+          fill={`url(#${foldId})`} opacity=".40" />
+        <path d="M0 48 C28 39 57 36 87 39 C132 34 168 49 236 69
+          C323 94 423 85 541 54 C655 23 741 23 900 53"
+          fill="none" stroke="#fff3c4" strokeOpacity=".79" strokeWidth="2.7" />
+        <path d="M0 109 C31 107 58 99 87 97 C123 86 165 87 228 105
+          C329 138 436 140 553 110 C659 83 753 82 900 112"
+          fill="none" stroke="#683d13" strokeOpacity=".50" strokeWidth="2.8" />
+      </g>
+      {/* Fine piping follows the two diagonal V-cut edges, not an applied graphic. */}
+      <path d="M1 46 L78 81 L1 117"
+        fill="none" stroke="#704112" strokeOpacity=".52" strokeWidth="1.7"
+        strokeLinejoin="miter" />
+      <path d="M3 48 L72 81 L3 115"
+        fill="none" stroke="#fff0b6" strokeOpacity=".55" strokeWidth="1.15"
+        strokeLinejoin="miter" />
+    </svg>
+  );
+};
+
+// V128: center-tied silk bow with physically staged knot, wing and tail release.
+// It stays fully tied during the opening hold, then releases with the two ribbon halves.
+const HhCeremonialBow = () => (
+  <span className="hh-ceremony-bow" aria-hidden="true">
+    <svg viewBox="0 0 176 112" className="hh-ceremony-bow-art" focusable="false">
+      <defs>
+        <linearGradient id="hh-v127-bow-satin" x1="0" x2=".85" y1="0" y2="1">
+          <stop offset="0" stopColor="#85501D" />
+          <stop offset=".24" stopColor="#E2B95F" />
+          <stop offset=".48" stopColor="#FFF1BD" />
+          <stop offset=".69" stopColor="#D8A650" />
+          <stop offset="1" stopColor="#86521A" />
+        </linearGradient>
+        <linearGradient id="hh-v127-bow-shadow" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#603914" />
+          <stop offset=".48" stopColor="#D5A34B" />
+          <stop offset="1" stopColor="#693B0D" />
+        </linearGradient>
+        <linearGradient id="hh-v127-bow-knot" x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0" stopColor="#9D6823" />
+          <stop offset=".37" stopColor="#FFF1C0" />
+          <stop offset=".72" stopColor="#E3B45A" />
+          <stop offset="1" stopColor="#794616" />
+        </linearGradient>
+      </defs>
+      <g className="hh-ceremony-bow-tail-left">
+        <path d="M83 54 C65 59 55 74 38 107 L49 98 L63 109 C66 85 80 68 91 59Z"
+          fill="url(#hh-v127-bow-satin)" stroke="#82501E" strokeWidth="1.5" strokeLinejoin="round" />
+        <path d="M80 59 C61 78 59 93 55 100" fill="none" stroke="#FFF0BA" strokeWidth="2" opacity=".68" />
+      </g>
+      <g className="hh-ceremony-bow-tail-right">
+        <path d="M93 54 C111 59 121 74 138 107 L127 98 L113 109 C110 85 96 68 85 59Z"
+          fill="url(#hh-v127-bow-satin)" stroke="#82501E" strokeWidth="1.5" strokeLinejoin="round" />
+        <path d="M96 59 C115 78 117 93 121 100" fill="none" stroke="#FFF0BA" strokeWidth="2" opacity=".68" />
+      </g>
+      <g className="hh-ceremony-bow-wing-left">
+        <path d="M86 51 C66 33 39 14 22 25 C6 37 13 61 30 67 C47 73 72 62 86 56Z"
+          fill="url(#hh-v127-bow-satin)" stroke="#8C5B24" strokeWidth="1.8" />
+        <path d="M80 51 C65 44 44 30 28 34 C19 36 22 53 33 57 C48 62 66 58 80 53Z"
+          fill="url(#hh-v127-bow-shadow)" opacity=".34" />
+        <path d="M77 50 C56 37 37 29 24 35" fill="none" stroke="#FFF5CC" strokeOpacity=".8" strokeWidth="2.6" strokeLinecap="round" />
+        <path d="M73 54 C52 66 37 66 26 59" fill="none" stroke="#73431B" strokeOpacity=".5" strokeWidth="1.8" />
+      </g>
+      <g className="hh-ceremony-bow-wing-right">
+        <path d="M90 51 C110 33 137 14 154 25 C170 37 163 61 146 67 C129 73 104 62 90 56Z"
+          fill="url(#hh-v127-bow-satin)" stroke="#8C5B24" strokeWidth="1.8" />
+        <path d="M96 51 C111 44 132 30 148 34 C157 36 154 53 143 57 C128 62 110 58 96 53Z"
+          fill="url(#hh-v127-bow-shadow)" opacity=".34" />
+        <path d="M99 50 C120 37 139 29 152 35" fill="none" stroke="#FFF5CC" strokeOpacity=".8" strokeWidth="2.6" strokeLinecap="round" />
+        <path d="M103 54 C124 66 139 66 150 59" fill="none" stroke="#73431B" strokeOpacity=".5" strokeWidth="1.8" />
+      </g>
+      <g className="hh-ceremony-bow-knot">
+        <path d="M80 43 C84 40 92 40 96 43 L101 57 C98 65 91 69 86 67 C81 66 77 61 76 56Z"
+          fill="url(#hh-v127-bow-knot)" stroke="#88531D" strokeWidth="1.5" />
+        <path d="M81 46 C87 44 93 44 96 46" fill="none" stroke="#FFF3C5" strokeWidth="2" strokeLinecap="round" />
+        <path d="M80 59 C85 63 92 64 97 59" fill="none" stroke="#9A6628" strokeOpacity=".6" strokeWidth="1.5" />
+      </g>
+    </svg>
+  </span>
+);
+
 const Header = () => {
   const { user, partner, logout } = useAuth();
   const { cart } = useCart();
@@ -348,6 +543,9 @@ const Header = () => {
   // Disabling the hook also stops its animation timer on compact devices.
   const searchMorph = useSearchMorph(reduceMotion || !desktop);
   const transparentLogo = useTransparentLogo(logoLight);
+  const [logoIntroStarted, setLogoIntroStarted] = useState(false);
+  const [logoIntroDone, setLogoIntroDone] = useState(false);
+  const logoPlayedRef = useRef(false);
   const instanceId = useId().replace(/:/g, "");
   const panelId = `hh-panel-${instanceId}`;
 
@@ -393,6 +591,27 @@ const Header = () => {
   const source = desktop ? "desktop_header" : "mobile_header";
   const introHidden = isHome && homeIntroActive;
   const isModal = !desktop && Boolean(renderedPanel);
+
+  // V133: bow unties, then the untouched original logo appears, followed by
+  // the existing final one-time spin. Horse is permanently static.
+  useEffect(() => {
+    if (introHidden || reduceMotion || logoPlayedRef.current) return undefined;
+    logoPlayedRef.current = true;
+    setLogoIntroStarted(true);
+    return undefined;
+  }, [introHidden, reduceMotion]);
+
+  // Keep the final full original logo still after the single entrance.
+  useEffect(() => {
+    if (!logoIntroStarted) return undefined;
+    const timer = window.setTimeout(() => setLogoIntroDone(true), 6250);
+    return () => window.clearTimeout(timer);
+  }, [logoIntroStarted]);
+
+  // Never hide the logo for people who prefer reduced motion.
+  const headerIntroPhase = reduceMotion || logoIntroDone
+    ? "hh-intro-done"
+    : logoIntroStarted ? "hh-intro-running" : "hh-intro-pending";
 
   const clearHoverTimer = useCallback(() => {
     window.clearTimeout(hoverTimerRef.current);
@@ -734,15 +953,23 @@ const Header = () => {
       <style>{HEADER_CSS}</style>
       <header
         ref={headerRef}
-        className={`hh-header ${darkContent ? "hh-light" : "hh-hero"} ${headerHidden ? "hh-hidden" : ""}`}
+        className={`hh-header ${darkContent ? "hh-light" : "hh-hero"} ${headerIntroPhase} ${headerHidden ? "hh-hidden" : ""}`}
         onFocusCapture={() => setHeaderHidden(false)}
       >
         <div className="hh-bar">
+          <span className="hh-ribbon-stage" aria-hidden="true">
+            {/* Static wavy backing joins header surface to ribbon contour; never fades away. */}
+            <span className="hh-header-wave-left"><HhConnectedHeaderWave side="left" /></span>
+            <span className="hh-header-wave-right"><HhConnectedHeaderWave side="right" /></span>
+            <span className="hh-satin-ribbon-left"><HhSculptedRibbon side="left" /></span>
+            <span className="hh-satin-ribbon-right"><HhSculptedRibbon side="right" /></span>
+            <HhCeremonialBow />
+          </span>
           {desktop ? (
             <nav className="hh-nav" aria-label="Primary navigation">
               <button
                 ref={hamperTriggerRef} type="button"
-                className={`hh-nav-link ${hamperMenuActive || panel === "hampers" ? "is-current" : ""}`}
+                className={`hh-nav-link hh-gift-trigger ${hamperMenuActive || panel === "hampers" ? "is-current is-open" : ""}`}
                 aria-expanded={panel === "hampers"} aria-controls={panel === "hampers" ? panelId : undefined}
                 onClick={(event) => togglePanel("hampers", event)}
                 onPointerEnter={scheduleMenuOpen} onPointerLeave={scheduleMenuClose}
@@ -752,7 +979,8 @@ const Header = () => {
                     window.setTimeout(() => panelRef.current?.querySelector("a[href]")?.focus(), 40);
                   }
                 }}
-              >Hampers <Icon name="chevron" className={panel === "hampers" ? "hh-turn" : ""} /></button>
+                aria-label="Browse hampers" title="Explore hampers"
+              ><GiftHamperArt /><span className="hh-sr-only">Browse hampers</span></button>
               <Link to="/hamper-one" className={`hh-private-link ${isHamperOne ? "is-current" : ""}`} aria-current={isHamperOne ? "page" : undefined} onClick={() => closePanel(false)}>
                 <Icon name="spark" /><span>HAMPER <em>ONE</em><small>Private collection</small></span>
               </Link>
@@ -761,12 +989,21 @@ const Header = () => {
             <ActionButton label="Open menu" className="hh-mobile-menu-trigger" active={panel === "menu"}
               controls={panel === "menu" ? panelId : undefined}
               onClick={(event) => togglePanel("menu", event)}>
-              <Icon name={panel === "menu" ? "close" : "menu"} />
+              {panel === "menu" ? <Icon name="close" /> : <GiftHamperArt />}
             </ActionButton>
           )}
 
-          <Link to="/" className="hh-brand" aria-label="HAMPORIUM home" onClick={() => closePanel(false)}>
-            <span className="hh-brand-mark"><img src={transparentLogo} alt="HAMPORIUM" /></span>
+          <Link
+            to="/" className="hh-brand" aria-label="HAMPORIUM home"
+            onClick={() => closePanel(false)}
+          >
+            <span className="hh-brand-mark">
+              <span className={`hh-logo-sequence ${headerIntroPhase === "hh-intro-running" ? "hh-logo-animating" : "hh-logo-idle"}`}>
+                <span className="hh-logo-artwork" aria-hidden="true">
+                  <span className="hh-logo-full"><img src={transparentLogo} alt="" draggable="false" /></span>
+                </span>
+              </span>
+            </span>
           </Link>
 
           <div className="hh-tools">
@@ -1036,6 +1273,7 @@ const Icon = ({ name, className = "" }) => {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round" className={`hh-icon ${name === "loader" ? "hh-spin" : ""} ${className}`} aria-hidden="true" focusable="false">{paths[name] || paths.gift}</svg>;
 };
 
+// V104: One common HAMPORIUM header for all routes, including /hamper-one.
 export default Header;
 
 const HEADER_CSS = `
@@ -1051,25 +1289,235 @@ const HEADER_CSS = `
 .hh-overlay :where(h2,h3,p) { margin:0; }
 .hh-header .hh-icon,.hh-overlay .hh-icon { width:21px; height:21px; display:block; flex:0 0 auto; transition:transform .35s var(--hh-ease); }
 .hh-sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
-.hh-header { position:fixed; inset:0 0 auto; width:100%; z-index:100; transition:transform .48s var(--hh-ease),background-color .35s ease,box-shadow .35s ease; border-bottom:1px solid transparent; }
-.hh-header::after { content:''; position:absolute; bottom:-1px; left:0; width:100%; height:1px; background:linear-gradient(90deg,transparent,#b18a434a 25%,#b18a4390 50%,#b18a434a 75%,transparent); pointer-events:none; }
-.hh-light { color:var(--hh-ink); background:rgba(255,252,247,.97); border-bottom-color:#ede5d9; box-shadow:0 5px 24px #35261007; }
-.hh-hero { color:#fff8e7; background:linear-gradient(180deg,#0e0c0a70,#0e0c0a38); }
-@supports (backdrop-filter:blur(12px)) { .hh-header { backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); } }
-.hh-hidden { transform:translateY(-110%); pointer-events:none; }
-/* True three-zone layout: left collections, perfectly centered emblem, right actions. */
+/* V122: same as V121, but ribbon and matching wavy border are 20% thinner.
+   V121: luxury espresso surface with the V120 full-width wavy satin border.
+   V120: truly edge-to-edge satin ribbon forms the HEADER'S WAVY BOTTOM.
+   No straight border, no gradient fade, no transparent holes in the dips.
+   The solid body joins a precisely curved fixed SVG backing edge. */
+.hh-header {
+  --hh-v113-logo-height:141.96px;
+  --hh-v113-logo-half-height:70.98px;
+  --hh-v113-top-pad:1.5px;
+  --hh-v113-ribbon-tuck:73.7px;
+  --hh-v127-ribbon-height:24.8832px;
+  --hh-v127-bow-offset:14px;
+  --hh-connected-surface:#241913;
+  position:fixed; inset:0 0 auto; width:100%; z-index:100;
+  overflow:visible; background:transparent; border:0; box-shadow:none;
+  transition:transform .48s var(--hh-ease),background-color .35s ease,box-shadow .35s ease;
+}
+.hh-header::after { display:none !important; content:none !important; }
+/* V121: warm espresso base, champagne typography, burnished brass details.
+   The same surface feeds the wavy SVG and backing -- no white/light seam. */
+.hh-light,.hh-hero {
+  --hh-connected-surface:#241913;
+  --hh-ink:#f5e9d7;
+  color:#f5e9d7;
+  background:transparent;
+  box-shadow:none;
+}
+.hh-header .hh-private-link { border-left-color:rgba(230,190,112,.32); }
+.hh-header .hh-private-link > span,
+.hh-header .hh-private-link.is-current > span { color:#f6e7d0; }
+.hh-header .hh-private-link em,
+.hh-header .hh-private-link > .hh-icon { color:#e6ba69; }
+.hh-header .hh-private-link small { color:#cbb69b; }
+.hh-header .hh-search-morph-icon { color:#e8c18a; }
+.hh-header .hh-search-morph-word { color:#f2e2cc; }
+.hh-header .hh-search-morph-caret { background:#efbe70; }
+.hh-header .hh-action:hover,.hh-header .hh-action.is-open { color:#f2cc88; background:rgba(235,192,121,.12); }
+.hh-header .hh-nav-link { color:#f5e9d7; }
+.hh-header .hh-gift-trigger:focus-visible { outline-color:#e3b86c; }
+.hh-header .hh-account-label { color:#f5e9d7; }
+.hh-header .hh-search-trigger { color:#f5e9d7; }
+.hh-header .hh-count { background:#c87438; }
+/* Solid rectangular part ends INSIDE the curved edge; the SVG takes over
+   from this same point with identical surface fill (no fade or seam). */
+.hh-bar::before {
+  content:""; position:absolute; left:0; right:0; top:0; z-index:0;
+  height:calc(var(--hh-v113-top-pad) + var(--hh-v113-logo-height) - var(--hh-v113-ribbon-tuck) + env(safe-area-inset-top,0px) + 3px);
+  background:var(--hh-connected-surface);
+  pointer-events:none;
+  -webkit-mask-image:none; mask-image:none;
+}
+@supports (backdrop-filter:blur(12px)) {
+  .hh-header { backdrop-filter:none; -webkit-backdrop-filter:none; }
+  /* Avoid a separately blurred layer; that would bring back a visible seam. */
+  .hh-bar::before { backdrop-filter:none; -webkit-backdrop-filter:none; }
+}
+.hh-hidden { /* Hide the badge overhanging BELOW the standard height, too. */
+  transform:translateY(calc(-110% - 125px)); pointer-events:none;
+}
 .hh-bar { position:relative; width:100%; height:var(--hh-height); display:flex; align-items:center; justify-content:space-between; gap:18px; padding-inline:clamp(22px,3vw,60px); }
-.hh-brand { position:absolute; z-index:2; left:50%; top:50%; transform:translate(-50%,-50%); display:flex; align-items:center; justify-content:center; flex:0 0 auto; }
-/* V29 logo: 20% larger than V28, centered without moving navigation. */
-.hh-brand-mark { display:flex; width:69px; height:70px; align-items:center; justify-content:center; }
-.hh-brand-mark img { display:block; width:calc(100% / 1.15); height:100%; object-fit:contain; transform:scale(1.2) scaleX(1.15); transform-origin:center; transition:transform .6s var(--hh-ease); }
-.hh-brand:hover img { transform:scale(1.235) scaleX(1.15); }
+/* V126: original V125 V-notched ends; ribbon animates FIRST, logo appears after untie.
+   Two separate physical wings retain the original center untie movement. */
+.hh-ribbon-stage {
+  position:absolute; z-index:0; inset:0; pointer-events:none;
+  --hh-untie-distance:clamp(42px,5vw,74px);
+}
+/* Identical dimensions for fabric and attached header edge.
+   The static backing stays fixed while the ribbon's two sides untie. */
+.hh-satin-ribbon-left,.hh-satin-ribbon-right,
+.hh-header-wave-left,.hh-header-wave-right {
+  position:absolute; display:block;
+  top:calc(var(--hh-v113-top-pad) + var(--hh-v113-logo-height) - var(--hh-v113-ribbon-tuck) + env(safe-area-inset-top, 0px));
+  height:var(--hh-v127-ribbon-height);
+  width:50%;
+}
+.hh-header-wave-left { left:0; }
+.hh-header-wave-right { right:0; }
+.hh-connected-wave-art { display:block; width:100%; height:100%; overflow:visible; }
+.hh-connected-wave-fill { fill:var(--hh-connected-surface); }
+.hh-satin-ribbon-left,.hh-satin-ribbon-right {
+  will-change:transform;
+  filter:drop-shadow(0 2px 3px rgba(20,10,1,.34)) drop-shadow(0 5px 6px rgba(30,16,4,.13));
+}
+/* V126: static tied state. Only the first-show class triggers the untie. */
+.hh-satin-ribbon-left { left:0; transform:translateX(var(--hh-untie-distance)); }
+.hh-satin-ribbon-right { right:0; transform:translateX(calc(-1 * var(--hh-untie-distance))); }
+.hh-header.hh-intro-running .hh-satin-ribbon-left { animation:hh-v126-ribbon-left .98s cubic-bezier(.22,.72,.22,1) 1.16s both; }
+.hh-header.hh-intro-running .hh-satin-ribbon-right { animation:hh-v126-ribbon-right .98s cubic-bezier(.22,.72,.22,1) 1.16s both; }
+.hh-header.hh-intro-done .hh-satin-ribbon-left,.hh-header.hh-intro-done .hh-satin-ribbon-right { transform:translateX(0); }
+.hh-v111-scroll-art { display:block; width:100%; height:100%; overflow:visible; }
+.hh-v111-flipped { transform:scaleX(-1); }
+@keyframes hh-v126-ribbon-left {
+  0%,12% { transform:translateX(var(--hh-untie-distance)); }
+  100% { transform:translateX(0); }
+}
+@keyframes hh-v126-ribbon-right {
+  0%,12% { transform:translateX(calc(-1 * var(--hh-untie-distance))); }
+  100% { transform:translateX(0); }
+}
+
+/* The badge is ABOVE both satin halves. Its point is 5% of badge-height
+   beneath the top of the viewport, so the cone is never cropped at rest. */
+.hh-brand { position:absolute; z-index:6; left:50%;
+  top:calc(var(--hh-v113-top-pad) + var(--hh-v113-logo-half-height) + env(safe-area-inset-top, 0px) - 10px);
+  transform:translate(-50%,-50%); display:flex; align-items:center;
+  justify-content:center; flex:0 0 auto; isolation:isolate;
+}
+/* No artificial hanging strip above the logo. The ribbon disappears behind its LOWER EDGE. */
+.hh-brand::before,.hh-brand::after { content:none !important; display:none !important; }
+.hh-brand-mark { display:flex; position:relative; z-index:5; width:104.78px; height:136.96px; align-items:center; justify-content:center; overflow:visible; isolation:isolate; background:none; filter:drop-shadow(0 3px 4px #0a07081a); }
+/* V128: one stable composited badge, no layer switching or transparent
+   holes. Text is ALWAYS part of the still base image. Only the actual
+   white horse animates in place; the whole image rotates at the end. */
+.hh-logo-sequence,.hh-logo-artwork,.hh-logo-base,.hh-logo-horse,.hh-logo-full {
+  position:absolute; inset:0; display:block;
+}
+.hh-logo-sequence { position:relative; width:100%; height:100%; opacity:0; perspective:850px; }
+.hh-logo-sequence img { display:block; width:100%; height:100%; object-fit:contain; }
+.hh-logo-artwork { transform-origin:50% 50%; transform-style:preserve-3d; }
+.hh-header.hh-intro-pending .hh-logo-sequence { opacity:0; visibility:hidden; }
+.hh-header.hh-intro-running .hh-logo-sequence {
+  visibility:visible;
+  animation:hh-v128-logo-enter .6s cubic-bezier(.2,.82,.3,1) 2.30s both;
+}
+.hh-header.hh-intro-done .hh-logo-sequence { opacity:1; visibility:visible; }
+.hh-header.hh-intro-running .hh-logo-artwork {
+  animation:hh-v128-final-spin 1.05s cubic-bezier(.31,.10,.24,1) 4.66s both;
+}
+/* V133: the original white horse stays static inside the logo. */
+.hh-logo-horse { pointer-events:none; }
+.hh-original-horse-canvas { display:block; width:100%; height:100%; object-fit:contain; }
+@keyframes hh-v128-logo-enter {
+  0% { opacity:0; transform:translateY(18px) scale(.84); filter:blur(4px); }
+  68% { opacity:1; transform:translateY(-2px) scale(1.015); filter:blur(0); }
+  100% { opacity:1; transform:translateY(0) scale(1); filter:none; }
+}
+@keyframes hh-v128-final-spin {
+  0% { transform:rotateY(0deg); }
+  25% { transform:rotateY(90deg); }
+  50% { transform:rotateY(180deg); }
+  75% { transform:rotateY(270deg); }
+  100% { transform:rotateY(360deg); }
+}
+
+/* V128: real untie choreography -- knot loosens first, loops unfurl
+   into slim bands and release sideways, tails follow, then ribbon halves
+   draw out from the centre. Nothing pops/disappears at the first frame. */
+.hh-ceremony-bow {
+  position:absolute; z-index:5; left:50%;
+  top:calc(var(--hh-v113-top-pad) + var(--hh-v113-logo-height) - var(--hh-v113-ribbon-tuck) + env(safe-area-inset-top, 0px) + var(--hh-v127-bow-offset));
+  width:clamp(102px,9.5vw,142px); height:auto; aspect-ratio:176/112;
+  transform:translate(-50%,-50%); pointer-events:none;
+  filter:drop-shadow(0 4px 5px rgba(40,19,4,.3));
+}
+.hh-ceremony-bow-art { display:block; width:100%; height:100%; overflow:visible; }
+.hh-ceremony-bow-wing-left,.hh-ceremony-bow-wing-right,
+.hh-ceremony-bow-tail-left,.hh-ceremony-bow-tail-right,
+.hh-ceremony-bow-knot { transform-box:fill-box; }
+.hh-ceremony-bow-wing-left { transform-origin:right 58%; }
+.hh-ceremony-bow-wing-right { transform-origin:left 58%; }
+.hh-ceremony-bow-tail-left { transform-origin:right 2%; }
+.hh-ceremony-bow-tail-right { transform-origin:left 2%; }
+.hh-ceremony-bow-knot { transform-origin:center; }
+.hh-header.hh-intro-running .hh-ceremony-bow-wing-left {
+  animation:hh-v128-bow-loop-left 1.30s cubic-bezier(.3,.65,.27,1) .79s both;
+}
+.hh-header.hh-intro-running .hh-ceremony-bow-wing-right {
+  animation:hh-v128-bow-loop-right 1.30s cubic-bezier(.3,.65,.27,1) .79s both;
+}
+.hh-header.hh-intro-running .hh-ceremony-bow-tail-left {
+  animation:hh-v128-bow-tail-left 1.27s cubic-bezier(.26,.72,.28,1) .84s both;
+}
+.hh-header.hh-intro-running .hh-ceremony-bow-tail-right {
+  animation:hh-v128-bow-tail-right 1.27s cubic-bezier(.26,.72,.28,1) .84s both;
+}
+.hh-header.hh-intro-running .hh-ceremony-bow-knot {
+  animation:hh-v128-bow-knot 1.17s cubic-bezier(.2,.72,.25,1) .72s both;
+}
+.hh-header.hh-intro-done .hh-ceremony-bow { display:none; }
+@keyframes hh-v128-bow-loop-left {
+  0%,20% { transform:translate(0,0) rotate(0deg) scale(1); opacity:1; }
+  35% { transform:translate(-3px,-1px) rotate(-9deg) scale(1.08,.95); opacity:1; }
+  62% { transform:translate(-18px,-2px) rotate(-14deg) scale(1.28,.53); opacity:1; }
+  82% { transform:translate(-40px,-1px) rotate(-6deg) scale(1.40,.22); opacity:.85; }
+  100% { transform:translate(-61px,0) rotate(0deg) scale(1.50,.12); opacity:0; }
+}
+@keyframes hh-v128-bow-loop-right {
+  0%,20% { transform:translate(0,0) rotate(0deg) scale(1); opacity:1; }
+  35% { transform:translate(3px,-1px) rotate(9deg) scale(1.08,.95); opacity:1; }
+  62% { transform:translate(18px,-2px) rotate(14deg) scale(1.28,.53); opacity:1; }
+  82% { transform:translate(40px,-1px) rotate(6deg) scale(1.40,.22); opacity:.85; }
+  100% { transform:translate(61px,0) rotate(0deg) scale(1.50,.12); opacity:0; }
+}
+@keyframes hh-v128-bow-tail-left {
+  0%,22% { transform:rotate(0deg) translate(0,0); opacity:1; }
+  48% { transform:rotate(13deg) translate(-2px,0); opacity:1; }
+  78% { transform:rotate(48deg) translate(-12px,8px) scaleY(.77); opacity:.75; }
+  100% { transform:rotate(67deg) translate(-28px,15px) scaleY(.45); opacity:0; }
+}
+@keyframes hh-v128-bow-tail-right {
+  0%,22% { transform:rotate(0deg) translate(0,0); opacity:1; }
+  48% { transform:rotate(-13deg) translate(2px,0); opacity:1; }
+  78% { transform:rotate(-48deg) translate(12px,8px) scaleY(.77); opacity:.75; }
+  100% { transform:rotate(-67deg) translate(28px,15px) scaleY(.45); opacity:0; }
+}
+@keyframes hh-v128-bow-knot {
+  0%,25% { opacity:1; transform:scale(1) rotate(0deg); }
+  48% { opacity:1; transform:scale(1.10,.84) rotate(-9deg); }
+  72% { opacity:1; transform:translateY(4px) scale(.77,.58) rotate(-17deg); }
+  100% { opacity:0; transform:translateY(14px) scale(.38,.34) rotate(-22deg); }
+}
+
 .hh-nav { display:flex; align-self:stretch; align-items:center; gap:clamp(15px,2vw,29px); flex:0 1 auto; margin-left:0; position:relative; z-index:1; }
 .hh-nav-link { position:relative; display:inline-flex; height:100%; align-items:center; gap:8px; padding:0 2px; border:0; color:inherit; background:transparent; font-weight:650!important; font-size:14px!important; white-space:nowrap; }
 .hh-nav-link::after { content:''; position:absolute; bottom:17px; left:0; right:0; height:1px; transform:scaleX(0); transform-origin:left; background:var(--hh-orange); transition:transform .42s var(--hh-ease); }
 .hh-nav-link.is-current::after,.hh-nav-link:hover::after { transform:scaleX(1); }
 .hh-nav-link .hh-icon { width:14px; height:14px; }
 .hh-icon.hh-turn { transform:rotate(180deg); }
+/* Graphic replaces the Hampers word; keeps original click, hover and keyboard menu events. */
+.hh-header .hh-gift-trigger { display:flex; align-items:center; justify-content:center; width:72px; min-width:72px; height:72px; padding:0; position:relative; margin-inline:-7px 0; border:0; background:transparent; outline-offset:2px; }
+.hh-gift-art { display:block; width:64px; height:60px; overflow:visible; filter:drop-shadow(0 2px 2px #3d26151c); transition:transform .5s var(--hh-ease); }
+.hh-gift-trigger:hover .hh-gift-art,.hh-gift-trigger:focus-visible .hh-gift-art,.hh-gift-trigger.is-open .hh-gift-art { transform:translateY(-3px) scale(1.045); }
+.hh-gift-lid { transform-origin:40px 32px; transition:transform .45s var(--hh-ease); }
+.hh-gift-trigger:hover .hh-gift-lid,.hh-gift-trigger:focus-visible .hh-gift-lid,.hh-gift-trigger.is-open .hh-gift-lid { transform:translateY(-6px) rotate(-5deg); }
+.hh-header .hh-gift-trigger::after { content:''; position:absolute; width:7px; height:7px; bottom:7px; border-radius:50%; background:#C39A52; box-shadow:0 0 0 4px #D2B37525; opacity:0; transform:scale(.4); transition:opacity .3s,transform .3s; }
+.hh-header .hh-gift-trigger.is-open::after { opacity:1; transform:scale(1); }
+.hh-header .hh-gift-trigger:hover::after,.hh-header .hh-gift-trigger.is-current::after { transform:scaleX(1); }
+.hh-mobile-menu-trigger .hh-gift-art { width:40px; height:40px; }
+
 .hh-private-link { display:flex; align-items:center; gap:9px; position:relative; padding-left:22px; border-left:1px solid #a8894f40; white-space:nowrap; }
 .hh-private-link>.hh-icon { width:17px; height:17px; color:#9b7422; }
 .hh-private-link>span { font-size:12px; font-weight:650; letter-spacing:.06em; line-height:1.2; }
@@ -1258,9 +1706,11 @@ const HEADER_CSS = `
 }
 @media (max-width:1179px) {
   .hh-header,.hh-overlay { --hh-height:72px; }
+  .hh-header { --hh-v113-logo-height:125.06px; --hh-v113-logo-half-height:62.53px; --hh-v113-top-pad:6.3px; --hh-v113-ribbon-tuck:61.5px; --hh-v127-ribbon-height:19.3536px; --hh-v127-bow-offset:11px; }
+  .hh-satin-ribbon-left,.hh-satin-ribbon-right,.hh-header-wave-left,.hh-header-wave-right { height:var(--hh-v127-ribbon-height); }
   .hh-bar { padding-inline:20px; gap:10px; }
   .hh-mobile-menu-trigger { display:flex; width:44px; height:44px; }
-  .hh-brand-mark { width:59px; height:62px; }
+  .hh-brand-mark { width:89.57px; height:120.06px; }
   .hh-search-trigger { width:46px; flex-basis:46px; height:44px; }
   /* Mobile/tablet: search is a fixed clickable icon, without typing or caret. */
   .hh-search-morph-icon { animation:none; }
@@ -1286,8 +1736,13 @@ const HEADER_CSS = `
 @keyframes hh-drawer-in { from { opacity:.6; transform:translateX(35px); } to { opacity:1; transform:translateX(0); } }
 @keyframes hh-drawer-out { to { opacity:0; transform:translateX(24px); } }
 @media (max-width:639px) {
+  .hh-header { --hh-v113-logo-height:111.54px; --hh-v113-logo-half-height:55.77px; --hh-v113-top-pad:5.6px; --hh-v113-ribbon-tuck:49.2px; --hh-v127-ribbon-height:14.7456px; --hh-v127-bow-offset:8px; }
+  .hh-satin-ribbon-left,.hh-satin-ribbon-right,.hh-header-wave-left,.hh-header-wave-right { height:var(--hh-v127-ribbon-height); }
+  .hh-ribbon-stage { --hh-untie-distance:clamp(44px,14vw,62px); }
   .hh-bar { padding-inline:13px; gap:6px; }
-  .hh-brand-mark { width:48px; height:55px; }
+  /* Small phones: avoid covering search/account controls with side loops. */
+  .hh-ceremony-bow { width:102px; }
+  .hh-brand-mark { width:72.67px; height:106.54px; }
   .hh-tools { gap:0; }
   .hh-action { width:40px; height:44px; }
   .hh-search-trigger { width:43px; flex-basis:43px; }
@@ -1304,7 +1759,7 @@ const HEADER_CSS = `
 }
 @media (max-width:389px) {
   .hh-bar { padding-inline:11px; gap:4px; }
-  .hh-brand-mark { width:48px; height:55px; }
+  .hh-brand-mark { width:72.67px; height:106.54px; }
   .hh-action { width:38px; height:44px; }
   .hh-search-trigger { width:40px; flex-basis:40px; }
   .hh-search-morph-word { font-size:10px; }
@@ -1314,8 +1769,9 @@ const HEADER_CSS = `
   .hh-panel-top h2 { font-size:26px; }.hh-location-intro p br { display:none; }.hh-menu-content { padding-inline:18px; }.hh-mobile-order-links { gap:9px; }.hh-mobile-order-links a { font-size:12px; }.hh-mobile-major>span:nth-child(2),.hh-mobile-build>div:first-child>span:nth-child(2) { font-size:27px; }
 }
 @media (max-width:349px) {
+  .hh-header { --hh-v113-logo-height:108.16px; --hh-v113-logo-half-height:54.08px; --hh-v113-top-pad:5.5px; --hh-v113-ribbon-tuck:27.8px; --hh-v127-ribbon-height:14.7456px; --hh-v127-bow-offset:8px; }
   .hh-bar { padding-inline:8px; }
-  .hh-brand-mark { width:46px; height:53px; }
+  .hh-brand-mark { width:69.29px; height:103.16px; }
   .hh-search-trigger { width:38px; flex-basis:38px; }
   .hh-search-morph-word { font-size:9.4px; }
   .hh-panel-top { padding-inline:16px; }
@@ -1323,6 +1779,11 @@ const HEADER_CSS = `
   .hh-mobile-order-links a { font-size:12px; }
 }
 @media (prefers-reduced-motion:reduce) {
+  .hh-logo-sequence { opacity:1!important; visibility:visible!important; transform:none!important; filter:none!important; }
+  .hh-logo-artwork { transform:none!important; }
+  .hh-logo-horse { transform:none!important; }
+  .hh-satin-ribbon-left,.hh-satin-ribbon-right { transform:none!important; }
+  .hh-ceremony-bow { display:none!important; }
   .hh-header,.hh-header *,.hh-overlay *,.hh-header::after,.hh-overlay *::before,.hh-overlay *::after { animation:none!important; transition:none!important; scroll-behavior:auto!important; }
 }
 
