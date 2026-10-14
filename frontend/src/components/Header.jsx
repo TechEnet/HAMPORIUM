@@ -13,7 +13,7 @@ import { trackCustomerActivity } from "../utils/customerActivity.js";
 import HeaderNotifications from "./HeaderNotifications.jsx";
 
 import logoLight from "../assets/images/logo_dark.jpeg";
-import hamperOneLogo from "../assets/images/hamperone.jpeg";
+import hamperOneLogo from "../assets/images/hamperOne.jpeg";
 
 // Avoid flashing the original JPEG white background while the logo is processed.
 const TRANSPARENT_IMAGE = "data:image/svg+xml,%3Csvg%20xmlns%3D%22http://www.w3.org/2000/svg%22%20width%3D%221%22%20height%3D%221%22/%3E";
