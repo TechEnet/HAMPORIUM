@@ -1,4 +1,4 @@
-// V140: Footer.jsx - responsive layout, original links/socials and giant wordmark.
+// V141: Footer.jsx - responsive layout + modern thin geometric HAMPORIUM wordmark with letter hover.
 // HAMPORIUM Footer - V15 | FIXED OXC PARSE ERROR | SINGLE DEFAULT EXPORT
 
 // IMPORTANT: Replace the entire contents of src/components/Footer.jsx.
@@ -690,6 +690,7 @@ export default function Footer() {
   return (
     <footer className="hp-footer" aria-label="HAMPORIUM footer">
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400&display=swap');
         .hp-footer, .hp-footer * { box-sizing: border-box; }
         .hp-footer {
           position: relative;
@@ -724,8 +725,34 @@ export default function Footer() {
         .hp-footer-social section > div { justify-content: flex-start; }
         .hp-footer-copyright { display: flex; align-items: center; justify-content: center; min-height: 49px; border-top: 1px solid rgba(255,255,255,.1); padding: 14px 0; text-align: center; }
         .hp-footer-copyright p { margin: 0; font-size: 11px; font-weight: 500; line-height: 1.6; letter-spacing: .02em; color: rgba(255,255,255,.52); }
-        .hp-footer-wordmark { width: 100%; max-width: 100%; border-top: 1px solid rgba(255,255,255,.07); overflow: hidden; }
-        .hp-footer-wordmark svg { display: block; width: 100%; height: auto; aspect-ratio: 1000 / 150; max-height: 210px; min-height: 44px; }
+        /* V141: crisp geometry inspired by HAMPORIUM's shield lettering.
+           Individual characters animate independently and do not move the layout. */
+        .hp-footer-wordmark { width: 100%; max-width: 100%; border-top: 1px solid rgba(255,255,255,.07); overflow: visible; }
+        .hp-footer-wordmark-line {
+          display: flex; align-items: flex-end; justify-content: space-between;
+          width: 100%; min-width: 0; margin: 0;
+          padding: clamp(13px, 1.4vw, 24px) clamp(6px, .9vw, 20px) clamp(9px, 1vw, 19px);
+          color: #F47822;
+          font-family: 'Montserrat', 'Avenir Next', 'Century Gothic', Arial, sans-serif;
+          font-size: clamp(36px, 12.0vw, 240px);
+          font-weight: 300; line-height: .86; letter-spacing: -.065em;
+          white-space: nowrap; font-kerning: normal;
+          -webkit-font-smoothing: antialiased;
+          text-rendering: geometricPrecision;
+        }
+        .hp-footer-wordmark-letter {
+          position: relative; display: inline-block; flex: 0 1 auto;
+          min-width: 0; transform: translateZ(0) scale(1);
+          transform-origin: 50% 80%;
+          transition: transform .42s cubic-bezier(.2,.86,.26,1), color .3s ease;
+          will-change: auto;
+        }
+        @media (hover:hover) and (pointer:fine) {
+          .hp-footer-wordmark-letter:hover {
+            z-index: 2; transform: translate3d(0,-.065em,0) scale(1.2);
+            color: #FFA548;
+          }
+        }
         @media (min-width: 768px) and (max-width: 1199px) {
           .hp-footer-main {
             grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -750,9 +777,10 @@ export default function Footer() {
           .hp-footer-social section { text-align: center; }
           .hp-footer-social section > div { justify-content: center; }
           .hp-footer-copyright { min-height: 48px; padding-block: 12px; }
-          .hp-footer-wordmark svg { min-height: 42px; }
+          .hp-footer-wordmark-line { font-size: clamp(35px, 11.8vw, 88px); padding: 14px 5px 12px; letter-spacing: -.075em; }
         }
         @media (max-width: 360px) {
+          .hp-footer-wordmark-line { font-size: 11.5vw; letter-spacing: -.09em; }
           .hp-footer-brand-link { gap: 5px; }
           .hp-footer-brand-icon { width: 44px; height: 58px; }
           .hp-footer-brand-title { font-size: 21px; }
@@ -776,13 +804,14 @@ export default function Footer() {
         </div>
       </div>
 
-      <div className="hp-footer-wordmark">
-        <svg aria-hidden="true" viewBox="0 0 1000 150" preserveAspectRatio="none">
-          <text x="2" y="134" textLength="996" lengthAdjust="spacingAndGlyphs"
-            fill="#F47822" style={{ fontFamily: DISPLAY_FONT, fontSize: "138px", fontWeight: 600 }}>
-            HAMPORIUM
-          </text>
-        </svg>
+      <div className="hp-footer-wordmark" aria-label="HAMPORIUM">
+        <div className="hp-footer-wordmark-line" aria-hidden="true">
+          {Array.from("HAMPORIUM").map((letter, index) => (
+            <span className="hp-footer-wordmark-letter" key={`${letter}-${index}`}>
+              {letter}
+            </span>
+          ))}
+        </div>
       </div>
     </footer>
   );
