@@ -1,4 +1,4 @@
-// V141: Home.jsx - crisp HAMPER ONE wordmark with cleaner JPEG-matte removal and no blur.
+// V142: Home.jsx - robust hero playback + adaptive low-jank scrolling; V141 visuals preserved.
 import {
   memo,
   useCallback,
@@ -21,6 +21,16 @@ import {
 } from "../../components/WebsitePromotions.jsx";
 
 import heroVideo from "../../assets/hmp.mp4";
+
+// Optional production-friendly media variants (no build error if absent):
+// hmp_compatible.mp4 = H.264 baseline/main + yuv420p, faststart, AAC or no audio.
+// hmp.webm = VP8/VP9 WebM alternative. Vite resolves only files that exist.
+const HOME_VIDEO_VARIANTS = import.meta.glob(
+  "../../assets/{hmp_compatible.mp4,hmp.webm}",
+  { eager: true, query: "?url", import: "default" }
+);
+const HOME_MP4_VIDEO = HOME_VIDEO_VARIANTS["../../assets/hmp_compatible.mp4"] || heroVideo;
+const HOME_WEBM_VIDEO = HOME_VIDEO_VARIANTS["../../assets/hmp.webm"] || "";
 import hamperOneLuxury from "../../assets/images/hamper_one_luxury.webp";
 import hamperOneWordmark from "../../assets/images/hamperOne_logo.jpeg";
 import storyImg1 from "../../assets/images/img1.png";
@@ -3997,6 +4007,42 @@ const Home = () => {
           }
           .hp-hero-film { opacity: 0; transition: opacity .85s ease; }
           .hp-hero-film.is-ready { opacity: 1; }
+
+          /* V142: keep premium sticky stories intact. Skip offscreen paint only
+             for non-sticky heavy modules, avoiding scroll-time surprises. */
+          @supports (content-visibility: auto) {
+            .hp-home-v65 [data-home-section="bestsellers"],
+            .hp-home-v65 [data-home-section="bulk"],
+            .hp-home-v65 [data-home-section="contact"] {
+              content-visibility: auto;
+              contain-intrinsic-size: auto 900px;
+            }
+          }
+          .hamporium-home.hp-perf-lite .hp-ambient-float,
+          .hamporium-home.hp-perf-lite .hp-soft-spin,
+          .hamporium-home.hp-perf-lite .hp-badge-pulse,
+          .hamporium-home.hp-perf-lite .hp-why-glow,
+          .hamporium-home.hp-perf-lite .hp-why-bg,
+          .hamporium-home.hp-perf-lite .hp-final-drift,
+          .hamporium-home.hp-perf-lite .hp-concierge-gift-box,
+          .hamporium-home.hp-perf-lite .hp-concierge-bow {
+            animation: none !important;
+          }
+          .hamporium-home.hp-perf-lite .hp-home-golden-thread-path {
+            stroke-dashoffset: 0 !important;
+          }
+          .hamporium-home.hp-perf-lite .hp-pointer-glow::before {
+            display: none !important;
+          }
+          .hamporium-home.hp-perf-lite .hp-gift-concierge-fab,
+          .hamporium-home.hp-perf-lite .hp-concierge-card,
+          .hamporium-home.hp-perf-lite .hp-concierge-sheet {
+            -webkit-backdrop-filter: none !important;
+            backdrop-filter: none !important;
+          }
+          @media (hover:none), (pointer:coarse) {
+            .hp-home-v65 .hp-pointer-glow::before { display: none !important; }
+          }
           .hp-hero-controls {
             position: absolute; bottom: max(26px, env(safe-area-inset-bottom)); left: clamp(18px,4vw,70px);
             right: clamp(18px,4vw,70px); z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -7943,7 +7989,7 @@ const FluidBackdrop = ({
         setHoverRequested(true);
         observer.disconnect();
       },
-      { rootMargin: "900px 0px", threshold: 0.01 }
+      { rootMargin: "480px 0px", threshold: 0.01 }
     );
 
     observer.observe(node);
@@ -10712,6 +10758,14 @@ const useHomeEnhancements = (homeRef, reducedMotion) => {
     const root = homeRef.current;
     if (!root) return undefined;
 
+    // One-time capability check only; never toggle classes on each scroll.
+    // Older laptops with 2-4GB RAM or few logical cores skip expensive
+    // decorative loops, retaining native scrolling and content interactions.
+    const lowMemory = typeof navigator.deviceMemory === "number" && navigator.deviceMemory <= 4;
+    const lowCpu = typeof navigator.hardwareConcurrency === "number" && navigator.hardwareConcurrency <= 4;
+    const liteEffects = reducedMotion || lowMemory || lowCpu;
+    root.classList.toggle("hp-perf-lite", liteEffects);
+
     const sections = Array.from(root.querySelectorAll("[data-home-section]"));
     const stories = Array.from(root.querySelectorAll(".hp-story-page"));
     const progressFill = root.querySelector(".hp-scroll-progress > span");
@@ -10728,12 +10782,13 @@ const useHomeEnhancements = (homeRef, reducedMotion) => {
     let heroTravel = 1;
     let lastScrollY = -1;
     let heroSettled = false;
+    let lastDecorationUpdate = -Infinity;
     const stableMobileScroll = window.matchMedia?.(
       "(max-width: 1023px), (pointer: coarse)"
     )?.matches ?? false;
     let lastViewportWidth = window.innerWidth;
 
-    const paint = () => {
+    const paint = (now = performance.now()) => {
       frame = 0;
       if (document.hidden) return;
 
@@ -10743,21 +10798,21 @@ const useHomeEnhancements = (homeRef, reducedMotion) => {
 
       const progress = Math.max(0, Math.min(1, y / pageTravel));
 
-      if (progressFill) {
-        progressFill.style.transform = `scaleX(${progress.toFixed(3)})`;
-      }
-
-      const fade = progress > .91
-        ? Math.max(.08, .72 - ((progress - .91) / .09) * .64)
-        : .72;
-
-      // Update only the three fixed ribbon elements. Setting inherited custom
-      // properties on the Home root invalidated styles across the whole page.
-      if (goldenPath) goldenPath.style.strokeDashoffset = String(1 - progress);
-      if (goldenThread) goldenThread.style.opacity = fade.toFixed(3);
-      if (goldenKnot) {
-        const knotTravel = Math.max(0, window.innerHeight - 10);
-        goldenKnot.style.transform = `translate3d(-50%, ${(progress * knotTravel).toFixed(1)}px, 0) rotate(45deg)`;
+      // SVG strokeDashoffset is paint-bound. Update decorative progress only
+      // ~30fps rather than hammering SVG paint on every high-Hz scroll frame.
+      // The viewport's native 60/120Hz scroll remains completely independent.
+      if (now - lastDecorationUpdate >= (liteEffects ? 64 : 32)) {
+        lastDecorationUpdate = now;
+        if (progressFill) progressFill.style.transform = `scaleX(${progress.toFixed(3)})`;
+        const fade = progress > .91
+          ? Math.max(.08, .72 - ((progress - .91) / .09) * .64)
+          : .72;
+        if (goldenPath && !liteEffects) goldenPath.style.strokeDashoffset = String(1 - progress);
+        if (goldenThread && !liteEffects) goldenThread.style.opacity = fade.toFixed(3);
+        if (goldenKnot && !liteEffects) {
+          const knotTravel = Math.max(0, window.innerHeight - 10);
+          goldenKnot.style.transform = `translate3d(-50%, ${(progress * knotTravel).toFixed(1)}px, 0) rotate(45deg)`;
+        }
       }
 
       if (heroMotion && heroDim && heroLine) {
@@ -10779,8 +10834,8 @@ const useHomeEnhancements = (homeRef, reducedMotion) => {
       }
     };
 
-    let scrollIdleTimer = 0;
     let resizeFrame = 0;
+    let resizeTimer = 0;
 
     const schedulePaint = () => {
       if (!frame && !document.hidden) {
@@ -10788,23 +10843,9 @@ const useHomeEnhancements = (homeRef, reducedMotion) => {
       }
     };
 
-    const scheduleScroll = () => {
-      /* On phones, toggling a class on the Home root invalidates selectors across
-         thousands of descendants right as a fling begins/ends. Keep mobile scroll
-         entirely passive; the mobile CSS above already disables the costly ambient
-         effects permanently. */
-      if (!stableMobileScroll) {
-        if (!root.classList.contains("is-scrolling")) {
-          root.classList.add("is-scrolling");
-        }
-        if (scrollIdleTimer) window.clearTimeout(scrollIdleTimer);
-        scrollIdleTimer = window.setTimeout(() => {
-          root.classList.remove("is-scrolling");
-          scrollIdleTimer = 0;
-        }, 130);
-      }
-      schedulePaint();
-    };
+    // One passive RAF, NO root-wide is-scrolling class toggle. The previous
+    // toggle forced selector invalidation across a very large homepage.
+    const scheduleScroll = () => schedulePaint();
 
     const measure = () => {
       pageTravel = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
@@ -10817,11 +10858,16 @@ const useHomeEnhancements = (homeRef, reducedMotion) => {
     };
 
     const scheduleMeasure = () => {
-      if (resizeFrame || document.hidden) return;
-      resizeFrame = window.requestAnimationFrame(() => {
-        resizeFrame = 0;
-        measure();
-      });
+      if (resizeFrame || resizeTimer || document.hidden) return;
+      // Image loading and dynamic content may trigger many ResizeObserver
+      // callbacks. Batch scrollHeight reads after the layout has settled.
+      resizeTimer = window.setTimeout(() => {
+        resizeTimer = 0;
+        resizeFrame = window.requestAnimationFrame(() => {
+          resizeFrame = 0;
+          measure();
+        });
+      }, 110);
     };
 
     const visibility = () => {
@@ -11007,8 +11053,7 @@ const useHomeEnhancements = (homeRef, reducedMotion) => {
       goldenPath?.style.removeProperty("stroke-dashoffset");
       goldenThread?.style.removeProperty("opacity");
       goldenKnot?.style.removeProperty("transform");
-      root.classList.remove("is-scrolling");
-      if (scrollIdleTimer) window.clearTimeout(scrollIdleTimer);
+      root.classList.remove("hp-perf-lite");
 
       kineticHeadingNodes.forEach((heading) => {
         heading.classList.remove("hp-kinetic-heading", "is-kinetic-visible", "is-kinetic-settled");
@@ -11019,6 +11064,7 @@ const useHomeEnhancements = (homeRef, reducedMotion) => {
 
       window.cancelAnimationFrame(frame);
       if (resizeFrame) window.cancelAnimationFrame(resizeFrame);
+      if (resizeTimer) window.clearTimeout(resizeTimer);
       window.removeEventListener("scroll", scheduleScroll);
       window.removeEventListener("resize", handleViewportResize);
       document.removeEventListener("visibilitychange", visibility);
@@ -11027,167 +11073,238 @@ const useHomeEnhancements = (homeRef, reducedMotion) => {
   }, [homeRef, reducedMotion]);
 };
 
+// V142: immediate poster + non-blocking media loading, autoplay recovery,
+// optional cross-browser source, manual replay/retry and offscreen pause.
 const CinematicHero = ({ onIntroComplete }) => {
   const videoRef = useRef(null);
   const stageRef = useRef(null);
   const completeRef = useRef(false);
   const manualPauseRef = useRef(false);
   const insideRef = useRef(true);
+  const stalledTimerRef = useRef(0);
   const reducedMotion = useMediaPreference("(prefers-reduced-motion: reduce)");
-  const [saveData] = useState(() => typeof navigator !== "undefined" && Boolean(navigator.connection?.saveData));
-  const [seen] = useState(() => { try { return sessionStorage.getItem("hamporium:home-intro-seen") === "1"; } catch { return false; } });
-  const [phase, setPhase] = useState(seen ? "hidden" : "loading");
+  const [saveData] = useState(() =>
+    typeof navigator !== "undefined" && Boolean(navigator.connection?.saveData)
+  );
+  const [seen] = useState(() => {
+    try { return sessionStorage.getItem("hamporium:home-intro-seen") === "1"; }
+    catch { return false; }
+  });
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
   const [paused, setPaused] = useState(true);
   const [playRequested, setPlayRequested] = useState(false);
-  const [finished, setFinished] = useState(false);
+  const [finished, setFinished] = useState(seen);
+  const [slowLoading, setSlowLoading] = useState(false);
   const allowVideo = playRequested || (!reducedMotion && !saveData);
+  const shouldMountVideo = allowVideo && !failed;
+
   const notify = useCallback((active) => {
     if (active) document.documentElement.dataset.hamporiumIntro = "active";
     else delete document.documentElement.dataset.hamporiumIntro;
-    window.dispatchEvent(new CustomEvent("hamporium:intro-state", { detail: { active } }));
+    window.dispatchEvent(new CustomEvent("hamporium:intro-state", {
+      detail: { active },
+    }));
   }, []);
+
   const finish = useCallback(() => {
     if (completeRef.current) return;
     completeRef.current = true;
-    setFinished(true); setPhase("hidden"); notify(false); onIntroComplete();
-    try { sessionStorage.setItem("hamporium:home-intro-seen", "1"); } catch { /* Storage may be unavailable. */ }
+    setFinished(true);
+    notify(false);
+    onIntroComplete();
+    try { sessionStorage.setItem("hamporium:home-intro-seen", "1"); }
+    catch { /* Session storage might be blocked. */ }
   }, [notify, onIntroComplete]);
 
+  const clearStallTimer = useCallback(() => {
+    if (stalledTimerRef.current) window.clearTimeout(stalledTimerRef.current);
+    stalledTimerRef.current = 0;
+  }, []);
+
+  // A rejected automatic play (NotAllowedError) is not a bad video file.
+  // Keep a working Play button and allow user-gesture playback.
+  const tryPlay = useCallback((fromGesture = false) => {
+    const video = videoRef.current;
+    if (!video || (!allowVideo && !fromGesture) || failed ||
+        manualPauseRef.current || document.hidden || !insideRef.current) return;
+    if (!fromGesture && video.readyState < 2) return;
+    if (!video.paused) return;
+
+    try {
+      const pending = video.play();
+      if (pending?.catch) pending.catch((error) => {
+        if (error?.name === "AbortError") return; // Paused by viewport/visibility.
+        setPaused(true);
+        if (error?.name === "NotSupportedError" || error?.name === "NotReadableError") {
+          setFailed(true);
+          setReady(false);
+        }
+        // Autoplay permission is separate from codec/network failure.
+        finish();
+      });
+    } catch (error) {
+      setPaused(true);
+      if (error?.name !== "NotAllowedError") setFailed(true);
+      finish();
+    }
+  }, [allowVideo, failed, finish]);
+
+  // First visit may start the intro; returning visitors see the page instantly.
+  // Video/poster never waits behind a fullscreen React loader.
   useEffect(() => {
-    const frame = requestAnimationFrame(() => {
-      if (completeRef.current) notify(false);
-      else if (seen || !allowVideo) finish();
-      else notify(true);
-    });
-
-    const escapeIntro = (event) => {
-      if (event.key === "Escape") finish();
-    };
-
-    // Any intentional scroll means the visitor wants to move on. Finish the
-    // intro immediately so the global Header can become visible.
-    const onScroll = () => {
-      if (window.scrollY > 12) finish();
-    };
-
-    // This timeout only protects against a video that never becomes playable.
-    // It does NOT stop a video that is already playing, so the header remains
-    // hidden for the full first playback.
-    const loadFailSafe = window.setTimeout(() => {
+    if (seen || !allowVideo) {
+      finish();
+      return undefined;
+    }
+    notify(true);
+    const escapeIntro = (event) => { if (event.key === "Escape") finish(); };
+    const onScroll = () => { if (window.scrollY > 12) finish(); };
+    // Do not hold the Header hostage on a slow network. The player can
+    // still recover whenever it becomes ready later.
+    const failSafe = window.setTimeout(() => {
       if (!videoRef.current?.readyState) {
-        setFailed(true);
+        setSlowLoading(true);
         finish();
       }
-    }, 12000);
-
-    const loaderWait = window.setTimeout(() => setPhase("hidden"), 2200);
-
+    }, 7000);
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("keydown", escapeIntro);
     onScroll();
-
     return () => {
-      window.cancelAnimationFrame(frame);
-      window.clearTimeout(loadFailSafe);
-      window.clearTimeout(loaderWait);
+      window.clearTimeout(failSafe);
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("keydown", escapeIntro);
       notify(false);
     };
   }, [seen, allowVideo, finish, notify]);
 
-  const tryPlay = useCallback(() => {
+  // Browser can play once its first frame is decoded. No 420ms artificial delay.
+  useEffect(() => {
+    if (!ready || !shouldMountVideo) return;
+    if (!manualPauseRef.current) tryPlay(false);
+  }, [ready, shouldMountVideo, tryPlay]);
+
+  // Stop decoding film offscreen or in another tab; resume it when appropriate.
+  useEffect(() => {
     const video = videoRef.current;
-    if (
-      !video ||
-      !allowVideo ||
-      failed ||
-      manualPauseRef.current ||
-      document.hidden ||
-      !insideRef.current
-    ) {
-      return;
-    }
-
-    const playResult = video.play();
-
-    if (playResult && typeof playResult.catch === "function") {
-      playResult.catch(() => {
-        setPaused(true);
-        finish();
-      });
-    }
-  }, [allowVideo, failed, finish]);
-  useEffect(() => {
-    if (!ready) return undefined;
-    setPhase((current) => current === "loading" ? "leaving" : current);
-    const timer = window.setTimeout(() => { setPhase("hidden"); tryPlay(); }, seen ? 0 : 420);
-    return () => window.clearTimeout(timer);
-  }, [ready, seen, tryPlay]);
-
-  useEffect(() => {
+    if (!video) return undefined;
     const update = () => {
-      if (document.hidden || !insideRef.current || !allowVideo) videoRef.current?.pause();
-      else if (ready) tryPlay();
+      const shouldPause = document.hidden || !insideRef.current;
+      if (shouldPause) {
+        video.pause();
+        clearStallTimer();
+      } else if (ready && !manualPauseRef.current) {
+        tryPlay(false);
+      }
     };
-    const observer = window.IntersectionObserver ? new IntersectionObserver(([entry]) => {
-      insideRef.current = entry.isIntersecting; update();
-    }, { threshold: 0.03 }) : null;
+    const observer = window.IntersectionObserver
+      ? new IntersectionObserver(([entry]) => {
+          insideRef.current = Boolean(entry?.isIntersecting);
+          update();
+        }, { rootMargin: "100px 0px", threshold: 0.01 })
+      : null;
     if (stageRef.current) observer?.observe(stageRef.current);
     document.addEventListener("visibilitychange", update);
     update();
-    return () => { observer?.disconnect(); document.removeEventListener("visibilitychange", update); videoRef.current?.pause(); };
-  }, [allowVideo, ready, tryPlay]);
+    return () => {
+      observer?.disconnect();
+      document.removeEventListener("visibilitychange", update);
+      video.pause();
+    };
+  }, [shouldMountVideo, ready, tryPlay, clearStallTimer]);
+
+  // A stalled decoder/network must not leave an invisible or frozen first frame.
+  // The fallback stays visible; a deliberate click creates a fresh video element.
+  const onWaiting = () => {
+    clearStallTimer();
+    stalledTimerRef.current = window.setTimeout(() => {
+      const video = videoRef.current;
+      if (video && video.paused === false && video.readyState < 3 &&
+          insideRef.current && !document.hidden) {
+        video.pause();
+        setFailed(true);
+        setReady(false);
+        finish();
+      }
+    }, 8500);
+  };
+  useEffect(() => clearStallTimer, [clearStallTimer]);
 
   const toggle = () => {
-    if (!paused && allowVideo) {
-      // Pausing the first-play film is treated as opting out of the intro.
+    const video = videoRef.current;
+    if (video && !video.paused) {
       manualPauseRef.current = true;
-      videoRef.current?.pause();
+      video.pause();
+      clearStallTimer();
       finish();
       return;
     }
-
     manualPauseRef.current = false;
     setPlayRequested(true);
-
-    // If this is still the first intro, keep the Header hidden while playback
-    // resumes. Returning visitors keep their normal visible Header.
-    if (!completeRef.current) notify(true);
-
-    if (allowVideo) tryPlay();
+    setSlowLoading(false);
+    if (failed) {
+      setReady(false);
+      setFailed(false); // Remount <video> with its source list for a fresh retry.
+      return;
+    }
+    // When already mounted, call play synchronously in the user gesture.
+    // This avoids losing browser autoplay permission to a delayed effect.
+    if (video) tryPlay(true);
   };
-  const explore = () => { finish(); document.querySelector('[data-home-section="journey"]')?.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "start" }); };
+
+  const explore = () => {
+    finish();
+    document.querySelector('[data-home-section="journey"]')?.scrollIntoView({
+      behavior: reducedMotion ? "auto" : "smooth", block: "start",
+    });
+  };
+
   return <>
-    {phase !== "hidden" && allowVideo && <div className={`hp-intro-loading ${phase === "leaving" ? "is-leaving" : ""}`}>
-      <Loader fullscreen brand label="Preparing your HAMPORIUM experience" />
-    </div>}
-    {!finished && <button type="button" className="hp-intro-skip" onClick={finish}>Skip intro <span aria-hidden="true">&#8594;</span></button>}
-    <section ref={stageRef} className="hp-hero-stage relative h-[100svh] min-h-[620px] w-full overflow-hidden bg-black" aria-label="HAMPORIUM gifting showcase">
+    {!finished && <button type="button" className="hp-intro-skip" onClick={finish}>
+      Skip intro <span aria-hidden="true">&#8594;</span>
+    </button>}
+    <section ref={stageRef}
+      className="hp-hero-stage relative h-[100svh] min-h-[620px] w-full overflow-hidden bg-black"
+      aria-label="HAMPORIUM gifting showcase">
       <h1 className="sr-only">HAMPORIUM - curated hampers and personalised gifting</h1>
       <div className="hp-hero-motion-layer">
-        <img src={HOME_IMAGES.hero} alt="" aria-hidden="true" loading="eager" decoding="async" fetchPriority="high" className="hp-hero-poster" />
-        {allowVideo && !failed && <video ref={videoRef} muted playsInline preload={seen ? "metadata" : "auto"}
-          poster={HOME_IMAGES.hero} onLoadedData={() => setReady(true)} onCanPlay={() => setReady(true)}
-          onPlay={() => setPaused(false)} onPause={() => setPaused(true)}
+        <img src={HOME_IMAGES.hero} alt="" aria-hidden="true" loading="eager"
+          decoding="async" fetchPriority="high" className="hp-hero-poster" />
+        {shouldMountVideo && <video key={HOME_MP4_VIDEO} ref={videoRef}
+          muted defaultMuted playsInline autoPlay={false} loop={false}
+          preload="metadata" poster={HOME_IMAGES.hero}
+          onLoadedData={() => { setReady(true); setSlowLoading(false); }}
+          onCanPlay={() => { setReady(true); setSlowLoading(false); }}
+          onPlaying={() => { clearStallTimer(); setPaused(false); setSlowLoading(false); }}
+          onPlay={() => setPaused(false)}
+          onPause={() => { clearStallTimer(); setPaused(true); }}
+          onWaiting={onWaiting} onStalled={onWaiting}
           onEnded={finish}
-          onError={() => { setFailed(true); finish(); }}
-          className={`hp-hero-film ${ready ? "is-ready" : ""}`} aria-label="HAMPORIUM luxury gifting film">
-          <source src={heroVideo} type="video/mp4" />
+          onError={() => { clearStallTimer(); setFailed(true); setReady(false); finish(); }}
+          className={`hp-hero-film ${ready ? "is-ready" : ""}`}
+          aria-label="HAMPORIUM luxury gifting film">
+          <source src={HOME_MP4_VIDEO} type="video/mp4" />
+          {HOME_WEBM_VIDEO && <source src={HOME_WEBM_VIDEO} type="video/webm" />}
         </video>}
         <div className="hp-hero-dim-layer" />
       </div>
-      {(failed || !allowVideo || (!ready && phase === "hidden")) && <div className="hp-hero-fallback-copy">
-        <p>HAMPORIUM</p><h2>A little thought.<br /><em>An unforgettable gift.</em></h2>
-        <SignatureLink to="/gifts" onClick={finish}>Explore hampers <span aria-hidden="true">&#8594;</span></SignatureLink>
+      {(failed || !allowVideo || slowLoading) && <div className="hp-hero-fallback-copy">
+        <p>HAMPORIUM</p>
+        <h2>A little thought.<br /><em>An unforgettable gift.</em></h2>
+        <SignatureLink to="/gifts" onClick={finish}>
+          Explore hampers <span aria-hidden="true">&#8594;</span>
+        </SignatureLink>
       </div>}
       <div className="hp-hero-controls">
-        <button type="button" className="hp-film-explore" onClick={explore}>Explore the collection <span aria-hidden="true">&#8595;</span></button>
-        {!failed && <button type="button" onClick={toggle} className="hp-film-toggle" aria-label={paused ? "Play brand film" : "Pause brand film"}>
-          <HomeControlIcon type={paused ? "play" : "pause"} /><span>{paused ? "Play film" : "Pause film"}</span>
-        </button>}
+        <button type="button" className="hp-film-explore" onClick={explore}>
+          Explore the collection <span aria-hidden="true">&#8595;</span>
+        </button>
+        <button type="button" onClick={toggle} className="hp-film-toggle"
+          aria-label={failed ? "Retry brand film" : paused ? "Play brand film" : "Pause brand film"}>
+          <HomeControlIcon type={paused ? "play" : "pause"} />
+          <span>{failed ? "Retry film" : paused ? "Play film" : "Pause film"}</span>
+        </button>
       </div>
       <div className="hp-hero-handoff-line" aria-hidden="true" />
     </section>
