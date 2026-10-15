@@ -1,3 +1,5 @@
+
+// V153: mobile vertical guide hidden; cinematic video loops across scrolling until manually paused.
 // V152: frame-perfect scroll indicator, lighter hero compositing, scroll-paint optimizations.
 // V150: always-autoplay hero film on every refresh/return; real fallback only on playback failure.
 // V147: performance-focused Home - palette, logos, CTA, and UI retained.
@@ -6739,6 +6741,13 @@ const Home = () => {
             transform: translateZ(0) scale(1.001);
             will-change: auto;
           }
+          /* V153: no top-to-bottom golden progress line on mobile. */
+          @media (max-width: 767px) {
+            .hp-home-v65 .hp-home-golden-thread,
+            .hamporium-home .hp-home-golden-thread {
+              display: none !important;
+            }
+          }
           /* Scroll thread: no shadow/filter work on a full-height SVG. */
           .hp-home-v65 .hp-home-golden-thread-path {
             filter: none !important;
@@ -11074,13 +11083,12 @@ const useHomeEnhancements = (homeRef, reducedMotion) => {
 // V150: always-autoplay cinematic hero.  No session-based "seen" lock.
 // A real image fallback is shown ONLY if playback genuinely cannot work.
 // The header remains gated during the initial film, but scroll, Skip or Pause
-// releases it. Returning to the hero restarts the video automatically.
+// releases it. The film continues looping until the visitor stops it.
 const CinematicHero = ({ onIntroComplete }) => {
   const videoRef = useRef(null);
   const stageRef = useRef(null);
   const completeRef = useRef(false);
   const manualPauseRef = useRef(false);
-  const insideRef = useRef(true);
   const lastFilmTimeRef = useRef(0);
   const stalledTimerRef = useRef(0);
   const reducedMotion = useMediaPreference("(prefers-reduced-motion: reduce)");
@@ -11120,7 +11128,7 @@ const CinematicHero = ({ onIntroComplete }) => {
   const tryPlay = useCallback((fromGesture = false) => {
     const video = videoRef.current;
     if (!video || (failed && !fromGesture) || manualPauseRef.current ||
-        document.hidden || !insideRef.current || !video.paused) return;
+        document.hidden || !video.paused) return;
     try {
       const pending = video.play();
       pending?.catch?.((error) => {
@@ -11142,7 +11150,8 @@ const CinematicHero = ({ onIntroComplete }) => {
   useEffect(() => {
     notify(true, "start");
     const onScroll = () => {
-      if (window.scrollY > 12) finish("scroll", true);
+      // Scrolling only releases the hidden header. It NEVER stops the film.
+      if (window.scrollY > 12) finish("scroll");
     };
     const onEscape = (event) => {
       if (event.key === "Escape") finish("escape", true);
@@ -11151,7 +11160,7 @@ const CinematicHero = ({ onIntroComplete }) => {
     const watchdog = window.setTimeout(() => {
       const video = videoRef.current;
       if (video && video.readyState === 0 && !completeRef.current &&
-          insideRef.current && !document.hidden) {
+          !document.hidden) {
         setFailed(true);
         finish("video-unavailable", true);
       }
@@ -11167,42 +11176,20 @@ const CinematicHero = ({ onIntroComplete }) => {
     };
   }, [finish, notify]);
 
-  // Viewport lifecycle: pause offscreen to avoid decoding costs; on re-enter,
-  // rewind to frame one and auto-play EVEN if the intro was dismissed earlier.
+  // V153: Video keeps looping after the visitor scrolls past the hero.
+  // No IntersectionObserver pausing or rewind on exit/re-entry.
+  // Browsers may throttle background tabs, but page scrolling will not pause it.
   useEffect(() => {
-    const video = videoRef.current;
-    const stage = stageRef.current;
-    if (!video || !stage) return undefined;
-    const rect = stage.getBoundingClientRect();
-    insideRef.current = rect.bottom > 0 && rect.top < window.innerHeight;
-    const sync = () => {
-      if (document.hidden || !insideRef.current) {
-        video.pause();
-        clearStallTimer();
-      } else if (!manualPauseRef.current) {
+    const resumeIfNeeded = () => {
+      if (!document.hidden && !manualPauseRef.current &&
+          !videoRef.current?.error && videoRef.current?.paused) {
         tryPlay();
       }
     };
-    const onIntersection = ([entry]) => {
-      const visible = Boolean(entry?.isIntersecting && entry.intersectionRatio > 0.08);
-      const reentered = visible && !insideRef.current;
-      insideRef.current = visible;
-      if (reentered) {
-        manualPauseRef.current = false;
-        lastFilmTimeRef.current = 0;
-        try { video.currentTime = 0; } catch { /* Waiting for metadata. */ }
-      }
-      sync();
-    };
-    const observer = typeof IntersectionObserver !== "undefined"
-      ? new IntersectionObserver(onIntersection, { threshold: [0, 0.09, 0.5] })
-      : null;
-    observer?.observe(stage);
-    document.addEventListener("visibilitychange", sync);
-    sync();
+    document.addEventListener("visibilitychange", resumeIfNeeded);
+    resumeIfNeeded();
     return () => {
-      observer?.disconnect();
-      document.removeEventListener("visibilitychange", sync);
+      document.removeEventListener("visibilitychange", resumeIfNeeded);
       clearStallTimer();
     };
   }, [tryPlay, clearStallTimer]);
@@ -11212,7 +11199,7 @@ const CinematicHero = ({ onIntroComplete }) => {
     clearStallTimer();
     stalledTimerRef.current = window.setTimeout(() => {
       const video = videoRef.current;
-      if (video && insideRef.current && !document.hidden &&
+      if (video && !document.hidden &&
           video.readyState < 2 && !video.paused) {
         setFailed(true);
         setReady(false);
@@ -11290,7 +11277,14 @@ const CinematicHero = ({ onIntroComplete }) => {
           onCanPlay={() => { setReady(true); clearStallTimer(); tryPlay(); }}
           onPlaying={onVideoPlaying}
           onPlay={() => setPaused(false)}
-          onPause={() => { clearStallTimer(); setPaused(true); }}
+          onPause={() => {
+            clearStallTimer();
+            setPaused(true);
+            // Recover accidental browser/media pauses, never manual pauses.
+            if (!manualPauseRef.current && !document.hidden && !videoRef.current?.error) {
+              window.requestAnimationFrame(() => tryPlay());
+            }
+          }}
           onTimeUpdate={onVideoTimeUpdate}
           onWaiting={onWaiting} onStalled={onWaiting}
           onError={() => { clearStallTimer(); setFailed(true); setReady(false); finish("video-error", true); }}
