@@ -1,3 +1,5 @@
+// V155 HEADER: transparent overlay on Home / Hamper One hero; 72% Obsidian glass beyond hero.
+// V156 HEADER: soft 24% Obsidian tint over hero; V155 translucent glass elsewhere.
 // V150 HEADER: match refreshed autoplay hero, no session-gated poster-only mode.
 // V147 HEADER: fix search/account/notification/cart overlap at laptop/desktop widths.
 // V140 brand palette and original header interaction preserved.
@@ -824,6 +826,7 @@ const Header = () => {
   const [renderedPanel, setRenderedPanel] = useState(null);
   const [headerHidden, setHeaderHidden] = useState(false);
   const [scrolledPastHero, setScrolledPastHero] = useState(false);
+  const heroSectionRef = useRef(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -965,6 +968,8 @@ const Header = () => {
     lastScrollYRef.current = Math.max(0, window.scrollY || 0);
     mobileScrollTravelRef.current = 0;
     introRevealUntilRef.current = 0;
+    heroSectionRef.current = null;
+    setScrolledPastHero(false);
   }, [location.pathname, location.search, clearHoverTimer]);
 
   // Close the outgoing viewport's panel before switching desktop/mobile layouts.
@@ -981,7 +986,26 @@ const Header = () => {
       scrollFrameRef.current = 0;
       const y = Math.max(0, window.scrollY || 0);
       const delta = y - lastScrollYRef.current;
-      setScrolledPastHero(y > 585);
+
+      // V155: The transparent surface belongs to the ACTUAL hero section,
+      // not an arbitrary 585px scroll threshold. This works for different
+      // laptop/mobile viewport sizes and for both Home and Hamper One.
+      if (isHome || isHamperOne) {
+        const heroSelector = isHome
+          ? ".hp-home-v65 .hp-hero-stage"
+          : ".h1-root .h1-hero-screen";
+        const hero = heroSectionRef.current?.isConnected
+          ? heroSectionRef.current
+          : document.querySelector(heroSelector);
+        heroSectionRef.current = hero || null;
+        const headerHeight = desktop ? 84 : 72;
+        const pastHero = hero
+          ? hero.getBoundingClientRect().bottom <= headerHeight
+          : y > Math.max(585, window.innerHeight - headerHeight);
+        setScrolledPastHero(pastHero);
+      } else {
+        setScrolledPastHero(true);
+      }
       // First scroll during an unfinished film: show the header immediately.
       // Subsequent scrolling uses exactly the old directional behavior.
       if (isHome && homeIntroActive && y > 12) {
@@ -1030,7 +1054,7 @@ const Header = () => {
       window.cancelAnimationFrame(scrollFrameRef.current);
       scrollFrameRef.current = 0;
     };
-  }, [renderedPanel, desktop, isHome, homeIntroActive]);
+  }, [renderedPanel, desktop, isHome, isHamperOne, homeIntroActive]);
 
   useEffect(() => {
     const onPointer = (event) => {
@@ -2340,6 +2364,48 @@ const HEADER_CSS = `
 .hh-header .hh-brand-mark {
   transform: scaleY(.95);
   transform-origin: 50% 50%;
+}
+
+
+/* ==============================================================
+   V156 / SUBTLY TINTED HERO + LIGHT OBSIDIAN GLASS
+   On Home and Hamper One hero sections, keep a light 24% Obsidian tint
+   so controls remain readable while most of the video/photo shows through.
+   Off the hero and on other routes, retain the V155 72% glass surface.
+   Logo, navigation and scroll behavior stay unchanged.
+   =============================================================== */
+.hh-header.hh-light {
+  background: rgba(22, 23, 21, .72);
+  -webkit-backdrop-filter: blur(11px) saturate(112%);
+  backdrop-filter: blur(11px) saturate(112%);
+  border-bottom: 1px solid rgba(183, 155, 106, .13);
+  box-shadow: 0 9px 28px rgba(0, 0, 0, .10);
+}
+.hh-header.hh-hero {
+  background: rgba(22, 23, 21, .24);
+  -webkit-backdrop-filter: blur(4px) saturate(106%);
+  backdrop-filter: blur(4px) saturate(106%);
+  border-bottom-color: rgba(183, 155, 106, .07);
+  box-shadow: none;
+}
+/* Avoid an expensive backdrop blur while a touchscreen scrolls. */
+@media (max-width: 767px) {
+  .hh-header.hh-light {
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+  }
+  .hh-header.hh-hero {
+    -webkit-backdrop-filter: blur(2px);
+    backdrop-filter: blur(2px);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .hh-header.hh-light,
+  .hh-header.hh-hero {
+    background: #161715;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
 }
 
 `;

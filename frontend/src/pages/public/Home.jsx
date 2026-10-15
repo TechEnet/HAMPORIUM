@@ -1,4 +1,5 @@
 
+// V154: Hamper One home section uses the same crisp SVG wordmark as Hamper One V12.
 // V153: mobile vertical guide hidden; cinematic video loops across scrolling until manually paused.
 // V152: frame-perfect scroll indicator, lighter hero compositing, scroll-paint optimizations.
 // V150: always-autoplay hero film on every refresh/return; real fallback only on playback failure.
@@ -38,7 +39,7 @@ const HOME_VIDEO_VARIANTS = import.meta.glob(
 const HOME_MP4_VIDEO = HOME_VIDEO_VARIANTS["../../assets/hmp_compatible.mp4"] || heroVideo;
 const HOME_WEBM_VIDEO = HOME_VIDEO_VARIANTS["../../assets/hmp.webm"] || "";
 import hamperOneLuxury from "../../assets/images/hamper_one_luxury.webp";
-import hamperOneWordmark from "../../assets/images/hamperOne_logo.jpeg";
+import hamperOneWordmarkSharp from "../../assets/images/hamperOne_logo_ultraclean.svg";
 
 import journeySignature1 from "../../assets/images/journey_signature_1.webp";
 import journeySignature2 from "../../assets/images/journey_signature_2.webp";
@@ -206,138 +207,9 @@ const HOME_IMAGES = {
     bestsellerExecutiveLuxury,
 };
 
-// V141: sharp HAMPER ONE lettering from the ORIGINAL JPEG.
-// The old hard RGB thresholds carved into gold antialiased letter edges,
-// and a large CSS drop-shadow made the small text look blurry.
-// Here the light matte is measured from the image corners, and the actual
-// JPEG color is preserved for opaque pixels. Only background/edge pixels
-// are alpha-unmatted; the result is cropped WITHOUT resizing any pixels.
-const HAMPER_ONE_WORDMARK_CACHE = new Map();
-
-const useHamperOneTransparentWordmark = (source) => {
-  const [result, setResult] = useState(() => HAMPER_ONE_WORDMARK_CACHE.get(source) || "");
-
-  useEffect(() => {
-    if (!source) return undefined;
-    const cached = HAMPER_ONE_WORDMARK_CACHE.get(source);
-    if (cached) { setResult(cached); return undefined; }
-
-    let active = true;
-    const image = new Image();
-    image.onload = () => {
-      try {
-        const w = image.naturalWidth;
-        const h = image.naturalHeight;
-        if (!w || !h) throw new Error("Invalid HAMPER ONE logo image");
-        const canvas = document.createElement("canvas");
-        canvas.width = w;
-        canvas.height = h;
-        const ctx = canvas.getContext("2d", { willReadFrequently: true });
-        if (!ctx) throw new Error("Canvas unavailable");
-        ctx.drawImage(image, 0, 0);
-        const sourcePixels = ctx.getImageData(0, 0, w, h);
-        const pixels = sourcePixels.data;
-
-        // Border samples identify the actual white/ivory matte even if the
-        // export is slightly warm or JPEG-compressed. Do NOT assume pure #fff.
-        const corners = [
-          [0, 0], [w - 1, 0], [0, h - 1], [w - 1, h - 1],
-          [Math.round((w - 1) * .02), Math.round((h - 1) * .02)],
-          [Math.round((w - 1) * .98), Math.round((h - 1) * .02)],
-          [Math.round((w - 1) * .02), Math.round((h - 1) * .98)],
-          [Math.round((w - 1) * .98), Math.round((h - 1) * .98)],
-        ];
-        let br = 0, bg = 0, bb = 0;
-        corners.forEach(([x, y]) => {
-          const i = (y * w + x) * 4;
-          br += pixels[i]; bg += pixels[i + 1]; bb += pixels[i + 2];
-        });
-        br /= corners.length; bg /= corners.length; bb /= corners.length;
-
-        // If the source is not a light-backed logo, preserve it untouched.
-        // An existing transparent/opaque production PNG will look better.
-        const lightMatte = Math.min(br, bg, bb) > 193 &&
-          Math.max(br, bg, bb) - Math.min(br, bg, bb) < 35;
-        if (!lightMatte) {
-          HAMPER_ONE_WORDMARK_CACHE.set(source, source);
-          if (active) setResult(source);
-          return;
-        }
-
-        const clamp01 = (v) => Math.max(0, Math.min(1, v));
-        const edgeNoise = [];
-        const edgeStep = Math.max(1, Math.floor(Math.min(w, h) / 90));
-        for (let x = 0; x < w; x += edgeStep) {
-          for (const y of [0, h - 1]) {
-            const i = (y * w + x) * 4;
-            edgeNoise.push(Math.max(Math.abs(pixels[i] - br), Math.abs(pixels[i + 1] - bg), Math.abs(pixels[i + 2] - bb)));
-          }
-        }
-        for (let y = 0; y < h; y += edgeStep) {
-          for (const x of [0, w - 1]) {
-            const i = (y * w + x) * 4;
-            edgeNoise.push(Math.max(Math.abs(pixels[i] - br), Math.abs(pixels[i + 1] - bg), Math.abs(pixels[i + 2] - bb)));
-          }
-        }
-        edgeNoise.sort((a, b) => a - b);
-        const noiseFloor = edgeNoise[Math.floor(edgeNoise.length * .94)] || 0;
-        const keyLow = Math.max(10, Math.min(21, noiseFloor + 5));
-        const keyHigh = keyLow + 28;
-
-        let minX = w, minY = h, maxX = -1, maxY = -1;
-        for (let y = 0; y < h; y += 1) {
-          for (let x = 0; x < w; x += 1) {
-            const i = (y * w + x) * 4;
-            const r = pixels[i], g = pixels[i + 1], b = pixels[i + 2];
-            const difference = Math.max(Math.abs(r - br), Math.abs(g - bg), Math.abs(b - bb));
-            const t = clamp01((difference - keyLow) / (keyHigh - keyLow));
-            // Smooth alpha transition recovers the JPEG's antialiased edge.
-            const alpha = t * t * (3 - 2 * t);
-            if (alpha < .022) {
-              pixels[i + 3] = 0;
-              continue;
-            }
-            if (alpha < .999) {
-              // Reconstruct the original foreground color before the light
-              // background matte was blended into its edge by JPEG export.
-              pixels[i] = Math.max(0, Math.min(255, Math.round((r - br * (1 - alpha)) / alpha)));
-              pixels[i + 1] = Math.max(0, Math.min(255, Math.round((g - bg * (1 - alpha)) / alpha)));
-              pixels[i + 2] = Math.max(0, Math.min(255, Math.round((b - bb * (1 - alpha)) / alpha)));
-            }
-            pixels[i + 3] = Math.round(alpha * 255);
-            if (alpha > .12) {
-              minX = Math.min(minX, x); maxX = Math.max(maxX, x);
-              minY = Math.min(minY, y); maxY = Math.max(maxY, y);
-            }
-          }
-        }
-
-        if (maxX < minX || maxY < minY) throw new Error("Hamper One artwork not found");
-        ctx.putImageData(sourcePixels, 0, 0);
-        const pad = Math.max(2, Math.round(Math.min(w, h) * .008));
-        const sx = Math.max(0, minX - pad), sy = Math.max(0, minY - pad);
-        const sw = Math.min(w - sx, maxX - sx + pad + 1);
-        const sh = Math.min(h - sy, maxY - sy + pad + 1);
-        const crop = document.createElement("canvas");
-        crop.width = sw; crop.height = sh;
-        const cropCtx = crop.getContext("2d");
-        if (!cropCtx) throw new Error("Crop canvas unavailable");
-        // drawImage uses a 1:1 copy: no stretched letters or softened resize.
-        cropCtx.drawImage(canvas, sx, sy, sw, sh, 0, 0, sw, sh);
-        const crisp = crop.toDataURL("image/png");
-        HAMPER_ONE_WORDMARK_CACHE.set(source, crisp);
-        if (active) setResult(crisp);
-      } catch (error) {
-        if (active) setResult(source);
-      }
-    };
-    image.onerror = () => { if (active) setResult(source); };
-    image.src = source;
-    return () => { active = false; image.onload = null; image.onerror = null; };
-  }, [source]);
-
-  return result;
-};
+// V154: Shared Hamper One V12 SVG brand wordmark is imported directly.
+// No JPEG transparency processing, Canvas alpha matting, or bitmap scaling.
+// The original lettering, sharp curves, and transparent background are preserved.
 
 // ======================================================
 // FALLBACK PRODUCT DATA
@@ -8201,7 +8073,6 @@ const HamperOneExperienceIcon = ({ type }) => {
 // ======================================================
 
 const HamperOneUnwrapExperience = () => {
-  const transparentHamperOneWordmark = useHamperOneTransparentWordmark(hamperOneWordmark);
   const [opened, setOpened] = useState(false);
   const [pullStage, setPullStage] = useState(0);
   const [isPulling, setIsPulling] = useState(false);
@@ -10294,18 +10165,16 @@ const HamperOneUnwrapExperience = () => {
                 </div>
 
                 <h2 className="hp-hamper-one-heading hp-hamper-one-wordmark-heading mt-6">
-                  {transparentHamperOneWordmark ? (
-                    <img
-                      src={transparentHamperOneWordmark}
-                      alt="HAMPER ONE"
-                      loading="lazy"
-                      decoding="async"
-                      className="hp-hamper-one-wordmark"
-                      draggable="false"
-                    />
-                  ) : (
-                    <span className="sr-only">HAMPER ONE</span>
-                  )}
+                  <img
+                    src={hamperOneWordmarkSharp}
+                    alt="HAMPER ONE Privée"
+                    loading="lazy"
+                    decoding="async"
+                    width="1915"
+                    height="496"
+                    className="hp-hamper-one-wordmark"
+                    draggable="false"
+                  />
                 </h2>
 
                 <div className="hp-hamper-one-actions mt-8 flex w-full sm:w-auto">
