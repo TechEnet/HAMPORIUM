@@ -1,26 +1,257 @@
+/* ======================================================================
+   HAMPORIUM - GLOBAL TYPOGRAPHY SYSTEM (MONTSERRAT)
+   Install: replace frontend/src/index.css with this complete file.
+   Free alternative to Gotham: Light=300, Book=400, Medium=500.
+   Preserves approved image/SVG logos, animations and layouts.
+   ====================================================================== */
+
+/* Google Fonts stylesheet must precede normal CSS rules / Tailwind output. */
+@import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500&display=swap");
 @import "tailwindcss";
+
+/* Tailwind v4 utilities, including font-sans, now use Montserrat. */
+@theme {
+  --font-sans: "Montserrat", "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Montserrat", "Helvetica Neue", Arial, sans-serif;
+}
+
+:root {
+  --hmp-font: "Montserrat", "Helvetica Neue", Arial, sans-serif;
+  --hmp-weight-light: 300;
+  --hmp-weight-book: 400;
+  --hmp-weight-medium: 500;
+
+  --hmp-type-hero: clamp(48px, 5vw, 72px);
+  --hmp-type-section: clamp(32px, 3.15vw, 44px);
+  --hmp-type-product: clamp(18px, 1.65vw, 24px);
+  --hmp-type-body: clamp(14px, 1.06vw, 16px);
+  --hmp-type-navigation: clamp(12px, .96vw, 14px);
+  --hmp-type-button: clamp(12px, .93vw, 14px);
+  --hmp-type-price: clamp(16px, 1.5vw, 22px);
+  --hmp-type-caption: clamp(11px, .86vw, 12px);
+}
 
 html {
   scroll-behavior: smooth;
+  font-family: var(--hmp-font);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  font-family: var(--hmp-font);
+  font-size: var(--hmp-type-body);
+  font-weight: 400;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
+/*
+   Site-wide font lock: HAMPORIUM pages currently contain inline fontFamily,
+   page-local <style> tags and !important serif declarations. The #root
+   specificity intentionally overrides those *font-family only* declarations.
+   DO NOT override SVG text / icon font classes / code typography / images.
+   Approved HAMPORIUM and Hamper One logo images remain completely untouched.
+*/
+html body,
+html body #root :where(*):not(svg):not(svg *):not(pre):not(code):not(kbd):not(samp):not(.material-icons):not(.material-symbols-outlined):not(.material-symbols-rounded):not([class^="fa-"]):not([class*=" fa-"]):not([data-preserve-font]),
+html body :where(dialog, .hh-overlay, .hp-home-quick-dialog) :where(*):not(svg):not(svg *):not(pre):not(code):not(kbd):not(samp):not(.material-icons):not(.material-symbols-outlined):not([data-preserve-font]) {
+  font-family: var(--hmp-font) !important;
+  font-synthesis: none;
+}
+
+/* Regular text stays readable; promotional headings get lighter weights. */
+html body #root :is(h1, h2, h3, h4, h5, h6) {
+  font-family: var(--hmp-font) !important;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+
+html body #root h1:not(.sr-only):not([data-type="small"]) {
+  font-size: var(--hmp-type-hero) !important;
+  line-height: 1.10 !important;
+  font-weight: 300 !important;
+  letter-spacing: -0.032em !important;
+}
+
+/* Section headings. Exclude footer's tiny column labels and card titles. */
+html body #root :where(main, article) h2:where(:not([class*="product"]):not([class*="card"]):not([data-type="small"])),
+html body #root .hp-home-v65 .hp-section-heading,
+html body #root .hp-home-v65 .hp-bestseller-section-title,
+html body #root .hp-home-v65 .hp-contact-finale__title,
+html body #root :is(.section-heading, .section-title, .page-section-heading, .editorial-heading) {
+  font-size: var(--hmp-type-section) !important;
+  font-weight: 400 !important;
+  line-height: 1.17 !important;
+  letter-spacing: -0.025em !important;
+}
+
+/* Two homepage editorial features are headline-size, not small sections. */
+html body #root .hp-home-v65 .hp-journey-intro-heading,
+html body #root .hp-home-v65 .hp-journey-feature-title,
+html body #root .hp-home-v65 .hp-hero-fallback-copy h2 {
+  font-size: var(--hmp-type-hero) !important;
+  font-weight: 300 !important;
+  line-height: 1.10 !important;
+  letter-spacing: -0.032em !important;
+}
+
+/* Accent lines should feel part of the same Montserrat heading. */
+html body #root .hp-home-v65 .hp-section-heading-accent,
+html body #root .hp-home-v65 .hp-contact-finale__accent {
+  font: inherit !important;
+  font-family: var(--hmp-font) !important;
+  font-style: normal !important;
+  letter-spacing: inherit !important;
+}
+
+/* Product names and product-card h2/h3 should not become giant section titles. */
+html body #root :is(.hp-bestseller-title, .product-title, .product-name, .hamper-title, [class*="product-title"], [class*="product-name"], [class*="hamper-product-title"]),
+html body #root :is([class*="product-card"], [class*="hamper-card"], [class*="catalog-card"]) :is(h2, h3) {
+  font-size: var(--hmp-type-product) !important;
+  font-weight: 500 !important;
+  line-height: 1.28 !important;
+  letter-spacing: -0.015em !important;
+}
+
+/* General headings below section level. */
+html body #root :is(h3, h4):not(.hp-journey-feature-title):not([class*="wordmark"]) {
+  font-weight: 500 !important;
+}
+
+/* Text and descriptions (only classes that actually signal longer copy). */
+html body #root :is(.product-description, .hamper-description, .section-description, .page-description, .body-description, [class*="product-description"], [class*="section-description"], [class*="body-copy"]),
+html body #root :is(main, article) p:not([class*="text-"]):not([class*="label"]):not([class*="caption"]):not([class*="price"]):not([class*="kicker"]):not([class*="eyebrow"]) {
+  font-size: var(--hmp-type-body) !important;
+  font-weight: 400 !important;
+  line-height: 1.7;
+  letter-spacing: 0;
+}
+
+/* Strong emphasis is Medium, never synthetic heavy / black. */
+html body #root :is(strong, b, .font-medium, .font-semibold, .font-bold, .font-extrabold, .font-black) {
+  font-weight: 500 !important;
+}
+html body #root :is(.font-light, .font-extralight) { font-weight: 300 !important; }
+html body #root :is(.font-normal) { font-weight: 400 !important; }
+
+/* Navigation, including fixed header, account/menu drawer and conventional nav. */
+html body #root :is(header nav, .hh-header .hh-nav, .hh-overlay nav) :is(a, button),
+html body #root :is(.hh-nav-link, .hh-account-label, .hh-mobile-nav-link, .hh-menu-link) {
+  font-size: var(--hmp-type-navigation) !important;
+  font-weight: 400 !important;
+  line-height: 1.35 !important;
+  letter-spacing: .075em !important;
+  text-transform: uppercase;
+}
+
+/* Buttons/CTAs: icons/SVG remain untouched. */
+html body #root :is(button, [role="button"], .btn, .button, [class*="cta"]):not([class*="wordmark"]):not([class*="letter"]) {
+  font-weight: 500 !important;
+  /* Component-specific icon dimensions / padding are preserved. */
+}
+html body #root :is(.hp-concierge-cta, .hp-quick-link, .hp-film-explore, .hp-quick-look, .add-to-cart, .checkout-button, .cta-button, [class*="-cta"]):not([class*="wordmark"]),
+html body #root :is(button, [role="button"]):not([aria-label]):not([title]):not([class*="price"]):not([class*="quantity"]) {
+  font-size: var(--hmp-type-button) !important;
+  letter-spacing: .055em;
+}
+
+/* Price text only, not labels or savings notes. */
+html body #root :is(.hp-bestseller-price, .product-price, .selling-price, .total-price, .hamper-price, [class*="product-price"], [class*="selling-price"], [class*="total-price"], [class*="cart-price"], [class*="price-amount"]) {
+  font-size: var(--hmp-type-price) !important;
+  font-weight: 500 !important;
+  line-height: 1.3;
+  letter-spacing: -0.015em;
+}
+
+/* Secondary labels / eybrows / captions. */
+html body #root :is(.hp-bestseller-price-label, .hp-story-kicker, .hp-quick-eyebrow, .caption, .eyebrow, .overline, .section-kicker, .product-label, [class*="caption"], [class*="eyebrow"], [class*="-kicker"], [class*="price-label"], [class*="meta-label"]),
+html body #root :is(small, figcaption) {
+  font-size: var(--hmp-type-caption) !important;
+  font-weight: 400 !important;
+  line-height: 1.5;
+  letter-spacing: .075em;
+}
+
+/* Inputs stay legible at 14px+ (prevents iOS auto-zoom at <=15px). */
+html body #root :is(input, textarea, select, option) {
+  font-family: var(--hmp-font) !important;
+  font-size: 16px;
+  font-weight: 400 !important;
+}
+html body #root :is(input, textarea)::placeholder {
+  font-family: var(--hmp-font);
+  font-weight: 400;
+}
+
+/* Header logo images and Hamper One PNG/JPEG are not affected by this sheet.
+   Keep footer's large individually animated brand wordmark as a special lockup.
+   Weight Light gives the approved clean geometric direction. */
+html body #root .hp-footer-wordmark-line {
+  font-family: var(--hmp-font) !important;
+  font-weight: 300 !important;
+}
+html body #root .hp-footer-brand-title { font-weight: 500 !important; }
+
+/* Header's mega-menu headings are not full-size page sections. */
+html body #root :is(.hh-panel-top h2, .hh-shop-feature h3, .hh-mega-create h3) {
+  font-size: clamp(22px, 2.2vw, 32px) !important;
+  font-weight: 400 !important;
+  line-height: 1.2 !important;
+}
+
+/* Keep animation triggers, transforms, blur/transparency, size and layouts intact. */
 @keyframes hampTypeformEnter {
-  from {
-    opacity: 0;
-    transform: translateY(14px);
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.hamp-typeform-enter { animation: hampTypeformEnter 260ms ease-out both; }
+
+/* ===== RESPONSIVE TYPOGRAPHY ===== */
+@media (max-width: 1023px) {
+  :root {
+    --hmp-type-hero: clamp(40px, 5.9vw, 56px);
+    --hmp-type-section: clamp(28px, 4.1vw, 38px);
+    --hmp-type-product: clamp(18px, 2.25vw, 22px);
+    --hmp-type-body: 15px;
+    --hmp-type-navigation: 12px;
+    --hmp-type-button: 13px;
+    --hmp-type-price: clamp(17px, 2vw, 20px);
+    --hmp-type-caption: 11px;
   }
-  to {
-    opacity: 1;
-    transform: translateY(0);
+}
+@media (max-width: 639px) {
+  :root {
+    --hmp-type-hero: clamp(32px, 9.3vw, 44px);
+    --hmp-type-section: clamp(26px, 7.6vw, 34px);
+    --hmp-type-product: clamp(17px, 4.6vw, 20px);
+    --hmp-type-body: 14px;
+    --hmp-type-navigation: 12px;
+    --hmp-type-button: 12px;
+    --hmp-type-price: clamp(16px, 4.8vw, 20px);
+    --hmp-type-caption: 11px;
+  }
+  html body #root :is(h1, h2, h3, h4, h5, h6) {
+    overflow-wrap: break-word;
+    letter-spacing: -0.018em;
+  }
+}
+@media (max-width: 359px) {
+  :root {
+    --hmp-type-hero: 32px;
+    --hmp-type-section: 26px;
+    --hmp-type-product: 17px;
   }
 }
 
-.hamp-typeform-enter {
-  animation: hampTypeformEnter 260ms ease-out both;
-}
+/* Optional reusable classes for newly developed pages. */
+.hmp-type-hero { font-size: var(--hmp-type-hero) !important; font-weight: 300 !important; line-height: 1.10 !important; }
+.hmp-type-section { font-size: var(--hmp-type-section) !important; font-weight: 400 !important; line-height: 1.17 !important; }
+.hmp-type-product { font-size: var(--hmp-type-product) !important; font-weight: 500 !important; line-height: 1.28 !important; }
+.hmp-type-body { font-size: var(--hmp-type-body) !important; font-weight: 400 !important; line-height: 1.7 !important; }
+.hmp-type-caption { font-size: var(--hmp-type-caption) !important; font-weight: 400 !important; }
+.hmp-type-price { font-size: var(--hmp-type-price) !important; font-weight: 500 !important; }

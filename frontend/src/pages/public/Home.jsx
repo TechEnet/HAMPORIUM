@@ -1,4 +1,4 @@
-// V142: Home.jsx - robust hero playback + adaptive low-jank scrolling; V141 visuals preserved.
+// V144: Home.jsx - luxury minimalist journey + bestsellers copy cleanup; V142 performance retained.
 import {
   memo,
   useCallback,
@@ -2413,7 +2413,7 @@ const Home = () => {
             Roughly 20% lift on desktop, slightly less on compact screens.
           */
           .hp-home-v65 .hp-journey-story-content {
-            bottom: 18svh;
+            bottom: 25svh;
           }
 
           /*
@@ -2461,7 +2461,7 @@ const Home = () => {
             Pages 02/03 keep the higher anchor required for the diagonal hand-off.
           */
           .hp-home-v65 .hp-journey-first-page .hp-journey-story-content {
-            bottom: 3.2svh;
+            bottom: 12svh;
           }
 
           .hp-home-v65 .hp-journey-first-page .hp-journey-feature-title {
@@ -2470,7 +2470,7 @@ const Home = () => {
 
           @media (max-width: 1023px) {
             .hp-home-v65 .hp-journey-story-content {
-              bottom: 15svh;
+              bottom: 20svh;
             }
 
             .hp-home-v65 .hp-journey-first-intro {
@@ -2485,13 +2485,13 @@ const Home = () => {
             }
 
             .hp-home-v65 .hp-journey-first-page .hp-journey-story-content {
-              bottom: 4.5svh;
+              bottom: 9svh;
             }
           }
 
           @media (max-width: 639px) {
             .hp-home-v65 .hp-journey-story-content {
-              bottom: 13svh;
+              bottom: 17svh;
             }
 
             .hp-home-v65 .hp-journey-first-intro {
@@ -2508,7 +2508,7 @@ const Home = () => {
 
 
             .hp-home-v65 .hp-journey-first-page .hp-journey-story-content {
-              bottom: 3.5svh;
+              bottom: 7.5svh;
             }
           }
 
@@ -4534,14 +4534,13 @@ const Home = () => {
           .hp-home-v65 .hp-bestseller-copy-head {
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            margin-bottom: 9px;
+            justify-content: flex-start;
+            margin-bottom: 16px;
           }
 
           .hp-home-v65 .hp-bestseller-copy-head .hp-bestseller-line {
             margin: 0;
-            flex: 0 0 48px;
+            flex: 0 0 42px;
           }
 
           .hp-home-v65 .hp-gift-mini-mark {
@@ -6219,494 +6218,335 @@ const Home = () => {
 
 
           /* ==================================================
-             V103 / HAMPORIUM - 60%-SCREEN KINETIC CONTACT FINALE
-             Image-free, bold editorial type, centered and responsive.
-             Reuses the existing useHomeEnhancements heading observer.
+             V145 / THE ATELIER INVITATION
+             A cinematic dual-surface invitation: brushed-gold perimeter,
+             espresso editorial panel and warm-ivory action panel.
+             No extra copy; everything remains legible and responsive.
           ================================================== */
+          .hp-home-v65 .hp-contact-finale,
+          .hp-home-v65 .hp-contact-finale *,
+          .hp-home-v65 .hp-contact-finale *::before,
+          .hp-home-v65 .hp-contact-finale *::after { box-sizing: border-box; }
           .hp-home-v65 .hp-contact-finale {
             position: relative;
+            display: flex;
+            align-items: center;
+            width: 100%;
+            min-height: clamp(480px, 67svh, 750px);
+            padding: clamp(40px, 5.6vw, 96px) clamp(16px, 5.7vw, 110px);
             isolation: isolate;
             overflow: hidden;
-            padding: clamp(9px, 1.2vw, 18px) clamp(10px, 2.7vw, 40px);
-            color: #271c14;
-            background: linear-gradient(180deg, #f9f6f0 0%, #f4ede3 100%);
-            border-top: 1px solid rgba(187, 149, 97, .25);
-          }
-
-          .hp-home-v65 .hp-contact-finale::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            z-index: -1;
-            pointer-events: none;
+            color: #261b16;
+            border-top: 1px solid rgba(153, 116, 70, .15);
             background:
-              radial-gradient(ellipse at 50% -30%, rgba(255,255,255,.98), transparent 64%),
-              repeating-linear-gradient(90deg, transparent 0 158px, rgba(192,151,91,.055) 158px 159px);
+              radial-gradient(ellipse at 0% 44%, rgba(208, 149, 76, .115), transparent 34%),
+              radial-gradient(ellipse at 100% 72%, rgba(167, 112, 46, .075), transparent 30%),
+              linear-gradient(120deg, #f5f0e8 0%, #f8f5ef 49%, #efe6d9 100%);
           }
-
           .hp-home-v65 .hp-contact-finale__shell {
             position: relative;
-            isolation: isolate;
-            width: min(100%, 1680px);
+            z-index: 1;
+            width: min(100%, 1510px);
+            min-height: clamp(390px, 45svh, 525px);
             margin: 0 auto;
-            overflow: hidden;
-            border: 1px solid rgba(183, 134, 70, .40);
-            background:
-              radial-gradient(ellipse at 15% 0%, rgba(251,217,164,.15), transparent 43%),
-              radial-gradient(ellipse at 85% 100%, rgba(245,206,148,.14), transparent 43%),
-              #fffcf6;
+            padding: 9px;
+            isolation: isolate;
+            border: 1px solid rgba(149, 98, 43, .65);
+            border-radius: 27px 9px 27px 9px;
+            background: linear-gradient(132deg, #dfc486 0%, #a7702c 19%, #f4dfab 35%, #9b662e 61%, #e4c58a 83%, #97602b 100%);
             box-shadow:
-              0 12px 42px rgba(77,46,22,.07),
-              inset 0 0 0 5px rgba(255,255,255,.72),
-              inset 0 0 0 6px rgba(176,125,62,.17);
+              0 34px 72px rgba(56, 35, 18, .16),
+              0 10px 20px rgba(56, 35, 18, .09),
+              0 1px 0 rgba(255,255,255,.85) inset;
+            transition: transform .55s cubic-bezier(.22,1,.36,1), box-shadow .55s ease;
           }
-
-          .hp-home-v65 .hp-contact-finale__shell::before,
+          .hp-home-v65 .hp-contact-finale__shell::before {
+            content: '';
+            position: absolute;
+            z-index: 4;
+            inset: 3px;
+            pointer-events: none;
+            border: 1px solid rgba(255, 245, 207, .46);
+            border-radius: 23px 6px 23px 6px;
+          }
           .hp-home-v65 .hp-contact-finale__shell::after {
             content: '';
             position: absolute;
-            z-index: 0;
-            width: clamp(96px,13vw,188px);
-            aspect-ratio: 1;
+            z-index: 4;
+            bottom: -4px;
+            right: 8%;
+            width: 22%;
+            height: 3px;
             pointer-events: none;
-            border-radius: 50%;
-            border: 1px solid rgba(189,146,84,.15);
-            box-shadow: 0 0 0 16px rgba(199,150,81,.032), 0 0 0 40px rgba(199,150,81,.020);
+            background: linear-gradient(90deg, transparent, #fff0ba 44%, transparent);
+            opacity: .85;
           }
-          .hp-home-v65 .hp-contact-finale__shell::before { top: -94px; left: -87px; }
-          .hp-home-v65 .hp-contact-finale__shell::after { bottom: -102px; right: -88px; }
-
-          .hp-home-v65 .hp-contact-finale__corner {
-            position: absolute;
-            z-index: 1;
-            width: 30px;
-            height: 30px;
-            pointer-events: none;
-            border-color: rgba(185,137,64,.55);
-            border-style: solid;
-          }
-          .hp-home-v65 .hp-contact-finale__corner--tl { top: 13px; left: 13px; border-width: 1px 0 0 1px; }
-          .hp-home-v65 .hp-contact-finale__corner--tr { top: 13px; right: 13px; border-width: 1px 1px 0 0; }
-          .hp-home-v65 .hp-contact-finale__corner--bl { bottom: 13px; left: 13px; border-width: 0 0 1px 1px; }
-          .hp-home-v65 .hp-contact-finale__corner--br { bottom: 13px; right: 13px; border-width: 0 1px 1px 0; }
-
           .hp-home-v65 .hp-contact-finale__copy {
             position: relative;
-            z-index: 2;
-            display: flex;
+            display: grid;
+            grid-template-columns: minmax(0, 1.17fr) minmax(0, .83fr);
+            align-items: stretch;
             width: 100%;
+            min-height: clamp(372px, 43svh, 507px);
+            gap: 0;
+            overflow: hidden;
+            border-radius: 19px 2px 19px 2px;
+            background: #fdf8ef;
+          }
+          .hp-home-v65 .hp-contact-finale__intro,
+          .hp-home-v65 .hp-contact-finale__message {
+            position: relative;
             min-width: 0;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-            padding: clamp(26px, 3vw, 44px) clamp(15px, 3.5vw, 54px) clamp(28px, 3vw, 46px);
+            min-height: 0;
           }
-
-          .hp-home-v65 .hp-contact-finale__eyebrow {
-            display: inline-flex;
+          .hp-home-v65 .hp-contact-finale__intro {
+            display: flex;
             align-items: center;
-            justify-content: center;
-            gap: clamp(9px,1.3vw,17px);
-            margin: 0 0 clamp(11px, 1.3vw, 19px);
-            color: #8b6d49;
-            font: 800 clamp(9px,.72vw,11px)/1.5 'Manrope',Arial,sans-serif;
-            letter-spacing: .20em;
-            text-transform: uppercase;
+            padding: clamp(57px, 6vw, 90px) clamp(35px, 5vw, 83px);
+            isolation: isolate;
+            overflow: hidden;
+            background:
+              radial-gradient(circle at 84% 12%, rgba(230,169,92,.16), transparent 36%),
+              radial-gradient(circle at -4% 106%, rgba(216,163,87,.10), transparent 43%),
+              linear-gradient(140deg, #36261d 0%, #291c16 50%, #1c1410 100%);
           }
-          .hp-home-v65 .hp-contact-finale__eyebrow::before,
-          .hp-home-v65 .hp-contact-finale__eyebrow::after {
+          .hp-home-v65 .hp-contact-finale__intro::before {
             content: '';
-            width: clamp(17px,3.2vw,44px);
-            height: 1px;
-            background: linear-gradient(90deg,transparent,#bb9158);
+            position: absolute;
+            z-index: -1;
+            inset: 22px 0 22px 23px;
+            pointer-events: none;
+            border: 1px solid rgba(239,198,127,.16);
+            border-right: 0;
+            border-radius: 13px 0 0 13px;
           }
-          .hp-home-v65 .hp-contact-finale__eyebrow::after { transform: rotate(180deg); }
-          .hp-home-v65 .hp-contact-finale__eyebrow b { color: #e76d23; font-weight: 800; }
-
-          /* High-impact, wide Manrope + contrasting foil-italic serif. */
+          .hp-home-v65 .hp-contact-finale__intro::after {
+            content: '';
+            position: absolute;
+            z-index: -1;
+            top: -145px;
+            right: -113px;
+            width: 280px;
+            height: 280px;
+            border: 1px solid rgba(237,183,100,.15);
+            border-radius: 50%;
+            box-shadow: 0 0 0 30px rgba(237,183,100,.027), 0 0 0 74px rgba(237,183,100,.022);
+            pointer-events: none;
+          }
           .hp-home-v65 .hp-contact-finale__title {
             position: relative;
+            z-index: 2;
             width: 100%;
-            max-width: 1550px;
+            max-width: 770px;
             margin: 0;
-            padding: 0 0 .1em;
-            color: #281d16;
-            font-family: 'Manrope', Arial, sans-serif;
-            font-size: clamp(62px, 8.05vw, 138px);
-            font-weight: 800;
-            line-height: 1.02;
-            letter-spacing: -.065em;
-            text-align: center;
+            padding: 0;
+            color: #fff7e9;
+            font-family: 'Montserrat', 'Manrope', Arial, sans-serif;
+            text-align: left;
             text-wrap: balance;
-            overflow: visible !important;
-            transform-origin: 50% 50% !important;
+          }
+          html body #root .hp-home-v65 .hp-contact-finale .hp-contact-finale__title {
+            font-size: clamp(43px, 3.94vw, 67px) !important;
+            font-weight: 300 !important;
+            line-height: 1.15 !important;
+            letter-spacing: -.049em !important;
           }
           .hp-home-v65 .hp-contact-finale__title .hp-contact-finale__line,
           .hp-home-v65 .hp-contact-finale__title .hp-contact-finale__accent {
             display: block;
-            position: relative;
-            max-width: 100%;
-            margin-inline: auto;
-            text-align: center;
-            transform-origin: center center;
-            backface-visibility: hidden;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            font: inherit;
+            font-style: normal;
+            text-align: left;
+            text-wrap: balance;
+            background: none;
+            transform: none;
+            -webkit-text-stroke: 0;
           }
           .hp-home-v65 .hp-contact-finale__title .hp-contact-finale__line {
-            white-space: normal;
-            font-weight: 800;
+            color: #fff8ed !important;
+            -webkit-text-fill-color: #fff8ed !important;
           }
-          .hp-home-v65 .hp-contact-finale__title .hp-contact-finale__accent {
-            width: fit-content;
-            margin-top: .018em;
-            padding: .04em .09em .13em;
-            font-family: 'Cormorant Garamond','Playfair Display',Georgia,serif;
-            font-size: clamp(67px, 8.35vw, 143px);
-            font-style: italic;
-            font-weight: 700;
-            line-height: .98;
-            letter-spacing: -.046em;
-            text-wrap: balance;
-            color: #e36923;
-            background: linear-gradient(105deg, #bb491c 0%, #e6661f 29%, #f18c33 50%, #c48b32 78%, #be521a 100%);
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
+          html body #root .hp-home-v65 .hp-contact-finale .hp-contact-finale__title .hp-contact-finale__accent {
+            margin-top: .18em;
+            color: #e9ab68 !important;
+            font-family: 'Montserrat', 'Manrope', Arial, sans-serif !important;
+            font-size: inherit !important;
+            font-weight: 400 !important;
+            font-style: normal !important;
+            line-height: 1.16 !important;
+            letter-spacing: -.052em !important;
+            -webkit-text-fill-color: #e9ab68 !important;
           }
           .hp-home-v65 .hp-contact-finale__title .hp-contact-finale__accent::after {
-            content: '';
-            display: block;
-            width: clamp(86px, 13vw, 190px);
-            height: 2px;
-            margin: .07em auto 0;
-            transform-origin: center;
-            background: linear-gradient(90deg, transparent, #ef782d 20%, #c89b4d 76%, transparent);
-            box-shadow: 0 1px 12px rgba(223,139,44,.20);
+            content: none;
+            display: none;
           }
-
+          .hp-home-v65 .hp-contact-finale__message {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            justify-content: center;
+            padding: clamp(66px, 6vw, 90px) clamp(35px, 4.1vw, 74px);
+            isolation: isolate;
+            border-left: 1px solid rgba(246,215,164,.38);
+            background:
+              radial-gradient(circle at 100% 100%, rgba(216,164,93,.14), transparent 42%),
+              linear-gradient(165deg, #fffaf2 0%, #f6ede0 100%);
+          }
+          .hp-home-v65 .hp-contact-finale__message::before {
+            content: '';
+            position: absolute;
+            top: clamp(32px, 4vw, 65px);
+            left: clamp(35px, 4.1vw, 74px);
+            width: 90px;
+            height: 2px;
+            background: linear-gradient(90deg, #c37335, #d7b269 52%, transparent);
+            pointer-events: none;
+          }
+          .hp-home-v65 .hp-contact-finale__message::after {
+            content: '';
+            position: absolute;
+            right: -64px;
+            bottom: -80px;
+            width: 215px;
+            height: 215px;
+            border: 1px solid rgba(182,134,74,.13);
+            border-radius: 50%;
+            box-shadow: 0 0 0 25px rgba(182,134,74,.025);
+            pointer-events: none;
+          }
           .hp-home-v65 .hp-contact-finale__description {
-            max-width: 690px;
-            margin: clamp(5px, .85vw, 13px) 0 0;
-            color: #6a5949;
-            font: 600 clamp(13px,.98vw,16px)/1.55 'Manrope',Arial,sans-serif;
-            text-wrap: balance;
+            position: relative;
+            z-index: 1;
+            max-width: 410px;
+            margin: 0;
+            color: #5d4a3c;
+            font-family: 'Montserrat', 'Manrope', Arial, sans-serif;
+            font-size: clamp(15px, 1.04vw, 17px) !important;
+            font-weight: 400 !important;
+            line-height: 1.9 !important;
+            letter-spacing: 0 !important;
+            text-wrap: pretty;
           }
           .hp-home-v65 .hp-contact-finale__bottom {
+            position: relative;
+            z-index: 1;
             display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-direction: column;
-            gap: 10px;
-            margin-top: clamp(15px, 1.4vw, 22px);
+            align-items: flex-start;
+            margin-top: clamp(28px, 3.5vw, 48px);
           }
           .hp-home-v65 .hp-contact-finale__cta {
             position: relative;
-            isolation: isolate;
-            overflow: hidden;
             display: inline-flex;
-            min-width: 238px;
-            min-height: 53px;
             align-items: center;
             justify-content: space-between;
-            gap: 24px;
-            padding: 5px 6px 5px 22px;
-            border: 1px solid #cf581a;
-            border-radius: 4px;
-            background: linear-gradient(112deg,#d9551b,#f27728 60%,#f79a42);
-            box-shadow: inset 0 1px 0 rgba(255,255,255,.42), 0 10px 26px rgba(232,105,32,.18);
-            color: #fff;
-            font: 800 12px/1.2 'Manrope',Arial,sans-serif;
-            letter-spacing: .085em;
+            gap: 26px;
+            min-height: 62px;
+            min-width: 250px;
+            padding: 8px 10px 8px 23px;
+            border: 1px solid rgba(141,62,19,.72);
+            border-radius: 7px;
+            background: linear-gradient(115deg, #c25d24 0%, #dd762f 100%);
+            color: #fffaf2;
+            font-family: 'Montserrat', Arial, sans-serif;
+            font-size: 12px;
+            font-weight: 500;
+            line-height: 1.35;
+            letter-spacing: .08em;
             text-decoration: none;
             text-transform: uppercase;
-            transition: transform .38s cubic-bezier(.16,1,.3,1), box-shadow .38s ease;
-          }
-          .hp-home-v65 .hp-contact-finale__cta::before {
-            content: '';
-            position: absolute;
-            inset: -40% auto -40% -70%;
-            width: 38%;
-            pointer-events: none;
-            background: linear-gradient(90deg,transparent,rgba(255,255,255,.58),transparent);
-            transform: skewX(-22deg);
-            transition: left .78s cubic-bezier(.16,1,.3,1);
+            white-space: nowrap;
+            box-shadow: 0 12px 26px rgba(154,78,33,.21), inset 0 1px 0 rgba(255,239,198,.24);
+            transition: transform .32s cubic-bezier(.2,1,.3,1), box-shadow .32s ease, background .32s ease;
           }
           .hp-home-v65 .hp-contact-finale__cta:hover,
           .hp-home-v65 .hp-contact-finale__cta:focus-visible {
             transform: translateY(-3px);
-            box-shadow: inset 0 1px 0 rgba(255,255,255,.55), 0 16px 35px rgba(232,105,32,.27);
+            background: linear-gradient(115deg, #a64d1d 0%, #cf6726 100%);
+            box-shadow: 0 18px 32px rgba(154,78,33,.29), inset 0 1px 0 rgba(255,239,198,.30);
           }
-          .hp-home-v65 .hp-contact-finale__cta:hover::before,
-          .hp-home-v65 .hp-contact-finale__cta:focus-visible::before { left: 138%; }
           .hp-home-v65 .hp-contact-finale__arrow {
             display: grid;
-            place-items: center;
             flex: 0 0 40px;
+            place-items: center;
             width: 40px;
             height: 40px;
-            border: 1px solid rgba(255,255,255,.60);
-            border-radius: 3px;
+            border: 1px solid rgba(255,244,218,.53);
+            border-radius: 5px;
+            color: #fffaf2;
+            font-family: Arial, sans-serif;
+            font-size: 23px;
+            line-height: 1;
+            transition: transform .32s cubic-bezier(.2,1,.3,1), background-color .32s ease;
+          }
+          .hp-home-v65 .hp-contact-finale__cta:hover .hp-contact-finale__arrow,
+          .hp-home-v65 .hp-contact-finale__cta:focus-visible .hp-contact-finale__arrow {
+            transform: translateX(3px);
             background: rgba(255,255,255,.12);
-            font: 24px/1 Georgia,serif;
-            transition: transform .32s ease;
           }
-          .hp-home-v65 .hp-contact-finale__cta:hover .hp-contact-finale__arrow { transform: translateX(4px); }
-          .hp-home-v65 .hp-contact-finale__promise {
-            color: #947a5c;
-            font: 700 9px/1.5 'Manrope',Arial,sans-serif;
-            letter-spacing: .08em;
-            text-transform: uppercase;
-          }
-
-          /* Scroll-triggered kinetic reveal is driven by the EXISTING heading
-             IntersectionObserver, so no additional scroll handler is needed. */
-          @keyframes hpContactHeadlineKinetic {
-            0% { opacity:0; transform:translate3d(0,35px,0) scale(.955) skewY(1.3deg); }
-            70% { opacity:1; transform:translate3d(0,-3px,0) scale(1.004) skewY(0); }
-            100% { opacity:1; transform:translate3d(0,0,0) scale(1) skewY(0); }
-          }
-          @keyframes hpContactFoilKinetic {
-            0% { opacity:0; transform:translate3d(0,24px,0) scale(.94) skewX(-4deg); }
-            67% { opacity:1; transform:translate3d(0,-2px,0) scale(1.006) skewX(0); }
-            100% { opacity:1; transform:translate3d(0,0,0) scale(1); }
-          }
-          @keyframes hpContactUnderlineDraw {
-            0% { opacity:0; transform:scaleX(0); }
-            100% { opacity:1; transform:scaleX(1); }
-          }
-          @keyframes hpContactCopyLift {
-            0% { opacity:0; transform:translate3d(0,15px,0); }
-            100% { opacity:1; transform:translate3d(0,0,0); }
-          }
-          .hp-home-v65 .hp-contact-finale__title.hp-kinetic-heading {
-            transform-origin: center center !important;
-          }
-          .hp-home-v65 .hp-contact-finale__title.hp-kinetic-heading.is-kinetic-visible .hp-contact-finale__line {
-            animation: hpContactHeadlineKinetic .94s cubic-bezier(.16,1,.3,1) both;
-          }
-          .hp-home-v65 .hp-contact-finale__title.hp-kinetic-heading.is-kinetic-visible .hp-contact-finale__accent {
-            animation: hpContactFoilKinetic 1.08s .13s cubic-bezier(.16,1,.3,1) both;
-          }
-          .hp-home-v65 .hp-contact-finale__title.hp-kinetic-heading.is-kinetic-visible .hp-contact-finale__accent::after {
-            animation: hpContactUnderlineDraw .78s .77s cubic-bezier(.16,1,.3,1) both;
-          }
-          @supports selector(:has(*)) {
-            .hp-home-v65 .hp-contact-finale__copy:has(> .hp-contact-finale__title.is-kinetic-visible) .hp-contact-finale__description {
-              animation: hpContactCopyLift .75s .3s cubic-bezier(.16,1,.3,1) both;
-            }
-            .hp-home-v65 .hp-contact-finale__copy:has(> .hp-contact-finale__title.is-kinetic-visible) .hp-contact-finale__bottom {
-              animation: hpContactCopyLift .82s .42s cubic-bezier(.16,1,.3,1) both;
+          @media (hover: hover) and (pointer: fine) {
+            .hp-home-v65 .hp-contact-finale__shell:hover {
+              transform: translateY(-4px);
+              box-shadow:
+                0 43px 82px rgba(56,35,18,.20),
+                0 16px 29px rgba(56,35,18,.11),
+                0 1px 0 rgba(255,255,255,.85) inset;
             }
           }
-
-          @media (max-width: 1023px) {
-            .hp-home-v65 .hp-contact-finale__copy { padding: 28px 24px 30px; }
-            .hp-home-v65 .hp-contact-finale__title { font-size: clamp(52px, 8.8vw, 89px); }
-            .hp-home-v65 .hp-contact-finale__title .hp-contact-finale__accent { font-size: clamp(55px, 9.1vw, 95px); }
-          }
-          @media (max-width: 639px) {
-            .hp-home-v65 .hp-contact-finale { padding: 9px; }
-            .hp-home-v65 .hp-contact-finale__copy { padding: 28px 14px 30px; }
-            .hp-home-v65 .hp-contact-finale__eyebrow { font-size: 9px; letter-spacing: .11em; margin-bottom: 14px; }
-            .hp-home-v65 .hp-contact-finale__title { font-size: clamp(34px, 9.1vw, 54px); letter-spacing: -.055em; line-height: 1.06; }
-            .hp-home-v65 .hp-contact-finale__title .hp-contact-finale__accent {
-              font-size: clamp(45px, 11vw, 70px);
-              line-height: 1.04;
-              padding-bottom: .14em;
-              letter-spacing: -.04em;
+          @media (max-width: 1100px) {
+            .hp-home-v65 .hp-contact-finale { min-height: 0; }
+            .hp-home-v65 .hp-contact-finale__shell { min-height: 0; }
+            .hp-home-v65 .hp-contact-finale__copy { min-height: 380px; grid-template-columns: minmax(0,1.1fr) minmax(0,.9fr); }
+            .hp-home-v65 .hp-contact-finale__intro { padding: 52px clamp(27px, 4.6vw, 55px); }
+            .hp-home-v65 .hp-contact-finale__message { padding: 65px clamp(25px, 3.4vw, 43px); }
+            .hp-home-v65 .hp-contact-finale__message::before { top: 38px; left: clamp(25px, 3.4vw, 43px); }
+            html body #root .hp-home-v65 .hp-contact-finale .hp-contact-finale__title {
+              font-size: clamp(40px, 4.65vw, 51px) !important;
             }
-            .hp-home-v65 .hp-contact-finale__description { font-size: 12px; line-height: 1.6; max-width: 440px; margin-top: 8px; }
-            .hp-home-v65 .hp-contact-finale__bottom { margin-top: 17px; gap: 11px; }
-            .hp-home-v65 .hp-contact-finale__corner { width: 20px; height: 20px; }
-            .hp-home-v65 .hp-contact-finale__corner--tl { top: 10px; left: 10px; }
-            .hp-home-v65 .hp-contact-finale__corner--tr { top: 10px; right: 10px; }
-            .hp-home-v65 .hp-contact-finale__corner--bl { bottom: 10px; left: 10px; }
-            .hp-home-v65 .hp-contact-finale__corner--br { bottom: 10px; right: 10px; }
+          }
+          @media (max-width: 767px) {
+            .hp-home-v65 .hp-contact-finale { min-height: 0; padding: 30px 16px 38px; }
+            .hp-home-v65 .hp-contact-finale__shell { padding: 7px; border-radius: 21px 8px 21px 8px; }
+            .hp-home-v65 .hp-contact-finale__shell::before { inset: 2px; border-radius: 19px 6px 19px 6px; }
+            .hp-home-v65 .hp-contact-finale__copy { min-height: 0; grid-template-columns: minmax(0,1fr); border-radius: 14px 2px 14px 2px; }
+            .hp-home-v65 .hp-contact-finale__intro {
+              min-height: 220px;
+              padding: clamp(42px, 8vw, 65px) clamp(24px, 7vw, 44px);
+            }
+            .hp-home-v65 .hp-contact-finale__intro::before { inset: 14px 0 14px 14px; }
+            .hp-home-v65 .hp-contact-finale__message {
+              border-left: 0;
+              border-top: 1px solid rgba(158,100,52,.14);
+              padding: 58px clamp(24px, 7vw, 44px) 45px;
+            }
+            .hp-home-v65 .hp-contact-finale__message::before { top: 28px; left: clamp(24px, 7vw, 44px); }
+            html body #root .hp-home-v65 .hp-contact-finale .hp-contact-finale__title {
+              font-size: clamp(34px, 6.4vw, 46px) !important;
+              line-height: 1.19 !important;
+              letter-spacing: -.045em !important;
+            }
+            .hp-home-v65 .hp-contact-finale__description { font-size: 14px !important; line-height: 1.83 !important; }
+            .hp-home-v65 .hp-contact-finale__bottom { margin-top: 26px; }
           }
           @media (max-width: 390px) {
-            .hp-home-v65 .hp-contact-finale__title { font-size: clamp(31px, 8.9vw, 37px); }
-            .hp-home-v65 .hp-contact-finale__title .hp-contact-finale__accent { font-size: clamp(41px, 10.7vw, 46px); }
-            .hp-home-v65 .hp-contact-finale__cta { min-width: 0; width: min(100%, 270px); }
-            .hp-home-v65 .hp-contact-finale__promise { font-size: 8px; letter-spacing: .025em; }
+            .hp-home-v65 .hp-contact-finale { padding: 23px 12px 31px; }
+            .hp-home-v65 .hp-contact-finale__shell { padding: 6px; }
+            .hp-home-v65 .hp-contact-finale__intro { padding: 38px 21px; }
+            .hp-home-v65 .hp-contact-finale__message { padding: 56px 21px 38px; }
+            .hp-home-v65 .hp-contact-finale__message::before { left: 21px; }
+            html body #root .hp-home-v65 .hp-contact-finale .hp-contact-finale__title {
+              font-size: clamp(31px, 8vw, 36px) !important;
+            }
+            .hp-home-v65 .hp-contact-finale__cta { min-width: 0; width: 100%; gap: 12px; padding-left: 14px; font-size: 11px; }
           }
           @media (prefers-reduced-motion: reduce) {
-            .hp-home-v65 .hp-contact-finale__title.hp-kinetic-heading,
-            .hp-home-v65 .hp-contact-finale__title .hp-contact-finale__line,
-            .hp-home-v65 .hp-contact-finale__title .hp-contact-finale__accent,
-            .hp-home-v65 .hp-contact-finale__title .hp-contact-finale__accent::after,
-            .hp-home-v65 .hp-contact-finale__description,
-            .hp-home-v65 .hp-contact-finale__bottom {
-              animation: none !important;
-              opacity: 1 !important;
-              transform: none !important;
-            }
+            .hp-home-v65 .hp-contact-finale__shell,
             .hp-home-v65 .hp-contact-finale__cta,
-            .hp-home-v65 .hp-contact-finale__cta::before,
-            .hp-home-v65 .hp-contact-finale__arrow { transition: none !important; }
+            .hp-home-v65 .hp-contact-finale__arrow { transition: none !important; transform: none !important; }
           }
-
-
-          /* ==================================================
-             V103 / 60% SCREEN CONTACT FINALE - BOLD WIDE TYPE
-             Exactly 60% of the viewport in standard conditions.
-             Extremely short screens may grow to prevent text cutoff.
-             Only the Contact finale is changed; no JS changes.
-          ================================================== */
-          .hp-home-v65 .hp-contact-finale {
-            box-sizing: border-box;
-            display: flex;
-            align-items: stretch;
-            height: 60vh;
-            height: 60svh;
-            min-height: max-content;
-            padding: clamp(8px, 1.1vw, 16px) clamp(8px, 2.4vw, 34px);
-          }
-          .hp-home-v65 .hp-contact-finale__shell {
-            box-sizing: border-box;
-            flex: 1 1 auto;
-            min-width: 0;
-            min-height: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-          }
-          .hp-home-v65 .hp-contact-finale__copy {
-            min-height: 0;
-            width: 100%;
-            padding: clamp(13px, 2svh, 28px) clamp(12px, 2.7vw, 38px);
-          }
-          .hp-home-v65 .hp-contact-finale__eyebrow {
-            margin-bottom: clamp(9px, 1.4svh, 18px);
-          }
-          /* Manrope ExtraBold enlarged and optically widened instead
-             of compressing glyphs with aggressive negative tracking. */
-          .hp-home-v65 .hp-contact-finale__title {
-            width: 100%;
-            max-width: 1580px;
-            font-family: 'Manrope', Arial, sans-serif;
-            font-size: clamp(72px, min(10.3vw, 13.2svh), 170px);
-            font-weight: 800;
-            letter-spacing: -.018em;
-            line-height: .99;
-            padding-bottom: .055em;
-            text-align: center;
-            text-wrap: balance;
-            transform-origin: center center !important;
-          }
-          .hp-home-v65 .hp-contact-finale__title .hp-contact-finale__line {
-            font-weight: 800;
-            letter-spacing: -.025em;
-            -webkit-text-stroke: .65px currentColor;
-          }
-          .hp-home-v65 .hp-contact-finale__title .hp-contact-finale__accent {
-            max-width: 100%;
-            font-size: clamp(82px, min(10.55vw, 13.8svh), 176px);
-            font-weight: 700;
-            letter-spacing: -.021em;
-            line-height: .99;
-            margin-top: 0;
-            padding: .02em .055em .11em;
-            -webkit-text-stroke: .35px rgba(196, 90, 30, .65);
-          }
-          .hp-home-v65 .hp-contact-finale__title .hp-contact-finale__accent::after {
-            margin-top: .055em;
-            height: 3px;
-            width: clamp(110px, 17vw, 220px);
-          }
-          .hp-home-v65 .hp-contact-finale__description {
-            margin-top: clamp(6px, 1svh, 12px);
-            max-width: 780px;
-            font-size: clamp(12px, 1vw, 16px);
-            line-height: 1.48;
-          }
-          .hp-home-v65 .hp-contact-finale__bottom {
-            margin-top: clamp(11px, 1.7svh, 21px);
-            gap: 7px;
-          }
-          .hp-home-v65 .hp-contact-finale__cta { min-height: 51px; }
-          .hp-home-v65 .hp-contact-finale__arrow {
-            flex-basis: 38px;
-            width: 38px;
-            height: 38px;
-          }
-          @media (max-width: 1023px) {
-            .hp-home-v65 .hp-contact-finale__title {
-              font-size: clamp(52px, min(10vw, 11.5svh), 96px);
-              letter-spacing: -.02em;
-            }
-            .hp-home-v65 .hp-contact-finale__title .hp-contact-finale__accent {
-              font-size: clamp(59px, min(10.8vw, 12svh), 104px);
-              letter-spacing: -.026em;
-            }
-            .hp-home-v65 .hp-contact-finale__copy {
-              padding-block: clamp(11px, 1.7svh, 21px);
-            }
-          }
-          @media (max-width: 639px) {
-            .hp-home-v65 .hp-contact-finale { padding: 7px; }
-            .hp-home-v65 .hp-contact-finale__copy { padding: 10px 10px 11px; }
-            .hp-home-v65 .hp-contact-finale__eyebrow {
-              margin-bottom: 9px;
-              font-size: 9px;
-              letter-spacing: .1em;
-            }
-            .hp-home-v65 .hp-contact-finale__title {
-              font-size: clamp(41px, 11.75vw, 66px);
-              letter-spacing: -.018em;
-              line-height: 1.04;
-            }
-            .hp-home-v65 .hp-contact-finale__title .hp-contact-finale__line {
-              letter-spacing: -.027em;
-              -webkit-text-stroke: .3px currentColor;
-            }
-            .hp-home-v65 .hp-contact-finale__title .hp-contact-finale__accent {
-              font-size: clamp(46px, 12.7vw, 72px);
-              letter-spacing: -.03em;
-              line-height: 1;
-              padding: .015em .015em .11em;
-              -webkit-text-stroke: .2px rgba(196, 90, 30, .65);
-            }
-            .hp-home-v65 .hp-contact-finale__title .hp-contact-finale__accent::after {
-              height: 2px;
-              width: 112px;
-              margin-top: .05em;
-            }
-            .hp-home-v65 .hp-contact-finale__description {
-              max-width: 440px;
-              font-size: 11.5px;
-              line-height: 1.48;
-              margin-top: 6px;
-            }
-            .hp-home-v65 .hp-contact-finale__bottom {
-              margin-top: 10px;
-              gap: 6px;
-            }
-            .hp-home-v65 .hp-contact-finale__cta { min-height: 45px; }
-            .hp-home-v65 .hp-contact-finale__arrow {
-              flex-basis: 34px;
-              width: 34px;
-              height: 34px;
-            }
-            .hp-home-v65 .hp-contact-finale__promise {
-              font-size: 8px;
-              letter-spacing: .03em;
-            }
-          }
-          @media (max-width: 390px) {
-            .hp-home-v65 .hp-contact-finale__title {
-              font-size: clamp(38px, 11.3vw, 45px);
-            }
-            .hp-home-v65 .hp-contact-finale__title .hp-contact-finale__accent {
-              font-size: clamp(43px, 12.1vw, 49px);
-            }
-          }
-
-          /* V104: Contact card inset by 10% on BOTH sides.
-             Everything inside the card (fonts, animation, CTA) stays unchanged. */
-          .hp-home-v65 .hp-contact-finale {
-            padding-inline: 10%;
-          }
-
 
           /* V108 / GPU budget: release finished kinetic text layers.
              Animated headings still get compositor-friendly transforms. */
@@ -6721,18 +6561,6 @@ const Home = () => {
             will-change: auto;
           }
 
-          /* V106: Mobile only. Keep the 48svh height, expand the card to 90%
-             of the section width (5% inset each side), and hide its description. */
-          @media (max-width: 639px) {
-            .hp-home-v65 .hp-contact-finale {
-              height: 48vh;
-              height: 48svh;
-              padding-inline: 5%;
-            }
-            .hp-home-v65 .hp-contact-finale__description {
-              display: none;
-            }
-          }
         `}
       </style>
 
@@ -6788,9 +6616,7 @@ const Home = () => {
         >
           {[
             {
-              label: "01 · READY TO GIFT",
               title: "Shop Signature Hampers",
-              copy: "Ready-made premium hampers, curated and gift-ready.",
               image: HOME_IMAGES.journeySignature1,
               hoverImage: HOME_IMAGES.journeySignature2,
               to: "/gifts",
@@ -6798,9 +6624,7 @@ const Home = () => {
               objectPosition: "center center",
             },
             {
-              label: "02 · MADE BY YOU",
               title: "Build Your Own Hamper",
-              copy: "Choose the box, products and finishing touches your way.",
               image: HOME_IMAGES.journeyBuild1,
               hoverImage: HOME_IMAGES.journeyBuild2,
               to: "/custom-hamper",
@@ -6808,9 +6632,7 @@ const Home = () => {
               objectPosition: "center center",
             },
             {
-              label: "03 · SCALE IT UP",
               title: "Bulk & Event Gifting",
-              copy: "Premium gifting for teams, weddings and memorable events.",
               image: HOME_IMAGES.journeyBulk1,
               hoverImage: HOME_IMAGES.journeyBulk2,
               to: "/custom-hamper?mode=bulk",
@@ -6819,7 +6641,7 @@ const Home = () => {
             },
           ].map((item, index) => (
             <SignatureLink
-              key={item.label}
+              key={item.to}
               to={item.to}
               className={`hp-story-page hp-journey-story-page hp-fluid-host group relative block ${index === 0 ? "hp-journey-first-page" : ""}`}
               aria-label={`${item.title}. ${item.cta}`}
@@ -6842,11 +6664,7 @@ const Home = () => {
 
                 {index === 0 && (
                   <div className="hp-journey-first-intro absolute z-20">
-                    <p className="hp-story-kicker text-[10px] font-black uppercase tracking-[0.23em] text-[#F47822] sm:text-[11px]">
-                      START HERE
-                    </p>
-
-                    <h2 className="hp-section-heading hp-journey-intro-heading mt-4 max-w-[1000px] text-[#FFF4DC] drop-shadow-[0_12px_42px_rgba(0,0,0,.58)]">
+                    <h2 className="hp-section-heading hp-journey-intro-heading mt-0 max-w-[1000px] text-[#FFF4DC] drop-shadow-[0_12px_42px_rgba(0,0,0,.58)]">
                       <span className="hp-story-line block" style={{ "--hp-story-delay": "90ms" }}>
                         How Do You Want
                       </span>
@@ -6862,16 +6680,6 @@ const Home = () => {
 
                 <div className="hp-journey-story-content absolute inset-x-0 z-20 p-5 pb-9 sm:p-8 sm:pb-12 lg:p-14 lg:pb-16 xl:p-20 xl:pb-20">
                   <div className="max-w-[760px]">
-                    <div className="mb-4 flex items-center gap-3 sm:mb-5">
-                      <span className="h-[2px] w-12 bg-[#D4AF37] sm:w-16" />
-                      <p
-                        className="hp-story-kicker text-[9px] font-black uppercase tracking-[0.2em] text-[#F6D76E] sm:text-[11px]"
-                        style={{ "--hp-story-delay": "80ms" }}
-                      >
-                        {item.label}
-                      </p>
-                    </div>
-
                     <h3
                       style={{ fontFamily: DISPLAY_FONT }}
                       className="hp-journey-feature-title max-w-[920px] text-white"
@@ -6879,11 +6687,7 @@ const Home = () => {
                       {item.title}
                     </h3>
 
-                    <p className="mt-4 max-w-[560px] text-[13px] font-medium leading-6 text-white/72 sm:text-[15px] sm:leading-7">
-                      {item.copy}
-                    </p>
-
-                    <div className="mt-6 inline-flex min-h-[52px] items-center gap-5 border border-white/20 bg-black/25 px-5 text-[10px] font-black uppercase tracking-[0.14em] text-[#F4D36A] backdrop-blur-sm transition duration-300 group-hover:border-[#D4AF37]/60 group-hover:bg-black/40 sm:min-h-[58px] sm:px-6 sm:text-[11px]">
+                    <div className="mt-7 inline-flex min-h-[52px] items-center gap-5 border border-[#D4AF37]/45 bg-black/40 px-5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#F4D36A] backdrop-blur-sm transition duration-300 group-hover:border-[#D4AF37] group-hover:bg-black/55 sm:mt-9 sm:min-h-[58px] sm:px-6 sm:text-[11px]">
                       <span>{item.cta}</span>
                       <span className="text-[20px] transition-transform duration-300 group-hover:translate-x-1.5">
                         →
@@ -6892,12 +6696,6 @@ const Home = () => {
                   </div>
                 </div>
 
-                <div className="pointer-events-none absolute bottom-6 right-5 z-20 flex items-center gap-3 text-[8px] font-black uppercase tracking-[0.18em] text-white/40 sm:bottom-8 sm:right-8 lg:bottom-10 lg:right-10">
-                  <span>
-                    {String(index + 1).padStart(2, "0")} / 03
-                  </span>
-                  <span className="h-px w-9 bg-[#D4AF37]/55 sm:w-12" />
-                </div>
               </div>
             </SignatureLink>
           ))}
@@ -7486,11 +7284,7 @@ const Home = () => {
             <Reveal className="px-4 sm:px-0">
               <div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-end">
                 <div className="hp-bestseller-heading-wrap min-w-0">
-                  <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#F47822]">
-                    CURATED BESTSELLERS
-                  </p>
-
-                  <h2 className="hp-section-heading hp-bestseller-section-title mt-5 text-[#171717]">
+                  <h2 className="hp-section-heading hp-bestseller-section-title mt-0 text-[#171717]">
                     <span className="block">The Hampers Everyone</span>
                     <span className="hp-section-heading-accent hp-bestseller-section-accent text-[#9B741D]">
                       Keeps Coming Back For.
@@ -7830,30 +7624,28 @@ const Home = () => {
         </section>
 
         {/* ==================================================
-            CONTACT / V103 - 60% screen-height, oversized bold finale
+            CONTACT / V145 - atelier invitation; luxury two-tone frame
         =================================================== */}
         <section data-home-section="contact" className="hp-contact-finale" aria-labelledby="hp-contact-heading">
           <div className="hp-contact-finale__shell">
-            <span className="hp-contact-finale__corner hp-contact-finale__corner--tl" aria-hidden="true" />
-            <span className="hp-contact-finale__corner hp-contact-finale__corner--tr" aria-hidden="true" />
-            <span className="hp-contact-finale__corner hp-contact-finale__corner--bl" aria-hidden="true" />
-            <span className="hp-contact-finale__corner hp-contact-finale__corner--br" aria-hidden="true" />
             <div className="hp-contact-finale__copy">
-              <p className="hp-contact-finale__eyebrow">The <b>HAMPORIUM</b> Concierge</p>
-              <h2 id="hp-contact-heading" className="hp-contact-finale__title">
-                <span className="hp-contact-finale__line">Have a vision?</span>
-                <em className="hp-contact-finale__accent">Let's make it yours.</em>
-              </h2>
-              <p className="hp-contact-finale__description">
-                From one unforgettable gift to a grand celebration, our team
-                brings the thoughtful details to life, beautifully.
-              </p>
-              <div className="hp-contact-finale__bottom">
-                <SignatureLink to="/contact" className="hp-contact-finale__cta">
-                  <span>Contact our team</span>
-                  <span className="hp-contact-finale__arrow" aria-hidden="true">→</span>
-                </SignatureLink>
-                <span className="hp-contact-finale__promise">Personal gifting · Custom requests · Events</span>
+              <div className="hp-contact-finale__intro">
+                <h2 id="hp-contact-heading" className="hp-contact-finale__title">
+                  <span className="hp-contact-finale__line">Have a vision?</span>
+                  <span className="hp-contact-finale__accent">Let's make it yours.</span>
+                </h2>
+              </div>
+              <div className="hp-contact-finale__message">
+                <p className="hp-contact-finale__description">
+                  From a thoughtful personal gift to a memorable celebration,
+                  we'll help bring your idea to life.
+                </p>
+                <div className="hp-contact-finale__bottom">
+                  <SignatureLink to="/contact" className="hp-contact-finale__cta">
+                    <span>Contact our team</span>
+                    <span className="hp-contact-finale__arrow" aria-hidden="true">→</span>
+                  </SignatureLink>
+                </div>
               </div>
             </div>
           </div>
@@ -10575,25 +10367,17 @@ const LovedProductCard = ({ product, index = 0, promotion }) => {
           />
 
 
-          <span className="hp-gift-image-charm" aria-hidden="true">
-            <span>H</span>
-            Signature
-          </span>
         </div>
 
         <div className="hp-bestseller-copy">
           <div className="hp-bestseller-copy-head" aria-hidden="true">
             <span className="hp-bestseller-line" />
-            <span className="hp-gift-mini-mark">Curated gift</span>
           </div>
 
           <h3 className="hp-bestseller-title">{product.name}</h3>
 
           <div className="hp-bestseller-meta">
             <div>
-              <p className="hp-bestseller-price-label">
-                {product.editorial ? "Explore this style" : "Starting at"}
-              </p>
               <p className="hp-bestseller-price">
                 {product.price !== null
                   ? formatHomePrice(product.price)
