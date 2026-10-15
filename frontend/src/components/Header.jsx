@@ -1,3 +1,6 @@
+// V150 HEADER: match refreshed autoplay hero, no session-gated poster-only mode.
+// V147 HEADER: fix search/account/notification/cart overlap at laptop/desktop widths.
+// V140 brand palette and original header interaction preserved.
 // EXACT PATH: frontend/src/components/Header.jsx
 // ACTION: REPLACE - HAMPORIUM COMMON HEADER V139 (logo 20% smaller, click-pinned hampers menu, hamburger-style bow gift icon)
 import { useCallback, useEffect, useId, useRef, useState } from "react";
@@ -13,7 +16,14 @@ import { trackCustomerActivity } from "../utils/customerActivity.js";
 import HeaderNotifications from "./HeaderNotifications.jsx";
 
 import logoLight from "../assets/images/logo_dark.jpeg";
-import hamperOneLogo from "../assets/images/hamperOne.jpeg";
+// Optional assets: avoid Linux/Vercel build failures if one filename is missing.
+const HEADER_HAMPER_ONE_ASSETS = import.meta.glob(
+  "../assets/images/{hamperone.jpeg,hamperOne.jpeg}",
+  { eager: true, query: "?url", import: "default" }
+);
+const hamperOneLogo =
+  HEADER_HAMPER_ONE_ASSETS["../assets/images/hamperOne.jpeg"] ||
+  HEADER_HAMPER_ONE_ASSETS["../assets/images/hamperone.jpeg"] || "";
 
 // Avoid flashing the original JPEG white background while the logo is processed.
 const TRANSPARENT_IMAGE = "data:image/svg+xml,%3Csvg%20xmlns%3D%22http://www.w3.org/2000/svg%22%20width%3D%221%22%20height%3D%221%22/%3E";
@@ -776,11 +786,12 @@ const Header = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const desktop = useMediaQuery(DESKTOP_QUERY);
+  const compactDesktop = useMediaQuery("(max-width: 1379px)");
   const reduceMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
   // Static magnifying-glass icon on mobile/tablet (<1180px).
   // Desktop retains the existing Find / Gifts / Explore typing animation.
   // Disabling the hook also stops its animation timer on compact devices.
-  const searchMorph = useSearchMorph(reduceMotion || !desktop);
+  const searchMorph = useSearchMorph(reduceMotion || !desktop || compactDesktop);
   const transparentLogo = useTransparentLogo(logoLight);
   const processedHamperOneLogo = useTransparentLogo(hamperOneLogo);
   const sizedHamperOneLogo = useTightlyCroppedLogo(processedHamperOneLogo);
@@ -803,6 +814,9 @@ const Header = () => {
   const scrollFrameRef = useRef(0);
   const lastScrollYRef = useRef(0);
   const mobileScrollTravelRef = useRef(0);
+  // First user scroll dismisses the film gate; keep navigation visible briefly
+  // before ordinary down-hide/up-show scroll behavior resumes.
+  const introRevealUntilRef = useRef(0);
   const restoreFocusRef = useRef(false);
   const notificationsRef = useRef(null);
   const notificationsPinnedRef = useRef(false);
@@ -818,7 +832,9 @@ const Header = () => {
   const [notificationUnread, setNotificationUnread] = useState(0);
   const [logoutBusy, setLogoutBusy] = useState(false);
   const [logoutError, setLogoutError] = useState("");
-  const [homeIntroActive, setHomeIntroActive] = useState(location.pathname === "/");
+  const [homeIntroActive, setHomeIntroActive] = useState(() =>
+    location.pathname === "/" && (typeof window === "undefined" || window.scrollY <= 12)
+  );
 
   const isHome = location.pathname === "/";
   const isHamperOne = location.pathname.startsWith("/hamper-one");
@@ -905,16 +921,33 @@ const Header = () => {
     return () => window.clearTimeout(timer);
   }, [panel, reduceMotion]);
 
-  // Preserve Home's first-playback contract; there is intentionally no timeout
-  // that could reveal the navigation on top of the cinematic intro.
+  // Intro lifecycle is owned by Home. Listen before syncing its current state
+  // so a quick Skip, a cached session or a scroll during loading cannot leave
+  // the common header hidden indefinitely.
   useEffect(() => {
     if (!isHome) {
       setHomeIntroActive(false);
+      introRevealUntilRef.current = 0;
       return undefined;
     }
-    setHomeIntroActive(true);
-    const onIntro = (event) => setHomeIntroActive(Boolean(event?.detail?.active));
+    const onIntro = (event) => {
+      const active = Boolean(event?.detail?.active) && window.scrollY <= 12;
+      setHomeIntroActive(active);
+      if (!active) {
+        const reason = event?.detail?.reason;
+        if (reason === "scroll" || reason === "skip" || reason === "explore") {
+          introRevealUntilRef.current = performance.now() + 1100;
+        }
+        setHeaderHidden(false);
+        mobileScrollTravelRef.current = 0;
+        lastScrollYRef.current = Math.max(0, window.scrollY || 0);
+      }
+    };
     window.addEventListener("hamporium:intro-state", onIntro);
+    // Each page visit/reload starts the film again. Never read V149's
+    // sessionStorage seen flag: it caused a poster-only hero on refresh.
+    // The Home component sends the authoritative start/stop event.
+    setHomeIntroActive(window.scrollY <= 12);
     return () => window.removeEventListener("hamporium:intro-state", onIntro);
   }, [isHome]);
 
@@ -931,6 +964,7 @@ const Header = () => {
     notificationsPinnedRef.current = false;
     lastScrollYRef.current = Math.max(0, window.scrollY || 0);
     mobileScrollTravelRef.current = 0;
+    introRevealUntilRef.current = 0;
   }, [location.pathname, location.search, clearHoverTimer]);
 
   // Close the outgoing viewport's panel before switching desktop/mobile layouts.
@@ -948,10 +982,21 @@ const Header = () => {
       const y = Math.max(0, window.scrollY || 0);
       const delta = y - lastScrollYRef.current;
       setScrolledPastHero(y > 585);
+      // First scroll during an unfinished film: show the header immediately.
+      // Subsequent scrolling uses exactly the old directional behavior.
+      if (isHome && homeIntroActive && y > 12) {
+        setHomeIntroActive(false);
+        introRevealUntilRef.current = performance.now() + 1100;
+        mobileScrollTravelRef.current = 0;
+        setHeaderHidden(false);
+        lastScrollYRef.current = y;
+        return;
+      }
       const focusInside = headerRef.current?.contains(document.activeElement);
       // On touchscreens a tapped header button can keep focus indefinitely.
       // Do not let that stale focus pin the mobile header in view.
-      const mustStayVisible = y <= 76 || Boolean(renderedPanel) ||
+      const justDismissedIntro = isHome && performance.now() < introRevealUntilRef.current;
+      const mustStayVisible = y <= 76 || justDismissedIntro || Boolean(renderedPanel) ||
         notificationsPinnedRef.current || (desktop && focusInside);
       if (mustStayVisible) {
         mobileScrollTravelRef.current = 0;
@@ -985,7 +1030,7 @@ const Header = () => {
       window.cancelAnimationFrame(scrollFrameRef.current);
       scrollFrameRef.current = 0;
     };
-  }, [renderedPanel, desktop]);
+  }, [renderedPanel, desktop, isHome, homeIntroActive]);
 
   useEffect(() => {
     const onPointer = (event) => {
@@ -1536,8 +1581,10 @@ const Icon = ({ name, className = "" }) => {
 export default Header;
 
 const HEADER_CSS = `
+/* V146: HAMPORIUM official 5-tone palette. */
+
 /* HAMPORIUM / Pearl Navigation. All styles are scoped to this component. */
-.hh-header,.hh-overlay { --hh-paper:#fffcf7; --hh-soft:#f5efe5; --hh-line:#e6ddcf; --hh-ink:#252119; --hh-muted:#71695d; --hh-gold:#957020; --hh-orange:#f47822; --hh-ease:cubic-bezier(.22,1,.36,1); --hh-height:84px; font-family:'Manrope',Arial,sans-serif; font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased; }
+.hh-header,.hh-overlay { --hh-paper:#fffcf7; --hh-soft:#f5efe5; --hh-line:#e6ddcf; --hh-ink:#252119; --hh-muted:#71695d; --hh-gold:#957020; --hh-orange:#B79B6A; --hh-ease:cubic-bezier(.22,1,.36,1); --hh-height:84px; font-family:'Manrope',Arial,sans-serif; font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased; }
 .hh-header *,.hh-overlay * { box-sizing:border-box; }
 .hh-header a,.hh-overlay a { text-decoration:none; color:inherit; }
 .hh-header button,.hh-overlay button,.hh-overlay input { font:inherit; }
@@ -1560,19 +1607,19 @@ const HEADER_CSS = `
   --hh-v113-ribbon-tuck:73.7px;
   --hh-v127-ribbon-height:24.8832px;
   --hh-v127-bow-offset:14px;
-  --hh-connected-surface:#241913;
+  --hh-connected-surface:#161715;
   position:fixed; inset:0 0 auto; width:100%; z-index:100;
-  overflow:visible; background:#241913; border:0; box-shadow:none;
+  overflow:visible; background:#161715; border:0; box-shadow:none;
   transition:transform .48s var(--hh-ease),background-color .35s ease,box-shadow .35s ease;
 }
 .hh-header::after { display:none !important; content:none !important; }
 /* V121: warm espresso base, champagne typography, burnished brass details.
    The same surface feeds the wavy SVG and backing -- no white/light seam. */
 .hh-light,.hh-hero {
-  --hh-connected-surface:#241913;
+  --hh-connected-surface:#161715;
   --hh-ink:#f5e9d7;
   color:#f5e9d7;
-  background:#241913;
+  background:#161715;
   box-shadow:none;
 }
 .hh-header .hh-private-link { border-left-color:rgba(230,190,112,.32); }
@@ -1754,7 +1801,7 @@ const HEADER_CSS = `
 .hh-hero .hh-action:hover { color:#f3cf7c; background:#ffffff10; }
 .hh-account-trigger { width:auto; gap:7px; padding:0 10px; border-radius:99px; }
 .hh-account-label { font-size:13px; font-weight:650; white-space:nowrap; }
-.hh-count { position:absolute; top:0; right:-2px; display:grid; place-items:center; min-width:18px; height:18px; padding-inline:4px; border-radius:50px; background:#ec721c; color:white; font-size:11px; font-weight:700; line-height:1; animation:hh-count-in .35s var(--hh-ease); }
+.hh-count { position:absolute; top:0; right:-2px; display:grid; place-items:center; min-width:18px; height:18px; padding-inline:4px; border-radius:50px; background:#B79B6A; color:white; font-size:11px; font-weight:700; line-height:1; animation:hh-count-in .35s var(--hh-ease); }
 .hh-notifications { display:flex; align-items:center; flex:0 0 auto; color:inherit; }
 .hh-notifications>button,.hh-notifications>div>button { min-width:40px; min-height:44px; }
 .hh-mobile-menu-trigger { display:none; }
@@ -1763,7 +1810,7 @@ const HEADER_CSS = `
 .hh-overlay { position:fixed; inset:0; z-index:101; pointer-events:none; color:var(--hh-ink); }
 .hh-backdrop { position:absolute; inset:var(--hh-height) 0 0; pointer-events:auto; background:#1c180f26; animation:hh-fade-in .25s ease both; }
 .hh-panel { position:absolute; top:calc(var(--hh-height) + 12px); left:24px; right:24px; margin-inline:auto; display:flex; flex-direction:column; pointer-events:auto; width:calc(100% - 48px); max-width:1180px; max-height:calc(100dvh - var(--hh-height) - 32px); border:1px solid #c6aa793d; border-radius:18px; background:var(--hh-paper); box-shadow:0 24px 70px #27201526,0 3px 12px #2720150a; outline:none; overflow:hidden; animation:hh-panel-in .44s var(--hh-ease) both; }
-.hh-panel::before { content:''; position:absolute; left:0; right:0; top:0; height:2px; background:linear-gradient(90deg,#f47822,#d5b775 48%,#f4782220); z-index:1; }
+.hh-panel::before { content:''; position:absolute; left:0; right:0; top:0; height:2px; background:linear-gradient(90deg,#B79B6A,#d5b775 48%,#f4782220); z-index:1; }
 .hh-panel-top { display:flex; align-items:flex-start; justify-content:space-between; gap:20px; flex:0 0 auto; padding:25px 30px 21px; border-bottom:1px solid var(--hh-line); }
 .hh-eyebrow { color:#947024; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.11em; line-height:1.45; }
 .hh-panel-top h2 { margin-top:7px; color:var(--hh-ink); font-family:'Cormorant Garamond',Georgia,serif; font-size:33px; font-weight:500; letter-spacing:-.025em; line-height:1.13; }
@@ -1857,7 +1904,7 @@ const HEADER_CSS = `
 .hh-search-skeleton { display:flex; align-items:center; gap:13px; padding:12px 8px; }.hh-search-skeleton>span { width:65px; height:70px; border-radius:5px; background:#ede3d3; }.hh-search-skeleton>div { flex:1; }.hh-search-skeleton i { display:block; height:9px; width:80%; border-radius:3px; background:#e7dccb; margin-bottom:10px; }.hh-search-skeleton i+i { width:48%; }.hh-search-skeleton { animation:hh-breathe 1.5s ease-in-out infinite alternate; }
 
 /* Location and account. */
-.hh-primary,.hh-secondary { display:inline-flex; min-height:45px; align-items:center; justify-content:center; gap:12px; padding:11px 18px; border:1px solid #ba853e; border-radius:6px; font-size:13px; font-weight:600; color:#fff!important; background:#a57230; transition:background .3s,transform .35s var(--hh-ease); }
+.hh-primary,.hh-secondary { display:inline-flex; min-height:45px; align-items:center; justify-content:center; gap:12px; padding:11px 18px; border:1px solid #B79B6A; border-radius:6px; font-size:13px; font-weight:600; color:#fff!important; background:#B79B6A; transition:background .3s,transform .35s var(--hh-ease); }
 .hh-primary:hover { background:#895a24; }.hh-primary>.hh-icon { width:15px; height:15px; }
 .hh-secondary { color:#554a39!important; background:transparent; border-color:#ddd1bd; }.hh-secondary:hover { background:#f0e4d0; }
 .hh-error { margin-top:12px!important; color:#a02b24; font-size:13px; line-height:1.65; }
@@ -1871,7 +1918,7 @@ const HEADER_CSS = `
 .hh-account-compact { padding:18px 20px 12px; }
 .hh-account-quick-links { display:grid; gap:10px; }
 .hh-account-quick-link { display:flex; align-items:center; min-width:0; gap:13px; min-height:62px; padding:13px 14px; border:1px solid #e7ddca; border-radius:12px; background:#fffdf8; color:var(--hh-ink); transition:background .25s ease,border-color .25s ease,transform .25s var(--hh-ease); }
-.hh-account-quick-link:hover { transform:translateY(-2px); border-color:#caac75; background:#fff8eb; }
+.hh-account-quick-link:hover { transform:translateY(-2px); border-color:#caac75; background:#FAF8F4; }
 .hh-account-quick-link strong { flex:1; min-width:0; font-size:14px; font-weight:700; line-height:1.3; }
 .hh-account-quick-icon { display:grid; place-items:center; width:37px; height:37px; flex:0 0 37px; border-radius:11px; background:#f4e9d6; color:#97702e; }
 .hh-account-quick-link>.hh-icon { width:17px; height:17px; color:#a48451; }
@@ -2075,6 +2122,224 @@ const HEADER_CSS = `
   .hh-satin-ribbon-left,.hh-satin-ribbon-right { transform:none!important; }
   .hh-ceremony-bow { display:none!important; }
   .hh-header,.hh-header *,.hh-overlay *,.hh-header::after,.hh-overlay *::before,.hh-overlay *::after { animation:none!important; transition:none!important; scroll-behavior:auto!important; }
+}
+
+
+/* V146 / HEADER BRAND PALETTE: scoped and after legacy CSS. */
+.hh-header, .hh-overlay {
+  --hh-paper:#FAF8F4; --hh-soft:#E8E1D6;
+  --hh-line:rgba(64,58,50,.15); --hh-ink:#403A32;
+  --hh-muted:rgba(64,58,50,.72); --hh-gold:#B79B6A;
+  --hh-orange:#B79B6A; --hh-connected-surface:#161715;
+}
+.hh-header, .hh-header-shell, .hh-bar { border-color:rgba(183,155,106,.24); }
+.hh-header { background:#161715; }
+.hh-header .hh-nav-link, .hh-header .hh-action { color:#FAF8F4; }
+.hh-header .hh-nav-link::after, .hh-panel::before { background:#B79B6A; }
+.hh-overlay .hh-panel, .hh-overlay .hh-account-quick-link { background:#FAF8F4; color:#403A32; }
+.hh-overlay .hh-view-results { background:#E8E1D6; color:#403A32; }
+.hh-overlay .hh-primary, .hh-overlay .hh-secondary { background:#B79B6A; color:#161715!important; border-color:#B79B6A; }
+.hh-overlay .hh-primary:hover, .hh-overlay .hh-secondary:hover { background:#403A32; color:#FAF8F4!important; border-color:#403A32; }
+.hh-header .hh-count { background:#B79B6A; color:#161715; }
+.hh-header :is(a,button,input):focus-visible, .hh-overlay :is(a,button,input):focus-visible { outline-color:#B79B6A; }
+
+
+/* ==============================================================
+   V147 / RESPONSIVE HEADER TOOLS: NO SEARCH / ACCOUNT COLLISION
+   The animated Search word is wider than its former fixed 76px slot.
+   Give the desktop word its own unshrinkable track, and never let
+   the Account label squeeze into notifications or the cart.
+   The screen <1380px keeps search as the classic clickable icon;
+   the typewriter effect remains for large desktop displays.
+   =============================================================== */
+.hh-header .hh-bar {
+  min-width:0;
+  box-sizing:border-box;
+}
+.hh-header .hh-nav {
+  flex:0 0 auto;
+  min-width:0;
+}
+.hh-header .hh-tools {
+  display:flex;
+  flex:0 0 auto;
+  flex-shrink:0 !important;
+  width:max-content;
+  min-width:max-content;
+  max-width:calc(50% - 55px);
+  align-items:center;
+  justify-content:flex-end;
+  gap:clamp(6px,.75vw,12px);
+  white-space:nowrap;
+}
+.hh-header .hh-search-trigger {
+  display:flex;
+  flex:0 0 128px;
+  width:128px;
+  min-width:128px;
+  max-width:128px;
+  height:46px;
+  padding:0 7px;
+  justify-content:center;
+  align-items:center;
+  overflow:hidden;
+}
+.hh-header .hh-search-morph {
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  width:100%;
+  max-width:100%;
+  min-width:0;
+  overflow:hidden;
+}
+.hh-header .hh-search-morph-word {
+  max-width:100%;
+  min-width:0;
+  white-space:nowrap;
+  font-size:14px !important;
+  font-weight:400 !important;
+  letter-spacing:.025em !important;
+  line-height:1.2 !important;
+  text-transform:none !important;
+}
+.hh-header .hh-account-trigger {
+  display:inline-flex;
+  flex:0 0 auto;
+  flex-shrink:0 !important;
+  width:auto;
+  min-width:116px;
+  max-width:none;
+  height:46px;
+  gap:9px;
+  justify-content:center;
+  align-items:center;
+  padding:0 12px;
+  white-space:nowrap;
+  overflow:hidden;
+}
+.hh-header .hh-account-label {
+  display:block;
+  flex:0 0 auto;
+  width:auto;
+  max-width:none;
+  font-family:var(--hmp-font, 'Montserrat', Arial, sans-serif) !important;
+  font-size:12px !important;
+  font-weight:400 !important;
+  letter-spacing:.065em !important;
+  line-height:1.25 !important;
+  white-space:nowrap;
+}
+.hh-header .hh-notifications {
+  display:flex;
+  flex:0 0 46px;
+  width:46px;
+  min-width:46px;
+  max-width:46px;
+  justify-content:center;
+  align-items:center;
+  overflow:visible;
+}
+.hh-header .hh-notifications > button,
+.hh-header .hh-notifications > div > button {
+  display:flex;
+  width:44px;
+  min-width:44px;
+  height:44px;
+  align-items:center;
+  justify-content:center;
+  padding:0;
+}
+.hh-header .hh-cart {
+  display:flex;
+  flex:0 0 46px;
+  width:46px;
+  min-width:46px;
+  max-width:46px;
+  height:46px;
+  align-items:center;
+  justify-content:center;
+}
+.hh-header .hh-action > .hh-icon,
+.hh-header .hh-search-morph-icon > .hh-icon {
+  width:22px;
+  height:22px;
+  flex:0 0 22px;
+}
+/* Laptop: proper icon-only search, no hidden half-typed word or cursor. */
+@media (min-width:1180px) and (max-width:1379px) {
+  .hh-header .hh-bar { padding-inline:clamp(18px,2.1vw,30px); }
+  .hh-header .hh-tools { gap:6px; }
+  .hh-header .hh-search-trigger {
+    flex:0 0 46px;
+    width:46px;
+    min-width:46px;
+    max-width:46px;
+    padding:0;
+  }
+  .hh-header .hh-search-morph-word,
+  .hh-header .hh-search-morph-caret { display:none !important; }
+  .hh-header .hh-account-trigger { min-width:106px; padding-inline:8px; gap:7px; }
+}
+/* Mobile/tablet: text labels stay hidden and all icons get distinct hit zones. */
+@media (max-width:1179px) {
+  .hh-header .hh-tools {
+    flex:0 0 auto;
+    min-width:0;
+    max-width:calc(50% - 40px);
+    gap:3px;
+  }
+  .hh-header .hh-search-trigger {
+    flex:0 0 44px;
+    width:44px;
+    min-width:44px;
+    max-width:44px;
+    height:44px;
+    padding:0;
+  }
+  .hh-header .hh-account-trigger {
+    flex:0 0 44px;
+    width:44px;
+    min-width:44px;
+    max-width:44px;
+    height:44px;
+    padding:0;
+    border-radius:50%;
+  }
+  .hh-header .hh-account-label { display:none !important; }
+  .hh-header .hh-notifications { flex-basis:44px; width:44px; min-width:44px; max-width:44px; }
+  .hh-header .hh-cart { flex-basis:44px; width:44px; min-width:44px; max-width:44px; height:44px; }
+}
+@media (max-width:639px) {
+  .hh-header .hh-tools { gap:1px; max-width:calc(50% - 33px); }
+  .hh-header .hh-search-trigger,
+  .hh-header .hh-account-trigger,
+  .hh-header .hh-cart {
+    flex-basis:36px;
+    width:36px;
+    min-width:36px;
+    max-width:36px;
+  }
+  .hh-header .hh-notifications {
+    flex-basis:36px;
+    width:36px;
+    min-width:36px;
+    max-width:36px;
+  }
+  .hh-header .hh-notifications > button,
+  .hh-header .hh-notifications > div > button { width:36px; min-width:36px; }
+}
+@media (max-width:399px) {
+  .hh-header .hh-notifications { display:none !important; }
+}
+
+
+/* V148: center HAMPORIUM badge ONLY. 5% shorter vertically (roughly
+   2.5px removed from its visible top and bottom at desktop size).
+   Keep horizontal width, center position, header spacing and all other icons intact. */
+.hh-header .hh-brand-mark {
+  transform: scaleY(.95);
+  transform-origin: 50% 50%;
 }
 
 `;

@@ -1,5 +1,5 @@
 /* ======================================================================
-   HAMPORIUM - GLOBAL TYPOGRAPHY SYSTEM (MONTSERRAT)
+   HAMPORIUM - GLOBAL TYPOGRAPHY + BRAND PALETTE (MONTSERRAT)
    Install: replace frontend/src/index.css with this complete file.
    Free alternative to Gotham: Light=300, Book=400, Medium=500.
    Preserves approved image/SVG logos, animations and layouts.
@@ -30,6 +30,70 @@
   --hmp-type-price: clamp(16px, 1.5vw, 22px);
   --hmp-type-caption: clamp(11px, .86vw, 12px);
 }
+
+
+/* ================================================================
+   HAMPORIUM / MANAGER-APPROVED 5-COLOR DESIGN SYSTEM — V146
+   Ivory #FAF8F4 · Stone #E8E1D6 · Gold #B79B6A
+   Charcoal #403A32 · Obsidian #161715
+   Approved logos are artwork assets: do not recolor them.
+   Gold is a decorative accent, NOT small body text on ivory.
+   ================================================================ */
+@theme {
+  --color-hmp-ivory: #FAF8F4;
+  --color-hmp-stone: #E8E1D6;
+  --color-hmp-gold: #B79B6A;
+  --color-hmp-charcoal: #403A32;
+  --color-hmp-obsidian: #161715;
+}
+:root {
+  --hmp-ivory: #FAF8F4;
+  --hmp-stone: #E8E1D6;
+  --hmp-gold: #B79B6A;
+  --hmp-charcoal: #403A32;
+  --hmp-obsidian: #161715;
+  --hmp-bg: var(--hmp-ivory);
+  --hmp-bg-muted: var(--hmp-stone);
+  --hmp-surface: var(--hmp-ivory);
+  --hmp-surface-alt: var(--hmp-stone);
+  --hmp-ink: var(--hmp-charcoal);
+  --hmp-ink-strong: var(--hmp-obsidian);
+  --hmp-ink-inverse: var(--hmp-ivory);
+  --hmp-border: color-mix(in srgb, var(--hmp-charcoal) 16%, transparent);
+  --hmp-border-gold: color-mix(in srgb, var(--hmp-gold) 55%, transparent);
+  --hmp-action-bg: var(--hmp-gold);
+  --hmp-action-text: var(--hmp-obsidian);
+  --hmp-focus: var(--hmp-charcoal);
+  color-scheme: light;
+}
+html, body, #root { background-color: var(--hmp-ivory); }
+body { color: var(--hmp-charcoal); }
+::selection { background: var(--hmp-gold); color: var(--hmp-obsidian); }
+:where(a, button, input, select, textarea, [role="button"]):focus-visible {
+  outline-color: var(--hmp-gold);
+}
+/* Semantic components, where used on shop/cart/checkout/admin/customer pages.
+   Do not recolor success/error/warning notices: those convey real status. */
+:where(#root) :is(.hmp-primary-button, .btn-primary, .button-primary, .primary-button, .brand-button) {
+  background-color: var(--hmp-gold);
+  border-color: var(--hmp-gold);
+  color: var(--hmp-obsidian);
+}
+:where(#root) :is(.hmp-secondary-button, .btn-secondary, .button-secondary, .secondary-button) {
+  background-color: transparent;
+  border-color: var(--hmp-charcoal);
+  color: var(--hmp-charcoal);
+}
+:where(#root) :is(.hmp-surface, .brand-surface) { background-color: var(--hmp-ivory); color: var(--hmp-charcoal); }
+:where(#root) :is(.hmp-surface-alt, .brand-surface-alt) { background-color: var(--hmp-stone); color: var(--hmp-charcoal); }
+:where(#root) :is(.hmp-dark-surface, .brand-dark-surface) { background-color: var(--hmp-obsidian); color: var(--hmp-ivory); }
+:where(#root) :is(.hmp-border, .brand-border) { border-color: var(--hmp-border); }
+.hmp-text-accent { color: var(--hmp-charcoal) !important; }
+.hmp-ornament-gold { color: var(--hmp-gold) !important; }
+.hmp-brand-bg { background-color: var(--hmp-gold) !important; color: var(--hmp-obsidian) !important; }
+.hmp-page-bg { background-color: var(--hmp-ivory) !important; }
+.hmp-panel-dark { background-color: var(--hmp-obsidian) !important; color: var(--hmp-ivory) !important; }
+
 
 html {
   scroll-behavior: smooth;

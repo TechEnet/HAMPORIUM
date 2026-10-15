@@ -1,3 +1,4 @@
+// V143: restore original orange big HAMPORIUM footer wordmark; retain V142 palette elsewhere.
 // V141: Footer.jsx - responsive layout + modern thin geometric HAMPORIUM wordmark with letter hover.
 // HAMPORIUM Footer - V15 | FIXED OXC PARSE ERROR | SINGLE DEFAULT EXPORT
 
@@ -385,7 +386,7 @@ function SocialLinks() {
 
     <section aria-label="HAMPORIUM social media" className="min-w-0 text-left max-lg:pt-5 max-lg:text-center">
 
-      <h2 className="mb-4 text-[11px] font-extrabold uppercase tracking-[0.22em] text-[#E6BF58]">
+      <h2 className="mb-4 text-[11px] font-extrabold uppercase tracking-[0.22em] text-[#B79B6A]">
 
         Social Media
 
@@ -397,7 +398,7 @@ function SocialLinks() {
 
           const icon = <SocialIcon name={name} />;
 
-          const baseClass = "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#E6BF58]/25 bg-white/[0.045] text-[#F4DC9B] transition-[color,background-color,border-color,transform] duration-300";
+          const baseClass = "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#B79B6A]/25 bg-white/[0.045] text-[#F4DC9B] transition-[color,background-color,border-color,transform] duration-300";
 
 
 
@@ -417,7 +418,7 @@ function SocialLinks() {
 
               title={name}
 
-              className={`${baseClass} hover:-translate-y-0.5 hover:border-[#F47822] hover:bg-[#F47822] hover:text-[#090807] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-[#F47822]`}
+              className={`${baseClass} hover:-translate-y-0.5 hover:border-[#B79B6A] hover:bg-[#B79B6A] hover:text-[#161715] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-[#B79B6A]`}
 
             >
 
@@ -453,11 +454,11 @@ function SocialLinks() {
 
         to="/contact"
 
-        className="group mt-4 inline-flex min-h-9 items-center gap-2 text-[12px] font-semibold text-white/65 transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-[#F47822]"
+        className="group mt-4 inline-flex min-h-9 items-center gap-2 text-[12px] font-semibold text-white/65 transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-[#B79B6A]"
 
       >
 
-        Need assistance? <span className="text-[#F47822] transition-transform duration-200 group-hover:translate-x-1">↗</span>
+        Need assistance? <span className="text-[#B79B6A] transition-transform duration-200 group-hover:translate-x-1">↗</span>
 
       </Link>
 
@@ -496,7 +497,7 @@ function DesktopLinks() {
 
         <div key={group.title} className="min-w-0">
 
-          <h2 className="mb-4 text-[11px] font-extrabold uppercase tracking-[0.22em] text-[#E6BF58]">
+          <h2 className="mb-4 text-[11px] font-extrabold uppercase tracking-[0.22em] text-[#B79B6A]">
 
             {group.title}
 
@@ -512,7 +513,7 @@ function DesktopLinks() {
 
                   to={link.to}
 
-                  className="group inline-block max-w-full rounded-sm py-0.5 text-[13px] font-medium leading-[1.5] text-white/65 transition-colors duration-200 hover:text-[#FFF6E3] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#F47822] lg:text-[14px]"
+                  className="group inline-block max-w-full rounded-sm py-0.5 text-[13px] font-medium leading-[1.5] text-white/65 transition-colors duration-200 hover:text-[#FAF8F4] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#B79B6A] lg:text-[14px]"
 
                 >
 
@@ -524,7 +525,7 @@ function DesktopLinks() {
 
                       aria-hidden="true"
 
-                      className="absolute -bottom-[3px] left-0 h-px w-full origin-left scale-x-0 bg-[#F47822] transition-transform duration-300 group-hover:scale-x-100"
+                      className="absolute -bottom-[3px] left-0 h-px w-full origin-left scale-x-0 bg-[#B79B6A] transition-transform duration-300 group-hover:scale-x-100"
 
                     />
 
@@ -582,11 +583,11 @@ function MobileLinks() {
 
               aria-controls={panelId}
 
-              className="flex min-h-[54px] w-full items-center justify-between gap-4 bg-transparent py-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#F47822]"
+              className="flex min-h-[54px] w-full items-center justify-between gap-4 bg-transparent py-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#B79B6A]"
 
             >
 
-              <span className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[#E6BF58]">
+              <span className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-[#B79B6A]">
 
                 {group.title}
 
@@ -600,7 +601,7 @@ function MobileLinks() {
 
                   isOpen
 
-                    ? "rotate-45 border-[#F47822] bg-[#F47822] text-black"
+                    ? "rotate-45 border-[#B79B6A] bg-[#B79B6A] text-black"
 
                     : "border-white/20 text-white/70"
 
@@ -644,13 +645,13 @@ function MobileLinks() {
 
                         tabIndex={isOpen ? 0 : -1}
 
-                        className="flex min-h-[44px] items-center justify-between gap-3 rounded-sm border-t border-white/[0.055] py-2.5 text-[13px] font-medium text-white/70 transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#F47822]"
+                        className="flex min-h-[44px] items-center justify-between gap-3 rounded-sm border-t border-white/[0.055] py-2.5 text-[13px] font-medium text-white/70 transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#B79B6A]"
 
                       >
 
                         <span>{link.label}</span>
 
-                        <span aria-hidden="true" className="text-[#F47822]">→</span>
+                        <span aria-hidden="true" className="text-[#B79B6A]">→</span>
 
                       </Link>
 
@@ -702,7 +703,7 @@ export default function Footer() {
           margin: 0;
           overflow-x: clip;
           color: #fff;
-          background: radial-gradient(ellipse at 0% 40%, rgba(244,120,34,.055), transparent 38%), radial-gradient(ellipse at 100% 10%, rgba(212,175,55,.045), transparent 38%), #090807;
+          background: radial-gradient(ellipse at 0% 40%, rgba(183,155,106,.055), transparent 38%), radial-gradient(ellipse at 100% 10%, rgba(183,155,106,.045), transparent 38%), #161715;
         }
         .hp-footer-container { width: 100%; max-width: 1680px; margin-inline: auto; padding-inline: clamp(20px, 4.2vw, 100px); }
         .hp-footer-main {
@@ -716,7 +717,7 @@ export default function Footer() {
         .hp-footer-brand { min-width: 0; }
         .hp-footer-brand-link { display: inline-flex; align-items: center; gap: 10px; min-width: 0; max-width: 100%; text-decoration: none; }
         .hp-footer-brand-icon { width: clamp(49px, 4.7vw, 75px); height: clamp(65px, 6.5vw, 95px); flex: 0 0 auto; object-fit: contain; }
-        .hp-footer-brand-title { min-width: 0; font-size: clamp(22px, 2.15vw, 36px); font-weight: 600; letter-spacing: .02em; line-height: 1; color: #fff8eb; white-space: nowrap; }
+        .hp-footer-brand-title { min-width: 0; font-size: clamp(22px, 2.15vw, 36px); font-weight: 600; letter-spacing: .02em; line-height: 1; color: #FAF8F4; white-space: nowrap; }
         .hp-footer-brand-link:hover .hp-footer-brand-title { color: #f7e7ca; }
         .hp-footer-desktop-links { min-width: 0; }
         .hp-footer-mobile-links { display: none; }
@@ -790,6 +791,19 @@ export default function Footer() {
             animation: none !important; transition-duration: 0.01ms !important;
           }
         }
+
+        /* V142 / FOOTER PALETTE: preserve individual letter hover and footer layout. */
+        .hp-footer {
+          color:#FAF8F4;
+          background:radial-gradient(ellipse at 10% 0%,rgba(183,155,106,.09),transparent 46%),#161715;
+        }
+        /* Preserve the original orange oversized HAMPORIUM wordmark. */
+        .hp-footer-wordmark-line { color:#F47822; }
+        @media (hover:hover) and (pointer:fine) {
+          .hp-footer-wordmark-letter:hover { color:#FFA548; }
+        }
+        .hp-footer-brand-title, .hp-footer-brand-link:hover .hp-footer-brand-title { color:#FAF8F4; }
+
       `}</style>
 
       <div className="hp-footer-container">

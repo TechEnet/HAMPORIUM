@@ -1,3 +1,7 @@
+// V152: frame-perfect scroll indicator, lighter hero compositing, scroll-paint optimizations.
+// V150: always-autoplay hero film on every refresh/return; real fallback only on playback failure.
+// V147: performance-focused Home - palette, logos, CTA, and UI retained.
+// V146: manager-approved HAMPORIUM brand palette / existing V145 UI preserved.
 // V144: Home.jsx - luxury minimalist journey + bestsellers copy cleanup; V142 performance retained.
 import {
   memo,
@@ -33,9 +37,6 @@ const HOME_MP4_VIDEO = HOME_VIDEO_VARIANTS["../../assets/hmp_compatible.mp4"] ||
 const HOME_WEBM_VIDEO = HOME_VIDEO_VARIANTS["../../assets/hmp.webm"] || "";
 import hamperOneLuxury from "../../assets/images/hamper_one_luxury.webp";
 import hamperOneWordmark from "../../assets/images/hamperOne_logo.jpeg";
-import storyImg1 from "../../assets/images/img1.png";
-import storyImg2 from "../../assets/images/img2.png";
-import storyImg3 from "../../assets/images/img3.png";
 
 import journeySignature1 from "../../assets/images/journey_signature_1.webp";
 import journeySignature2 from "../../assets/images/journey_signature_2.webp";
@@ -50,6 +51,54 @@ import bestsellerExecutiveLuxury from "../../assets/images/bestseller_executive_
 import bestsellerWeddingLuxury from "../../assets/images/bestseller_wedding_luxury.webp";
 import bestsellerGourmetLuxury from "../../assets/images/bestseller_gourmet_luxury.webp";
 import bestsellerCelebrationLuxury from "../../assets/images/bestseller_celebration_luxury.webp";
+
+// V147: Browser chooses an appropriate pre-optimized width (if generated).
+// Run the optional asset-optimizer in this package; without it all originals
+// continue working. Import paths and fallback sources are case-safe for Vercel.
+const HOME_RESPONSIVE_ASSETS = import.meta.glob(
+  "../../assets/images/*_fast-*.webp",
+  { eager: true, query: "?url", import: "default" }
+);
+
+const HOME_RESPONSIVE_SOURCES = {
+  journey_signature_1: journeySignature1,
+  journey_signature_2: journeySignature2,
+  journey_build_1: journeyBuild1,
+  journey_build_2: journeyBuild2,
+  journey_bulk_1: journeyBulk1,
+  journey_bulk_2: journeyBulk2,
+  bestseller_festive_luxury: bestsellerFestiveLuxury,
+  bestseller_executive_luxury: bestsellerExecutiveLuxury,
+  bestseller_wedding_luxury: bestsellerWeddingLuxury,
+  bestseller_gourmet_luxury: bestsellerGourmetLuxury,
+  bestseller_celebration_luxury: bestsellerCelebrationLuxury,
+  hamper_one_luxury: hamperOneLuxury,
+  gift_concierge_bg: giftConciergeBg,
+};
+
+const HOME_OPTIMIZED_IMAGES = (() => {
+  const optimized = new Map();
+  const grouped = new Map();
+  for (const [file, url] of Object.entries(HOME_RESPONSIVE_ASSETS)) {
+    const match = file.match(/\/([^/]+)_fast-(\d+)\.webp$/);
+    if (!match || typeof url !== "string") continue;
+    const [, basename, widthText] = match;
+    const name = String(basename);
+    if (!Object.prototype.hasOwnProperty.call(HOME_RESPONSIVE_SOURCES, name)) continue;
+    const group = grouped.get(name) || [];
+    group.push({ width: Number(widthText), url });
+    grouped.set(name, group);
+  }
+  for (const [basename, images] of grouped) {
+    images.sort((a, b) => a.width - b.width);
+    const selected = images.find(({ width }) => width >= 1600) || images[images.length - 1];
+    optimized.set(HOME_RESPONSIVE_SOURCES[basename], {
+      src: selected.url,
+      srcSet: images.map(({ width, url }) => `${url} ${width}w`).join(", "),
+    });
+  }
+  return optimized;
+})();
 
 // ======================================================
 // FONT
@@ -84,9 +133,6 @@ const HOME_IMAGES = {
 
   curated:
     journeySignature1,
-
-  why:
-    storyImg3,
 
   bestseller1:
     bestsellerFestiveLuxury,
@@ -153,15 +199,6 @@ const HOME_IMAGES = {
 
   finalCta:
     bestsellerCelebrationLuxury,
-
-  storyCurated:
-    storyImg1,
-
-  storyPersonal:
-    storyImg2,
-
-  storyUnboxing:
-    storyImg3,
 
   universalFallback:
     bestsellerExecutiveLuxury,
@@ -488,9 +525,9 @@ const runHamporiumRouteTransition = (to, navigate, reducedMotion = false) => {
       width: 50.5%;
       background:
         radial-gradient(ellipse at 50% 0%, rgba(231,196,105,.055) 0 12%, transparent 13% 100%) 0 0/52px 76px,
-        linear-gradient(115deg, rgba(255,255,255,.024), transparent 32%, rgba(212,175,55,.042) 52%, transparent 74%),
+        linear-gradient(115deg, rgba(255,255,255,.024), transparent 32%, rgba(183,155,106,.042) 52%, transparent 74%),
         linear-gradient(180deg,#100c08 0%,#080604 55%,#0d0906 100%);
-      box-shadow: inset 0 0 60px rgba(212,175,55,.05);
+      box-shadow: inset 0 0 60px rgba(183,155,106,.05);
       transition: transform 280ms cubic-bezier(.16,1,.3,1);
       will-change: transform;
     }
@@ -498,7 +535,7 @@ const runHamporiumRouteTransition = (to, navigate, reducedMotion = false) => {
       content: "";
       position: absolute;
       inset: 12px;
-      border: 1px solid rgba(212,175,55,.15);
+      border: 1px solid rgba(183,155,106,.15);
       pointer-events: none;
     }
     .hp-route-gift-transition .hp-route-wrap-left { left: 0; transform: translate3d(-104%,0,0); }
@@ -517,7 +554,7 @@ const runHamporiumRouteTransition = (to, navigate, reducedMotion = false) => {
       transform-origin: center;
       opacity: 0;
       border-block: 1px solid rgba(255,240,184,.28);
-      background: linear-gradient(180deg,#70450c 0%,#d7ad43 25%,#fff0b0 50%,#d7ad43 75%,#70450c 100%);
+      background: linear-gradient(180deg,#70450c 0%,#B79B6A 25%,#fff0b0 50%,#B79B6A 75%,#70450c 100%);
       box-shadow: 0 7px 26px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.42);
     }
     .hp-route-gift-transition.is-closing .hp-route-ribbon {
@@ -536,7 +573,7 @@ const runHamporiumRouteTransition = (to, navigate, reducedMotion = false) => {
       border: 1px solid rgba(255,235,165,.72);
       color: #291a05;
       font: 700 29px/1 'Cormorant Garamond',Georgia,serif;
-      background: radial-gradient(circle at 34% 28%,#fff1b2 0%,#efd46f 24%,#d1a53b 52%,#936014 80%,#5d3908 100%);
+      background: radial-gradient(circle at 34% 28%,#fff1b2 0%,#B79B6A 24%,#B79B6A 52%,#936014 80%,#5d3908 100%);
       box-shadow: 0 18px 46px rgba(0,0,0,.46), inset 0 1px 0 rgba(255,255,255,.54);
       opacity: 0;
       transform: translate(-50%,-50%) scale(.38) rotate(-22deg);
@@ -733,7 +770,7 @@ const Home = () => {
   }, [products]);
 
   return (
-    <main className="hp-home-v65 w-full overflow-x-clip bg-[#faf7f3] text-[#111111]">
+    <main className="hp-home-v65 w-full overflow-x-clip bg-[#FAF8F4] text-[#111111]">
       <style>
         {`
           @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,600&family=Manrope:wght@400;500;600;700;800&display=swap');
@@ -952,7 +989,7 @@ const Home = () => {
             opacity: 0;
             transform: scaleX(0);
             transform-origin: left center;
-            background: linear-gradient(90deg, #F47822 0%, #D4AF37 58%, transparent 100%);
+            background: linear-gradient(90deg, #B79B6A 0%, #B79B6A 58%, transparent 100%);
           }
 
           .hp-kinetic-heading.hp-section-heading.is-kinetic-visible::after {
@@ -1076,14 +1113,14 @@ const Home = () => {
           }
 
           .hp-bestseller-card {
-            --gift-paper: #F2E7D7;
-            --gift-paper-2: #FFF8EC;
+            --gift-paper: #E8E1D6;
+            --gift-paper-2: #FAF8F4;
             --gift-ink: #231A12;
             --gift-muted: rgba(35,26,18,.55);
-            --gift-accent: #A8771E;
+            --gift-accent: #B79B6A;
             --gift-edge: rgba(170,120,31,.38);
             --gift-ribbon-1: #F9E5A4;
-            --gift-ribbon-2: #D2A03C;
+            --gift-ribbon-2: #B79B6A;
             --gift-ribbon-3: #8F5C12;
 
             position: relative;
@@ -1155,7 +1192,7 @@ const Home = () => {
             --gift-paper-2: #FFF9EE;
             --gift-ink: #2A2119;
             --gift-muted: rgba(42,33,25,.54);
-            --gift-accent: #AA7720;
+            --gift-accent: #B79B6A;
             --gift-edge: rgba(166,116,27,.38);
           }
 
@@ -1167,7 +1204,7 @@ const Home = () => {
             --gift-accent: #E3BE66;
             --gift-edge: rgba(227,190,102,.42);
             --gift-ribbon-1: #FFE7A2;
-            --gift-ribbon-2: #D3A241;
+            --gift-ribbon-2: #B79B6A;
             --gift-ribbon-3: #85560F;
           }
 
@@ -1188,7 +1225,7 @@ const Home = () => {
             --gift-paper-2: #FFF9ED;
             --gift-ink: #251D15;
             --gift-muted: rgba(37,29,21,.52);
-            --gift-accent: #B4822B;
+            --gift-accent: #B79B6A;
             --gift-edge: rgba(174,127,42,.34);
           }
 
@@ -1421,7 +1458,7 @@ const Home = () => {
               radial-gradient(
                 circle at 34% 28%,
                 #F0D985 0%,
-                #C3902D 45%,
+                #B79B6A 45%,
                 #81500B 100%
               );
             border: 1px solid rgba(255,235,163,.50);
@@ -1603,8 +1640,8 @@ const Home = () => {
           .hp-bestseller-card:hover
           .hp-bestseller-arrow {
             transform: translateX(4px);
-            border-color: #F47822;
-            background: #F47822;
+            border-color: #B79B6A;
+            background: #B79B6A;
             color: #fff;
           }
 
@@ -1793,11 +1830,11 @@ const Home = () => {
 
           @keyframes hpBadgePulse {
             0%, 100% {
-              box-shadow: 0 0 0 0 rgba(244,120,34,.16);
+              box-shadow: 0 0 0 0 rgba(183,155,106,.16);
             }
 
             50% {
-              box-shadow: 0 0 0 14px rgba(244,120,34,0);
+              box-shadow: 0 0 0 14px rgba(183,155,106,0);
             }
           }
 
@@ -2337,7 +2374,7 @@ const Home = () => {
             position: relative;
             isolation: isolate;
             overflow: visible !important;
-            background: #090807;
+            background: #161715;
           }
 
           /*
@@ -2556,8 +2593,8 @@ const Home = () => {
             pointer-events: none;
             background: linear-gradient(
               90deg,
-              rgba(244,120,34,.95),
-              rgba(212,175,55,.92),
+              rgba(183,155,106,.95),
+              rgba(183,155,106,.92),
               rgba(255,231,157,.62)
             );
             clip-path: polygon(
@@ -2939,7 +2976,7 @@ const Home = () => {
             0%, 100% {
               box-shadow:
                 0 0 0 0
-                rgba(244,120,34,.15),
+                rgba(183,155,106,.15),
                 0 20px 50px
                 rgba(0,0,0,.18);
             }
@@ -2947,7 +2984,7 @@ const Home = () => {
             50% {
               box-shadow:
                 0 0 0 9px
-                rgba(244,120,34,0),
+                rgba(183,155,106,0),
                 0 26px 68px
                 rgba(0,0,0,.3);
             }
@@ -2990,7 +3027,7 @@ const Home = () => {
               translateY(-10px)
               scale(1.02);
             border-color:
-              rgba(244,120,34,.75);
+              rgba(183,155,106,.75);
             box-shadow:
               0 28px 70px
               rgba(0,0,0,.36);
@@ -2998,7 +3035,7 @@ const Home = () => {
 
           .hp-concierge-card.is-active {
             border-color:
-              rgba(244,120,34,.98);
+              rgba(183,155,106,.98);
             outline:
               1px solid
               rgba(255,214,112,.34);
@@ -3052,8 +3089,8 @@ const Home = () => {
             background:
               linear-gradient(
                 to right,
-                #E8C45D 0%,
-                #F47822
+                #B79B6A 0%,
+                #B79B6A
                 var(--hp-range-progress),
                 rgba(255,255,255,.18)
                 var(--hp-range-progress),
@@ -3069,13 +3106,13 @@ const Home = () => {
             height: 24px;
             border-radius: 999px;
             border:
-              3px solid #FFF7E9;
-            background: #F47822;
+              3px solid #FAF8F4;
+            background: #B79B6A;
             box-shadow:
               0 0 0 7px
-              rgba(244,120,34,.13),
+              rgba(183,155,106,.13),
               0 8px 22px
-              rgba(244,120,34,.36);
+              rgba(183,155,106,.36);
             cursor: pointer;
           }
 
@@ -3084,13 +3121,13 @@ const Home = () => {
             height: 24px;
             border-radius: 999px;
             border:
-              3px solid #FFF7E9;
-            background: #F47822;
+              3px solid #FAF8F4;
+            background: #B79B6A;
             box-shadow:
               0 0 0 7px
-              rgba(244,120,34,.13),
+              rgba(183,155,106,.13),
               0 8px 22px
-              rgba(244,120,34,.36);
+              rgba(183,155,106,.36);
             cursor: pointer;
           }
 
@@ -3129,7 +3166,7 @@ const Home = () => {
               translateY(-3px);
             box-shadow:
               0 18px 46px
-              rgba(244,120,34,.28);
+              rgba(183,155,106,.28);
           }
 
           .hp-concierge-cta:hover::after {
@@ -3163,7 +3200,9 @@ const Home = () => {
             height: 2px;
             pointer-events: none;
             opacity: 0;
-            transition: opacity .35s ease;
+            overflow: hidden;
+            contain: layout paint style;
+            transition: opacity .2s ease;
           }
 
           .hp-scroll-progress.is-visible {
@@ -3174,15 +3213,17 @@ const Home = () => {
             display: block;
             width: 100%;
             height: 100%;
-            transform: scaleX(var(--hp-scroll-progress));
+            transform: scaleX(0);
             transform-origin: left center;
+            backface-visibility: hidden;
+            transition: none !important;
             background: linear-gradient(
               90deg,
-              #F47822 0%,
-              #D4AF37 100%
+              #B79B6A 0%,
+              #B79B6A 100%
             );
             box-shadow:
-              0 0 12px rgba(244,120,34,.34);
+              0 0 12px rgba(183,155,106,.34);
             will-change: transform;
           }
 
@@ -3226,12 +3267,12 @@ const Home = () => {
               linear-gradient(
                 90deg,
                 transparent 0%,
-                #F47822 18%,
-                #D4AF37 62%,
+                #B79B6A 18%,
+                #B79B6A 62%,
                 transparent 100%
               );
             box-shadow:
-              0 0 18px rgba(212,175,55,.36);
+              0 0 18px rgba(183,155,106,.36);
             will-change: transform;
           }
 
@@ -3258,8 +3299,8 @@ const Home = () => {
                 circle 220px at
                 var(--hp-pointer-x, 50%)
                 var(--hp-pointer-y, 50%),
-                rgba(244,120,34,.075) 0%,
-                rgba(212,175,55,.03) 40%,
+                rgba(183,155,106,.075) 0%,
+                rgba(183,155,106,.03) 40%,
                 transparent 72%
               );
             transition: opacity .5s ease;
@@ -3289,8 +3330,8 @@ const Home = () => {
               radial-gradient(
                 circle,
                 rgba(255,238,164,.96) 0%,
-                rgba(244,120,34,.42) 28%,
-                rgba(212,175,55,.14) 52%,
+                rgba(183,155,106,.42) 28%,
+                rgba(183,155,106,.14) 52%,
                 transparent 74%
               );
             filter: blur(12px);
@@ -3347,7 +3388,7 @@ const Home = () => {
               scaleX(1.015);
             box-shadow:
               0 22px 42px rgba(0,0,0,.48),
-              0 -6px 24px rgba(212,175,55,.12);
+              0 -6px 24px rgba(183,155,106,.12);
           }
 
           .hp-concierge-gift-box.is-opening
@@ -3375,8 +3416,8 @@ const Home = () => {
             background:
               radial-gradient(
                 circle at 50% 56%,
-                rgba(244,120,34,.15),
-                rgba(212,175,55,.08) 24%,
+                rgba(183,155,106,.15),
+                rgba(183,155,106,.08) 24%,
                 transparent 54%
               );
             transition: opacity .28s ease;
@@ -3444,13 +3485,13 @@ const Home = () => {
               linear-gradient(
                 to bottom,
                 transparent 0%,
-                #F3DB8C 16%,
-                #D4AF37 50%,
-                #F47822 84%,
+                #B79B6A 16%,
+                #B79B6A 50%,
+                #B79B6A 84%,
                 transparent 100%
               );
             box-shadow:
-              0 0 18px rgba(212,175,55,.5);
+              0 0 18px rgba(183,155,106,.5);
           }
 
           @keyframes hpHamperOneCurtainSweep {
@@ -3605,7 +3646,7 @@ const Home = () => {
             }
 
             .hp-bulk-step-card .hp-bulk-step-kicker {
-              color: #F47822 !important;
+              color: #B79B6A !important;
             }
 
             .hp-bulk-step-card .hp-bulk-step-arrow {
@@ -3613,7 +3654,7 @@ const Home = () => {
             }
 
             .hp-bulk-step-card .hp-bulk-step-title {
-              color: #171717 !important;
+              color: #161715 !important;
             }
 
             .hp-bulk-step-card .hp-bulk-step-copy {
@@ -3630,7 +3671,7 @@ const Home = () => {
 
           [data-home-section="bulk"] .hp-bulk-step-card {
             isolation: isolate;
-            background: #F3EEE6;
+            background: #E8E1D6;
             border-color: rgba(23,23,23,.10);
             transition:
               border-color .38s ease,
@@ -3706,7 +3747,7 @@ const Home = () => {
           [data-home-section="bulk"] .hp-bulk-step-visual-cue::after {
             content: "";
             position: absolute;
-            background: #F3D06A;
+            background: #B79B6A;
           }
 
           [data-home-section="bulk"] .hp-bulk-step-visual-cue::before {
@@ -3717,15 +3758,15 @@ const Home = () => {
           [data-home-section="bulk"] .hp-bulk-step-visual-cue::after {
             width: 7px;
             height: 7px;
-            border-top: 2px solid #F3D06A;
-            border-right: 2px solid #F3D06A;
+            border-top: 2px solid #B79B6A;
+            border-right: 2px solid #B79B6A;
             background: transparent;
             transform: translateX(5px) rotate(45deg);
           }
 
           @media (hover:hover) and (pointer:fine) {
             [data-home-section="bulk"] .hp-bulk-step-card:hover {
-              border-color: rgba(212,175,55,.42);
+              border-color: rgba(183,155,106,.42);
               box-shadow: 0 26px 60px rgba(42,28,11,.18);
               transform: translateY(-3px);
             }
@@ -3751,14 +3792,14 @@ const Home = () => {
             }
 
             [data-home-section="bulk"] .hp-bulk-step-card:hover .hp-bulk-step-title {
-              color: #FFF8EC !important;
+              color: #FAF8F4 !important;
               text-shadow: 0 10px 30px rgba(0,0,0,.42);
               transform: translateX(4px);
             }
 
             [data-home-section="bulk"] .hp-bulk-step-card:hover .hp-bulk-step-visual-cue {
               transform: translateY(-50%) translateX(5px);
-              background: rgba(244,120,34,.86);
+              background: rgba(183,155,106,.86);
               border-color: rgba(255,255,255,.68);
             }
           }
@@ -3788,7 +3829,7 @@ const Home = () => {
             }
 
             [data-home-section="bulk"] .hp-bulk-step-title {
-              color: #171717 !important;
+              color: #161715 !important;
             }
 
             [data-home-section="bulk"] .hp-bulk-step-visual-cue {
@@ -3859,7 +3900,7 @@ const Home = () => {
           .hp-home-v65 *, .hp-home-quick-dialog * { box-sizing: border-box; }
           .hp-home-v65 :where(button, a, input):focus-visible,
           .hp-home-quick-dialog :where(button, a):focus-visible {
-            outline: 2px solid #F47822; outline-offset: 5px;
+            outline: 2px solid #B79B6A; outline-offset: 5px;
           }
           .hp-home-v65 button:disabled { cursor: not-allowed; }
           .hp-home-v65 [data-home-section] { scroll-margin-top: 86px; }
@@ -3982,7 +4023,19 @@ const Home = () => {
             }
           }
 
-          .hp-home-v65 .hp-gift-product-window img { will-change: auto; filter: none !important; }
+           .hp-home-v65 .hp-gift-product-window img { will-change: auto; filter: none !important; }
+           .hp-home-v65 .hp-story-image,
+           .hp-home-v65 .hp-journey-story-sheet,
+           .hp-home-v65 .hp-fluid-image,
+           .hp-home-v65 .hp-journey-base,
+           .hp-home-v65 .hp-journey-hover {
+             will-change: auto;
+           }
+           @media (max-width: 1023px), (prefers-reduced-motion: reduce) {
+             .hp-home-v65 .hp-home-golden-thread-path { stroke-dashoffset: 0 !important; }
+             .hp-home-v65 .hp-home-golden-thread-knot { display: none !important; }
+             .hp-home-v65 .hp-story-line { filter: none !important; }
+           }
           .hp-home-v65 .hp-editorial-base, .hp-home-v65 .hp-editorial-hover { will-change: auto; }
           .hp-home-v65 .hp-offscreen *, .hp-home-v65 [data-page-hidden="true"] * {
             animation-play-state: paused !important;
@@ -4034,6 +4087,15 @@ const Home = () => {
           .hamporium-home.hp-perf-lite .hp-pointer-glow::before {
             display: none !important;
           }
+           .hamporium-home.hp-perf-lite .hp-story-sheet,
+           .hamporium-home.hp-perf-lite .hp-gift-product-window img,
+           .hamporium-home.hp-perf-lite .hp-fluid-image {
+             will-change: auto !important;
+           }
+           .hamporium-home.hp-perf-lite .hp-kinetic-heading,
+           .hamporium-home.hp-perf-lite .hp-kinetic-heading .hp-section-heading-accent {
+             filter: none !important;
+           }
           .hamporium-home.hp-perf-lite .hp-gift-concierge-fab,
           .hamporium-home.hp-perf-lite .hp-concierge-card,
           .hamporium-home.hp-perf-lite .hp-concierge-sheet {
@@ -4052,6 +4114,7 @@ const Home = () => {
             background: #12110dbf; color: #fff9e8; border: 1px solid #fff4d430; border-radius: 99px;
             font-size: 12px; font-weight: 650; backdrop-filter: blur(5px); transition: background .3s ease;
           }
+          .hp-hero-controls--only-video { justify-content: flex-end; }
           .hp-hero-controls button:hover { background: #211c13; }
           .hp-hero-controls svg { width: 16px; height: 16px; }
           .hp-hero-fallback-copy {
@@ -4059,10 +4122,10 @@ const Home = () => {
             padding: 110px clamp(24px,5vw,88px); color: #fff4dc;
             background: linear-gradient(90deg,#070604ed,#07060499 50%,#07060420);
           }
-          .hp-hero-fallback-copy > p { font-size: 12px; letter-spacing: .24em; color: #edc868; }
+          .hp-hero-fallback-copy > p { font-size: 12px; letter-spacing: .24em; color: #B79B6A; }
           .hp-hero-fallback-copy h2 { margin: 24px 0; max-width: 900px; font: 600 clamp(40px,5.5vw,94px)/.99 'Cormorant Garamond',Georgia,serif; }
-          .hp-hero-fallback-copy h2 em { color: #edc868; }
-          .hp-hero-fallback-copy a { min-height: 48px; display: inline-flex; align-items:center; gap: 28px; padding: 0 24px; background: #f47822; color: white; font-size: 13px; font-weight: 700; }
+          .hp-hero-fallback-copy h2 em { color: #B79B6A; }
+          .hp-hero-fallback-copy a { min-height: 48px; display: inline-flex; align-items:center; gap: 28px; padding: 0 24px; background: #B79B6A; color: white; font-size: 13px; font-weight: 700; }
 
           /* Navigable carousels: native scroll; no wheel or touch hijack. */
           .hp-home-v65 .hp-rail-controls {
@@ -4074,17 +4137,17 @@ const Home = () => {
           .hp-home-v65 .hp-rail-controls-dark { color: #b6ac9a; }
           .hp-home-v65 .hp-rail-controls-dark p > span { color: #f6e7c6; }
           .hp-home-v65 .hp-rail-track { flex: 1; max-width: 230px; height: 2px; background: #ad997c30; }
-          .hp-home-v65 .hp-rail-track > span { height: 100%; display: block; background: #b98d2a; transition: width .5s var(--hp-motion-ease); }
+          .hp-home-v65 .hp-rail-track > span { height: 100%; display: block; background: #B79B6A; transition: width .5s var(--hp-motion-ease); }
           .hp-home-v65 .hp-rail-arrows { margin-left: auto; display: flex; gap: 9px; }
           .hp-home-v65 .hp-rail-arrows button {
             display: grid; place-items: center; width: 46px; height: 46px; border: 1px solid #a989593d;
-            border-radius: 50%; color: #3a2b1a; background: #fffaf2; transition: color .3s ease, background .3s ease, border-color .3s ease;
+            border-radius: 50%; color: #3a2b1a; background: #FAF8F4; transition: color .3s ease, background .3s ease, border-color .3s ease;
           }
           .hp-home-v65 .hp-rail-controls-dark button { background: #fff6e409; color: #f1d582; border-color: #d4af3752; }
-          .hp-home-v65 .hp-rail-arrows button:not(:disabled):hover { background: #302319; color: #fff6e7; border-color: #302319; }
+          .hp-home-v65 .hp-rail-arrows button:not(:disabled):hover { background: #403A32; color: #fff6e7; border-color: #403A32; }
           .hp-home-v65 .hp-rail-arrows button:disabled { opacity: .3; }
           .hp-home-v65 .hp-snap-rail { position: relative; }
-          .hp-home-v65 .hp-snap-rail:focus-visible { outline: 2px solid #c9913b; outline-offset: 5px; }
+          .hp-home-v65 .hp-snap-rail:focus-visible { outline: 2px solid #B79B6A; outline-offset: 5px; }
           .hp-home-v65 .hp-collection-interactive { margin-top: clamp(26px,3.5vw,52px); }
           .hp-home-v65 .hp-bestseller-runway {
             display: flex !important; gap: 18px !important; width: 100% !important; max-width: 100% !important;
@@ -4135,7 +4198,7 @@ const Home = () => {
           .hp-home-v65 .hp-budget-steps button.is-selected { color: #ffda89; border-color: #d4af378c; background: #d4af3715; }
           .hp-home-v65 .hp-budget-steps button:hover { background: #d4af3720; }
           .hp-home-v65 .hp-concierge-range { min-height: 7px; cursor: pointer; }
-          .hp-home-v65 .hp-concierge-range:focus-visible { outline: 2px solid #f47822; outline-offset: 10px; }
+          .hp-home-v65 .hp-concierge-range:focus-visible { outline: 2px solid #B79B6A; outline-offset: 10px; }
           .hp-home-v65 .hp-concierge-cta { min-width: 200px; font-size: 12px; transition: transform .4s var(--hp-motion-ease), box-shadow .3s ease; }
           .hp-home-v65 .hp-concierge-cta:not(:disabled):hover { transform: translateY(-2px); }
 
@@ -4158,7 +4221,7 @@ const Home = () => {
           .hp-quick-description { font-size: 14px; line-height:1.8; color:#6b5d4f; }
           .hp-quick-price { margin: 20px 0 10px; font-size: 27px; font-weight: 750; }
           .hp-quick-note { color:#756957; font-size:12px; line-height:1.7; padding-top:14px; border-top:1px solid #e6dccf; }
-          .hp-quick-link { display:flex; justify-content:space-between; align-items:center; min-height:50px; padding:0 20px; margin-top:24px; background:#f47822; color:#fff; font-size:13px; font-weight:750; text-decoration:none; border-radius:6px; }
+          .hp-quick-link { display:flex; justify-content:space-between; align-items:center; min-height:50px; padding:0 20px; margin-top:24px; background:#B79B6A; color:#fff; font-size:13px; font-weight:750; text-decoration:none; border-radius:6px; }
           .hp-quick-continue { display:block; min-height:44px; margin:8px auto 0; color:#776a59; background:transparent; border:0; font-size:12px; }
           .hp-quick-close { position:absolute; top:12px; right:12px; z-index:3; display:grid; place-items:center; width:42px; height:42px; border-radius:50%; background:#fffdf8; border:1px solid #ddd0bc; color:#3a2b20; }
 
@@ -4612,7 +4675,7 @@ const Home = () => {
               inset 0 1px 0 rgba(255,255,255,.34),
               inset 0 -5px 12px rgba(92,55,8,.20),
               0 10px 20px rgba(0,0,0,.20),
-              0 0 0 4px rgba(212,175,55,.07);
+              0 0 0 4px rgba(183,155,106,.07);
           }
 
           .hp-home-v65 .hp-wrap-seal::after {
@@ -5007,7 +5070,7 @@ const Home = () => {
 
             [data-home-section="bulk"] .hp-bulk-step-card:focus,
             [data-home-section="bulk"] .hp-bulk-step-card:focus-visible {
-              border-color: rgba(212,175,55,.46) !important;
+              border-color: rgba(183,155,106,.46) !important;
               box-shadow: 0 22px 54px rgba(42,28,11,.18) !important;
             }
 
@@ -5037,7 +5100,7 @@ const Home = () => {
 
             [data-home-section="bulk"] .hp-bulk-step-card:focus .hp-bulk-step-title,
             [data-home-section="bulk"] .hp-bulk-step-card:focus-visible .hp-bulk-step-title {
-              color: #FFF8EC !important;
+              color: #FAF8F4 !important;
               text-shadow: 0 10px 30px rgba(0,0,0,.44) !important;
               transform: translateX(4px);
             }
@@ -5045,7 +5108,7 @@ const Home = () => {
             [data-home-section="bulk"] .hp-bulk-step-card:focus .hp-bulk-step-visual-cue,
             [data-home-section="bulk"] .hp-bulk-step-card:focus-visible .hp-bulk-step-visual-cue {
               transform: translateY(-50%) translateX(5px) !important;
-              background: rgba(244,120,34,.90) !important;
+              background: rgba(183,155,106,.90) !important;
               border-color: rgba(255,255,255,.72) !important;
             }
           }
@@ -5103,11 +5166,11 @@ const Home = () => {
 
           @keyframes hpWhyStatusPulse {
             0%, 100% {
-              box-shadow: 0 0 0 0 rgba(244,120,34,.18);
+              box-shadow: 0 0 0 0 rgba(183,155,106,.18);
             }
 
             50% {
-              box-shadow: 0 0 0 7px rgba(244,120,34,0);
+              box-shadow: 0 0 0 7px rgba(183,155,106,0);
             }
           }
 
@@ -5170,7 +5233,7 @@ const Home = () => {
             border-radius: inherit;
             opacity: .55;
             background:
-              radial-gradient(circle at 18% 12%, rgba(212,175,55,.10), transparent 26%),
+              radial-gradient(circle at 18% 12%, rgba(183,155,106,.10), transparent 26%),
               linear-gradient(135deg, rgba(255,255,255,.035), transparent 42%);
             transition: opacity .42s ease;
           }
@@ -5183,7 +5246,7 @@ const Home = () => {
             bottom: 0;
             height: 1px;
             opacity: .22;
-            background: linear-gradient(90deg, transparent, #D4AF37, transparent);
+            background: linear-gradient(90deg, transparent, #B79B6A, transparent);
             transform: scaleX(.58);
             transform-origin: center;
             transition:
@@ -5215,11 +5278,11 @@ const Home = () => {
           @media (hover:hover) and (pointer:fine) {
             .hp-why-card:hover {
               transform: translateY(-8px);
-              border-color: rgba(212,175,55,.42);
+              border-color: rgba(183,155,106,.42);
               background-color: rgba(12,9,6,.52);
               box-shadow:
                 0 34px 78px rgba(0,0,0,.30),
-                0 0 0 1px rgba(212,175,55,.05),
+                0 0 0 1px rgba(183,155,106,.05),
                 inset 0 1px 0 rgba(255,255,255,.06);
             }
 
@@ -5243,16 +5306,16 @@ const Home = () => {
             .hp-why-card:hover .hp-why-icon-shell {
               transform: translateY(-3px) rotate(-4deg) scale(1.08);
               color: #F6C66A;
-              border-color: rgba(244,120,34,.62);
-              background: rgba(244,120,34,.10);
+              border-color: rgba(183,155,106,.62);
+              background: rgba(183,155,106,.10);
               box-shadow:
                 0 12px 28px rgba(0,0,0,.22),
-                0 0 0 6px rgba(244,120,34,.05);
+                0 0 0 6px rgba(183,155,106,.05);
             }
 
             .hp-why-card:hover .hp-why-card-rule {
               width: 74px;
-              background: linear-gradient(90deg, #F47822, #D4AF37, transparent);
+              background: linear-gradient(90deg, #B79B6A, #B79B6A, transparent);
             }
           }
 
@@ -5310,12 +5373,12 @@ const Home = () => {
           @keyframes hpUnwrapHotspotPulse {
             0%, 100% {
               box-shadow:
-                0 0 0 0 rgba(212,175,55,.24),
+                0 0 0 0 rgba(183,155,106,.24),
                 0 12px 34px rgba(0,0,0,.28);
             }
             50% {
               box-shadow:
-                0 0 0 10px rgba(212,175,55,0),
+                0 0 0 10px rgba(183,155,106,0),
                 0 16px 42px rgba(0,0,0,.34);
             }
           }
@@ -5341,17 +5404,17 @@ const Home = () => {
                 90deg,
                 rgba(255,255,255,.025),
                 transparent 16%,
-                rgba(212,175,55,.055) 48%,
+                rgba(183,155,106,.055) 48%,
                 transparent 72%,
                 rgba(0,0,0,.20)
               ),
               repeating-linear-gradient(
                 90deg,
                 #120d08 0 34px,
-                #090705 34px 68px
+                #161715 34px 68px
               );
             box-shadow:
-              inset 0 0 46px rgba(212,175,55,.06),
+              inset 0 0 46px rgba(183,155,106,.06),
               0 0 42px rgba(0,0,0,.34);
           }
 
@@ -5469,7 +5532,7 @@ const Home = () => {
             transform: scaleX(.34);
             transform-origin: left center;
             opacity: .58;
-            background: linear-gradient(90deg, #F3D66D 0%, #D4AF37 58%, transparent 100%);
+            background: linear-gradient(90deg, #F3D66D 0%, #B79B6A 58%, transparent 100%);
             transition:
               transform .9s cubic-bezier(.16,1,.3,1),
               opacity .55s ease;
@@ -5589,7 +5652,7 @@ const Home = () => {
           @media (min-width: 1024px) and (hover: hover) and (pointer: fine) {
             [data-home-section="bulk"] .hp-bulk-rail:not(:hover)
             > .hp-bulk-step-card:first-child {
-              border-color: rgba(212,175,55,.42) !important;
+              border-color: rgba(183,155,106,.42) !important;
               box-shadow: 0 26px 60px rgba(42,28,11,.18) !important;
               transform: translateY(-3px) !important;
             }
@@ -5619,7 +5682,7 @@ const Home = () => {
 
             [data-home-section="bulk"] .hp-bulk-rail:not(:hover)
             > .hp-bulk-step-card:first-child .hp-bulk-step-title {
-              color: #FFF8EC !important;
+              color: #FAF8F4 !important;
               text-shadow: 0 10px 30px rgba(0,0,0,.42) !important;
               transform: translateX(4px) !important;
             }
@@ -5627,7 +5690,7 @@ const Home = () => {
             [data-home-section="bulk"] .hp-bulk-rail:not(:hover)
             > .hp-bulk-step-card:first-child .hp-bulk-step-visual-cue {
               transform: translateY(-50%) translateX(5px) !important;
-              background: rgba(244,120,34,.86) !important;
+              background: rgba(183,155,106,.86) !important;
               border-color: rgba(255,255,255,.68) !important;
             }
           }
@@ -5669,7 +5732,7 @@ const Home = () => {
 
             /* The nearest card receives the desktop-hover presentation automatically. */
             [data-home-section="bulk"] .hp-bulk-step-card.is-mobile-active {
-              border-color: rgba(212,175,55,.46) !important;
+              border-color: rgba(183,155,106,.46) !important;
               box-shadow: 0 22px 54px rgba(42,28,11,.18) !important;
             }
 
@@ -5699,7 +5762,7 @@ const Home = () => {
 
             [data-home-section="bulk"] .hp-bulk-step-card.is-mobile-active
             .hp-bulk-step-title {
-              color: #FFF8EC !important;
+              color: #FAF8F4 !important;
               text-shadow: 0 10px 30px rgba(0,0,0,.44) !important;
               transform: translateX(4px) !important;
             }
@@ -5707,7 +5770,7 @@ const Home = () => {
             [data-home-section="bulk"] .hp-bulk-step-card.is-mobile-active
             .hp-bulk-step-visual-cue {
               transform: translateY(-50%) translateX(5px) !important;
-              background: rgba(244,120,34,.90) !important;
+              background: rgba(183,155,106,.90) !important;
               border-color: rgba(255,255,255,.72) !important;
             }
 
@@ -5752,7 +5815,7 @@ const Home = () => {
             .hp-bulk-step-title,
             [data-home-section="bulk"] .hp-bulk-step-card:focus-visible:not(.is-mobile-active)
             .hp-bulk-step-title {
-              color: #171717 !important;
+              color: #161715 !important;
               text-shadow: none !important;
               transform: none !important;
             }
@@ -5796,7 +5859,7 @@ const Home = () => {
 
           .hp-home-golden-thread-path-soft {
             fill: none;
-            stroke: rgba(212,175,55,.10);
+            stroke: rgba(183,155,106,.10);
             stroke-width: 4;
           }
 
@@ -5807,7 +5870,7 @@ const Home = () => {
             stroke-linecap: round;
             stroke-dasharray: 1;
             stroke-dashoffset: calc(1 - var(--hp-golden-progress));
-            filter: drop-shadow(0 0 5px rgba(212,175,55,.30));
+            filter: drop-shadow(0 0 5px rgba(183,155,106,.30));
           }
 
           .hp-home-golden-thread-knot {
@@ -5818,7 +5881,7 @@ const Home = () => {
             height: 8px;
             border: 1px solid rgba(255,237,164,.72);
             background: radial-gradient(circle at 35% 30%, #F6E5A2, #C9962E 58%, #734608);
-            box-shadow: 0 0 14px rgba(212,175,55,.38);
+            box-shadow: 0 0 14px rgba(183,155,106,.38);
             transform: translate(-50%,-50%) rotate(45deg);
             transition: top 70ms linear;
           }
@@ -5868,7 +5931,7 @@ const Home = () => {
             flex: 0 0 28px;
             place-items: center;
             border-radius: 50%;
-            background: radial-gradient(circle at 34% 28%,#fff1b2,#d1a53b 56%,#7c4b0b);
+            background: radial-gradient(circle at 34% 28%,#fff1b2,#B79B6A 56%,#7c4b0b);
             color: #211504;
             font-family: 'Cormorant Garamond',Georgia,serif;
             font-size: 15px;
@@ -5894,7 +5957,7 @@ const Home = () => {
             border: 1px solid rgba(218,181,78,.30);
             border-radius: 28px 28px 20px 20px;
             background:
-              radial-gradient(circle at 50% 0%, rgba(212,175,55,.12), transparent 34%),
+              radial-gradient(circle at 50% 0%, rgba(183,155,106,.12), transparent 34%),
               linear-gradient(155deg,#18120d 0%,#0b0806 56%,#15100b 100%);
             color: #FFF6DE;
             box-shadow: 0 -26px 90px rgba(0,0,0,.44), inset 0 1px 0 rgba(255,255,255,.035);
@@ -5947,8 +6010,8 @@ const Home = () => {
           }
 
           .hp-gift-concierge-progress span.is-active {
-            background: linear-gradient(90deg,#F47822,#D4AF37,#F4D36A);
-            box-shadow: 0 0 12px rgba(212,175,55,.18);
+            background: linear-gradient(90deg,#B79B6A,#B79B6A,#B79B6A);
+            box-shadow: 0 0 12px rgba(183,155,106,.18);
           }
 
           .hp-gift-concierge-question {
@@ -5984,7 +6047,7 @@ const Home = () => {
           .hp-gift-concierge-option:hover,
           .hp-gift-concierge-option.is-selected {
             border-color: rgba(226,191,91,.62);
-            background: rgba(212,175,55,.10);
+            background: rgba(183,155,106,.10);
             color: #FFE8A7;
             transform: translateY(-1px);
           }
@@ -6013,7 +6076,7 @@ const Home = () => {
             padding: 0 20px;
             border: 1px solid rgba(255,231,156,.38);
             border-radius: 999px;
-            background: linear-gradient(90deg,#A96D13,#E0B84D 48%,#F0CF69 70%,#A66A12);
+            background: linear-gradient(90deg,#B79B6A,#E0B84D 48%,#F0CF69 70%,#A66A12);
             color: #1E1507;
             font-size: 10px;
             font-weight: 950;
@@ -6218,7 +6281,7 @@ const Home = () => {
 
 
           /* ==================================================
-             V145 / THE ATELIER INVITATION
+             V145 / THE ATELIER INVITATION (V146 COLORS)
              A cinematic dual-surface invitation: brushed-gold perimeter,
              espresso editorial panel and warm-ivory action panel.
              No extra copy; everything remains legible and responsive.
@@ -6306,8 +6369,8 @@ const Home = () => {
             isolation: isolate;
             overflow: hidden;
             background:
-              radial-gradient(circle at 84% 12%, rgba(230,169,92,.16), transparent 36%),
-              radial-gradient(circle at -4% 106%, rgba(216,163,87,.10), transparent 43%),
+              radial-gradient(circle at 84% 12%, rgba(183,155,106,.16), transparent 36%),
+              radial-gradient(circle at -4% 106%, rgba(183,155,106,.10), transparent 43%),
               linear-gradient(140deg, #36261d 0%, #291c16 50%, #1c1410 100%);
           }
           .hp-home-v65 .hp-contact-finale__intro::before {
@@ -6328,9 +6391,9 @@ const Home = () => {
             right: -113px;
             width: 280px;
             height: 280px;
-            border: 1px solid rgba(237,183,100,.15);
+            border: 1px solid rgba(183,155,106,.15);
             border-radius: 50%;
-            box-shadow: 0 0 0 30px rgba(237,183,100,.027), 0 0 0 74px rgba(237,183,100,.022);
+            box-shadow: 0 0 0 30px rgba(183,155,106,.027), 0 0 0 74px rgba(183,155,106,.022);
             pointer-events: none;
           }
           .hp-home-v65 .hp-contact-finale__title {
@@ -6340,7 +6403,7 @@ const Home = () => {
             max-width: 770px;
             margin: 0;
             padding: 0;
-            color: #fff7e9;
+            color: #FAF8F4;
             font-family: 'Montserrat', 'Manrope', Arial, sans-serif;
             text-align: left;
             text-wrap: balance;
@@ -6366,8 +6429,8 @@ const Home = () => {
             -webkit-text-stroke: 0;
           }
           .hp-home-v65 .hp-contact-finale__title .hp-contact-finale__line {
-            color: #fff8ed !important;
-            -webkit-text-fill-color: #fff8ed !important;
+            color: #FAF8F4 !important;
+            -webkit-text-fill-color: #FAF8F4 !important;
           }
           html body #root .hp-home-v65 .hp-contact-finale .hp-contact-finale__title .hp-contact-finale__accent {
             margin-top: .18em;
@@ -6393,8 +6456,8 @@ const Home = () => {
             isolation: isolate;
             border-left: 1px solid rgba(246,215,164,.38);
             background:
-              radial-gradient(circle at 100% 100%, rgba(216,164,93,.14), transparent 42%),
-              linear-gradient(165deg, #fffaf2 0%, #f6ede0 100%);
+              radial-gradient(circle at 100% 100%, rgba(183,155,106,.14), transparent 42%),
+              linear-gradient(165deg, #FAF8F4 0%, #f6ede0 100%);
           }
           .hp-home-v65 .hp-contact-finale__message::before {
             content: '';
@@ -6403,7 +6466,7 @@ const Home = () => {
             left: clamp(35px, 4.1vw, 74px);
             width: 90px;
             height: 2px;
-            background: linear-gradient(90deg, #c37335, #d7b269 52%, transparent);
+            background: linear-gradient(90deg, #B79B6A, #B79B6A 52%, transparent);
             pointer-events: none;
           }
           .hp-home-v65 .hp-contact-finale__message::after {
@@ -6449,8 +6512,8 @@ const Home = () => {
             padding: 8px 10px 8px 23px;
             border: 1px solid rgba(141,62,19,.72);
             border-radius: 7px;
-            background: linear-gradient(115deg, #c25d24 0%, #dd762f 100%);
-            color: #fffaf2;
+            background: linear-gradient(115deg, #B79B6A 0%, #B79B6A 100%);
+            color: #FAF8F4;
             font-family: 'Montserrat', Arial, sans-serif;
             font-size: 12px;
             font-weight: 500;
@@ -6459,14 +6522,14 @@ const Home = () => {
             text-decoration: none;
             text-transform: uppercase;
             white-space: nowrap;
-            box-shadow: 0 12px 26px rgba(154,78,33,.21), inset 0 1px 0 rgba(255,239,198,.24);
+            box-shadow: 0 12px 26px rgba(64,58,50,.21), inset 0 1px 0 rgba(255,239,198,.24);
             transition: transform .32s cubic-bezier(.2,1,.3,1), box-shadow .32s ease, background .32s ease;
           }
           .hp-home-v65 .hp-contact-finale__cta:hover,
           .hp-home-v65 .hp-contact-finale__cta:focus-visible {
             transform: translateY(-3px);
-            background: linear-gradient(115deg, #a64d1d 0%, #cf6726 100%);
-            box-shadow: 0 18px 32px rgba(154,78,33,.29), inset 0 1px 0 rgba(255,239,198,.30);
+            background: linear-gradient(115deg, #B79B6A 0%, #B79B6A 100%);
+            box-shadow: 0 18px 32px rgba(64,58,50,.29), inset 0 1px 0 rgba(255,239,198,.30);
           }
           .hp-home-v65 .hp-contact-finale__arrow {
             display: grid;
@@ -6476,7 +6539,7 @@ const Home = () => {
             height: 40px;
             border: 1px solid rgba(255,244,218,.53);
             border-radius: 5px;
-            color: #fffaf2;
+            color: #FAF8F4;
             font-family: Arial, sans-serif;
             font-size: 23px;
             line-height: 1;
@@ -6561,6 +6624,132 @@ const Home = () => {
             will-change: auto;
           }
 
+
+
+          /* ==============================================================
+             V146 / HAMPORIUM OFFICIAL PALETTE — 5 COLORS ONLY
+             Text, interface colors and gifts; original photography preserved.
+             =============================================================== */
+          .hp-home-v65 { --hmp-ivory:#FAF8F4; --hmp-stone:#E8E1D6; --hmp-gold:#B79B6A; --hmp-charcoal:#403A32; --hmp-obsidian:#161715; }
+          .hp-home-v65, .hp-home-v65 .hp-collection-interactive { color:var(--hmp-charcoal); }
+          .hp-home-v65 [data-home-section="bestsellers"] { background-color:var(--hmp-ivory); }
+          .hp-home-v65 .hp-gift-variant-0,
+          .hp-home-v65 .hp-gift-variant-3 {
+            --gift-paper:#E8E1D6; --gift-paper-2:#FAF8F4;
+            --gift-ink:#403A32; --gift-muted:rgba(64,58,50,.66);
+            --gift-accent:#B79B6A; --gift-edge:rgba(183,155,106,.50);
+            --gift-ribbon-1:#FAF8F4; --gift-ribbon-2:#B79B6A; --gift-ribbon-3:#403A32;
+          }
+          .hp-home-v65 .hp-gift-variant-1,
+          .hp-home-v65 .hp-gift-variant-4 {
+            --gift-paper:#161715; --gift-paper-2:#403A32;
+            --gift-ink:#FAF8F4; --gift-muted:rgba(250,248,244,.70);
+            --gift-accent:#B79B6A; --gift-edge:rgba(183,155,106,.55);
+            --gift-ribbon-1:#E8E1D6; --gift-ribbon-2:#B79B6A; --gift-ribbon-3:#403A32;
+          }
+          .hp-home-v65 .hp-gift-variant-2 {
+            --gift-paper:#E8E1D6; --gift-paper-2:#E8E1D6;
+            --gift-ink:#161715; --gift-muted:rgba(64,58,50,.72);
+            --gift-accent:#B79B6A; --gift-edge:rgba(64,58,50,.25);
+            --gift-ribbon-1:#FAF8F4; --gift-ribbon-2:#B79B6A; --gift-ribbon-3:#403A32;
+          }
+          .hp-home-v65 .hp-bestseller-title { color:var(--gift-ink); }
+          .hp-home-v65 .hp-bestseller-price { color:var(--gift-ink); }
+          .hp-home-v65 .hp-bestseller-price-label { color:var(--gift-muted); }
+          .hp-home-v65 .hp-bestseller-arrow:hover { background:var(--hmp-gold); color:var(--hmp-obsidian); }
+          .hp-home-v65 .hp-quick-link, .hp-home-v65 .hp-concierge-cta {
+            background:var(--hmp-gold); color:var(--hmp-obsidian); border-color:var(--hmp-gold);
+          }
+          .hp-home-v65 .hp-quick-link:hover, .hp-home-v65 .hp-concierge-cta:hover {
+            background:var(--hmp-charcoal); color:var(--hmp-ivory);
+          }
+          /* Contact V145 artwork remains, now with manager's precise finishes. */
+          .hp-home-v65 .hp-contact-finale {
+            color:var(--hmp-charcoal);
+            background:radial-gradient(ellipse at 12% 30%,rgba(183,155,106,.12),transparent 56%),var(--hmp-ivory);
+            border-top-color:rgba(64,58,50,.14);
+          }
+          .hp-home-v65 .hp-contact-finale__shell {
+            border-color:var(--hmp-gold);
+            background:linear-gradient(145deg,var(--hmp-stone),var(--hmp-gold) 34%,var(--hmp-charcoal) 59%,var(--hmp-gold) 82%,var(--hmp-stone));
+            box-shadow:0 30px 64px rgba(22,23,21,.15),0 9px 22px rgba(22,23,21,.07);
+          }
+          .hp-home-v65 .hp-contact-finale__shell::before { border-color:rgba(250,248,244,.48); }
+          .hp-home-v65 .hp-contact-finale__shell::after { background:linear-gradient(90deg,transparent,var(--hmp-ivory),transparent); }
+          .hp-home-v65 .hp-contact-finale__copy { background:var(--hmp-ivory); }
+          .hp-home-v65 .hp-contact-finale__intro {
+            background:radial-gradient(circle at 89% 0%,rgba(183,155,106,.17),transparent 44%),linear-gradient(150deg,var(--hmp-charcoal),var(--hmp-obsidian));
+          }
+          .hp-home-v65 .hp-contact-finale__message {
+            background:linear-gradient(140deg,var(--hmp-ivory),var(--hmp-stone));
+            border-left-color:rgba(64,58,50,.15);
+          }
+          .hp-home-v65 .hp-contact-finale__intro::before { border-color:rgba(183,155,106,.22); }
+          .hp-home-v65 .hp-contact-finale__intro::after { border-color:rgba(183,155,106,.18); box-shadow:0 0 0 30px rgba(183,155,106,.032),0 0 0 74px rgba(183,155,106,.02); }
+          .hp-home-v65 .hp-contact-finale__message::before { background:linear-gradient(90deg,var(--hmp-gold),transparent); }
+          .hp-home-v65 .hp-contact-finale__message::after { border-color:rgba(183,155,106,.18); box-shadow:0 0 0 25px rgba(183,155,106,.035); }
+          .hp-home-v65 .hp-contact-finale__title .hp-contact-finale__line { color:var(--hmp-ivory)!important; -webkit-text-fill-color:var(--hmp-ivory)!important; }
+          html body #root .hp-home-v65 .hp-contact-finale .hp-contact-finale__title .hp-contact-finale__accent {
+            color:var(--hmp-stone)!important; -webkit-text-fill-color:var(--hmp-stone)!important;
+          }
+          .hp-home-v65 .hp-contact-finale__description { color:var(--hmp-charcoal); }
+          .hp-home-v65 .hp-contact-finale__cta,
+          .hp-home-v65 .hp-contact-finale__cta:hover,
+          .hp-home-v65 .hp-contact-finale__cta:focus-visible {
+            border-color:var(--hmp-gold);
+            background:var(--hmp-gold);
+            color:var(--hmp-obsidian);
+            box-shadow:0 12px 26px rgba(22,23,21,.16);
+          }
+          .hp-home-v65 .hp-contact-finale__cta:hover,
+          .hp-home-v65 .hp-contact-finale__cta:focus-visible { background:var(--hmp-charcoal); color:var(--hmp-ivory); }
+          .hp-home-v65 .hp-contact-finale__arrow { color:inherit; border-color:currentColor; }
+          .hp-home-v65 .hp-contact-finale__cta:hover .hp-contact-finale__arrow { background:rgba(250,248,244,.10); }
+          .hp-home-v65 .hp-rail-arrows button:not(:disabled):hover { background:var(--hmp-charcoal); color:var(--hmp-ivory); border-color:var(--hmp-charcoal); }
+          /* Gold surfaces use dark ink: WCAG AA for small text; avoid ivory on gold. */
+          .hp-home-v65 .hp-hero-fallback-copy a,
+          .hp-home-v65 .hp-bestseller-all-link:hover,
+          .hp-home-v65 a[class*="bg-[#B79B6A]"],
+          .hp-home-v65 button[class*="bg-[#B79B6A]"] { color:var(--hmp-obsidian) !important; }
+          .hp-home-v65 .hp-bestseller-section-accent { color:var(--hmp-charcoal) !important; }
+          .hp-home-v65 .hp-collection-notice { color:var(--hmp-charcoal); }
+          .hp-home-v65 .hp-gift-variant-1 .hp-bestseller-title,
+          .hp-home-v65 .hp-gift-variant-4 .hp-bestseller-title { color:var(--hmp-ivory); }
+          .hp-home-v65 .hp-gift-variant-1 .hp-bestseller-price,
+          .hp-home-v65 .hp-gift-variant-4 .hp-bestseller-price { color:var(--hmp-stone); }
+          .hp-home-v65 .hp-quick-link { color:var(--hmp-obsidian); }
+          .hp-home-v65 .hp-quick-link:hover { color:var(--hmp-ivory); }
+          .hp-home-v65 .hp-scroll-progress > span, .hp-home-v65 .hp-hero-handoff-line {
+            background:linear-gradient(90deg,var(--hmp-gold),var(--hmp-stone),var(--hmp-gold));
+          }
+
+          /* V152 - critical-scroll work stays compositor-only where possible.
+             Free GPU layers once one-time headings have already animated. */
+          .hp-home-v65 .hp-kinetic-heading.is-kinetic-settled,
+          .hp-home-v65 .hp-kinetic-heading.is-kinetic-settled .hp-section-heading-accent {
+            will-change: auto !important;
+          }
+          .hp-home-v65 .hp-scroll-progress > span {
+            transition: none !important;
+            animation: none !important;
+            will-change: transform;
+          }
+          /* Scrolling over a playing video never scales its decoded pixels. */
+          .hp-home-v65 .hp-hero-motion-layer {
+            transform: translateZ(0) scale(1.001);
+            will-change: auto;
+          }
+          /* Scroll thread: no shadow/filter work on a full-height SVG. */
+          .hp-home-v65 .hp-home-golden-thread-path {
+            filter: none !important;
+          }
+          .hp-home-v65 .hp-home-golden-thread-knot {
+            transition: none !important;
+          }
+          @media (max-width: 1023px), (prefers-reduced-motion: reduce) {
+            .hp-home-v65 .hp-home-golden-thread-knot { will-change: auto; }
+          }
+
         `}
       </style>
 
@@ -6580,10 +6769,10 @@ const Home = () => {
           <svg viewBox="0 0 48 1000" preserveAspectRatio="none">
             <defs>
               <linearGradient id="hpGoldenThreadGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#F47822" />
-                <stop offset="42%" stopColor="#D4AF37" />
-                <stop offset="74%" stopColor="#F4D36A" />
-                <stop offset="100%" stopColor="#A96D13" />
+                <stop offset="0%" stopColor="#B79B6A" />
+                <stop offset="42%" stopColor="#B79B6A" />
+                <stop offset="74%" stopColor="#B79B6A" />
+                <stop offset="100%" stopColor="#B79B6A" />
               </linearGradient>
             </defs>
             <path className="hp-home-golden-thread-path-soft" d="M22 0 C10 105 38 195 22 295 C8 395 36 488 21 590 C8 694 35 790 20 1000" pathLength="1" />
@@ -6651,7 +6840,7 @@ const Home = () => {
                   src={item.image}
                   hoverSrc={item.hoverImage}
                   alt={item.title}
-                  loading={index === 0 ? "eager" : "lazy"}
+                  loading="lazy"
                   fetchPriority="low"
                   style={{ objectPosition: item.objectPosition }}
                   imageClassName="hp-story-image hp-journey-story-image object-cover"
@@ -6660,7 +6849,7 @@ const Home = () => {
 
                 <div className="absolute inset-0 bg-gradient-to-t from-black/88 via-black/12 to-black/18" />
                 <div className="absolute inset-0 bg-gradient-to-r from-black/66 via-black/12 to-transparent" />
-                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_20%,rgba(212,175,55,.12),transparent_28%),radial-gradient(circle_at_80%_78%,rgba(244,120,34,.08),transparent_26%)]" />
+                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_20%,rgba(183,155,106,.12),transparent_28%),radial-gradient(circle_at_80%_78%,rgba(183,155,106,.08),transparent_26%)]" />
 
                 {index === 0 && (
                   <div className="hp-journey-first-intro absolute z-20">
@@ -6669,7 +6858,7 @@ const Home = () => {
                         How Do You Want
                       </span>
                       <span
-                        className="hp-section-heading-accent hp-story-line text-[#D4AF37]"
+                        className="hp-section-heading-accent hp-story-line text-[#B79B6A]"
                         style={{ "--hp-story-delay": "190ms" }}
                       >
                         To Gift Today?
@@ -6687,7 +6876,7 @@ const Home = () => {
                       {item.title}
                     </h3>
 
-                    <div className="mt-7 inline-flex min-h-[52px] items-center gap-5 border border-[#D4AF37]/45 bg-black/40 px-5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#F4D36A] backdrop-blur-sm transition duration-300 group-hover:border-[#D4AF37] group-hover:bg-black/55 sm:mt-9 sm:min-h-[58px] sm:px-6 sm:text-[11px]">
+                    <div className="mt-7 inline-flex min-h-[52px] items-center gap-5 border border-[#B79B6A]/45 bg-black/40 px-5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#B79B6A] backdrop-blur-sm transition duration-300 group-hover:border-[#B79B6A] group-hover:bg-black/55 sm:mt-9 sm:min-h-[58px] sm:px-6 sm:text-[11px]">
                       <span>{item.cta}</span>
                       <span className="text-[20px] transition-transform duration-300 group-hover:translate-x-1.5">
                         →
@@ -6717,7 +6906,7 @@ const Home = () => {
         =================================================== */}
 
         {false && (
-        <section data-home-section="concierge" className={`hp-pointer-glow relative isolate overflow-hidden bg-[#090705] text-white ${giftRevealActive ? "is-gift-revealing" : ""}`}>
+        <section data-home-section="concierge" className={`hp-pointer-glow relative isolate overflow-hidden bg-[#161715] text-white ${giftRevealActive ? "is-gift-revealing" : ""}`}>
           {/* CLEAN BACKGROUND IMAGE ONLY */}
           <img
             src={giftConciergeBg}
@@ -6733,25 +6922,25 @@ const Home = () => {
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/46 via-black/12 to-black/62" />
           <div className="hp-concierge-screen-flare" aria-hidden="true" />
 
-          <div className="hp-concierge-ambient pointer-events-none absolute left-1/2 top-[50%] h-[540px] w-[540px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#F47822]/12 blur-[140px]" />
+          <div className="hp-concierge-ambient pointer-events-none absolute left-1/2 top-[50%] h-[540px] w-[540px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#B79B6A]/12 blur-[140px]" />
 
           <div className="relative z-10 mx-auto w-full max-w-[1900px] px-5 py-20 sm:px-8 lg:px-10 lg:py-24 xl:px-14 2xl:px-16">
             {/* HEADING */}
             <Reveal>
               <div className="mx-auto max-w-[980px] text-center">
                 <div className="flex items-center justify-center gap-3">
-                  <span className="h-px w-10 bg-[#D4AF37]" />
+                  <span className="h-px w-10 bg-[#B79B6A]" />
 
-                  <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#F4D36A] sm:text-[11px]">
+                  <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#B79B6A] sm:text-[11px]">
                     HAMPORIUM GIFT CONCIERGE
                   </p>
 
-                  <span className="h-px w-10 bg-[#D4AF37]" />
+                  <span className="h-px w-10 bg-[#B79B6A]" />
                 </div>
 
                 <h2 className="hp-section-heading mt-5 text-white">
                   Tell Us The Moment.
-                  <span className="hp-section-heading-accent text-[#D4AF37]">
+                  <span className="hp-section-heading-accent text-[#B79B6A]">
                     We&apos;ll Handle The Gift.
                   </span>
                 </h2>
@@ -6797,7 +6986,7 @@ const Home = () => {
                         active
                           ? "is-active"
                           : ""
-                      } min-h-[455px] rounded-t-[999px] rounded-b-[28px] border border-[#D4AF37]/32 bg-black/30 text-left backdrop-blur-[2px] ${
+                      } min-h-[455px] rounded-t-[999px] rounded-b-[28px] border border-[#B79B6A]/32 bg-black/30 text-left backdrop-blur-[2px] ${
                         index === 0
                           ? "translate-y-5"
                           : ""
@@ -6816,7 +7005,7 @@ const Home = () => {
                       <div className="absolute left-1/2 top-5 z-10 -translate-x-1/2">
                         <span className={`rounded-full border px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.13em] backdrop-blur-md ${
                           active
-                            ? "border-[#F47822]/70 bg-[#F47822]/18 text-[#FFD57A]"
+                            ? "border-[#B79B6A]/70 bg-[#B79B6A]/18 text-[#FFD57A]"
                             : "border-white/14 bg-black/18 text-white/42"
                         }`}>
                           {active
@@ -6853,7 +7042,7 @@ const Home = () => {
                         <span
                           className={`mx-auto mt-5 flex h-9 w-9 items-center justify-center rounded-full border text-[17px] transition ${
                             active
-                              ? "border-[#F47822] bg-[#F47822] text-white"
+                              ? "border-[#B79B6A] bg-[#B79B6A] text-white"
                               : "border-white/30 bg-black/20 text-white"
                           }`}
                         >
@@ -6868,13 +7057,13 @@ const Home = () => {
               {/* CENTRAL GIFT BOX · PREMIUM CODED VERSION */}
               <div className="hp-concierge-gift-stage flex min-h-[520px] items-center justify-center">
                 <div className="relative w-full max-w-[470px]">
-                  <div className="pointer-events-none absolute left-1/2 top-[47%] h-[280px] w-[280px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#D4AF37]/10 blur-[80px]" />
+                  <div className="pointer-events-none absolute left-1/2 top-[47%] h-[280px] w-[280px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#B79B6A]/10 blur-[80px]" />
 
                   <div className={`hp-concierge-gift-box ${
                       giftRevealActive
                         ? "is-opening"
                         : ""
-                    } relative mx-auto h-[338px] w-[90%] rounded-[20px] border border-[#D4AF37]/55 bg-gradient-to-br from-[#26221D] via-[#0B0A09] to-[#191613] shadow-[0_44px_110px_rgba(0,0,0,.62)]`}>
+                    } relative mx-auto h-[338px] w-[90%] rounded-[20px] border border-[#B79B6A]/55 bg-gradient-to-br from-[#26221D] via-[#0B0A09] to-[#191613] shadow-[0_44px_110px_rgba(0,0,0,.62)]`}>
                     {/* subtle embossed texture */}
                     <div
                       className="pointer-events-none absolute inset-0 rounded-[inherit] opacity-[0.09]"
@@ -6887,24 +7076,24 @@ const Home = () => {
                     />
 
                     {/* lid */}
-                    <div className="hp-concierge-lid absolute -left-[4%] -top-[10%] h-[19%] w-[108%] rounded-[17px] border border-[#D4AF37]/45 bg-gradient-to-b from-[#302A22] via-[#1A1713] to-[#0F0E0C] shadow-[0_14px_30px_rgba(0,0,0,.42)]" />
+                    <div className="hp-concierge-lid absolute -left-[4%] -top-[10%] h-[19%] w-[108%] rounded-[17px] border border-[#B79B6A]/45 bg-gradient-to-b from-[#302A22] via-[#1A1713] to-[#0F0E0C] shadow-[0_14px_30px_rgba(0,0,0,.42)]" />
 
                     {/* horizontal ribbon */}
                     <div className="absolute left-0 top-[16%] h-[17%] w-full bg-gradient-to-b from-[#F6E1A1] via-[#C29135] to-[#784D12] shadow-[inset_0_1px_0_rgba(255,255,255,.28)]" />
 
                     {/* vertical ribbon */}
-                    <div className="absolute left-1/2 top-[-10%] h-[110%] w-[18%] -translate-x-1/2 bg-gradient-to-r from-[#6F4510] via-[#F0D47D] to-[#805514] shadow-[0_0_18px_rgba(212,175,55,.16)]" />
+                    <div className="absolute left-1/2 top-[-10%] h-[110%] w-[18%] -translate-x-1/2 bg-gradient-to-r from-[#6F4510] via-[#F0D47D] to-[#805514] shadow-[0_0_18px_rgba(183,155,106,.16)]" />
 
                     {/* ribbon highlight */}
                     <div className="pointer-events-none absolute left-1/2 top-[-10%] h-[110%] w-[3%] -translate-x-1/2 bg-white/14 blur-[2px]" />
 
                     {/* coded bow */}
                     <div className="hp-concierge-bow absolute left-1/2 top-[-24%] z-20 h-[132px] w-[246px] -translate-x-1/2">
-                      <span className="absolute left-[6%] top-[21%] h-[76px] w-[108px] -rotate-[28deg] rounded-[62%_40%_60%_40%] border border-[#F7E2A0]/65 bg-gradient-to-br from-[#F4DC90] via-[#C18B2D] to-[#72470F] shadow-[0_16px_30px_rgba(0,0,0,.28)]" />
+                      <span className="absolute left-[6%] top-[21%] h-[76px] w-[108px] -rotate-[28deg] rounded-[62%_40%_60%_40%] border border-[#E8E1D6]/65 bg-gradient-to-br from-[#B79B6A] via-[#B79B6A] to-[#72470F] shadow-[0_16px_30px_rgba(0,0,0,.28)]" />
 
-                      <span className="absolute right-[6%] top-[21%] h-[76px] w-[108px] rotate-[28deg] rounded-[40%_62%_40%_60%] border border-[#F7E2A0]/65 bg-gradient-to-bl from-[#F4DC90] via-[#C18B2D] to-[#72470F] shadow-[0_16px_30px_rgba(0,0,0,.28)]" />
+                      <span className="absolute right-[6%] top-[21%] h-[76px] w-[108px] rotate-[28deg] rounded-[40%_62%_40%_60%] border border-[#E8E1D6]/65 bg-gradient-to-bl from-[#B79B6A] via-[#B79B6A] to-[#72470F] shadow-[0_16px_30px_rgba(0,0,0,.28)]" />
 
-                      <span className="absolute left-1/2 top-[36%] h-[60px] w-[64px] -translate-x-1/2 rounded-full border border-[#F7E2A0]/75 bg-gradient-to-br from-[#F4D981] via-[#BD8427] to-[#744A11] shadow-[0_12px_22px_rgba(0,0,0,.3)]" />
+                      <span className="absolute left-1/2 top-[36%] h-[60px] w-[64px] -translate-x-1/2 rounded-full border border-[#E8E1D6]/75 bg-gradient-to-br from-[#F4D981] via-[#BD8427] to-[#744A11] shadow-[0_12px_22px_rgba(0,0,0,.3)]" />
                     </div>
 
                     <div
@@ -6913,8 +7102,8 @@ const Home = () => {
                     />
 
                     {/* readable brand plaque */}
-                    <div className="absolute left-1/2 top-[55%] z-10 w-[76%] -translate-x-1/2 rounded-[16px] border border-[#D4AF37]/42 bg-[#080706]/92 px-5 py-5 text-center shadow-[0_16px_34px_rgba(0,0,0,.42)] backdrop-blur-sm">
-                      <div className="mx-auto mb-2 flex h-8 w-8 items-center justify-center rounded-full border border-[#D4AF37]/38 bg-[#D4AF37]/10 text-[13px] text-[#F4D36A]">
+                    <div className="absolute left-1/2 top-[55%] z-10 w-[76%] -translate-x-1/2 rounded-[16px] border border-[#B79B6A]/42 bg-[#080706]/92 px-5 py-5 text-center shadow-[0_16px_34px_rgba(0,0,0,.42)] backdrop-blur-sm">
+                      <div className="mx-auto mb-2 flex h-8 w-8 items-center justify-center rounded-full border border-[#B79B6A]/38 bg-[#B79B6A]/10 text-[13px] text-[#B79B6A]">
                         ✦
                       </div>
 
@@ -6923,14 +7112,14 @@ const Home = () => {
                           fontFamily:
                             DISPLAY_FONT,
                           textShadow:
-                            "0 2px 18px rgba(212,175,55,.22)",
+                            "0 2px 18px rgba(183,155,106,.22)",
                         }}
                         className="text-[31px] font-bold leading-none tracking-[0.07em] text-[#FFE8A3] xl:text-[34px]"
                       >
                         HAMPORIUM
                       </p>
 
-                      <div className="mx-auto mt-3 h-px w-12 bg-[#D4AF37]/45" />
+                      <div className="mx-auto mt-3 h-px w-12 bg-[#B79B6A]/45" />
 
                       <p className="mt-2 text-[8px] font-black uppercase tracking-[0.24em] text-[#F5D778]">
                         More Than A Gift
@@ -6942,10 +7131,10 @@ const Home = () => {
 
                   {/* selected moment pill */}
                   <div className="mt-5 flex justify-center">
-                    <div className="inline-flex items-center gap-3 rounded-full border border-[#D4AF37]/28 bg-black/24 px-4 py-2.5 backdrop-blur-md">
-                      <span className="h-2 w-2 rounded-full bg-[#F47822] shadow-[0_0_14px_rgba(244,120,34,.65)]" />
+                    <div className="inline-flex items-center gap-3 rounded-full border border-[#B79B6A]/28 bg-black/24 px-4 py-2.5 backdrop-blur-md">
+                      <span className="h-2 w-2 rounded-full bg-[#B79B6A] shadow-[0_0_14px_rgba(183,155,106,.65)]" />
 
-                      <span className="text-[9px] font-black uppercase tracking-[0.14em] text-[#F4D36A]">
+                      <span className="text-[9px] font-black uppercase tracking-[0.14em] text-[#B79B6A]">
                         Selected
                       </span>
 
@@ -6994,7 +7183,7 @@ const Home = () => {
                         active
                           ? "is-active"
                           : ""
-                      } min-h-[455px] rounded-t-[999px] rounded-b-[28px] border border-[#D4AF37]/32 bg-black/30 text-left backdrop-blur-[2px] ${
+                      } min-h-[455px] rounded-t-[999px] rounded-b-[28px] border border-[#B79B6A]/32 bg-black/30 text-left backdrop-blur-[2px] ${
                         index === 1
                           ? "translate-y-5"
                           : ""
@@ -7013,7 +7202,7 @@ const Home = () => {
                       <div className="absolute left-1/2 top-5 z-10 -translate-x-1/2">
                         <span className={`rounded-full border px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.13em] backdrop-blur-md ${
                           active
-                            ? "border-[#F47822]/70 bg-[#F47822]/18 text-[#FFD57A]"
+                            ? "border-[#B79B6A]/70 bg-[#B79B6A]/18 text-[#FFD57A]"
                             : "border-white/14 bg-black/18 text-white/42"
                         }`}>
                           {active
@@ -7050,7 +7239,7 @@ const Home = () => {
                         <span
                           className={`mx-auto mt-5 flex h-9 w-9 items-center justify-center rounded-full border text-[17px] transition ${
                             active
-                              ? "border-[#F47822] bg-[#F47822] text-white"
+                              ? "border-[#B79B6A] bg-[#B79B6A] text-white"
                               : "border-white/30 bg-black/20 text-white"
                           }`}
                         >
@@ -7069,7 +7258,7 @@ const Home = () => {
 
             <div className="mt-10 lg:hidden">
               <div className="mx-auto max-w-[420px] text-center">
-                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#F4D36A]">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#B79B6A]">
                   Selected Moment
                 </p>
 
@@ -7111,7 +7300,7 @@ const Home = () => {
                           active
                             ? "is-active"
                             : ""
-                        } relative min-h-[410px] overflow-hidden rounded-t-[999px] rounded-b-[26px] border border-[#D4AF37]/30 bg-black/34`}
+                        } relative min-h-[410px] overflow-hidden rounded-t-[999px] rounded-b-[26px] border border-[#B79B6A]/30 bg-black/34`}
                       >
                         <MemoSmartImage
                           src={
@@ -7165,7 +7354,7 @@ const Home = () => {
               delay={120}
               className="relative z-20"
             >
-              <div className="mx-auto mt-12 max-w-[1180px] rounded-[30px] border border-[#D4AF37]/28 bg-[#15110D]/90 p-5 shadow-[0_28px_78px_rgba(0,0,0,.38)] backdrop-blur-xl sm:p-6 lg:p-7">
+              <div className="mx-auto mt-12 max-w-[1180px] rounded-[30px] border border-[#B79B6A]/28 bg-[#15110D]/90 p-5 shadow-[0_28px_78px_rgba(0,0,0,.38)] backdrop-blur-xl sm:p-6 lg:p-7">
                 <p className="hp-concierge-selection" aria-live="polite" aria-atomic="true">
                   <span>Your selection</span> {activeGiftOccasion.label} <span aria-hidden="true"> / </span> {activeBudget.label}
                 </p>
@@ -7189,7 +7378,7 @@ const Home = () => {
                   <div>
                     <div className="mb-4 flex justify-center">
                       <span
-                        className="rounded-full border border-white/10 bg-black/42 px-3 py-1.5 text-[11px] font-black text-[#F4D36A]"
+                        className="rounded-full border border-white/10 bg-black/42 px-3 py-1.5 text-[11px] font-black text-[#B79B6A]"
                       >
                         {activeBudget?.label}
                       </span>
@@ -7257,7 +7446,7 @@ const Home = () => {
                     }
                     disabled={giftRevealActive}
                     aria-busy={giftRevealActive}
-                    className="hp-concierge-cta inline-flex h-[58px] items-center justify-center gap-5 rounded-full border border-[#FFD980]/35 bg-gradient-to-r from-[#F3BE4E] via-[#F2A933] to-[#F47822] px-7 text-[11px] font-black uppercase tracking-[0.1em] text-[#17110A] shadow-[0_14px_32px_rgba(244,120,34,.22)]"
+                    className="hp-concierge-cta inline-flex h-[58px] items-center justify-center gap-5 rounded-full border border-[#FFD980]/35 bg-gradient-to-r from-[#F3BE4E] via-[#F2A933] to-[#B79B6A] px-7 text-[11px] font-black uppercase tracking-[0.1em] text-[#17110A] shadow-[0_14px_32px_rgba(183,155,106,.22)]"
                   >
                     {giftRevealActive
                       ? "Revealing Your Matches"
@@ -7284,7 +7473,7 @@ const Home = () => {
             <Reveal className="px-4 sm:px-0">
               <div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-end">
                 <div className="hp-bestseller-heading-wrap min-w-0">
-                  <h2 className="hp-section-heading hp-bestseller-section-title mt-0 text-[#171717]">
+                  <h2 className="hp-section-heading hp-bestseller-section-title mt-0 text-[#161715]">
                     <span className="block">The Hampers Everyone</span>
                     <span className="hp-section-heading-accent hp-bestseller-section-accent text-[#9B741D]">
                       Keeps Coming Back For.
@@ -7294,10 +7483,10 @@ const Home = () => {
 
                 <SignatureLink
                   to="/gifts"
-                  className="hp-bestseller-all-link group mb-1 inline-flex h-[58px] w-fit items-center gap-5 border border-black/10 bg-white px-6 text-[12px] font-black uppercase tracking-[0.09em] text-[#171717] transition duration-300 hover:border-[#F47822] hover:bg-[#F47822] hover:text-white"
+                  className="hp-bestseller-all-link group mb-1 inline-flex h-[58px] w-fit items-center gap-5 border border-black/10 bg-white px-6 text-[12px] font-black uppercase tracking-[0.09em] text-[#161715] transition duration-300 hover:border-[#B79B6A] hover:bg-[#B79B6A] hover:text-white"
                 >
                   Explore All Hampers
-                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#171717] text-white transition duration-300 group-hover:translate-x-1 group-hover:bg-white group-hover:text-[#F47822]">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#161715] text-white transition duration-300 group-hover:translate-x-1 group-hover:bg-white group-hover:text-[#B79B6A]">
                     →
                   </span>
                 </SignatureLink>
@@ -7329,7 +7518,7 @@ const Home = () => {
         =================================================== */}
 
         {/*
-        <section data-home-section="brand" className="hp-story-stack hp-pointer-glow relative bg-[#090807] text-white">
+        <section data-home-section="brand" className="hp-story-stack hp-pointer-glow relative bg-[#161715] text-white">
           {[
             {
               kicker: "CURATED WITH INTENTION",
@@ -7397,7 +7586,7 @@ const Home = () => {
                           : ""
                       }`}
                     >
-                      <span className="h-[2px] w-14 bg-[#F47822] sm:w-16" />
+                      <span className="h-[2px] w-14 bg-[#B79B6A] sm:w-16" />
                       <p className="hp-story-kicker text-[11px] font-black uppercase tracking-[0.28em] text-[#FFD25A] sm:text-[12px] lg:text-[13px]"
                         style={{ "--hp-story-delay": "40ms" }}>
                         {item.kicker}
@@ -7423,7 +7612,7 @@ const Home = () => {
                         )}
                       </span>
 
-                      <span className="hp-section-heading-accent mt-5 text-[#F4D36A] drop-shadow-[0_10px_34px_rgba(0,0,0,.58)] sm:mt-6 lg:mt-7">
+                      <span className="hp-section-heading-accent mt-5 text-[#B79B6A] drop-shadow-[0_10px_34px_rgba(0,0,0,.58)] sm:mt-6 lg:mt-7">
                         {item.accentLines.map(
                           (line, lineIndex) => (
                             <span
@@ -7448,7 +7637,7 @@ const Home = () => {
                   <span>
                     {String(index + 1).padStart(2, "0")} / 03
                   </span>
-                  <span className="h-px w-10 bg-[#D4AF37]/50" />
+                  <span className="h-px w-10 bg-[#B79B6A]/50" />
                 </div>
               </div>
             </div>
@@ -7460,7 +7649,7 @@ const Home = () => {
             BULK / EVENT GIFTING · EDITORIAL FLOW
         =================================================== */}
 
-        <section data-home-section="bulk" className="relative overflow-hidden bg-[#F3EEE6] text-[#171717]">
+        <section data-home-section="bulk" className="relative overflow-hidden bg-[#E8E1D6] text-[#161715]">
           <div className="hp-bulk-layout grid min-h-[850px] lg:grid-cols-[0.92fr_1.08fr]">
             {/* LEFT VISUAL */}
             <Reveal className="hp-bulk-visual hp-fluid-host relative min-h-[560px] overflow-hidden bg-[#15100C] lg:min-h-[850px]">
@@ -7489,17 +7678,17 @@ const Home = () => {
 
             {/* RIGHT FLOW */}
             <div className="hp-bulk-flow relative flex flex-col justify-center px-5 py-14 sm:px-8 md:px-10 lg:px-12 xl:px-16 2xl:px-20">
-              <div className="pointer-events-none absolute right-[-90px] top-[8%] h-[320px] w-[320px] rounded-full bg-[#D4AF37]/10 blur-[100px]" />
+              <div className="pointer-events-none absolute right-[-90px] top-[8%] h-[320px] w-[320px] rounded-full bg-[#B79B6A]/10 blur-[100px]" />
 
               <Reveal>
                 <div className="flex items-center gap-3">
-                  <span className="h-px w-12 bg-[#F47822]" />
-                  <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#F47822]">
+                  <span className="h-px w-12 bg-[#B79B6A]" />
+                  <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#B79B6A]">
                     HOW BULK GIFTING WORKS
                   </p>
                 </div>
 
-                <h2 className="hp-section-heading mt-5 text-[#171717]">
+                <h2 className="hp-section-heading mt-5 text-[#161715]">
                   Build First.
                   <span className="hp-section-heading-accent text-[#9A7414]">
                     Quote Next.
@@ -7544,7 +7733,7 @@ const Home = () => {
                     <div className="hp-bulk-step-content relative z-10">
                       <h3
                         style={{ fontFamily: DISPLAY_FONT }}
-                        className="hp-bulk-step-title text-[31px] font-semibold leading-[0.98] text-[#171717] transition sm:text-[34px]"
+                        className="hp-bulk-step-title text-[31px] font-semibold leading-[0.98] text-[#161715] transition sm:text-[34px]"
                       >
                         {title}
                       </h3>
@@ -7559,7 +7748,7 @@ const Home = () => {
               <Reveal delay={160} className="mt-8 flex flex-wrap items-center gap-5">
                 <SignatureLink
                   to="/custom-hamper?mode=bulk"
-                  className="inline-flex h-[56px] items-center gap-5 bg-[#F47822] px-7 text-[12px] font-black uppercase tracking-[0.09em] text-white shadow-[0_18px_40px_rgba(244,120,34,.22)] transition hover:bg-[#DF6518]"
+                  className="inline-flex h-[56px] items-center gap-5 bg-[#B79B6A] px-7 text-[12px] font-black uppercase tracking-[0.09em] text-white shadow-[0_18px_40px_rgba(183,155,106,.22)] transition hover:bg-[#403A32]"
                 >
                   Build & Request Quote
                   <span className="text-lg">→</span>
@@ -7587,13 +7776,13 @@ const Home = () => {
 
           <Reveal className="relative z-10 w-full px-5 py-20 sm:px-8 md:px-10 lg:px-12 xl:px-16 2xl:px-20">
             <div className="max-w-[1050px]">
-              <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#F47822]">
+              <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#B79B6A]">
                 HAMPORIUM
               </p>
 
               <h2 className="hp-section-heading mt-5 text-white">
                 A Gift Should Never
-                <span className="hp-section-heading-accent text-[#D4AF37]">
+                <span className="hp-section-heading-accent text-[#B79B6A]">
                   Feel Ordinary.
                 </span>
               </h2>
@@ -7601,7 +7790,7 @@ const Home = () => {
               <div className="mt-8 flex flex-wrap gap-4">
                 <SignatureLink
                   to="/gifts"
-                  className="inline-flex h-[58px] items-center gap-5 bg-white px-7 text-[12px] font-black uppercase tracking-[0.09em] text-[#171717] transition hover:bg-[#F47822] hover:text-white"
+                  className="inline-flex h-[58px] items-center gap-5 bg-white px-7 text-[12px] font-black uppercase tracking-[0.09em] text-[#161715] transition hover:bg-[#B79B6A] hover:text-white"
                 >
                   Shop Hampers
                   <span className="text-lg">
@@ -7611,7 +7800,7 @@ const Home = () => {
 
                 <SignatureLink
                   to="/custom-hamper"
-                  className="inline-flex h-[58px] items-center gap-5 border border-white/28 bg-black/20 px-7 text-[12px] font-black uppercase tracking-[0.09em] text-white backdrop-blur-sm transition hover:border-[#D4AF37] hover:text-[#D4AF37]"
+                  className="inline-flex h-[58px] items-center gap-5 border border-white/28 bg-black/20 px-7 text-[12px] font-black uppercase tracking-[0.09em] text-white backdrop-blur-sm transition hover:border-[#B79B6A] hover:text-[#B79B6A]"
                 >
                   Build Yours
                   <span className="text-lg">
@@ -7701,7 +7890,7 @@ const Reveal = ({ children, className = "", delay = 0 }) => {
       animation = node.animate?.([
         { opacity: 0.18, transform: "translate3d(0,18px,0)" },
         { opacity: 1, transform: "translate3d(0,0,0)" },
-      ], { duration: 660, delay: Math.min(delay, 140), easing: "cubic-bezier(.22,1,.36,1)" });
+      ], { duration: 440, delay: Math.min(delay, 100), easing: "cubic-bezier(.22,1,.36,1)" });
     });
     const revealFocused = () => animation?.cancel();
     node.addEventListener("focusin", revealFocused);
@@ -7715,27 +7904,39 @@ const Reveal = ({ children, className = "", delay = 0 }) => {
 };
 
 const SmartImage = ({ src, alt = "", className = "", loading = "lazy", fetchPriority,
-  decoding = "async", style, draggable = false, fallback = HOME_IMAGES.universalFallback }) => {
+  decoding = "async", sizes = "100vw", style, draggable = false, fallback = HOME_IMAGES.universalFallback }) => {
   const ref = useRef(null);
   const [failedSource, setFailedSource] = useState("");
   const [unavailable, setUnavailable] = useState(false);
-  const imageSrc = !src || failedSource === src ? fallback : src;
+  const optimized = typeof src === "string" ? HOME_OPTIMIZED_IMAGES.get(src) : undefined;
+  const useOptimized = Boolean(optimized && failedSource !== optimized.src && failedSource !== src);
+  const imageSrc = !src || failedSource === src ? fallback : useOptimized ? optimized.src : src;
+  const srcSet = useOptimized ? optimized.srcSet : undefined;
+
   useEffect(() => {
+    setFailedSource("");
     setUnavailable(false);
+  }, [src]);
+  useEffect(() => {
     if (ref.current) ref.current.dataset.loaded = ref.current.complete && ref.current.naturalWidth > 0 ? "true" : "false";
   }, [imageSrc]);
+
   if (unavailable) return (
     <span role={alt ? "img" : undefined} aria-label={alt ? `${alt} - image unavailable` : undefined}
       aria-hidden={alt ? undefined : true} className={`hp-image-fallback ${className}`} style={style}>
       <span aria-hidden="true"><GiftIcon /></span>
     </span>
   );
-  return <img ref={ref} src={imageSrc} alt={alt} loading={loading} fetchPriority={fetchPriority}
+  return <img ref={ref} src={imageSrc} srcSet={srcSet} sizes={srcSet ? sizes : undefined}
+    alt={alt} loading={loading} fetchPriority={fetchPriority}
     decoding={decoding} className={className} style={style} draggable={draggable}
     onLoad={(event) => { event.currentTarget.dataset.loaded = "true"; }}
-    onError={() => { if (imageSrc !== fallback) setFailedSource(src); else setUnavailable(true); }} />;
+    onError={() => {
+      if (useOptimized) setFailedSource(optimized.src);
+      else if (imageSrc !== fallback) setFailedSource(src);
+      else setUnavailable(true);
+    }} />;
 };
-
 
 // ======================================================
 // STATIC / CROSSFADE BACKDROP
@@ -7755,7 +7956,6 @@ const FluidBackdrop = ({
   style,
 }) => {
   const layerRef = useRef(null);
-  const [mobileAlt, setMobileAlt] = useState(false);
   const [hoverRequested, setHoverRequested] = useState(!hoverSrc);
   const [hoverReady, setHoverReady] = useState(!hoverSrc);
 
@@ -7814,7 +8014,12 @@ const FluidBackdrop = ({
     preload.onerror = () => {
       if (active) setHoverReady(false);
     };
-    preload.src = hoverSrc;
+    const responsive = HOME_OPTIMIZED_IMAGES.get(hoverSrc);
+    if (responsive?.srcSet) {
+      preload.sizes = "100vw";
+      preload.srcset = responsive.srcSet;
+    }
+    preload.src = responsive?.src || hoverSrc;
 
     if (preload.complete && preload.naturalWidth > 0) markReady();
 
@@ -7826,12 +8031,13 @@ const FluidBackdrop = ({
   }, [hoverRequested, hoverSrc]);
 
   useEffect(() => {
-    if (!hoverSrc || !hoverReady || typeof window === "undefined") {
-      setMobileAlt(false);
+    const layer = layerRef.current;
+    if (!layer || !hoverSrc || !hoverReady || typeof window === "undefined") {
+      layer?.classList.remove("is-mobile-alt");
       return undefined;
     }
 
-    const host = layerRef.current?.parentElement;
+    const host = layer.parentElement;
     if (!host) return undefined;
 
     const mobileQuery = window.matchMedia?.(
@@ -7839,7 +8045,7 @@ const FluidBackdrop = ({
     );
 
     if (!mobileQuery?.matches || typeof IntersectionObserver === "undefined") {
-      setMobileAlt(false);
+      layer.classList.remove("is-mobile-alt");
       return undefined;
     }
 
@@ -7858,7 +8064,7 @@ const FluidBackdrop = ({
       if (!visible || document.hidden) return;
       timerId = window.setTimeout(() => {
         if (document.hidden || !visible) return;
-        setMobileAlt((current) => !current);
+        layer.classList.toggle("is-mobile-alt");
         scheduleSwap(4800);
       }, delay);
     };
@@ -7872,7 +8078,7 @@ const FluidBackdrop = ({
           scheduleSwap(2600);
         } else {
           clearTimer();
-          setMobileAlt(false);
+          layer.classList.remove("is-mobile-alt");
         }
       },
       { threshold: [0, 0.38, 0.7] }
@@ -7889,6 +8095,7 @@ const FluidBackdrop = ({
       visible = false;
       clearTimer();
       observer.disconnect();
+      layer.classList.remove("is-mobile-alt");
       document.removeEventListener("visibilitychange", onTabVisibility);
     };
   }, [hoverReady, hoverSrc]);
@@ -7904,9 +8111,7 @@ const FluidBackdrop = ({
       ref={layerRef}
       className={`hp-fluid-backdrop hp-fluid-static ${
         hoverSrc ? "has-hover-image" : ""
-      } ${hoverReady ? "is-hover-ready" : ""} ${
-        mobileAlt ? "is-mobile-alt" : ""
-      }`}
+      } ${hoverReady ? "is-hover-ready" : ""}`}
       aria-hidden={alt ? undefined : true}
     >
       <MemoSmartImage
@@ -8293,7 +8498,7 @@ const HamperOneUnwrapExperience = () => {
         @keyframes hpHamperWrapGlow {
           0%, 100% {
             opacity: .48;
-            filter: drop-shadow(0 0 4px rgba(212,175,55,.12));
+            filter: drop-shadow(0 0 4px rgba(183,155,106,.12));
           }
           50% {
             opacity: .86;
@@ -8500,7 +8705,7 @@ const HamperOneUnwrapExperience = () => {
           border-radius: 50%;
           pointer-events: none;
           opacity: 0;
-          background: radial-gradient(circle, rgba(255,241,184,.92) 0%, rgba(212,175,55,.38) 30%, rgba(244,120,34,.12) 56%, transparent 74%);
+          background: radial-gradient(circle, rgba(255,241,184,.92) 0%, rgba(183,155,106,.38) 30%, rgba(183,155,106,.12) 56%, transparent 74%);
           filter: blur(5px);
           transform: translate(-50%,-50%) scale(.32);
         }
@@ -8517,12 +8722,12 @@ const HamperOneUnwrapExperience = () => {
           border: 1px solid rgba(244,221,145,.42);
           border-radius: 27px;
           background:
-            linear-gradient(145deg, rgba(255,255,255,.025), transparent 34%, rgba(212,175,55,.035) 61%, transparent),
+            linear-gradient(145deg, rgba(255,255,255,.025), transparent 34%, rgba(183,155,106,.035) 61%, transparent),
             rgba(7,6,4,.08);
           box-shadow:
             inset 0 0 0 1px rgba(255,255,255,.035),
-            inset 0 0 0 5px rgba(212,175,55,.025),
-            inset 0 0 42px rgba(212,175,55,.06),
+            inset 0 0 0 5px rgba(183,155,106,.025),
+            inset 0 0 42px rgba(183,155,106,.06),
             0 0 0 1px rgba(0,0,0,.36),
             0 18px 54px rgba(0,0,0,.24);
           transition: opacity .58s ease, transform .78s cubic-bezier(.16,1,.3,1);
@@ -8532,7 +8737,7 @@ const HamperOneUnwrapExperience = () => {
           content: "";
           position: absolute;
           inset: 9px;
-          border: 1px solid rgba(212,175,55,.18);
+          border: 1px solid rgba(183,155,106,.18);
           border-radius: 20px;
           background:
             linear-gradient(90deg, transparent, rgba(255,232,165,.08), transparent) top/100% 1px no-repeat,
@@ -8541,7 +8746,7 @@ const HamperOneUnwrapExperience = () => {
             linear-gradient(180deg, transparent, rgba(255,232,165,.06), transparent) right/1px 100% no-repeat;
           box-shadow:
             inset 0 0 0 1px rgba(255,255,255,.018),
-            inset 0 0 30px rgba(212,175,55,.026);
+            inset 0 0 30px rgba(183,155,106,.026);
         }
 
         .hp-home-v65 .hp-hamper-one-wrap-design::after {
@@ -8552,7 +8757,7 @@ const HamperOneUnwrapExperience = () => {
           pointer-events: none;
           background:
             linear-gradient(90deg, transparent 0 43%, rgba(255,238,178,.15) 49%, rgba(255,238,178,.04) 53%, transparent 60%) top/100% 1px no-repeat,
-            linear-gradient(90deg, transparent 0 40%, rgba(212,175,55,.10) 50%, transparent 61%) bottom/100% 1px no-repeat;
+            linear-gradient(90deg, transparent 0 40%, rgba(183,155,106,.10) 50%, transparent 61%) bottom/100% 1px no-repeat;
           opacity: .72;
           animation: hpHamperWrapGlow 3.8s ease-in-out infinite;
         }
@@ -8563,7 +8768,7 @@ const HamperOneUnwrapExperience = () => {
           width: 42px;
           height: 42px;
           opacity: .88;
-          filter: drop-shadow(0 0 8px rgba(212,175,55,.18));
+          filter: drop-shadow(0 0 8px rgba(183,155,106,.18));
         }
 
         .hp-home-v65 .hp-hamper-one-wrap-corner::before,
@@ -8576,13 +8781,13 @@ const HamperOneUnwrapExperience = () => {
         .hp-home-v65 .hp-hamper-one-wrap-corner::before {
           width: 100%;
           height: 1px;
-          box-shadow: 0 5px 0 rgba(212,175,55,.18);
+          box-shadow: 0 5px 0 rgba(183,155,106,.18);
         }
 
         .hp-home-v65 .hp-hamper-one-wrap-corner::after {
           width: 1px;
           height: 100%;
-          box-shadow: 5px 0 0 rgba(212,175,55,.18);
+          box-shadow: 5px 0 0 rgba(183,155,106,.18);
         }
 
         .hp-home-v65 .hp-hamper-one-wrap-corner-tl { left: 20px; top: 20px; }
@@ -8599,7 +8804,7 @@ const HamperOneUnwrapExperience = () => {
             radial-gradient(ellipse at 50% 4%, rgba(235,205,122,.07) 0 9%, transparent 10% 100%) 0 0/54px 78px,
             radial-gradient(ellipse at 50% 96%, rgba(235,205,122,.045) 0 9%, transparent 10% 100%) 27px 39px/54px 78px,
             repeating-linear-gradient(90deg, transparent 0 52px, rgba(255,255,255,.012) 52px 53px),
-            linear-gradient(145deg, rgba(255,255,255,.012), transparent 42%, rgba(212,175,55,.018) 70%, transparent);
+            linear-gradient(145deg, rgba(255,255,255,.012), transparent 42%, rgba(183,155,106,.018) 70%, transparent);
           box-shadow: inset 0 0 0 1px rgba(244,221,145,.035);
         }
 
@@ -8611,7 +8816,7 @@ const HamperOneUnwrapExperience = () => {
           border: 1px solid rgba(247,223,149,.72);
           background: linear-gradient(135deg, #6c410b, #f2d77d 48%, #8e5d16);
           transform: rotate(45deg);
-          box-shadow: 0 0 16px rgba(212,175,55,.24);
+          box-shadow: 0 0 16px rgba(183,155,106,.24);
         }
 
         .hp-home-v65 .hp-hamper-one-wrap-jewel-a { left: 50%; top: 27px; margin-left: -4px; }
@@ -8644,7 +8849,7 @@ const HamperOneUnwrapExperience = () => {
           border: 1px solid rgba(236,198,94,.34);
           border-radius: 26px 26px 18px 18px;
           background:
-            radial-gradient(circle at 50% 0%, rgba(212,175,55,.13), transparent 38%),
+            radial-gradient(circle at 50% 0%, rgba(183,155,106,.13), transparent 38%),
             linear-gradient(145deg, rgba(23,15,9,.94), rgba(7,6,5,.91));
           box-shadow:
             inset 0 0 0 1px rgba(255,255,255,.025),
@@ -8660,7 +8865,7 @@ const HamperOneUnwrapExperience = () => {
           content: "";
           position: absolute;
           inset: 9px;
-          border: 1px solid rgba(212,175,55,.14);
+          border: 1px solid rgba(183,155,106,.14);
           border-radius: 18px 18px 12px 12px;
           background:
             radial-gradient(ellipse at 50% 0%, rgba(245,215,130,.055) 0 10%, transparent 11%) 0 0/48px 70px,
@@ -8675,8 +8880,8 @@ const HamperOneUnwrapExperience = () => {
           right: 8%;
           bottom: -1px;
           height: 2px;
-          background: linear-gradient(90deg, transparent, #D4AF37 22%, #F6E4A3 50%, #D4AF37 78%, transparent);
-          box-shadow: 0 0 18px rgba(212,175,55,.24);
+          background: linear-gradient(90deg, transparent, #B79B6A 22%, #F6E4A3 50%, #B79B6A 78%, transparent);
+          box-shadow: 0 0 18px rgba(183,155,106,.24);
         }
 
         .hp-home-v65 .hp-hamper-one-experience-lid h3 {
@@ -8719,7 +8924,7 @@ const HamperOneUnwrapExperience = () => {
           top: 9px;
           bottom: 7px;
           width: 1px;
-          background: linear-gradient(180deg, transparent, rgba(212,175,55,.34), transparent);
+          background: linear-gradient(180deg, transparent, rgba(183,155,106,.34), transparent);
         }
 
         .hp-home-v65 .hp-hamper-one-experience-icon {
@@ -8729,8 +8934,8 @@ const HamperOneUnwrapExperience = () => {
           place-items: center;
           border: 1px solid rgba(236,198,94,.5);
           border-radius: 999px;
-          background: rgba(212,175,55,.055);
-          box-shadow: inset 0 0 18px rgba(212,175,55,.05);
+          background: rgba(183,155,106,.055);
+          box-shadow: inset 0 0 18px rgba(183,155,106,.05);
         }
 
         .hp-home-v65 .hp-hamper-one-experience-icon svg {
@@ -8777,12 +8982,12 @@ const HamperOneUnwrapExperience = () => {
           padding: 0 24px;
           border: 1px solid rgba(255,237,173,.55);
           border-radius: 999px;
-          background: linear-gradient(90deg, #A96D13 0%, #D5AA38 19%, #F3D56F 48%, #DAB244 74%, #A66A12 100%);
+          background: linear-gradient(90deg, #B79B6A 0%, #D5AA38 19%, #F3D56F 48%, #DAB244 74%, #A66A12 100%);
           color: #1D1509;
           box-shadow:
             inset 0 1px 0 rgba(255,255,255,.5),
             0 16px 38px rgba(0,0,0,.28),
-            0 0 26px rgba(212,175,55,.12);
+            0 0 26px rgba(183,155,106,.12);
           font-size: 10px;
           font-weight: 900;
           letter-spacing: .15em;
@@ -8815,10 +9020,10 @@ const HamperOneUnwrapExperience = () => {
           background:
             radial-gradient(ellipse at 50% 0%, rgba(231,196,105,.055) 0 12%, transparent 13% 100%) 0 0/52px 76px,
             radial-gradient(ellipse at 50% 100%, rgba(231,196,105,.035) 0 11%, transparent 12% 100%) 26px 38px/52px 76px,
-            linear-gradient(110deg, rgba(255,255,255,.025), transparent 28%, rgba(212,175,55,.045) 50%, transparent 72%, rgba(0,0,0,.16)),
-            linear-gradient(180deg, #0e0b08 0%, #090705 52%, #0b0806 100%);
+            linear-gradient(110deg, rgba(255,255,255,.025), transparent 28%, rgba(183,155,106,.045) 50%, transparent 72%, rgba(0,0,0,.16)),
+            linear-gradient(180deg, #0e0b08 0%, #161715 52%, #0b0806 100%);
           box-shadow:
-            inset 0 0 58px rgba(212,175,55,.055),
+            inset 0 0 58px rgba(183,155,106,.055),
             inset 0 1px 0 rgba(255,255,255,.022),
             0 0 42px rgba(0,0,0,.34);
         }
@@ -8829,7 +9034,7 @@ const HamperOneUnwrapExperience = () => {
             linear-gradient(90deg,
               #70450c 0%,
               #9d6819 8%,
-              #d7ad43 22%,
+              #B79B6A 22%,
               #f5dc83 42%,
               #fff0b0 50%,
               #e3bc56 62%,
@@ -8841,7 +9046,7 @@ const HamperOneUnwrapExperience = () => {
             inset 5px 0 10px rgba(255,255,255,.05),
             inset -5px 0 10px rgba(75,43,5,.10),
             0 8px 24px rgba(0,0,0,.26),
-            0 0 22px rgba(212,175,55,.09);
+            0 0 22px rgba(183,155,106,.09);
         }
 
         .hp-home-v65 .hp-hamper-one-section .hp-unbox-ribbon::before,
@@ -8885,10 +9090,10 @@ const HamperOneUnwrapExperience = () => {
         .hp-home-v65 .hp-hamper-one-seal {
           border: 1px solid rgba(255,235,165,.70) !important;
           background:
-            radial-gradient(circle at 35% 28%, #fff1b2 0%, #efd46f 23%, #d1a53b 52%, #936014 79%, #5d3908 100%) !important;
+            radial-gradient(circle at 35% 28%, #fff1b2 0%, #B79B6A 23%, #B79B6A 52%, #936014 79%, #5d3908 100%) !important;
           box-shadow:
             0 18px 46px rgba(0,0,0,.42),
-            0 0 0 5px rgba(212,175,55,.08),
+            0 0 0 5px rgba(183,155,106,.08),
             inset 0 1px 0 rgba(255,255,255,.52),
             inset 0 -8px 16px rgba(111,68,7,.22) !important;
           animation: hpHamperSealAura 2.9s ease-out infinite;
@@ -9236,7 +9441,7 @@ const HamperOneUnwrapExperience = () => {
           opacity: .30;
           transform: translate(-50%,-50%);
           background: linear-gradient(90deg, transparent, rgba(248,220,132,.34) 15%, rgba(248,220,132,.12) 50%, rgba(248,220,132,.34) 85%, transparent);
-          box-shadow: 0 0 15px rgba(212,175,55,.08);
+          box-shadow: 0 0 15px rgba(183,155,106,.08);
           transition: opacity .4s ease;
         }
 
@@ -9385,7 +9590,7 @@ const HamperOneUnwrapExperience = () => {
             inset 0 1px 0 rgba(255,255,255,.45),
             inset 0 -1px 0 rgba(73,42,6,.28),
             0 10px 24px rgba(0,0,0,.26),
-            0 0 18px rgba(212,175,55,.10);
+            0 0 18px rgba(183,155,106,.10);
           transition:
             width .60s cubic-bezier(.16,1,.3,1),
             opacity .30s ease,
@@ -9406,8 +9611,8 @@ const HamperOneUnwrapExperience = () => {
 
         .hp-home-v65 .hp-hamper-pull-aura {
           box-shadow:
-            0 0 0 1px rgba(212,175,55,.08),
-            0 0 42px rgba(212,175,55,.12),
+            0 0 0 1px rgba(183,155,106,.08),
+            0 0 42px rgba(183,155,106,.12),
             inset 0 0 32px rgba(255,231,151,.04);
           will-change: transform, opacity;
         }
@@ -9602,11 +9807,11 @@ const HamperOneUnwrapExperience = () => {
           border-radius: 24px;
           border-color: rgba(238,206,112,.27);
           background:
-            linear-gradient(135deg, rgba(255,255,255,.018), transparent 35%, rgba(212,175,55,.022) 62%, transparent),
+            linear-gradient(135deg, rgba(255,255,255,.018), transparent 35%, rgba(183,155,106,.022) 62%, transparent),
             rgba(7,6,4,.055);
           box-shadow:
             inset 0 0 0 1px rgba(255,255,255,.025),
-            inset 0 0 36px rgba(212,175,55,.035),
+            inset 0 0 36px rgba(183,155,106,.035),
             0 18px 54px rgba(0,0,0,.20);
         }
         .hp-home-v65 .hp-hamper-one-wrap-motif { opacity: .48; }
@@ -9621,7 +9826,7 @@ const HamperOneUnwrapExperience = () => {
             inset 0 1px 0 rgba(255,255,255,.44),
             inset 0 -1px 0 rgba(71,41,5,.22),
             0 6px 17px rgba(0,0,0,.19),
-            0 0 15px rgba(212,175,55,.07);
+            0 0 15px rgba(183,155,106,.07);
         }
         .hp-home-v65 .hp-unbox-ribbon-v-top,
         .hp-home-v65 .hp-unbox-ribbon-v-bottom {
@@ -9630,7 +9835,7 @@ const HamperOneUnwrapExperience = () => {
             inset 1px 0 0 rgba(255,255,255,.35),
             inset -1px 0 0 rgba(71,41,5,.20),
             0 6px 17px rgba(0,0,0,.18),
-            0 0 14px rgba(212,175,55,.06);
+            0 0 14px rgba(183,155,106,.06);
         }
         .hp-home-v65 .hp-hamper-loose-ribbon-tail {
           height: 18px !important;
@@ -9662,7 +9867,7 @@ const HamperOneUnwrapExperience = () => {
           border: 1px solid rgba(247,221,139,.62);
           border-radius: 50%;
           background: rgba(28,19,8,.72);
-          box-shadow: 0 0 0 4px rgba(212,175,55,.045);
+          box-shadow: 0 0 0 4px rgba(183,155,106,.045);
         }
         .hp-home-v65 .hp-hamper-pull-guide::before {
           left: 3px;
@@ -9689,8 +9894,8 @@ const HamperOneUnwrapExperience = () => {
             linear-gradient(135deg, #7B4B0D 0%, #D9AD3F 19%, #FFF0A8 48%, #D4A139 72%, #754509 100%) !important;
           box-shadow:
             0 17px 38px rgba(0,0,0,.36),
-            0 0 0 1px rgba(212,175,55,.10),
-            0 0 26px rgba(212,175,55,.09),
+            0 0 0 1px rgba(183,155,106,.10),
+            0 0 26px rgba(183,155,106,.09),
             inset 0 1px 0 rgba(255,255,255,.52),
             inset 0 -8px 16px rgba(91,52,6,.20) !important;
           animation: none !important;
@@ -9705,7 +9910,7 @@ const HamperOneUnwrapExperience = () => {
             linear-gradient(135deg, #20160A 0%, #0D0A06 58%, #1A1108 100%) !important;
           box-shadow:
             inset 0 1px 0 rgba(255,255,255,.035),
-            inset 0 0 20px rgba(212,175,55,.045) !important;
+            inset 0 0 20px rgba(183,155,106,.045) !important;
         }
         .hp-home-v65 .hp-hamper-one-seal::after {
           inset: 3px !important;
@@ -9847,7 +10052,7 @@ const HamperOneUnwrapExperience = () => {
           animation: none !important;
           box-shadow:
             0 22px 48px rgba(0,0,0,.42),
-            0 0 0 6px rgba(212,175,55,.075),
+            0 0 0 6px rgba(183,155,106,.075),
             0 0 32px rgba(238,201,100,.14),
             inset 0 1px 0 rgba(255,255,255,.54),
             inset 0 -8px 16px rgba(91,52,6,.20) !important;
@@ -10066,15 +10271,15 @@ const HamperOneUnwrapExperience = () => {
         <div className="pointer-events-none absolute inset-0 bg-black/34" />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/82 via-black/42 to-black/12" />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/54 via-transparent to-black/16" />
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_26%,rgba(244,120,34,.16),transparent_28%),radial-gradient(circle_at_76%_18%,rgba(212,175,55,.14),transparent_24%)]" />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_26%,rgba(183,155,106,.16),transparent_28%),radial-gradient(circle_at_76%_18%,rgba(183,155,106,.14),transparent_24%)]" />
 
         <div className="hp-hamper-one-inner relative z-10 mx-auto flex min-h-[760px] w-full max-w-[1920px] items-center px-5 py-14 sm:min-h-[820px] sm:px-8 sm:py-16 lg:min-h-[900px] lg:px-14 xl:px-20 2xl:px-24">
           <div className="hp-hamper-one-grid grid w-full items-center gap-8 lg:grid-cols-[.72fr_1.28fr] lg:gap-12 xl:gap-16">
             <Reveal className="hp-hamper-one-copy-block relative z-20">
               <div className="max-w-[650px]">
                 <div className="hp-hamper-one-kicker flex items-center gap-4">
-                  <span className="h-px w-10 bg-[#D4AF37] sm:w-14" />
-                  <p className="text-[9px] font-black uppercase tracking-[0.28em] text-[#F4D36A] sm:text-[10px]">
+                  <span className="h-px w-10 bg-[#B79B6A] sm:w-14" />
+                  <p className="text-[9px] font-black uppercase tracking-[0.28em] text-[#B79B6A] sm:text-[10px]">
                     HAMPORIUM · PRIVATE COLLECTION
                   </p>
                 </div>
@@ -10097,7 +10302,7 @@ const HamperOneUnwrapExperience = () => {
                 <div className="hp-hamper-one-actions mt-8 flex w-full sm:w-auto">
                   <SignatureLink
                     to="/hamper-one"
-                    className="group inline-flex min-h-[64px] w-full items-center justify-between border border-white/18 bg-black/30 px-6 text-[11px] font-black uppercase tracking-[0.16em] text-white backdrop-blur-sm transition duration-300 hover:-translate-y-0.5 hover:border-[#D4AF37]/60 hover:bg-black/48 hover:text-[#F0D06B] sm:w-auto sm:min-w-[285px]"
+                    className="group inline-flex min-h-[64px] w-full items-center justify-between border border-white/18 bg-black/30 px-6 text-[11px] font-black uppercase tracking-[0.16em] text-white backdrop-blur-sm transition duration-300 hover:-translate-y-0.5 hover:border-[#B79B6A]/60 hover:bg-black/48 hover:text-[#F0D06B] sm:w-auto sm:min-w-[285px]"
                   >
                     <span>Enter Hamper One</span>
                     <span className="text-[20px] transition duration-300 group-hover:translate-x-1">
@@ -10147,7 +10352,7 @@ const HamperOneUnwrapExperience = () => {
 
                   <h3 style={{ fontFamily: DISPLAY_FONT }}>
                     A Premium
-                    <span className="block text-[#E8C55A]">Gifting Experience</span>
+                    <span className="block text-[#B79B6A]">Gifting Experience</span>
                   </h3>
 
                   <div className="hp-hamper-one-experience-features">
@@ -10210,13 +10415,13 @@ const HamperOneUnwrapExperience = () => {
 
                 {/* Split wrapping paper: it parts from the centre as the seal is pulled. */}
                 <div
-                  className={`hp-unbox-curtain hp-unbox-curtain-left absolute inset-y-0 left-0 z-50 w-1/2 border-r border-[#D4AF37]/16 transition-transform duration-[1050ms] ease-[cubic-bezier(.16,1,.3,1)] ${
+                  className={`hp-unbox-curtain hp-unbox-curtain-left absolute inset-y-0 left-0 z-50 w-1/2 border-r border-[#B79B6A]/16 transition-transform duration-[1050ms] ease-[cubic-bezier(.16,1,.3,1)] ${
                     opened ? "-translate-x-[104%]" : "translate-x-0"
                   }`}
                  />
 
                 <div
-                  className={`hp-unbox-curtain hp-unbox-curtain-right absolute inset-y-0 right-0 z-50 w-1/2 border-l border-[#D4AF37]/16 transition-transform duration-[1050ms] ease-[cubic-bezier(.16,1,.3,1)] ${
+                  className={`hp-unbox-curtain hp-unbox-curtain-right absolute inset-y-0 right-0 z-50 w-1/2 border-l border-[#B79B6A]/16 transition-transform duration-[1050ms] ease-[cubic-bezier(.16,1,.3,1)] ${
                     opened ? "translate-x-[104%]" : "translate-x-0"
                   }`}
                  />
@@ -10274,7 +10479,7 @@ const HamperOneUnwrapExperience = () => {
 
                 <span
                   aria-hidden="true"
-                  className={`hp-hamper-pull-aura pointer-events-none absolute left-1/2 top-1/2 z-[76] h-[132px] w-[132px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#F4D36A]/18 bg-[#D4AF37]/5 transition-all duration-700 sm:h-[146px] sm:w-[146px] ${
+                  className={`hp-hamper-pull-aura pointer-events-none absolute left-1/2 top-1/2 z-[76] h-[132px] w-[132px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#B79B6A]/18 bg-[#B79B6A]/5 transition-all duration-700 sm:h-[146px] sm:w-[146px] ${
                     opened ? "scale-50 opacity-0" : "scale-100 opacity-100"
                   }`}
                  />
@@ -10290,7 +10495,7 @@ const HamperOneUnwrapExperience = () => {
                   onPointerUp={endPull}
                   onPointerCancel={endPull}
                   onClick={handleSealClick}
-                  className={`hp-hamper-one-seal absolute left-1/2 top-1/2 z-[80] grid h-[94px] w-[94px] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-[#FFE8A5]/52 bg-[radial-gradient(circle_at_34%_28%,#F6E4A3_0%,#D4AF37_46%,#99641C_100%)] text-[#2B1B05] shadow-[0_22px_50px_rgba(0,0,0,.38)] transition-all duration-[680ms] ease-[cubic-bezier(.16,1,.3,1)] sm:h-[102px] sm:w-[102px] ${
+                  className={`hp-hamper-one-seal absolute left-1/2 top-1/2 z-[80] grid h-[94px] w-[94px] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-[#E8E1D6]/52 bg-[radial-gradient(circle_at_34%_28%,#F6E4A3_0%,#B79B6A_46%,#99641C_100%)] text-[#2B1B05] shadow-[0_22px_50px_rgba(0,0,0,.38)] transition-all duration-[680ms] ease-[cubic-bezier(.16,1,.3,1)] sm:h-[102px] sm:w-[102px] ${
                     opened
                       ? "pointer-events-none scale-50 rotate-[28deg] opacity-0"
                       : "scale-100 rotate-0 opacity-100"
@@ -10326,7 +10531,7 @@ const PromiseCard = ({
   title,
 }) => (
   <div className="group min-h-[112px]">
-    <div className="flex items-center gap-3 text-[#F47822]">
+    <div className="flex items-center gap-3 text-[#B79B6A]">
       <span className="transition duration-300 group-hover:scale-110">
         {icon}
       </span>
@@ -10363,6 +10568,7 @@ const LovedProductCard = ({ product, index = 0, promotion }) => {
           <MemoSmartImage
             src={product.image}
             alt={product.name}
+            sizes="(max-width: 639px) 82vw, (max-width: 1023px) 50vw, 25vw"
             className="absolute inset-0 h-full w-full object-cover object-center"
           />
 
@@ -10418,11 +10624,11 @@ const CorporateFeature = ({
 }) => (
   <div className="group relative min-h-[190px] pt-5">
     <div className="absolute left-0 right-0 top-0 h-px bg-white/10">
-      <span className="hp-frameless-line block h-full w-12 bg-[#D4AF37]/80" />
+      <span className="hp-frameless-line block h-full w-12 bg-[#B79B6A]/80" />
     </div>
 
     <div className="flex items-center justify-between gap-3">
-      <span className="text-[#D4AF37] transition duration-300 group-hover:scale-110 group-hover:text-[#F47822]">
+      <span className="text-[#B79B6A] transition duration-300 group-hover:scale-110 group-hover:text-[#B79B6A]">
         {icon}
       </span>
 
@@ -10554,7 +10760,8 @@ const useHomeEnhancements = (homeRef, reducedMotion) => {
     const stories = Array.from(root.querySelectorAll(".hp-story-page"));
     const progressFill = root.querySelector(".hp-scroll-progress > span");
     const heroStage = root.querySelector(".hp-hero-stage");
-    const heroMotion = heroStage?.querySelector(".hp-hero-motion-layer");
+    // Do not animate the hero's full-screen decoded video bitmap on scroll.
+    // Only the inexpensive overlay and thin handoff line respond to movement.
     const heroDim = heroStage?.querySelector(".hp-hero-dim-layer");
     const heroLine = heroStage?.querySelector(".hp-hero-handoff-line");
     const goldenThread = root.querySelector(".hp-home-golden-thread");
@@ -10567,10 +10774,12 @@ const useHomeEnhancements = (homeRef, reducedMotion) => {
     let lastScrollY = -1;
     let heroSettled = false;
     let lastDecorationUpdate = -Infinity;
+    let lastGoldenFade = -1;
     const stableMobileScroll = window.matchMedia?.(
       "(max-width: 1023px), (pointer: coarse)"
     )?.matches ?? false;
     let lastViewportWidth = window.innerWidth;
+    const animateGoldenThread = !liteEffects && !stableMobileScroll;
 
     const paint = (now = performance.now()) => {
       frame = 0;
@@ -10582,36 +10791,41 @@ const useHomeEnhancements = (homeRef, reducedMotion) => {
 
       const progress = Math.max(0, Math.min(1, y / pageTravel));
 
-      // SVG strokeDashoffset is paint-bound. Update decorative progress only
-      // ~30fps rather than hammering SVG paint on every high-Hz scroll frame.
-      // The viewport's native 60/120Hz scroll remains completely independent.
-      if (now - lastDecorationUpdate >= (liteEffects ? 64 : 32)) {
+      // V152: exact page-scroll position is written EVERY animation frame.
+      // The old shared 56/120ms decoration throttle made this top line visibly
+      // jump, especially on trackpads and 120Hz displays. Never tween its
+      // transform: real scroll offset is already the correct interpolation.
+      if (progressFill) progressFill.style.transform = `scaleX(${progress.toFixed(6)})`;
+
+      // The left golden guide is decorative. Keep its thin knot synchronized
+      // using transform, but rate-limit the SVG dash repaint. On low-end or
+      // touch screens the guide stays static to reserve frames for scrolling.
+      if (animateGoldenThread && goldenKnot) {
+        const knotTravel = Math.max(0, window.innerHeight - 10);
+        goldenKnot.style.transform = `translate3d(-50%, ${(progress * knotTravel).toFixed(2)}px, 0) rotate(45deg)`;
+      }
+      if (animateGoldenThread && now - lastDecorationUpdate >= 16) {
         lastDecorationUpdate = now;
-        if (progressFill) progressFill.style.transform = `scaleX(${progress.toFixed(3)})`;
+        if (goldenPath) goldenPath.style.strokeDashoffset = String(1 - progress);
         const fade = progress > .91
           ? Math.max(.08, .72 - ((progress - .91) / .09) * .64)
           : .72;
-        if (goldenPath && !liteEffects) goldenPath.style.strokeDashoffset = String(1 - progress);
-        if (goldenThread && !liteEffects) goldenThread.style.opacity = fade.toFixed(3);
-        if (goldenKnot && !liteEffects) {
-          const knotTravel = Math.max(0, window.innerHeight - 10);
-          goldenKnot.style.transform = `translate3d(-50%, ${(progress * knotTravel).toFixed(1)}px, 0) rotate(45deg)`;
+        if (goldenThread && Math.abs(fade - lastGoldenFade) > .015) {
+          goldenThread.style.opacity = fade.toFixed(3);
+          lastGoldenFade = fade;
         }
       }
 
-      if (heroMotion && heroDim && heroLine) {
+      // Full-bleed 9MB hero movie no longer scales its video bitmap on every
+      // wheel event. Animate ONLY a GPU opacity and a 2px handoff line.
+      if (heroDim && heroLine) {
         if (y <= heroTravel * 1.12) {
           heroSettled = false;
           const p = Math.max(0, Math.min(1, y / heroTravel));
-          const scale = reducedMotion ? 1 : 1 + p * 0.018;
-          heroMotion.style.transform = `translateZ(0) scale(${scale.toFixed(3)})`;
-          heroDim.style.opacity = (0.03 + p * 0.14).toFixed(3);
-          heroLine.style.transform = `scaleX(${p.toFixed(3)})`;
+          heroDim.style.opacity = (0.03 + p * 0.14).toFixed(4);
+          heroLine.style.transform = `scaleX(${p.toFixed(5)})`;
         } else if (!heroSettled) {
           heroSettled = true;
-          heroMotion.style.transform = reducedMotion
-            ? "translateZ(0) scale(1)"
-            : "translateZ(0) scale(1.018)";
           heroDim.style.opacity = "0.17";
           heroLine.style.transform = "scaleX(1)";
         }
@@ -10857,195 +11071,208 @@ const useHomeEnhancements = (homeRef, reducedMotion) => {
   }, [homeRef, reducedMotion]);
 };
 
-// V142: immediate poster + non-blocking media loading, autoplay recovery,
-// optional cross-browser source, manual replay/retry and offscreen pause.
+// V150: always-autoplay cinematic hero.  No session-based "seen" lock.
+// A real image fallback is shown ONLY if playback genuinely cannot work.
+// The header remains gated during the initial film, but scroll, Skip or Pause
+// releases it. Returning to the hero restarts the video automatically.
 const CinematicHero = ({ onIntroComplete }) => {
   const videoRef = useRef(null);
   const stageRef = useRef(null);
   const completeRef = useRef(false);
   const manualPauseRef = useRef(false);
   const insideRef = useRef(true);
+  const lastFilmTimeRef = useRef(0);
   const stalledTimerRef = useRef(0);
   const reducedMotion = useMediaPreference("(prefers-reduced-motion: reduce)");
-  const [saveData] = useState(() =>
-    typeof navigator !== "undefined" && Boolean(navigator.connection?.saveData)
-  );
-  const [seen] = useState(() => {
-    try { return sessionStorage.getItem("hamporium:home-intro-seen") === "1"; }
-    catch { return false; }
-  });
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
   const [paused, setPaused] = useState(true);
-  const [playRequested, setPlayRequested] = useState(false);
-  const [finished, setFinished] = useState(seen);
-  const [slowLoading, setSlowLoading] = useState(false);
-  const allowVideo = playRequested || (!reducedMotion && !saveData);
-  const shouldMountVideo = allowVideo && !failed;
+  const [hasStarted, setHasStarted] = useState(false);
+  const [finished, setFinished] = useState(false);
 
-  const notify = useCallback((active) => {
+  const notify = useCallback((active, reason = "") => {
     if (active) document.documentElement.dataset.hamporiumIntro = "active";
     else delete document.documentElement.dataset.hamporiumIntro;
     window.dispatchEvent(new CustomEvent("hamporium:intro-state", {
-      detail: { active },
+      detail: { active, reason },
     }));
   }, []);
-
-  const finish = useCallback(() => {
-    if (completeRef.current) return;
-    completeRef.current = true;
-    setFinished(true);
-    notify(false);
-    onIntroComplete();
-    try { sessionStorage.setItem("hamporium:home-intro-seen", "1"); }
-    catch { /* Session storage might be blocked. */ }
-  }, [notify, onIntroComplete]);
 
   const clearStallTimer = useCallback(() => {
     if (stalledTimerRef.current) window.clearTimeout(stalledTimerRef.current);
     stalledTimerRef.current = 0;
   }, []);
 
-  // A rejected automatic play (NotAllowedError) is not a bad video file.
-  // Keep a working Play button and allow user-gesture playback.
+  const finish = useCallback((reason = "ended", stopPlayback = false) => {
+    if (stopPlayback) {
+      manualPauseRef.current = true;
+      videoRef.current?.pause();
+    }
+    if (completeRef.current) return;
+    completeRef.current = true;
+    setFinished(true);
+    notify(false, reason);
+    onIntroComplete?.();
+  }, [notify, onIntroComplete]);
+
+  // Muted + playsInline enables autoplay on browsers that permit it.  A decode
+  // error or an autoplay-policy rejection triggers the real failure fallback.
   const tryPlay = useCallback((fromGesture = false) => {
     const video = videoRef.current;
-    if (!video || (!allowVideo && !fromGesture) || failed ||
-        manualPauseRef.current || document.hidden || !insideRef.current) return;
-    if (!fromGesture && video.readyState < 2) return;
-    if (!video.paused) return;
-
+    if (!video || (failed && !fromGesture) || manualPauseRef.current ||
+        document.hidden || !insideRef.current || !video.paused) return;
     try {
       const pending = video.play();
-      if (pending?.catch) pending.catch((error) => {
-        if (error?.name === "AbortError") return; // Paused by viewport/visibility.
+      pending?.catch?.((error) => {
+        if (error?.name === "AbortError") return; // Observer/user paused a pending play.
         setPaused(true);
-        if (error?.name === "NotSupportedError" || error?.name === "NotReadableError") {
-          setFailed(true);
-          setReady(false);
-        }
-        // Autoplay permission is separate from codec/network failure.
-        finish();
+        // No fallback is shown for normal buffering, only genuine inability to play.
+        setFailed(true);
+        finish(error?.name === "NotAllowedError" ? "autoplay-blocked" : "playback-error", true);
       });
     } catch (error) {
       setPaused(true);
-      if (error?.name !== "NotAllowedError") setFailed(true);
-      finish();
+      setFailed(true);
+      finish("playback-error", true);
     }
-  }, [allowVideo, failed, finish]);
+  }, [failed, finish]);
 
-  // First visit may start the intro; returning visitors see the page instantly.
-  // Video/poster never waits behind a fullscreen React loader.
+  // Every page refresh / fresh visit starts a fresh film.  Do not read or write
+  // sessionStorage: the V149 seen flag was suppressing video on repeat visits.
   useEffect(() => {
-    if (seen || !allowVideo) {
-      finish();
-      return undefined;
-    }
-    notify(true);
-    const escapeIntro = (event) => { if (event.key === "Escape") finish(); };
-    const onScroll = () => { if (window.scrollY > 12) finish(); };
-    // Do not hold the Header hostage on a slow network. The player can
-    // still recover whenever it becomes ready later.
-    const failSafe = window.setTimeout(() => {
-      if (!videoRef.current?.readyState) {
-        setSlowLoading(true);
-        finish();
+    notify(true, "start");
+    const onScroll = () => {
+      if (window.scrollY > 12) finish("scroll", true);
+    };
+    const onEscape = (event) => {
+      if (event.key === "Escape") finish("escape", true);
+    };
+    // An unsupported media file / dead connection must not hold the header forever.
+    const watchdog = window.setTimeout(() => {
+      const video = videoRef.current;
+      if (video && video.readyState === 0 && !completeRef.current &&
+          insideRef.current && !document.hidden) {
+        setFailed(true);
+        finish("video-unavailable", true);
       }
-    }, 7000);
+    }, 18000);
     window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("keydown", escapeIntro);
+    window.addEventListener("keydown", onEscape);
     onScroll();
     return () => {
-      window.clearTimeout(failSafe);
+      window.clearTimeout(watchdog);
       window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("keydown", escapeIntro);
-      notify(false);
+      window.removeEventListener("keydown", onEscape);
+      if (!completeRef.current) notify(false, "cleanup");
     };
-  }, [seen, allowVideo, finish, notify]);
+  }, [finish, notify]);
 
-  // Browser can play once its first frame is decoded. No 420ms artificial delay.
-  useEffect(() => {
-    if (!ready || !shouldMountVideo) return;
-    if (!manualPauseRef.current) tryPlay(false);
-  }, [ready, shouldMountVideo, tryPlay]);
-
-  // Stop decoding film offscreen or in another tab; resume it when appropriate.
+  // Viewport lifecycle: pause offscreen to avoid decoding costs; on re-enter,
+  // rewind to frame one and auto-play EVEN if the intro was dismissed earlier.
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) return undefined;
-    const update = () => {
-      const shouldPause = document.hidden || !insideRef.current;
-      if (shouldPause) {
+    const stage = stageRef.current;
+    if (!video || !stage) return undefined;
+    const rect = stage.getBoundingClientRect();
+    insideRef.current = rect.bottom > 0 && rect.top < window.innerHeight;
+    const sync = () => {
+      if (document.hidden || !insideRef.current) {
         video.pause();
         clearStallTimer();
-      } else if (ready && !manualPauseRef.current) {
-        tryPlay(false);
+      } else if (!manualPauseRef.current) {
+        tryPlay();
       }
     };
-    const observer = window.IntersectionObserver
-      ? new IntersectionObserver(([entry]) => {
-          insideRef.current = Boolean(entry?.isIntersecting);
-          update();
-        }, { rootMargin: "100px 0px", threshold: 0.01 })
+    const onIntersection = ([entry]) => {
+      const visible = Boolean(entry?.isIntersecting && entry.intersectionRatio > 0.08);
+      const reentered = visible && !insideRef.current;
+      insideRef.current = visible;
+      if (reentered) {
+        manualPauseRef.current = false;
+        lastFilmTimeRef.current = 0;
+        try { video.currentTime = 0; } catch { /* Waiting for metadata. */ }
+      }
+      sync();
+    };
+    const observer = typeof IntersectionObserver !== "undefined"
+      ? new IntersectionObserver(onIntersection, { threshold: [0, 0.09, 0.5] })
       : null;
-    if (stageRef.current) observer?.observe(stageRef.current);
-    document.addEventListener("visibilitychange", update);
-    update();
+    observer?.observe(stage);
+    document.addEventListener("visibilitychange", sync);
+    sync();
     return () => {
       observer?.disconnect();
-      document.removeEventListener("visibilitychange", update);
-      video.pause();
+      document.removeEventListener("visibilitychange", sync);
+      clearStallTimer();
     };
-  }, [shouldMountVideo, ready, tryPlay, clearStallTimer]);
+  }, [tryPlay, clearStallTimer]);
 
-  // A stalled decoder/network must not leave an invisible or frozen first frame.
-  // The fallback stays visible; a deliberate click creates a fresh video element.
+  // A short network stall should buffer, not immediately swap to a poster.
   const onWaiting = () => {
     clearStallTimer();
     stalledTimerRef.current = window.setTimeout(() => {
       const video = videoRef.current;
-      if (video && video.paused === false && video.readyState < 3 &&
-          insideRef.current && !document.hidden) {
-        video.pause();
+      if (video && insideRef.current && !document.hidden &&
+          video.readyState < 2 && !video.paused) {
         setFailed(true);
         setReady(false);
-        finish();
+        finish("decoder-stalled", true);
       }
-    }, 8500);
+    }, 16000);
   };
   useEffect(() => clearStallTimer, [clearStallTimer]);
 
+  const onVideoPlaying = () => {
+    clearStallTimer();
+    setFailed(false);
+    setReady(true);
+    setHasStarted(true);
+    setPaused(false);
+  };
+
+  const onVideoTimeUpdate = (event) => {
+    if (completeRef.current) return;
+    const video = event.currentTarget;
+    const duration = video.duration;
+    if (!Number.isFinite(duration) || duration <= 0) return;
+    const current = video.currentTime;
+    // loop=true does not fire 'ended'.  Release the header at the last frame.
+    if (current >= duration - Math.min(0.35, duration * 0.03) ||
+        (lastFilmTimeRef.current > duration * 0.8 && current < duration * 0.2)) {
+      finish("ended");
+    }
+    lastFilmTimeRef.current = current;
+  };
+
   const toggle = () => {
     const video = videoRef.current;
-    if (video && !video.paused) {
+    if (!video) return;
+    if (!video.paused) {
       manualPauseRef.current = true;
       video.pause();
       clearStallTimer();
-      finish();
+      finish("pause", true);
       return;
     }
     manualPauseRef.current = false;
-    setPlayRequested(true);
-    setSlowLoading(false);
     if (failed) {
+      setFailed(false);
       setReady(false);
-      setFailed(false); // Remount <video> with its source list for a fresh retry.
-      return;
+      video.load();
     }
-    // When already mounted, call play synchronously in the user gesture.
-    // This avoids losing browser autoplay permission to a delayed effect.
-    if (video) tryPlay(true);
+    // Play from the actual click: don't lose autoplay permission in an effect.
+    tryPlay(true);
   };
 
-  const explore = () => {
-    finish();
+  const skipIntro = () => {
+    finish("skip", true);
     document.querySelector('[data-home-section="journey"]')?.scrollIntoView({
       behavior: reducedMotion ? "auto" : "smooth", block: "start",
     });
   };
 
   return <>
-    {!finished && <button type="button" className="hp-intro-skip" onClick={finish}>
+    {!finished && <button type="button" className="hp-intro-skip" onClick={skipIntro}>
       Skip intro <span aria-hidden="true">&#8594;</span>
     </button>}
     <section ref={stageRef}
@@ -11053,43 +11280,40 @@ const CinematicHero = ({ onIntroComplete }) => {
       aria-label="HAMPORIUM gifting showcase">
       <h1 className="sr-only">HAMPORIUM - curated hampers and personalised gifting</h1>
       <div className="hp-hero-motion-layer">
-        <img src={HOME_IMAGES.hero} alt="" aria-hidden="true" loading="eager"
-          decoding="async" fetchPriority="high" className="hp-hero-poster" />
-        {shouldMountVideo && <video key={HOME_MP4_VIDEO} ref={videoRef}
-          muted defaultMuted playsInline autoPlay={false} loop={false}
-          preload="metadata" poster={HOME_IMAGES.hero}
-          onLoadedData={() => { setReady(true); setSlowLoading(false); }}
-          onCanPlay={() => { setReady(true); setSlowLoading(false); }}
-          onPlaying={() => { clearStallTimer(); setPaused(false); setSlowLoading(false); }}
+        {/* No eager poster, and no poster attribute. Normal visitors see the FILM. */}
+        {failed && <MemoSmartImage src={HOME_IMAGES.hero} alt=""
+          loading="eager" decoding="async" sizes="100vw" className="hp-hero-poster" />}
+        <video ref={videoRef}
+          muted defaultMuted playsInline autoPlay loop
+          preload="auto"
+          onLoadedData={() => { setReady(true); clearStallTimer(); tryPlay(); }}
+          onCanPlay={() => { setReady(true); clearStallTimer(); tryPlay(); }}
+          onPlaying={onVideoPlaying}
           onPlay={() => setPaused(false)}
           onPause={() => { clearStallTimer(); setPaused(true); }}
+          onTimeUpdate={onVideoTimeUpdate}
           onWaiting={onWaiting} onStalled={onWaiting}
-          onEnded={finish}
-          onError={() => { clearStallTimer(); setFailed(true); setReady(false); finish(); }}
-          className={`hp-hero-film ${ready ? "is-ready" : ""}`}
+          onError={() => { clearStallTimer(); setFailed(true); setReady(false); finish("video-error", true); }}
+          className={`hp-hero-film ${ready && !failed ? "is-ready" : ""}`}
           aria-label="HAMPORIUM luxury gifting film">
           <source src={HOME_MP4_VIDEO} type="video/mp4" />
           {HOME_WEBM_VIDEO && <source src={HOME_WEBM_VIDEO} type="video/webm" />}
-        </video>}
+        </video>
         <div className="hp-hero-dim-layer" />
       </div>
-      {(failed || !allowVideo || slowLoading) && <div className="hp-hero-fallback-copy">
+      {failed && <div className="hp-hero-fallback-copy">
         <p>HAMPORIUM</p>
         <h2>A little thought.<br /><em>An unforgettable gift.</em></h2>
-        <SignatureLink to="/gifts" onClick={finish}>
-          Explore hampers <span aria-hidden="true">&#8594;</span>
-        </SignatureLink>
+        <SignatureLink to="/gifts">Explore hampers <span aria-hidden="true">&#8594;</span></SignatureLink>
       </div>}
-      <div className="hp-hero-controls">
-        <button type="button" className="hp-film-explore" onClick={explore}>
-          Explore the collection <span aria-hidden="true">&#8595;</span>
-        </button>
+      {/* Keep only the user's requested film controls, no Explore overlay. */}
+      {(hasStarted || failed) && <div className="hp-hero-controls hp-hero-controls--only-video">
         <button type="button" onClick={toggle} className="hp-film-toggle"
           aria-label={failed ? "Retry brand film" : paused ? "Play brand film" : "Pause brand film"}>
-          <HomeControlIcon type={paused ? "play" : "pause"} />
+          <HomeControlIcon type={paused || failed ? "play" : "pause"} />
           <span>{failed ? "Retry film" : paused ? "Play film" : "Pause film"}</span>
         </button>
-      </div>
+      </div>}
       <div className="hp-hero-handoff-line" aria-hidden="true" />
     </section>
   </>;
