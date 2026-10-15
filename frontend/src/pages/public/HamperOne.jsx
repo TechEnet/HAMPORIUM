@@ -1,3 +1,5 @@
+// V14: Clean logo-only hero, no image toggles; auto-changing backgrounds and bottom scroll arrow.
+// V13: Hamper One hero always fills viewport; no bottom gap on desktop, safe natural growth on mobile.
 // V12: smooth mathematically curved SVG wordmark + fixed responsive sizing; 3.5s auto-carousel and 280ms transition retained.
 // Logo SVG is faithfully traced from the supplied Hamper One lettering screenshot: no JPEG halo or runtime Canvas processing.
 import { useEffect, useRef, useState } from "react";
@@ -208,10 +210,8 @@ export default function HamperOne() {
     return () => revealObserverRef.current?.disconnect();
   }, []);
 
-  // V11: rotate the three backgrounds automatically. Changing slides via arrows
-  // or dots resets the countdown so user selections are not instantly overridden.
-  // The interval is visibility-independent while the page is open; browsers can
-  // throttle timers in background tabs as normal.
+  // V14: background images change automatically every 3.5s, with no manual toggles.
+  // Respect OS reduced-motion; page may throttle timers in background tabs.
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
     // Accessibility: respect OS reduced-motion preferences.
@@ -221,10 +221,6 @@ export default function HamperOne() {
     }, 3500);
     return () => window.clearTimeout(id);
   }, [heroIndex]);
-
-  const moveHero = (amount) => {
-    setHeroIndex((index) => (index + amount + HERO_SLIDES.length) % HERO_SLIDES.length);
-  };
 
   const revealDialog = (edition = null) => setDialog({ open: true, edition });
   const closeDialog = () => setDialog({ open: false, edition: null });
@@ -260,16 +256,30 @@ export default function HamperOne() {
         @media(max-width:767px){.h1-root .h1-wordmark-heading{max-width:100%;margin-top:24px!important}.h1-root .h1-hero-wordmark{max-width:100%!important}}
         @media(max-width:380px){.h1-root .h1-wordmark-heading{max-width:100%}}
         .h1-hero-shortline{font-family:'Manrope','Inter',sans-serif;font-weight:400;font-size:clamp(20px,2.05vw,34px);line-height:1.27;letter-spacing:-.035em}
-        .h1-slide-button{display:grid;place-items:center;width:54px;height:54px;border-radius:50%;border:1px solid rgba(231,189,124,.46);background:rgba(16,9,6,.23);color:#f2d5a3;backdrop-filter:blur(6px);transition:border-color .3s,background .3s,transform .3s}
-        .h1-slide-button:hover{border-color:#f8d69d;background:rgba(178,119,53,.28);transform:scale(1.045)}
-        .h1-slide-dot{width:9px;height:9px;border-radius:99px;border:1px solid #dfb67c;background:transparent;opacity:.8;transition:background .3s,opacity .3s,transform .3s}
-        .h1-slide-dot.is-active{background:#ebc184;opacity:1;transform:scale(1.12)}
+        /* V14: one understated scroll cue; no arrow/dot controls for the images. */
+        .h1-root .h1-hero-screen .h1-wordmark-heading{margin-top:0!important}
+        .h1-hero-down{
+          position:absolute;left:50%;bottom:clamp(22px,4.5vh,48px);
+          z-index:15;display:grid;place-items:center;
+          width:60px;height:60px;padding:0;
+          transform:translateX(-50%);
+          border:1px solid rgba(183,155,106,.72);border-radius:999px;
+          color:#FAF8F4;background:rgba(22,23,21,.32);
+          backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);
+          box-shadow:0 7px 24px rgba(0,0,0,.18);
+          cursor:pointer;touch-action:manipulation;
+          transition:background-color .25s ease,border-color .25s ease,box-shadow .25s ease;
+        }
+        .h1-hero-down:hover{background:rgba(22,23,21,.58);border-color:#E8E1D6;box-shadow:0 9px 30px rgba(0,0,0,.28)}
+        .h1-hero-down:focus-visible{outline:2px solid #FAF8F4;outline-offset:5px}
+        .h1-hero-down svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;animation:h1-down-cue 1.9s ease-in-out infinite}
+        @keyframes h1-down-cue{0%,100%{transform:translateY(-3px)}50%{transform:translateY(5px)}}
         @media(max-width:767px){
           .h1-hero-scene-image{object-position:center}
           .h1-hero-shade{background:linear-gradient(180deg,rgba(14,12,11,.04),rgba(14,12,11,.13) 32%,rgba(14,12,11,.46) 83%,rgba(14,12,11,.7) 100%)}
           .h1-hero-heading{font-size:clamp(66px,16.6vw,104px);line-height:.84;letter-spacing:-.056em}
           .h1-hero-shortline{font-size:clamp(20px,5.2vw,28px)}
-          .h1-slide-button{width:44px;height:44px}
+          .h1-hero-down{width:52px;height:52px;bottom:max(24px,env(safe-area-inset-bottom,0px) + 14px)}
         }
         @media(max-width:380px){.h1-hero-heading{font-size:clamp(58px,16.3vw,70px)}}
         .h1-hero-enter{animation:h1-reveal .82s var(--h1-ease) both}
@@ -291,8 +301,24 @@ export default function HamperOne() {
         @keyframes h1-reveal{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
         @keyframes h1-popup{from{opacity:0;transform:translateY(24px) scale(.95)}to{opacity:1;transform:translateY(0) scale(1)}}
         @keyframes h1-photo-appear{from{opacity:.72}to{opacity:1}}
-        @media(min-width:1024px){.h1-hero-screen{min-height:min(930px,95svh)}}
-        @media(max-width:767px){.h1-root{font-size:14px}.h1-hero-screen{min-height:max(760px,100svh)}.h1-hero-photo{object-position:67% center}.h1-edition-card:hover,.h1-step-card:hover{transform:none}.h1-edition-card:active,.h1-step-card:active{transform:scale(.985)}.h1-card-arrow{width:40px;height:40px}}
+        /* V13: The hero fills the ENTIRE visible viewport. No 760px/95svh cap. */
+        .h1-root .h1-hero-screen{
+          height:100vh;
+          height:100dvh;
+          min-height:100vh;
+          min-height:100dvh;
+          max-height:none;
+          margin:0;
+        }
+        /* Mobile and short landscape screens may grow if text/buttons need room. */
+        @media(max-width:767px), (max-height:640px){
+          .h1-root .h1-hero-screen{
+            height:auto;
+            min-height:100vh;
+            min-height:100dvh;
+          }
+        }
+        @media(max-width:767px){.h1-root{font-size:14px}.h1-hero-photo{object-position:67% center}.h1-edition-card:hover,.h1-step-card:hover{transform:none}.h1-edition-card:active,.h1-step-card:active{transform:scale(.985)}.h1-card-arrow{width:40px;height:40px}}
         .h1-hero-title{font-family:'Cormorant Garamond',Georgia,serif;font-size:clamp(82px,9.4vw,168px);font-weight:700;line-height:.79;letter-spacing:-.065em;text-wrap:balance;text-shadow:0 5px 25px rgba(0,0,0,.42),0 24px 64px rgba(0,0,0,.22);}
         .h1-hero-subtitle{font-size:clamp(30px,3.55vw,58px);line-height:1.07;font-weight:600;letter-spacing:-.035em;}
         .h1-section-title{font-family:'Cormorant Garamond',Georgia,serif;font-size:clamp(48px,5.8vw,100px);font-weight:700;line-height:.91;letter-spacing:-.047em;text-wrap:balance;}
@@ -317,15 +343,15 @@ export default function HamperOne() {
         @media(max-width:767px){.h1-hero-title{font-size:clamp(66px,17.5vw,105px);line-height:.78;letter-spacing:-.055em}.h1-hero-title span{display:block;margin-top:.06em}.h1-hero-subtitle{font-size:clamp(27px,7.4vw,42px)}.h1-section-title{font-size:clamp(48px,10.6vw,68px)}.h1-story-visual:hover .h1-story-photo,.h1-final-section:hover .h1-final-photo{transform:none}.h1-edition-card:active .h1-edition-photo{transform:scale(1.055)}}
         @media(max-width:380px){.h1-hero-title{font-size:clamp(62px,17vw,70px)}.h1-section-title{font-size:46px}.h1-edition-card{max-width:100%}.h1-studio-grid{grid-template-columns:1fr}}
         @media(hover:none){.h1-edition-shine{display:none}}
+        @media(prefers-reduced-motion:reduce){.h1-hero-down svg{animation:none}}
         @media(prefers-reduced-motion:reduce){.h1-root *, .h1-root *::before,.h1-root *::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
       `}</style>
 
-      {/* V11: high-resolution WebP backgrounds, 280ms fade, 3.5s automatic carousel. */}
+      {/* V14: logo-only full-height hero, 3.5s auto-changing backgrounds, scroll-down navigation. */}
       <section
         ref={heroRef}
-        className="h1-hero-screen relative isolate flex min-h-[660px] items-center overflow-hidden bg-[#161715] text-[#f8f0e5] sm:min-h-[720px] lg:min-h-[760px]"
-        aria-label="Introducing Hamper One"
-        aria-roledescription="carousel"
+        className="h1-hero-screen relative isolate flex items-center overflow-hidden bg-[#161715] text-[#f8f0e5]"
+        aria-label="Hamper One luxury gifting"
       >
         <div className="absolute inset-0 -z-10" aria-hidden="true">
           {HERO_SLIDES.map((src, index) => (
@@ -353,12 +379,10 @@ export default function HamperOne() {
           <div className="h1-hero-shade" />
         </div>
 
+        {/* Intentionally only the approved logo is visible as hero text. */}
         <div className="relative mx-auto w-full max-w-[1680px] px-6 pb-28 pt-[145px] sm:px-12 sm:pb-32 sm:pt-[155px] lg:px-[6%] lg:pb-32">
           <div className="max-w-[930px]">
-            <p className="h1-hero-enter flex items-center gap-4 text-[11px] font-bold uppercase tracking-[.30em] text-[#f0cd95] sm:text-[13px]">
-              <span className="h-px w-11 bg-[#ddab65]" /> INTRODUCING
-            </p>
-            <h1 className="h1-wordmark-heading h1-hero-enter-2 mt-7 sm:mt-8">
+            <h1 className="h1-wordmark-heading h1-hero-enter-2">
               <img
                 src={hamperOneWordmarkSharp}
                 alt="HAMPER ONE privee"
@@ -370,37 +394,20 @@ export default function HamperOne() {
                 draggable="false"
               />
             </h1>
-            <p className="h1-hero-shortline h1-hero-enter-3 mt-8 text-[#f5e8d9] sm:mt-11">Luxury gifting, reimagined.</p>
-            <button
-              type="button"
-              onClick={() => scrollToSection("h1-collections")}
-              className="h1-hero-enter-3 mt-9 inline-flex min-h-[54px] items-center justify-between gap-10 rounded-[4px] border border-[#e9c38e] bg-gradient-to-b from-[#f0d5ac] to-[#d5a563] px-7 text-[12px] font-extrabold uppercase tracking-[.14em] text-[#26190d] shadow-[0_15px_40px_rgba(0,0,0,.15)] transition duration-300 hover:-translate-y-1 hover:from-[#fae2b9] hover:to-[#dfb477] sm:mt-10 sm:min-h-[61px] sm:px-9"
-            >
-              Explore Preview <Icon name="arrow" className="h-[17px] w-[17px]" />
-            </button>
           </div>
         </div>
 
-        <div className="absolute inset-x-5 bottom-6 z-10 flex items-center justify-between sm:inset-x-10 sm:bottom-8 lg:inset-x-[5%]">
-          <button type="button" className="h1-slide-button" onClick={() => moveHero(-1)} aria-label="Previous hamper image">
-            <Icon name="left" className="h-5 w-5" />
-          </button>
-          <div className="flex items-center gap-3" role="group" aria-label="Select hamper image">
-            {HERO_SLIDES.map((_, index) => (
-              <button
-                type="button"
-                key={index}
-                className={`h1-slide-dot ${index === heroIndex ? "is-active" : ""}`}
-                aria-label={`Show hamper image ${index + 1}`}
-                aria-pressed={index === heroIndex}
-                onClick={() => setHeroIndex(index)}
-              />
-            ))}
-          </div>
-          <button type="button" className="h1-slide-button" onClick={() => moveHero(1)} aria-label="Next hamper image">
-            <Icon name="right" className="h-5 w-5" />
-          </button>
-        </div>
+        {/* Single bottom-center cue scrolls to collections; images never need controls. */}
+        <button
+          type="button"
+          className="h1-hero-down"
+          aria-label="Scroll down to the Hamper One collections"
+          onClick={() => scrollToSection("h1-collections")}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M12 4v16m-7-7 7 7 7-7" />
+          </svg>
+        </button>
       </section>
 
       {/* Light collection exactly after the dark cover. */}
