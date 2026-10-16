@@ -1,3 +1,4 @@
+// V144: first-scroll auto letter-wave; retain V143 orange wordmark and hover unchanged.
 // V143: restore original orange big HAMPORIUM footer wordmark; retain V142 palette elsewhere.
 // V141: Footer.jsx - responsive layout + modern thin geometric HAMPORIUM wordmark with letter hover.
 // HAMPORIUM Footer - V15 | FIXED OXC PARSE ERROR | SINGLE DEFAULT EXPORT
@@ -10,7 +11,7 @@
 
 
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Link, useLocation } from "react-router-dom";
 
@@ -686,6 +687,53 @@ export default function Footer() {
   const logo = useTransparentLogo(logoLight);
   const year = new Date().getFullYear();
 
+  // V144: run the same letter-enlarge effect automatically ONCE, only when
+  // the oversized wordmark enters the viewport. Hover stays interactive later.
+  const wordmarkRef = useRef(null);
+  const introTriggeredRef = useRef(false);
+  const [introPlaying, setIntroPlaying] = useState(false);
+
+  useEffect(() => {
+    if (pathname !== "/" || introTriggeredRef.current) return undefined;
+
+    const target = wordmarkRef.current;
+    if (!target) return undefined;
+
+    const startLetterSequence = () => {
+      if (introTriggeredRef.current) return;
+      introTriggeredRef.current = true;
+
+      // Respect system reduced-motion preferences.
+      if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+      setIntroPlaying(true);
+    };
+
+    if (typeof IntersectionObserver === "undefined") {
+      startLetterSequence();
+      return undefined;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          observer.disconnect();
+          startLetterSequence();
+        }
+      },
+      { threshold: 0.35, rootMargin: "0px 0px -4% 0px" }
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!introPlaying) return undefined;
+    // 9 letters: last starts at 8*165ms, then completes in 720ms.
+    const timer = window.setTimeout(() => setIntroPlaying(false), 2260);
+    return () => window.clearTimeout(timer);
+  }, [introPlaying]);
+
   if (pathname !== "/") return null;
 
   return (
@@ -754,6 +802,19 @@ export default function Footer() {
             color: #FFA548;
           }
         }
+        /* V144: first-scroll automatic H -> A -> M -> P -> O -> R -> I -> U -> M wave.
+           Transform-only movement avoids layout shifts; the original hover
+           effect is retained after this short, one-time sequence finishes. */
+        @keyframes hpFooterFirstScrollLetter {
+          0%, 100% { transform: translate3d(0,0,0) scale(1); color: #F47822; }
+          38% { transform: translate3d(0,-.065em,0) scale(1.2); color: #FFA548; }
+          65% { transform: translate3d(0,-.04em,0) scale(1.11); color: #FF923C; }
+        }
+        .hp-footer-wordmark.is-auto-playing .hp-footer-wordmark-letter {
+          animation: hpFooterFirstScrollLetter 720ms cubic-bezier(.2,.86,.26,1) both;
+          animation-delay: calc(var(--hp-letter-index) * 165ms);
+          will-change: transform;
+        }
         @media (min-width: 768px) and (max-width: 1199px) {
           .hp-footer-main {
             grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -818,10 +879,18 @@ export default function Footer() {
         </div>
       </div>
 
-      <div className="hp-footer-wordmark" aria-label="HAMPORIUM">
+      <div
+        ref={wordmarkRef}
+        className={`hp-footer-wordmark ${introPlaying ? "is-auto-playing" : ""}`}
+        aria-label="HAMPORIUM"
+      >
         <div className="hp-footer-wordmark-line" aria-hidden="true">
           {Array.from("HAMPORIUM").map((letter, index) => (
-            <span className="hp-footer-wordmark-letter" key={`${letter}-${index}`}>
+            <span
+              className="hp-footer-wordmark-letter"
+              style={{ "--hp-letter-index": index }}
+              key={`${letter}-${index}`}
+            >
               {letter}
             </span>
           ))}
