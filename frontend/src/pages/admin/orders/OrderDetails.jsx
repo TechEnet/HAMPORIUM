@@ -43,7 +43,9 @@ const OrderDetails = () => {
       setError("");
 
       try {
+        await loadOrder();
       } catch (requestError) {
+        setOrder(null);
         setError(
           requestError.response?.data?.message || "Unable to load order"
         );

@@ -1,3 +1,4 @@
+
 import { Link, useNavigate } from "react-router-dom";
 
 
@@ -229,6 +230,10 @@ const Cart = () => {
               />
 
               <SummaryRow label="Shipping" value="FREE" accent />
+
+              <p className="text-[11px] font-semibold leading-5 text-black/50">
+                Delivery is based only on Excel Lead Time Days. When multiple items are ordered, the longest lead time determines the date. Your actual date is calculated at checkout.
+              </p>
 
             </div>
 

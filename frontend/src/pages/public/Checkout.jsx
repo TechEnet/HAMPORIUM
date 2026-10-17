@@ -1,3 +1,4 @@
+
 import { useEffect, useRef, useState } from "react";
 
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
@@ -81,53 +82,52 @@ const formatExpectedDeliveryDate = (value) => {
 
     year: "numeric",
 
+    timeZone: "Asia/Kolkata",
+
   }).format(date);
 
 };
 
 
 
-const getPublicDeliveryError = (requestError) => {
-
-  const rawMessage = String(
-
-    requestError?.response?.data?.message ||
-
-      requestError?.message ||
-
-      ""
-
-  ).trim();
-
-
-
-  if (
-
-    /default courier days|set courier days in admin|courier days configured/i.test(
-
-      rawMessage
-
-    )
-
-  ) {
-
-    return "Expected delivery is temporarily unavailable for this item. Please try again shortly.";
-
-  }
-
-
-
-  return (
-
-    rawMessage ||
-
-    "Unable to calculate expected delivery for this address."
-
-  );
-
+// V6 Excel-only: display the backend's own lead time. Never add courier or
+// packing days in the browser, and never guess an ETA if backend rejected it.
+const getExcelLeadDays = (estimate) => {
+  const value = estimate?.leadTimeDays ?? estimate?.productionLeadDays;
+  if (value === undefined || value === null || value === "") return null;
+  const days = Number(value);
+  return Number.isInteger(days) && days >= 0 && days <= 365 ? days : null;
 };
 
+const getOrderExcelLeadDays = (estimate) => {
+  const lines = Array.isArray(estimate?.itemEstimates)
+    ? estimate.itemEstimates
+    : [];
+  if (lines.length === 0) return null;
+  const days = lines.map(getExcelLeadDays);
+  if (days.some((value) => value === null)) return null;
+  return Math.max(...days);
+};
 
+const formatLeadDays = (value) =>
+  `${value} ${value === 1 ? "day" : "days"}`;
+
+const getPublicDeliveryError = (requestError) => {
+  const payload = requestError?.response?.data || {};
+  const message = String(payload.message || "").trim();
+  const code = String(payload.code || "").trim().toUpperCase();
+
+  // Preserve the backend's actionable item/Excel error; don't obscure it with
+  // outdated courier-day messages from the previous delivery engine.
+  if (message) return message;
+  if (code === "LEAD_TIME_MISSING") {
+    return "Excel Lead Time Days is missing for a selected hamper or gift. Please contact support.";
+  }
+  if (code === "ITEM_UNAVAILABLE") {
+    return "A selected hamper is not currently orderable. Please review your cart.";
+  }
+  return "Unable to calculate a delivery date. Please try again or review your cart.";
+};
 
 const loadRazorpay = () => {
 
@@ -209,7 +209,7 @@ const Checkout = () => {
 
   const { user } = useAuth();
 
-  const { cart, refreshCart } = useCart();
+  const { cart, refreshCart, cartLoading } = useCart();
 
   const {
 
@@ -537,7 +537,7 @@ const Checkout = () => {
 
   /* =====================================================
 
-     SERVER-CALCULATED CHECKOUT DELIVERY
+     SERVER-CALCULATED CHECKOUT DELIVERY (EXCEL LEAD DAYS ONLY)
 
   ===================================================== */
 
@@ -548,6 +548,8 @@ const Checkout = () => {
     if (
 
       loading ||
+
+      cartLoading ||
 
       !addressId ||
 
@@ -644,6 +646,8 @@ const Checkout = () => {
     deliveryFingerprint,
 
     loading,
+
+    cartLoading,
 
     buyNowIntent?.skuId,
 
@@ -1909,6 +1913,40 @@ const Checkout = () => {
 
 
 
+                      {getOrderExcelLeadDays(deliveryEstimate) !== null && (
+                        <div className="mt-3 inline-flex flex-wrap items-center gap-2 rounded-full border border-[#F47822]/20 bg-white px-3.5 py-2 text-[11px] font-extrabold text-[#B95513]">
+                          <span>Excel lead time</span>
+                          <span aria-hidden="true">·</span>
+                          <span>{formatLeadDays(getOrderExcelLeadDays(deliveryEstimate))}</span>
+                        </div>
+                      )}
+
+                      {Array.isArray(deliveryEstimate.itemEstimates) &&
+                        deliveryEstimate.itemEstimates.length > 1 && (
+                          <div className="mt-4 max-w-[650px] rounded-[14px] border border-black/[0.07] bg-white p-3.5">
+                            <p className="mb-2 text-[10px] font-extrabold uppercase tracking-[0.08em] text-black/40">
+                              Lead time by hamper (maximum applies)
+                            </p>
+                            <div className="space-y-2">
+                              {deliveryEstimate.itemEstimates.map((line, index) => {
+                                const days = getExcelLeadDays(line);
+                                return (
+                                  <div key={String(line.itemId || line.skuId || index)} className="flex items-start justify-between gap-3 text-[11px] font-semibold">
+                                    <span className="min-w-0 text-black/65">{line.name || `Hamper ${index + 1}`}</span>
+                                    <span className="shrink-0 font-extrabold text-[#171717]">
+                                      {days === null ? "Not available" : formatLeadDays(days)}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                      <p className="mt-2 max-w-[650px] text-[11px] font-medium leading-5 text-black/45">
+                        Delivery date is calculated using only the imported Excel Lead Time Days.
+                      </p>
+
                       <p className="mt-2 text-[12px] font-semibold text-black/42">
 
                         {deliveryEstimate.city || "Selected city"}
@@ -1938,6 +1976,16 @@ const Checkout = () => {
                           "Select a valid delivery address to calculate delivery."}
 
                       </p>
+
+                      {deliveryError && !isBuyNow && (
+                        <button
+                          type="button"
+                          onClick={() => navigate("/cart")}
+                          className="mt-3 inline-flex items-center rounded-full border border-amber-400/30 bg-white px-4 py-2 text-[11px] font-extrabold text-amber-900 hover:border-amber-500"
+                        >
+                          Review cart
+                        </button>
+                      )}
 
                     </>
 

@@ -62,6 +62,7 @@ const formatDateValue = (value) => {
         day: "2-digit",
         month: "short",
         year: "numeric",
+        timeZone: "Asia/Kolkata",
     }).format(date);
 };
 const formatDimensions = (dimensions) => {
@@ -107,6 +108,15 @@ const formatDaysValue = (value) => {
         ? "day"
         : "days"}`;
 };
+// V6: The backend has already calculated the exact Excel Lead Time Days.
+// Never calculate a delivery date or add courier/packing days in the browser.
+const getExcelLeadDays = (estimate) => {
+    const value = estimate?.leadTimeDays ?? estimate?.productionLeadDays;
+    if (value === null || value === undefined || value === "") return null;
+    const days = Number(value);
+    return Number.isInteger(days) && days >= 0 && days <= 365 ? days : null;
+};
+
 const normalizePincode = (value) => String(value || "")
     .replace(/\D/g, "")
     .slice(0, 6);
@@ -870,12 +880,12 @@ const ProductDetails = () => {
         ? selectedImage
         : images[0]?.url ||
             "";
-    const deliveryEstimate = selectedSku
-        ?.deliveryEstimate ||
-        null;
-    const skuUnavailable = deliveryEstimate
-        ?.status ===
-        "unavailable";
+    const deliveryEstimate = deliveryResult?.serviceable === true &&
+        deliveryResult?.deliveryEstimate
+        ? deliveryResult.deliveryEstimate
+        : selectedSku?.deliveryEstimate || null;
+    const skuUnavailable = deliveryEstimate?.status === "unavailable" ||
+        deliveryEstimate?.canEstimate === false;
     const deliveryBlocked = Boolean(deliveryResult &&
         (deliveryResult
             .serviceable ===
@@ -917,36 +927,17 @@ const ProductDetails = () => {
     const earliestExpiryDate = selectedSku
         ?.earliestExpiryDate ||
         null;
-    const dispatchReadyDate = deliveryEstimate
-        ?.dispatchReadyDate ||
-        null;
-    const defaultExpectedDeliveryDate = deliveryEstimate
-        ?.expectedDeliveryDate ||
-        null;
-    const locationExpectedDeliveryDate = deliveryResult
-        ?.expectedDeliveryDate ||
-        null;
-    const expectedDeliveryDate = locationExpectedDeliveryDate ||
-        defaultExpectedDeliveryDate;
-    const productionLeadDays = deliveryEstimate
-        ?.productionLeadDays;
-    const courierDays = deliveryEstimate
-        ?.courierDays ??
-        deliveryEstimate
-            ?.defaultCourierDays;
-    const hasProductionLead = productionLeadDays !==
-        null &&
-        productionLeadDays !==
-            undefined;
-    const hasCourierDays = courierDays !==
-        null &&
-        courierDays !==
-            undefined;
+    const defaultExpectedDeliveryDate = selectedSku?.deliveryEstimate?.expectedDeliveryDate || null;
+    const locationExpectedDeliveryDate = deliveryResult?.serviceable === true &&
+        deliveryResult?.orderable === true
+        ? deliveryResult.expectedDeliveryDate || null
+        : null;
+    const expectedDeliveryDate = locationExpectedDeliveryDate || defaultExpectedDeliveryDate;
+    const excelLeadDays = getExcelLeadDays(deliveryEstimate);
+    const hasExcelLead = excelLeadDays !== null;
+    const leadTimeMissing = Boolean(deliveryEstimate?.blockedReasons?.includes("LEAD_TIME_MISSING"));
     const hasDeliveryFreshnessInfo = Boolean(earliestExpiryDate ||
-        dispatchReadyDate ||
-        expectedDeliveryDate ||
-        hasProductionLead ||
-        hasCourierDays);
+        expectedDeliveryDate || hasExcelLead || leadTimeMissing);
     const actionBusy = adding ||
         buying;
     const activeImageIndex = Math.max(0, images.findIndex((image) => image.url ===
@@ -1004,7 +995,9 @@ const ProductDetails = () => {
     ].filter(Boolean);
     const deliverySummary = deliveryResult?.serviceable === true && deliveryResult?.orderable === true
         ? `Delivery available${deliveryResult.pincode ? ` to ${deliveryResult.pincode}` : ""}`
-        : deliveryBlocked ? "Check another delivery pincode" : "Check delivery to your pincode";
+        : deliveryBlocked ? "Check another delivery pincode" :
+          expectedDeliveryDate ? `Estimated arrival: ${formatDateValue(expectedDeliveryDate)}` :
+          "Check delivery to your pincode";
     return (<main ref={pageRef} className="hp-luxe-product">
       <ProductPageStyles />
       <div className="lp-shell">
@@ -1056,6 +1049,19 @@ const ProductDetails = () => {
                 {selectedSku?.taxEnabled !== false && Number(selectedSku?.taxPercent || 0) > 0 ? ` \u00b7 GST ${selectedSku.taxPercent}%` : ""}
                 {selectedSku?.hsnSac ? ` \u00b7 HSN/SAC ${selectedSku.hsnSac}` : ""}
               </p>}
+            </div>
+
+            <div className="lp-excel-eta" role="status" aria-live="polite">
+              <span className="lp-excel-eta-icon"><CalendarIcon /></span>
+              <div className="lp-excel-eta-copy">
+                <span className="lp-excel-eta-label">Excel lead time · Ready-made hamper</span>
+                {hasExcelLead ? (
+                  <strong>{formatDaysValue(excelLeadDays)}{expectedDeliveryDate ? ` · Expected by ${formatDateValue(expectedDeliveryDate)}` : ""}</strong>
+                ) : (
+                  <strong>{leadTimeMissing ? "Lead Time Days missing in Excel" : "Delivery estimate not yet available"}</strong>
+                )}
+                <span className="lp-excel-eta-note">No additional courier or packing days. Check your pincode for delivery availability.</span>
+              </div>
             </div>
 
             {product.skus?.length > 1 && (<div>
@@ -1171,10 +1177,9 @@ const ProductDetails = () => {
                   <h3 className="lp-subheading">Timing & freshness</h3>
                   {hasDeliveryFreshnessInfo ? <dl className="lp-info-table">
                     {earliestExpiryDate && <LargeInfoRow label="Earliest expiry" value={formatDateValue(earliestExpiryDate)}/>}
-                    {dispatchReadyDate && <LargeInfoRow label="Dispatch ready" value={formatDateValue(dispatchReadyDate)}/>}
+                    {hasExcelLead && <LargeInfoRow label="Excel lead time" value={formatDaysValue(excelLeadDays)}/>}
                     {expectedDeliveryDate && <LargeInfoRow label={locationExpectedDeliveryDate ? "Delivery to your location" : "Expected delivery"} value={formatDateValue(expectedDeliveryDate)}/>}
-                    {hasProductionLead && <LargeInfoRow label="Production lead" value={formatDaysValue(productionLeadDays)}/>}
-                    {hasCourierDays && <LargeInfoRow label="Courier time" value={formatDaysValue(courierDays)}/>}
+                    {leadTimeMissing && <LargeInfoRow label="Excel lead time" value="Not configured — contact support"/>}
                   </dl> : <p className="lp-helper" style={{ marginTop: 15 }}>Timing and freshness details have not been provided for this option.</p>}
                 </div>
               </div>)}
@@ -1183,11 +1188,11 @@ const ProductDetails = () => {
                   <DeliveryChecker {...deliveryCheckerProps} idPrefix="lp-details"/>
                   <div className="lp-support">
                     <h3 className="lp-subheading">Delivery & support</h3>
-                    <p className="lp-section-copy">For order changes, delivery issues or product concerns, contact HAMPORIUM support. Statutory consumer remedies remain available where applicable. Final delivery estimates depend on your pincode and hamper configuration.</p>
+                    <p className="lp-section-copy">For order changes, delivery issues or product concerns, contact HAMPORIUM support. Statutory consumer remedies remain available where applicable. Delivery timing comes only from the hamper's Excel Lead Time Days. The pincode check confirms destination availability; no courier or packing-day offset is added.</p>
                     <Link className="lp-inline-link" to="/contact">Contact support <ArrowIcon /></Link>
                   </div>
                 </div>
-                {hasDeliveryFreshnessInfo && <DeliveryFreshnessSummary earliestExpiryDate={earliestExpiryDate} dispatchReadyDate={dispatchReadyDate} expectedDeliveryDate={expectedDeliveryDate} productionLeadDays={productionLeadDays} courierDays={courierDays} locationSpecific={Boolean(locationExpectedDeliveryDate)} unavailable={skuUnavailable}/>}
+                {hasDeliveryFreshnessInfo && <DeliveryFreshnessSummary earliestExpiryDate={earliestExpiryDate} expectedDeliveryDate={expectedDeliveryDate} excelLeadDays={excelLeadDays} locationSpecific={Boolean(locationExpectedDeliveryDate)} unavailable={skuUnavailable} leadTimeMissing={leadTimeMissing}/>}
               </div>)}
           </div>
         </section>
@@ -1524,21 +1529,25 @@ const DeliveryChecker = ({ deliveryPincode, deliveryChecking, locationLoading, s
 const DeliveryResult = ({ delivery }) => {
     const available = delivery?.serviceable === true && delivery?.orderable === true;
     const place = [delivery?.city, delivery?.state].filter(Boolean).join(", ");
+    const excelLeadDays = getExcelLeadDays(delivery?.deliveryEstimate);
     return <div role="status" className={`lp-feedback ${available ? "is-success" : ""}`}>
-    {available ? <><strong>Delivery available{place ? ` to ${place}` : ""}.</strong><br />{delivery.pincode ? `Pincode ${delivery.pincode}. ` : ""}{delivery.expectedDeliveryDate ? `Expected by ${formatDateValue(delivery.expectedDeliveryDate)}.` : ""}</> : delivery?.message || "Delivery is currently unavailable for this pincode."}
+    {available ? <>
+      <strong>Delivery available{place ? ` to ${place}` : ""}.</strong>
+      {excelLeadDays !== null && <span> Excel lead time: {formatDaysValue(excelLeadDays)}.</span>}
+      {delivery.expectedDeliveryDate && <span> Expected by {formatDateValue(delivery.expectedDeliveryDate)}.</span>}
+    </> : delivery?.message || "Delivery is currently unavailable for this pincode."}
   </div>;
 };
-const DeliveryFreshnessSummary = ({ earliestExpiryDate, dispatchReadyDate, expectedDeliveryDate, productionLeadDays, courierDays, locationSpecific = false, unavailable = false }) => <div className="lp-freshness">
+const DeliveryFreshnessSummary = ({ earliestExpiryDate, expectedDeliveryDate, excelLeadDays, locationSpecific = false, unavailable = false, leadTimeMissing = false }) => <div className="lp-freshness">
   <div className="lp-small-head"><h3 className="lp-subheading">Delivery & freshness</h3><CalendarIcon /></div>
-  <p className="lp-helper">Current estimate for this hamper configuration.</p>
+  <p className="lp-helper">Delivery timing uses this ready-made hamper's Excel Lead Time Days only.</p>
   <dl className="lp-info-table">
+    {excelLeadDays !== null && <LargeInfoRow label="Excel lead time" value={formatDaysValue(excelLeadDays)}/>}
     {expectedDeliveryDate && <LargeInfoRow label={locationSpecific ? "Delivery to your location" : "Expected delivery"} value={formatDateValue(expectedDeliveryDate)}/>}
     {earliestExpiryDate && <LargeInfoRow label="Earliest expiry" value={formatDateValue(earliestExpiryDate)}/>}
-    {dispatchReadyDate && <LargeInfoRow label="Dispatch ready" value={formatDateValue(dispatchReadyDate)}/>}
-    {hasNumericValue(productionLeadDays) && <LargeInfoRow label="Production lead" value={formatDaysValue(productionLeadDays)}/>}
-    {hasNumericValue(courierDays) && <LargeInfoRow label="Courier time" value={formatDaysValue(courierDays)}/>}
   </dl>
-  {unavailable && <p className="lp-feedback">A reliable delivery estimate cannot currently be guaranteed because one or more required materials are unavailable.</p>}
+  {leadTimeMissing && <p className="lp-feedback">Lead Time Days is missing for this hamper in Excel. Please contact support.</p>}
+  {unavailable && !leadTimeMissing && <p className="lp-feedback">Delivery estimate is not available because a required item or box needs review.</p>}
 </div>;
 const LargeInfoRow = ({ label, value }) => <div className="lp-info-row"><dt>{label}</dt><dd>{value}</dd></div>;
 const RecentProductCard = ({ item }) => <Link className="lp-recent-card" to={`/products/${item.slug}`}>
@@ -1646,6 +1655,14 @@ const PRODUCT_PAGE_CSS = `
 .hp-luxe-product .lp-price del, .hp-luxe-product .lp-compare { color: #86786b; font-size: 14px; font-weight: 500; }
 .hp-luxe-product .lp-saving { font-size: 11px; font-weight: 800; color: #874923; background: #faebdb; padding: 4px 8px; border-radius: 5px; letter-spacing: .02em; }
 .hp-luxe-product .lp-tax { font-size: 11px; color: #776a5d; margin-top: 7px; line-height: 1.6; }
+/* Excel Lead Time Only V6: page display, never a client-side date calculator. */
+.hp-luxe-product .lp-excel-eta { display: flex; align-items: flex-start; gap: 12px; margin: 14px 0 15px; padding: 13px 14px; border: 1px solid #ead9bd; border-radius: 13px; background: linear-gradient(115deg,#fff9ef,#fdf3e4); }
+.hp-luxe-product .lp-excel-eta-icon { display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; width: 35px; height: 35px; border-radius: 10px; background: #f7e6cd; color: #995e27; }
+.hp-luxe-product .lp-excel-eta-icon .lp-icon { width: 17px; height: 17px; }
+.hp-luxe-product .lp-excel-eta-copy { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.hp-luxe-product .lp-excel-eta-label { color: #8a642e; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.hp-luxe-product .lp-excel-eta-copy strong { color: #32281d; font-size: 13px; font-weight: 800; line-height: 1.55; }
+.hp-luxe-product .lp-excel-eta-note { color: #7a7067; font-size: 10px; line-height: 1.55; }
 .hp-luxe-product .lp-label-row { display: flex; justify-content: space-between; align-items: baseline; gap: 14px; margin: 12px 0 7px; }
 .hp-luxe-product .lp-label { font-size: 12px; font-weight: 800; color: #514539; }
 .hp-luxe-product .lp-variant-name { color: var(--lp-muted); font-size: 12px; text-align: right; overflow-wrap: anywhere; }
