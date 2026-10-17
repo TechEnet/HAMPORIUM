@@ -1,3 +1,4 @@
+// V157 HEADER: centered orange shield spins once on each mouse/pen hover entry and on every click. Horse and wordmark stay fixed.
 // V155 HEADER: transparent overlay on Home / Hamper One hero; 72% Obsidian glass beyond hero.
 // V156 HEADER: soft 24% Obsidian tint over hero; V155 translucent glass elsewhere.
 // V150 HEADER: match refreshed autoplay hero, no session-gated poster-only mode.
@@ -801,6 +802,10 @@ const Header = () => {
   const [logoIntroStarted, setLogoIntroStarted] = useState(false);
   const [logoIntroDone, setLogoIntroDone] = useState(false);
   const logoPlayedRef = useRef(false);
+  // V157: replay only the orange shield whenever the centered brand is
+  // hovered (mouse/pen) or clicked. Horse and wordmark never remount.
+  const [logoReplayRequested, setLogoReplayRequested] = useState(false);
+  const [logoSpinTick, setLogoSpinTick] = useState(0);
   const instanceId = useId().replace(/:/g, "");
   const panelId = `hh-panel-${instanceId}`;
 
@@ -872,6 +877,15 @@ const Header = () => {
   const headerIntroPhase = reduceMotion || logoIntroDone
     ? "hh-intro-done"
     : logoIntroStarted ? "hh-intro-running" : "hh-intro-pending";
+
+  // A new key remounts just the SHIELD layer, restarting its CSS animation
+  // without touching the stationary horse/wordmark, logo layout or navigation.
+  // No JS animation loop, timeout, forced reflow or asset replacement.
+  const replayLogoShield = useCallback(() => {
+    if (reduceMotion || !shieldLayers?.shield || !shieldLayers?.artwork) return;
+    setLogoReplayRequested(true);
+    setLogoSpinTick((previous) => previous + 1);
+  }, [reduceMotion, shieldLayers?.shield, shieldLayers?.artwork]);
 
   const clearHoverTimer = useCallback(() => {
     window.clearTimeout(hoverTimerRef.current);
@@ -1313,14 +1327,26 @@ const Header = () => {
           )}
 
           <Link
-            to="/" className="hh-brand" aria-label="HAMPORIUM home"
-            onClick={() => closePanel(false)}
+            to="/"
+            className={`hh-brand ${logoReplayRequested ? "hh-logo-replay" : ""}`}
+            aria-label="HAMPORIUM home"
+            onPointerEnter={(event) => {
+              // Touch-generated pointerenter must not accidentally spin twice
+              // before the subsequent click/tap event.
+              if (event.pointerType === "mouse" || event.pointerType === "pen") {
+                replayLogoShield();
+              }
+            }}
+            onClick={() => {
+              replayLogoShield();
+              closePanel(false);
+            }}
           >
             <span className="hh-brand-mark">
               <span className={`hh-logo-sequence ${headerIntroPhase === "hh-intro-running" ? "hh-logo-animating" : "hh-logo-idle"}`}>
                 {shieldLayers?.shield && shieldLayers?.artwork ? (
                   <span className="hh-logo-split" aria-hidden="true">
-                    <span className="hh-logo-shield"><img src={shieldLayers.shield} alt="" draggable="false" /></span>
+                    <span key={logoSpinTick} className="hh-logo-shield"><img src={shieldLayers.shield} alt="" draggable="false" /></span>
                     <span className="hh-logo-fixed-art"><img src={shieldLayers.artwork} alt="" draggable="false" /></span>
                   </span>
                 ) : (
@@ -1702,6 +1728,17 @@ const HEADER_CSS = `
 @keyframes hh-v135-shield-spin {
   0% { transform:rotateY(0deg); }
   100% { transform:rotateY(360deg); }
+}
+/* V157: every hover entry or click plays exactly ONE full shield turn.
+   Stronger specificity than intro running/done so users can replay it anytime.
+   A key change restarts ONLY this child, not the fixed horse or lettering. */
+.hh-header .hh-brand.hh-logo-replay .hh-logo-shield {
+  animation: hh-v135-shield-spin 1.35s cubic-bezier(.3,.15,.2,1) 0s 1 both;
+}
+.hh-header .hh-logo-fixed-art,
+.hh-header .hh-logo-fixed-art img {
+  animation: none !important;
+  transform: none !important;
 }
 
 /* V128: real untie choreography -- knot loosens first, loops unfurl
