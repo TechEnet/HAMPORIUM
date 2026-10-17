@@ -1,3 +1,4 @@
+
 import mongoose from "mongoose";
 
 import ProductionJob from "./productionJob.model.js";
@@ -26,10 +27,10 @@ const populateJob = (query) =>
 const findJob = async (value) => {
   if (mongoose.isValidObjectId(value)) {
     const byId = await populateJob(ProductionJob.findById(value));
-    if (byId) return byId;
+    if (byId && byId.sourceType !== "wedding") return byId;
   }
 
-  return populateJob(ProductionJob.findOne({ jobCode: value }));
+  return populateJob(ProductionJob.findOne({ jobCode: value, sourceType: { $ne: "wedding" } }));
 };
 
 const createNotification = async ({
@@ -475,6 +476,11 @@ export const createProductionJob = async (req, res) => {
     });
   }
 
+  // Old wedding-project production jobs are retired with that module.
+  if (sourceType === "wedding") {
+    return res.status(410).json({ message: "Wedding project production workflow is no longer available." });
+  }
+
   if (!Array.isArray(items) || !items.length) {
     return res.status(400).json({
       message: "At least one production item is required.",
@@ -572,7 +578,11 @@ export const getProductionJobs = async (req, res) => {
   const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
   const skip = (page - 1) * limit;
 
-  const filter = {};
+  if (req.query.sourceType === "wedding") {
+    return res.status(410).json({ message: "Wedding project production workflow is no longer available." });
+  }
+
+  const filter = { sourceType: { $ne: "wedding" } };
 
   if (req.query.stage) filter.stage = req.query.stage;
   if (req.query.sourceType) filter.sourceType = req.query.sourceType;

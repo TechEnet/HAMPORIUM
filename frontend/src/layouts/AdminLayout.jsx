@@ -428,15 +428,7 @@ const AdminLayout = () => {
 
             />
 
-            <NavItem
 
-              to="/admin/refunds"
-
-              label="Refunds"
-
-              icon={<RefundIcon />}
-
-            />
 
             <Section number="02">
 
@@ -947,18 +939,6 @@ const CardIcon = () => (
     <rect x="3" y="6" width="18" height="13" rx="2" />
 
     <path d="M3 10h18M7 15h4" />
-
-  </Icon>
-
-);
-
-const RefundIcon = () => (
-
-  <Icon>
-
-    <path d="M7 7H4V4" />
-
-    <path d="M4.5 7.5A8 8 0 1 1 4 14" />
 
   </Icon>
 

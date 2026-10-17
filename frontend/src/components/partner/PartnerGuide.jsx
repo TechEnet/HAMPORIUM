@@ -60,7 +60,7 @@ const PAGE_GUIDES = [
     eyebrow: "Earnings",
     title: "Track how attributed business turns into commission.",
     description:
-      "A commission can move through attribution and eligibility before it becomes payable. Paid records are completed earnings; reversed records no longer count because of cancellation, refund or another adjustment.",
+      "A commission can move through attribution and eligibility before it becomes payable. Paid records are completed earnings; reversed records no longer count because of cancellation or another adjustment.",
     nextLabel: "View payout history",
     nextTo: "/partner/payouts",
   },

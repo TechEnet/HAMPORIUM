@@ -237,7 +237,7 @@ const PaymentDetails = () => {
           AMOUNT
       ===================================================== */}
 
-      <section className="grid border-b border-black/[0.09] md:grid-cols-3">
+      <section className="grid border-b border-black/[0.09] md:grid-cols-2">
         <HeroValue
           label="Amount"
           value={formatCurrency(
@@ -245,13 +245,7 @@ const PaymentDetails = () => {
           )}
         />
 
-        <HeroValue
-          label="Refunded"
-          value={formatCurrency(
-            payment.refundedAmount || 0
-          )}
-          border
-        />
+
 
         <HeroValue
           label="Method"
@@ -321,17 +315,7 @@ const PaymentDetails = () => {
               }
             />
 
-            <Info
-              label="Last Refund"
-              value={
-                payment.lastRefundAt
-                  ? formatDate(
-                      payment.lastRefundAt,
-                      true
-                    )
-                  : "—"
-              }
-            />
+
           </div>
 
           {payment.errorDescription && (
@@ -351,13 +335,7 @@ const PaymentDetails = () => {
               </Link>
             )}
 
-            <Link
-              to="/account/refunds"
-              className="pd-link text-[11px] font-extrabold uppercase tracking-[0.08em] text-black/45"
-            >
-              Refunds
-              <span>↗</span>
-            </Link>
+
           </div>
         </section>
 

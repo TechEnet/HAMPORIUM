@@ -238,7 +238,6 @@ const Orders = () => {
         </div>
         <div className="om-header-links">
           <Link className="om-link-action" to="/account/support"><Icon name="help" size={16}/> Help & Support</Link>
-          <Link className="om-link-action" to="/account/refunds">Returns & Refunds <Icon name="chevron" size={14}/></Link>
         </div>
       </header>
 

@@ -1,3 +1,4 @@
+
 import mongoose from "mongoose";
 
 import {
@@ -545,6 +546,9 @@ const cancellationSchema = new mongoose.Schema(
       default: null,
     },
     reviewNote: { type: String, trim: true, default: "", maxlength: 1000 },
+    // Explicit confirmation of the voluntary-cancellation policy; audit trail.
+    customerAcknowledgedNoRefundAt: { type: Date, default: null },
+    policyVersion: { type: String, trim: true, default: "", maxlength: 60 },
     refund: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Refund",

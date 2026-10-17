@@ -70,10 +70,6 @@ const Payments = () => {
     (payment) => payment.status === "failed"
   ).length;
 
-  const refundedCount = payments.filter(
-    (payment) => payment.status === "refunded"
-  ).length;
-
   const visibleAmount = payments.reduce(
     (total, payment) =>
       total + Number(payment.amount || 0),
@@ -110,17 +106,12 @@ const Payments = () => {
 
           <p className="mt-3 max-w-2xl text-sm leading-6 text-black/45">
             Track customer payment attempts, captured
-            transactions, failures and refunds.
+            transactions and failures.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Link
-            to="/admin/refunds"
-            className="rounded-xl bg-[#171717] px-4 py-3 text-[10px] font-extrabold uppercase tracking-[0.06em] text-white transition hover:bg-[#F97316]"
-          >
-            Refund Operations
-          </Link>
+
 
           <HeaderStat
             label="Showing"
@@ -166,7 +157,7 @@ const Payments = () => {
             </p>
           </div>
 
-          <div className="grid grid-cols-3 border-t border-white/[0.08] lg:border-l lg:border-t-0">
+          <div className="grid grid-cols-2 border-t border-white/[0.08] lg:border-l lg:border-t-0">
             <DarkStat
               label="Captured"
               value={capturedCount}
@@ -178,11 +169,7 @@ const Payments = () => {
               borderLeft
             />
 
-            <DarkStat
-              label="Refunded"
-              value={refundedCount}
-              borderLeft
-            />
+
           </div>
         </div>
       </section>
@@ -386,11 +373,7 @@ const Payments = () => {
                             payment.amount
                           )}
                         </p>
-                        {Number(payment.refundedAmount || 0) > 0 && (
-                          <p className="mt-1 text-[9px] font-bold text-[#F97316]">
-                            Refunded {formatCurrency(payment.refundedAmount)}
-                          </p>
-                        )}
+
                       </td>
 
                       <td className="px-5 py-5">
@@ -460,11 +443,7 @@ const Payments = () => {
                         payment.amount
                       )}
                     </p>
-                    {Number(payment.refundedAmount || 0) > 0 && (
-                      <p className="mt-1 text-[9px] font-bold text-[#F97316]">
-                        Refunded {formatCurrency(payment.refundedAmount)}
-                      </p>
-                    )}
+
                   </div>
 
                   <div className="mt-5 grid grid-cols-2 gap-4">

@@ -1,3 +1,4 @@
+
 import mongoose from "mongoose";
 import * as XLSX from "xlsx";
 
@@ -305,6 +306,8 @@ const normalizePaymentStatus = (
     return CORPORATE_PAYMENT_STATUS.FAILED;
   }
 
+  // Historical gateway statuses are preserved for accurate financial records.
+  // This branch does not create, request, or issue a payment reversal.
   if (
     [
       "refunded",

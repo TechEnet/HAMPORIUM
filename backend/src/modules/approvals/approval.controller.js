@@ -1,7 +1,7 @@
+
 import RFQ from "../rfq/rfq.model.js";
 import Quote from "../quotes/quote.model.js";
 import Document from "../documents/document.model.js";
-import WeddingProject from "../weddings/weddingProject.model.js";
 
 import Approval from "./approval.model.js";
 
@@ -10,8 +10,6 @@ import {
   QUOTE_STATUS,
   APPROVAL_STATUS,
   APPROVAL_ACTION,
-  WEDDING_CONCEPT_STATUS,
-  WEDDING_PROJECT_STATUS,
 } from "../../constants/statuses.js";
 
 
@@ -57,7 +55,6 @@ export const createApproval = catchAsync(async (req, res) => {
     rfqId,
     quoteId,
     documentId,
-    weddingProjectId,
     subjectType,
     title,
     description = "",
@@ -67,6 +64,11 @@ export const createApproval = catchAsync(async (req, res) => {
   if (!rfqId) throw createError(400, "rfqId is required.");
   if (!subjectType) throw createError(400, "subjectType is required.");
   if (!title?.trim()) throw createError(400, "Approval title is required.");
+
+  // The retired wedding project workflow cannot create new approvals.
+  if (req.body?.weddingProjectId || subjectType === "wedding_concept") {
+    throw createError(410, "Wedding project approvals are no longer available.");
+  }
 
   const rfq = await RFQ.findById(rfqId);
   if (!rfq) throw createError(404, "RFQ not found.");
@@ -91,22 +93,8 @@ export const createApproval = catchAsync(async (req, res) => {
     if (!document) {
       throw createError(404, "Document not found.");
     }
-  }
-
-  let weddingProject = null;
-
-  if (weddingProjectId) {
-    weddingProject = await WeddingProject.findById(weddingProjectId);
-
-    if (!weddingProject) {
-      throw createError(404, "Wedding project not found.");
-    }
-
-    if (!sameId(weddingProject.rfq, rfq._id)) {
-      throw createError(
-        400,
-        "Wedding project does not belong to this RFQ."
-      );
+    if (document.entityType === "wedding") {
+      throw createError(410, "Wedding project documents are retired.");
     }
   }
 
@@ -127,10 +115,6 @@ export const createApproval = catchAsync(async (req, res) => {
     status: APPROVAL_STATUS.PENDING,
   };
 
-  if (weddingProject) {
-    scope.weddingProject = weddingProject._id;
-  }
-
   const existingPending = await Approval.findOne(scope);
 
   if (existingPending) {
@@ -145,10 +129,6 @@ export const createApproval = catchAsync(async (req, res) => {
     subjectType,
   };
 
-  if (weddingProject) {
-    latestScope.weddingProject = weddingProject._id;
-  }
-
   const latest = await Approval.findOne(latestScope)
     .sort({ version: -1 })
     .select("version");
@@ -159,7 +139,6 @@ export const createApproval = catchAsync(async (req, res) => {
     rfq: rfq._id,
     quote: quote?._id || null,
     quoteVersion: quote?.acceptedVersionNumber || null,
-    weddingProject: weddingProject?._id || null,
     document: document?._id || null,
 
     subjectType,
@@ -168,7 +147,7 @@ export const createApproval = catchAsync(async (req, res) => {
     version,
 
     requestedBy: getUserId(req),
-    reviewer: reviewer || weddingProject?.owner || rfq.requester,
+    reviewer: reviewer || rfq.requester,
 
     status: APPROVAL_STATUS.PENDING,
 
@@ -180,30 +159,6 @@ export const createApproval = catchAsync(async (req, res) => {
       },
     ],
   });
-
-  // Wedding concept is an intermediate approval.
-  // It must NOT mark the shared RFQ as approval_pending/final approved.
-  if (
-    subjectType === "wedding_concept" &&
-    weddingProject
-  ) {
-    weddingProject.status = WEDDING_PROJECT_STATUS.CONCEPT_READY;
-    weddingProject.nextAction = "Customer concept review";
-
-    weddingProject.statusHistory.push({
-      status: WEDDING_PROJECT_STATUS.CONCEPT_READY,
-      changedBy: getUserId(req),
-      note: `Wedding concept approval V${version} requested.`,
-    });
-
-    await weddingProject.save();
-
-    return res.status(201).json({
-      success: true,
-      message: `Approval version ${version} created.`,
-      approval,
-    });
-  }
 
   rfq.status = RFQ_STATUS.APPROVAL_PENDING;
   rfq.nextAction = "Customer approval required";
@@ -231,15 +186,12 @@ export const createApproval = catchAsync(async (req, res) => {
 export const getMyApprovals = catchAsync(async (req, res) => {
   const approvals = await Approval.find({
     reviewer: getUserId(req),
+    subjectType: { $ne: "wedding_concept" },
   })
     .populate("rfq", "rfqId title companyName status")
     .populate(
       "quote",
       "quoteId status currentVersionNumber acceptedVersionNumber"
-    )
-    .populate(
-      "weddingProject",
-      "weddingProjectId projectTitle status"
     )
     .populate(
       "document",
@@ -262,8 +214,11 @@ export const getMyApprovals = catchAsync(async (req, res) => {
 export const getAllApprovals = catchAsync(async (req, res) => {
   requireInternal(req);
 
-  const filter = {};
+  const filter = { subjectType: { $ne: "wedding_concept" } };
 
+  if (req.query.subjectType === "wedding_concept") {
+    throw createError(410, "Wedding project approvals are retired.");
+  }
   if (req.query.status) filter.status = req.query.status;
   if (req.query.subjectType) filter.subjectType = req.query.subjectType;
 
@@ -273,10 +228,6 @@ export const getAllApprovals = catchAsync(async (req, res) => {
       "rfqId title companyName status priority assignedTo"
     )
     .populate("quote", "quoteId status acceptedVersionNumber")
-    .populate(
-      "weddingProject",
-      "weddingProjectId projectTitle status coupleName"
-    )
     .populate(
       "document",
       "documentId documentType title version fileName url storageKey"
@@ -301,7 +252,6 @@ export const getApprovalById = catchAsync(async (req, res) => {
   const approval = await Approval.findById(req.params.id)
     .populate("rfq", "rfqId title companyName status requester")
     .populate("quote")
-    .populate("weddingProject")
     .populate("document")
     .populate("reviewer", "name email phone roles")
     .populate("requestedBy", "name email roles")
@@ -310,6 +260,10 @@ export const getApprovalById = catchAsync(async (req, res) => {
 
   if (!approval) {
     throw createError(404, "Approval not found.");
+  }
+
+  if (approval.subjectType === "wedding_concept") {
+    throw createError(410, "Wedding project approvals are retired.");
   }
 
   if (
@@ -335,6 +289,10 @@ export const approve = catchAsync(async (req, res) => {
 
   if (!approval) {
     throw createError(404, "Approval not found.");
+  }
+
+  if (approval.subjectType === "wedding_concept") {
+    throw createError(410, "Wedding project approvals are retired.");
   }
 
   if (!sameId(approval.reviewer, getUserId(req))) {
@@ -376,48 +334,6 @@ export const approve = catchAsync(async (req, res) => {
 
   await approval.save();
 
-  // --------------------------------------
-  // WEDDING CONCEPT APPROVAL
-  // --------------------------------------
-
-  if (
-    approval.subjectType === "wedding_concept" &&
-    approval.weddingProject
-  ) {
-    const project = await WeddingProject.findById(
-      approval.weddingProject
-    );
-
-    if (project) {
-      const concept = project.concepts.find((item) =>
-        sameId(item.approval, approval._id)
-      );
-
-      if (concept) {
-        concept.status = WEDDING_CONCEPT_STATUS.APPROVED;
-        concept.approvedAt = new Date();
-      }
-
-      project.status = WEDDING_PROJECT_STATUS.CONCEPT_APPROVED;
-      project.nextAction = "Prepare wedding estimate / quotation";
-
-      project.statusHistory.push({
-        status: WEDDING_PROJECT_STATUS.CONCEPT_APPROVED,
-        changedBy: getUserId(req),
-        note: `Wedding concept V${approval.version} approved.`,
-      });
-
-      await project.save();
-    }
-
-    return res.json({
-      success: true,
-      message: "Wedding concept approved successfully.",
-      approval,
-    });
-  }
-
-  // --------------------------------------
   // NORMAL FINAL RFQ APPROVAL
   // --------------------------------------
 
@@ -454,6 +370,10 @@ export const requestChanges = catchAsync(async (req, res) => {
 
   if (!approval) {
     throw createError(404, "Approval not found.");
+  }
+
+  if (approval.subjectType === "wedding_concept") {
+    throw createError(410, "Wedding project approvals are retired.");
   }
 
   if (!sameId(approval.reviewer, getUserId(req))) {
@@ -502,58 +422,6 @@ export const requestChanges = catchAsync(async (req, res) => {
 
   await approval.save();
 
-  // --------------------------------------
-  // WEDDING CONCEPT CHANGES
-  // --------------------------------------
-
-  if (
-    approval.subjectType === "wedding_concept" &&
-    approval.weddingProject
-  ) {
-    const project = await WeddingProject.findById(
-      approval.weddingProject
-    );
-
-    if (project) {
-      const concept = project.concepts.find((item) =>
-        sameId(item.approval, approval._id)
-      );
-
-      if (concept) {
-        concept.status =
-          WEDDING_CONCEPT_STATUS.CHANGE_REQUESTED;
-
-        concept.changeRequest = {
-          comment,
-          requestedAt: new Date(),
-          requestedBy: getUserId(req),
-        };
-      }
-
-      project.status =
-        WEDDING_PROJECT_STATUS.CONCEPT_CHANGE_REQUESTED;
-
-      project.nextAction =
-        "Prepare revised wedding concept";
-
-      project.statusHistory.push({
-        status:
-          WEDDING_PROJECT_STATUS.CONCEPT_CHANGE_REQUESTED,
-        changedBy: getUserId(req),
-        note: comment,
-      });
-
-      await project.save();
-    }
-
-    return res.json({
-      success: true,
-      message: "Wedding concept changes requested.",
-      approval,
-    });
-  }
-
-  // --------------------------------------
   // NORMAL PROOF / SAMPLE CHANGES
   // --------------------------------------
 
@@ -589,6 +457,10 @@ export const comment = catchAsync(async (req, res) => {
 
   if (!approval) {
     throw createError(404, "Approval not found.");
+  }
+
+  if (approval.subjectType === "wedding_concept") {
+    throw createError(410, "Wedding project approvals are retired.");
   }
 
   if (
@@ -634,6 +506,10 @@ export const askForCall = catchAsync(async (req, res) => {
     throw createError(404, "Approval not found.");
   }
 
+  if (approval.subjectType === "wedding_concept") {
+    throw createError(410, "Wedding project approvals are retired.");
+  }
+
   if (!sameId(approval.reviewer, getUserId(req))) {
     throw createError(
       403,
@@ -670,6 +546,10 @@ export const cancelApproval = catchAsync(async (req, res) => {
 
   if (!approval) {
     throw createError(404, "Approval not found.");
+  }
+
+  if (approval.subjectType === "wedding_concept") {
+    throw createError(410, "Wedding project approvals are retired.");
   }
 
   if (approval.status !== APPROVAL_STATUS.PENDING) {

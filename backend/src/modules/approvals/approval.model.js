@@ -1,3 +1,4 @@
+
 import mongoose from "mongoose";
 
 import {
@@ -105,12 +106,6 @@ const approvalSchema = new Schema(
       default: null,
     },
 
-    weddingProject: {
-  type: mongoose.Schema.Types.ObjectId,
-  ref: "WeddingProject",
-  default: null,
-},
-
     quoteVersion: {
       type: Number,
       default: null,
@@ -130,7 +125,6 @@ const approvalSchema = new Schema(
         "artwork",
         "sample",
         "specification",
-        "wedding_concept",
         "document",
       ],
       required: true,

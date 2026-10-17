@@ -1182,9 +1182,9 @@ const ProductDetails = () => {
                 <div>
                   <DeliveryChecker {...deliveryCheckerProps} idPrefix="lp-details"/>
                   <div className="lp-support">
-                    <h3 className="lp-subheading">Returns & support</h3>
-                    <p className="lp-section-copy">Return and refund eligibility follows HAMPORIUM's order and refund policy. Final delivery estimates are confirmed for the selected pincode and hamper configuration.</p>
-                    <Link className="lp-inline-link" to="/returns-refunds">View return policy <ArrowIcon /></Link>
+                    <h3 className="lp-subheading">Delivery & support</h3>
+                    <p className="lp-section-copy">For order changes, delivery issues or product concerns, contact HAMPORIUM support. Statutory consumer remedies remain available where applicable. Final delivery estimates depend on your pincode and hamper configuration.</p>
+                    <Link className="lp-inline-link" to="/contact">Contact support <ArrowIcon /></Link>
                   </div>
                 </div>
                 {hasDeliveryFreshnessInfo && <DeliveryFreshnessSummary earliestExpiryDate={earliestExpiryDate} dispatchReadyDate={dispatchReadyDate} expectedDeliveryDate={expectedDeliveryDate} productionLeadDays={productionLeadDays} courierDays={courierDays} locationSpecific={Boolean(locationExpectedDeliveryDate)} unavailable={skuUnavailable}/>}

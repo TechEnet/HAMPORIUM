@@ -1,3 +1,4 @@
+
 import { Router } from "express";
 
 import protect from "../../middlewares/auth.middleware.js";
@@ -19,15 +20,10 @@ import {
 } from "./autoDelivery.middleware.js";
 
 const router = Router();
-
 router.use(protect);
-
-// Server-calculated delivery promise. The browser does not choose the date.
 router.post("/checkout-estimate", getCheckoutDeliveryEstimate);
-
 router.post("/", autoDeliveryForCart, createOrder);
 router.post("/buy-now", autoDeliveryForBuyNow, createBuyNowOrder);
-
 router.get("/my-orders", getMyOrders);
 router.get("/:orderId/tracking", getMyOrderTracking);
 router.post("/:orderId/cancellation", requestOrderCancellation);

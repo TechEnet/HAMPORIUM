@@ -8,7 +8,6 @@ const SUPPORT_CATEGORIES = [
   "missing_item",
   "payment",
   "cancellation",
-  "refund",
   "invoice",
   "product",
   "other",
@@ -78,12 +77,6 @@ const supportTicketSchema = new mongoose.Schema(
     order: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Order",
-      default: null,
-      index: true,
-    },
-    refund: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Refund",
       default: null,
       index: true,
     },

@@ -12,7 +12,6 @@ const CATEGORIES = [
   ["missing_item", "Missing item"],
   ["payment", "Payment issue"],
   ["cancellation", "Cancellation"],
-  ["refund", "Refund"],
   ["invoice", "Invoice"],
   ["product", "Product issue"],
   ["other", "Other"],
@@ -144,7 +143,7 @@ const Support = () => {
             Help & Support
           </h1>
           <p className="mt-3 max-w-2xl text-[12px] leading-6 text-black/45">
-            Ask about an order, delivery, payment, cancellation, refund, invoice or product. Your conversation stays attached to one support ticket.
+            Ask about an order, delivery, payment, cancellation, invoice or product. Your conversation stays attached to one support ticket.
           </p>
         </div>
 

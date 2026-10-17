@@ -1,3 +1,5 @@
+
+
 export const PRODUCT_STATUS = Object.freeze({
   DRAFT: "draft",
   ACTIVE: "active",
@@ -42,6 +44,7 @@ export const CANCELLATION_STATUS_VALUES = Object.values(
   CANCELLATION_STATUS
 );
 
+// Retain historic payment states to avoid altering old transaction records.
 export const ORDER_PAYMENT_STATUS = Object.freeze({
   PENDING: "pending",
   PAID: "paid",
@@ -64,22 +67,6 @@ export const PAYMENT_STATUS = Object.freeze({
 });
 
 export const PAYMENT_STATUS_VALUES = Object.values(PAYMENT_STATUS);
-
-export const REFUND_TYPE = Object.freeze({
-  FULL: "full",
-  PARTIAL: "partial",
-});
-
-export const REFUND_TYPE_VALUES = Object.values(REFUND_TYPE);
-
-export const REFUND_STATUS = Object.freeze({
-  CREATED: "created",
-  PROCESSING: "processing",
-  COMPLETED: "completed",
-  FAILED: "failed",
-});
-
-export const REFUND_STATUS_VALUES = Object.values(REFUND_STATUS);
 
 // ==============================
 // PHASE 5 - RFQ
@@ -206,78 +193,6 @@ export const RECIPIENT_STATUS = Object.freeze({
   NEEDS_REVIEW: "needs_review",
   INVALID: "invalid",
   APPROVED: "approved",
-});
-
-// ======================================================
-// PHASE 7 - WEDDING
-// ======================================================
-
-export const WEDDING_PROJECT_STATUS = Object.freeze({
-  DRAFT: "draft",
-  BRIEF_SUBMITTED: "brief_submitted",
-  UNDER_REVIEW: "under_review",
-  CONCEPT_READY: "concept_ready",
-  CONCEPT_CHANGE_REQUESTED: "concept_change_requested",
-  CONCEPT_APPROVED: "concept_approved",
-  QUOTE_IN_PROGRESS: "quote_in_progress",
-  QUOTE_SENT: "quote_sent",
-  QUOTE_CHANGE_REQUESTED: "quote_change_requested",
-  QUOTE_ACCEPTED: "quote_accepted",
-  SAMPLE_PENDING: "sample_pending",
-  APPROVAL_PENDING: "approval_pending",
-  PROOF_CHANGE_REQUESTED: "proof_change_requested",
-  APPROVED: "approved",
-  PAYMENT_PENDING: "payment_pending",
-  PAYMENT_PARTIAL: "payment_partial",
-  PAYMENT_CONFIRMED: "payment_confirmed",
-  GUESTS_PENDING: "guests_pending",
-  GUESTS_REVIEW: "guests_review",
-  GUESTS_READY: "guests_ready",
-  READY_FOR_PRODUCTION: "ready_for_production",
-  CANCELLED: "cancelled",
-});
-
-export const WEDDING_CONCEPT_STATUS = Object.freeze({
-  DRAFT: "draft",
-  PUBLISHED: "published",
-  CHANGE_REQUESTED: "change_requested",
-  APPROVED: "approved",
-  SUPERSEDED: "superseded",
-});
-
-export const WEDDING_EVENT_STATUS = Object.freeze({
-  PLANNED: "planned",
-  CONFIRMED: "confirmed",
-  CANCELLED: "cancelled",
-  COMPLETED: "completed",
-});
-
-export const WEDDING_PAYMENT_MILESTONE_STATUS = Object.freeze({
-  PENDING: "pending",
-  PARTIAL: "partial",
-  PAID: "paid",
-  WAIVED: "waived",
-});
-
-export const WEDDING_GUEST_IMPORT_STATUS = Object.freeze({
-  NOT_UPLOADED: "not_uploaded",
-  UPLOADED: "uploaded",
-  NEEDS_REVIEW: "needs_review",
-  APPROVED: "approved",
-});
-
-export const WEDDING_GUEST_STATUS = Object.freeze({
-  VALID: "valid",
-  INVALID: "invalid",
-  APPROVED: "approved",
-});
-
-export const WEDDING_GUEST_DELIVERY_STATUS = Object.freeze({
-  NOT_PLANNED: "not_planned",
-  ALLOCATED: "allocated",
-  READY: "ready",
-  DELIVERED: "delivered",
-  EXCEPTION: "exception",
 });
 
 // =====================================================
@@ -451,6 +366,8 @@ export const NOTIFICATION_STATUS = Object.freeze({
   READ: "read",
 });
 
+// Archived notification documents may still have legacy types; keep their enum
+// values valid for historical reads while all active notification flows are disabled.
 export const NOTIFICATION_TYPE = Object.freeze({
   ORDER: "order",
   PAYMENT: "payment",

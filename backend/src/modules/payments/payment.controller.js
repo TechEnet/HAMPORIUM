@@ -1,3 +1,4 @@
+
 import mongoose from "mongoose";
 import {
   createHmac,
@@ -1190,7 +1191,7 @@ export const getMyPayments = asyncHandler(async (req, res) => {
     .skip(skip)
     .limit(limit)
     .select(
-      "sourceType order quote rfq provider status amount refundedAmount currency receipt razorpayOrderId razorpayPaymentId method paidAt lastRefundAt createdAt"
+      "sourceType order quote rfq provider status amount currency receipt razorpayOrderId razorpayPaymentId method paidAt createdAt"
     )
     .lean();
   res.status(200).json({
@@ -1224,7 +1225,7 @@ export const getMyPaymentById = asyncHandler(async (req, res) => {
       "rfqId title sourceType commercialPaymentStatus quantity"
     )
     .select(
-      "sourceType order quote rfq provider status amount amountPaise refundedAmount refundedAmountPaise currency receipt razorpayOrderId razorpayPaymentId method email contact errorCode errorDescription paidAt lastRefundAt createdAt"
+      "sourceType order quote rfq provider status amount amountPaise currency receipt razorpayOrderId razorpayPaymentId method email contact errorCode errorDescription paidAt createdAt"
     )
     .lean();
   if (!payment) {
@@ -1233,6 +1234,8 @@ export const getMyPaymentById = asyncHandler(async (req, res) => {
       message: "Payment not found",
     });
   }
+  // Do not expose stale, legacy reversal references in customer responses.
+  if (payment.order?.cancellation) delete payment.order.cancellation.refund;
   res.status(200).json({
     success: true,
     payment,

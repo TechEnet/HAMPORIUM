@@ -307,7 +307,6 @@ const AccountLayout = () => {
             <NavSection number="03">My Account</NavSection>
             <NavItem to="/account/profile" label="My Profile" icon={<UserIcon />} />
             <NavItem to="/account/addresses" label="Saved Addresses" icon={<PinIcon />} />
-            <NavItem to="/account/refunds" label="Refunds" icon={<RefundIcon />} />
             <NavItem to="/account/support" label="Help & Support" icon={<SupportIcon />} />
           </nav>
 
@@ -468,14 +467,6 @@ const PinIcon = () => (
   <Icon>
     <path d="M12 21s7-5.2 7-12a7 7 0 1 0-14 0c0 6.8 7 12 7 12Z" />
     <circle cx="12" cy="9" r="2.4" />
-  </Icon>
-);
-
-const RefundIcon = () => (
-  <Icon>
-    <path d="M7 7H4V4" />
-    <path d="M4.5 7.5A8 8 0 1 1 4 14" />
-    <path d="M8 12h8M12 8v8" />
   </Icon>
 );
 

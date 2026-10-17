@@ -1,3 +1,4 @@
+
 import mongoose from "mongoose";
 
 
@@ -9,8 +10,6 @@ import RFQ from "../rfq/rfq.model.js";
 import Quote from "../quotes/quote.model.js";
 
 import Approval from "../approvals/approval.model.js";
-
-import WeddingProject from "../weddings/weddingProject.model.js";
 
 import Partner from "../partners/partner.model.js";
 
@@ -136,6 +135,10 @@ const checkEntityAccess = async ({
 
 }) => {
 
+  if (entityType === "wedding") {
+    throw createError(410, "The wedding project module has been retired.");
+  }
+
   if (!mongoose.Types.ObjectId.isValid(entityId)) {
 
     throw createError(400, "Invalid entity id.");
@@ -228,65 +231,6 @@ const checkEntityAccess = async ({
 
 
 
-  // --------------------------------------
-
-  // PHASE 7 - WEDDING
-
-  // --------------------------------------
-
-
-
-  if (entityType === "wedding") {
-
-    const project = await WeddingProject.findById(entityId).select(
-
-      "owner members"
-
-    );
-
-
-
-    if (!project) {
-
-      throw createError(404, "Wedding project not found.");
-
-    }
-
-
-
-    const ownerAccess = sameId(project.owner, userId);
-
-
-
-    const memberAccess = project.members?.some(
-
-      (member) =>
-
-        member.isActive &&
-
-        sameId(member.user, userId)
-
-    );
-
-
-
-    if (!ownerAccess && !memberAccess) {
-
-      throw createError(
-
-        403,
-
-        "You do not have access to this wedding project."
-
-      );
-
-    }
-
-
-
-    return project;
-
-  }
 
 
 
@@ -622,23 +566,6 @@ export const createDocument = catchAsync(async (req, res) => {
 
 
 
-  if (entityType === "wedding") {
-
-    const project = await WeddingProject.findById(entityId);
-
-
-
-    if (!project) {
-
-      throw createError(404, "Wedding project not found.");
-
-    }
-
-
-
-    owner = project.owner;
-
-  }
 
 
 
@@ -799,19 +726,6 @@ export const createDocument = catchAsync(async (req, res) => {
 
 
 
-  if (entityType === "wedding") {
-
-    await WeddingProject.findByIdAndUpdate(entityId, {
-
-      $addToSet: {
-
-        documents: document._id,
-
-      },
-
-    });
-
-  }
 
 
 
@@ -965,6 +879,10 @@ export const getDocumentById = catchAsync(async (req, res) => {
 
   }
 
+  if (document.entityType === "wedding") {
+    throw createError(410, "Wedding project documents are retired.");
+  }
+
 
 
   if (!isInternalUser(req)) {
@@ -981,7 +899,7 @@ export const getDocumentById = catchAsync(async (req, res) => {
 
     if (!ownerAccess) {
 
-      if (["wedding", "partner", "partner_project", "partner_payout"].includes(document.entityType)) {
+      if (["partner", "partner_project", "partner_payout"].includes(document.entityType)) {
 
         await checkEntityAccess({
 
@@ -1049,6 +967,10 @@ export const replaceDocument = catchAsync(async (req, res) => {
 
   }
 
+  if (oldDocument.entityType === "wedding") {
+    throw createError(410, "Wedding project documents are retired.");
+  }
+
 
 
   if (!isInternalUser(req)) {
@@ -1064,31 +986,7 @@ export const replaceDocument = catchAsync(async (req, res) => {
 
 
     if (!ownerAccess) {
-
-      if (oldDocument.entityType === "wedding") {
-
-        await checkEntityAccess({
-
-          req,
-
-          entityType: oldDocument.entityType,
-
-          entityId: oldDocument.entityId,
-
-        });
-
-      } else {
-
-        throw createError(
-
-          403,
-
-          "You cannot replace this document."
-
-        );
-
-      }
-
+      throw createError(403, "You cannot replace this document.");
     }
 
   }
@@ -1317,25 +1215,6 @@ export const replaceDocument = catchAsync(async (req, res) => {
 
 
 
-  if (oldDocument.entityType === "wedding") {
-
-    await WeddingProject.findByIdAndUpdate(
-
-      oldDocument.entityId,
-
-      {
-
-        $addToSet: {
-
-          documents: document._id,
-
-        },
-
-      }
-
-    );
-
-  }
 
 
 
@@ -1389,6 +1268,10 @@ export const archiveDocument = catchAsync(async (req, res) => {
 
   }
 
+  if (document.entityType === "wedding") {
+    throw createError(410, "Wedding project documents are retired.");
+  }
+
 
 
   if (!isInternalUser(req)) {
@@ -1405,7 +1288,7 @@ export const archiveDocument = catchAsync(async (req, res) => {
 
     if (!ownerAccess) {
 
-      if (["wedding", "partner", "partner_project", "partner_payout"].includes(document.entityType)) {
+      if (["partner", "partner_project", "partner_payout"].includes(document.entityType)) {
 
         await checkEntityAccess({
 

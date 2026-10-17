@@ -22,7 +22,7 @@ const prettyStatus = (value) => {
 const getStatusTone = (status) => {
   const value = normalizeStatus(status);
   if (/cancel|fail|reject/.test(value)) return "danger";
-  if (/deliver|paid|captur|success|approv|refund completed/.test(value)) return "success";
+  if (/deliver|paid|captur|success|approv/.test(value)) return "success";
   if (/ship|dispatch|transit|out for delivery/.test(value)) return "info";
   if (/process|pending|confirm|placed|request/.test(value)) return "warning";
   return "neutral";
@@ -127,14 +127,14 @@ const OrderDetails = () => {
   const { orderId } = useParams();
   const [order, setOrder] = useState(null);
   const [tracking, setTracking] = useState(null);
-  const [refunds, setRefunds] = useState([]);
-  const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(true);
   const [trackingLoading, setTrackingLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [invoiceDownloading, setInvoiceDownloading] = useState(false);
   const [invoiceError, setInvoiceError] = useState("");
   const [cancellationReason, setCancellationReason] = useState("");
+  const [acknowledgeNoRefund, setAcknowledgeNoRefund] = useState(false);
   const [cancellationWorking, setCancellationWorking] = useState(false);
   const [reviewingProductId, setReviewingProductId] = useState("");
 
@@ -159,23 +159,11 @@ const OrderDetails = () => {
     }
   }, [orderId]);
 
-  const loadRefunds = useCallback(async () => {
-    try {
-      const response = await api.get("/refunds/mine?limit=100");
-      const list = response.data.refunds || [];
-      setRefunds(list.filter((refund) =>
-        String(refund.order?._id || refund.order || "") === String(orderId)
-      ));
-    } catch {
-      setRefunds([]);
-    }
-  }, [orderId]);
 
   useEffect(() => {
     let active = true;
     setOrder(null);
     setTracking(null);
-    setRefunds([]);
     setLoading(true);
     setTrackingLoading(true);
     setError("");
@@ -192,8 +180,7 @@ const OrderDetails = () => {
   useEffect(() => {
     if (!order?._id) return;
     void loadTracking();
-    void loadRefunds();
-  }, [order?._id, loadTracking, loadRefunds]);
+  }, [order?._id, loadTracking]);
 
   useEffect(() => {
     if (!order?._id) return undefined;
@@ -252,15 +239,20 @@ const OrderDetails = () => {
       setError("Please enter a cancellation reason of at least 5 characters.");
       return;
     }
-    if (!window.confirm("Submit this cancellation request for admin review?")) return;
+    if (!acknowledgeNoRefund) {
+      setError("Please acknowledge the voluntary cancellation policy before submitting.");
+      return;
+    }
+    if (!window.confirm("Submit your cancellation request for review? No automatic payment refund will be initiated, subject to applicable law.")) return;
     setCancellationWorking(true);
     setError("");
     setNotice("");
     try {
-      const response = await api.post(`/orders/${orderId}/cancellation`, { reason });
+      const response = await api.post(`/orders/${orderId}/cancellation`, { reason, acknowledgeNoRefund: true });
       setNotice(response.data.message || "Cancellation request submitted.");
       setCancellationReason("");
-      await Promise.all([loadOrder(), loadTracking(), loadRefunds()]);
+      setAcknowledgeNoRefund(false);
+      await Promise.all([loadOrder(), loadTracking()]);
     } catch (requestError) {
       setError(requestError.response?.data?.message || "Unable to request cancellation");
     } finally {
@@ -283,8 +275,8 @@ const OrderDetails = () => {
   const customerStatus = tracking?.customerStatus || order.status;
   const delivered = normalizeStatus(customerStatus).includes("delivered") ||
     normalizeStatus(order.status).includes("delivered");
-  const canRequestCancellation = ["paid", "partially_refunded"].includes(order.paymentStatus) &&
-    !["shipped", "delivered", "cancelled"].includes(order.status) &&
+  const canRequestCancellation = order.paymentStatus === "paid" &&
+    ["confirmed", "processing"].includes(order.status) &&
     !["requested", "approved"].includes(cancellation.status);
   const cancellationVisible = (cancellation.status && cancellation.status !== "none") || canRequestCancellation;
 
@@ -432,12 +424,13 @@ const OrderDetails = () => {
               canRequest={canRequestCancellation}
               reason={cancellationReason}
               setReason={setCancellationReason}
+              acknowledged={acknowledgeNoRefund}
+              setAcknowledged={setAcknowledgeNoRefund}
               working={cancellationWorking}
               onSubmit={submitCancellation}
             />
           )}
 
-          {refunds.length > 0 && <RefundsSection refunds={refunds} />}
         </div>
 
         <aside className="od2-aside" aria-label="Order payment and delivery information">
@@ -465,7 +458,6 @@ const OrderDetails = () => {
               <h2 className="od2-aside-title"><Icon name="help" size={19} /> Need assistance?</h2>
               <div className="flex flex-col items-start gap-3">
                 <Link className="od2-simple-link" to={`/account/support?orderId=${encodeURIComponent(order._id)}`}>Order support <Icon name="arrow" size={16} /></Link>
-                <Link className="od2-simple-link" to="/account/refunds">Refunds <Icon name="arrow" size={16} /></Link>
                 <Link className="od2-simple-link" to="/account/notifications">Notifications <Icon name="arrow" size={16} /></Link>
               </div>
             </section>
@@ -675,7 +667,7 @@ const ReviewSection = ({ order, reviewableItems, reviewingProductId, setReviewin
   </section>
 );
 
-const CancellationSection = ({ cancellation, canRequest, reason, setReason, working, onSubmit }) => (
+const CancellationSection = ({ cancellation, canRequest, reason, setReason, acknowledged, setAcknowledged, working, onSubmit }) => (
   <section className="od2-section">
     <SectionHeading icon="info" title="Cancellation" />
     <div className="od2-surface">
@@ -694,31 +686,16 @@ const CancellationSection = ({ cancellation, canRequest, reason, setReason, work
             onChange={(event) => setReason(event.target.value)}
             placeholder="Tell us why you want to cancel this order."
             className="w-full rounded-lg border border-[#dce0e3] bg-white p-3 text-[14px] leading-6 text-[#232831] outline-none focus:border-[#d98033] resize-y" />
-          <button type="submit" className="od2-outline mt-3" disabled={working}>
+          <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-[12px] leading-5 text-amber-950">
+            <input type="checkbox" required checked={acknowledged} onChange={(event) => setAcknowledged(event.target.checked)} className="mt-1 h-4 w-4 shrink-0 accent-[#ba6d27]" />
+            <span>I understand that submitting a voluntary cancellation request does not initiate an automatic refund. Applicable consumer rights remain unaffected.</span>
+          </label>
+          <button type="submit" className="od2-outline mt-3" disabled={working || !acknowledged}>
             {working ? "Submitting request..." : "Request cancellation"}
             <Icon name="arrow" size={16} />
           </button>
         </form>
       )}
-    </div>
-  </section>
-);
-
-const RefundsSection = ({ refunds }) => (
-  <section className="od2-section">
-    <SectionHeading icon="refresh" title="Refund history" action={
-      <Link to="/account/refunds" className="od2-simple-link">View all <Icon name="arrow" size={15} /></Link>
-    } />
-    <div className="od2-surface">
-      {refunds.map((refund, index) => (
-        <div key={refund._id || index} className="flex flex-wrap items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
-          <div className="min-w-0">
-            <StatusBadge status={refund.status} />
-            <p className="od2-muted mt-2 text-[12px]">{refund.reason || "Refund"} - {formatDate(refund.createdAt, true)}</p>
-          </div>
-          <p className="font-extrabold text-[15px]">{formatCurrency(refund.amount)}</p>
-        </div>
-      ))}
     </div>
   </section>
 );

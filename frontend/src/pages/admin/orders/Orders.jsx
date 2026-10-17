@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 
 import api from "../../../api/api.js";
 import StatusBadge from "../../../components/StatusBadge.jsx";
@@ -11,6 +11,8 @@ const DISPLAY_FONT =
   "'Cormorant Garamond', 'Playfair Display', Georgia, serif";
 
 const Orders = () => {
+  const [urlParams] = useSearchParams();
+  const queueMode = urlParams.get("queue") === "cancellations";
   const [orders, setOrders] = useState([]);
   const [pagination, setPagination] = useState(null);
 
@@ -46,11 +48,16 @@ const Orders = () => {
         }
 
         const response = await api.get(
-          `/admin/orders?${params.toString()}`
+          queueMode
+            ? `/admin/orders/cancellations?page=${page}&limit=20&status=requested`
+            : `/admin/orders?${params.toString()}`
         );
 
         setOrders(response.data.orders || []);
-        setPagination(response.data.pagination);
+        setPagination({
+          ...response.data.pagination,
+          totalPages: response.data.pagination?.totalPages ?? response.data.pagination?.pages ?? 1,
+        });
       } catch (error) {
         setError(
           error.response?.data?.message ||
@@ -64,7 +71,7 @@ const Orders = () => {
     const timer = setTimeout(loadOrders, 300);
 
     return () => clearTimeout(timer);
-  }, [search, status, paymentStatus, page]);
+  }, [search, status, paymentStatus, page, queueMode]);
 
   const filtersActive =
     search.trim() || status || paymentStatus;
@@ -99,7 +106,7 @@ const Orders = () => {
             style={{ fontFamily: DISPLAY_FONT }}
             className="mt-2 text-[42px] font-semibold leading-none tracking-[-0.035em] sm:text-[50px]"
           >
-            Orders
+            {queueMode ? "Cancellation Requests" : "Orders"}
           </h1>
 
           <p className="mt-3 max-w-2xl text-sm leading-6 text-black/45">
@@ -110,10 +117,10 @@ const Orders = () => {
 
         <div className="flex flex-wrap items-center gap-2">
           <Link
-            to="/admin/refunds"
+            to={queueMode ? "/admin/orders" : "/admin/orders?queue=cancellations"}
             className="rounded-xl bg-[#171717] px-4 py-3 text-[10px] font-extrabold uppercase tracking-[0.06em] text-white transition hover:bg-[#F97316]"
           >
-            Cancellation / Refund Queue
+            {queueMode ? "All Orders" : "Cancellation Requests"}
           </Link>
           <div className="rounded-xl border border-black/[0.07] bg-white px-4 py-2.5">
             <p className="text-[8px] font-extrabold uppercase tracking-[0.1em] text-black/30">
@@ -144,7 +151,7 @@ const Orders = () => {
 
       {/* FILTERS */}
 
-      <section className="mt-7 overflow-hidden rounded-[24px] border border-black/[0.07] bg-white shadow-[0_10px_35px_rgba(0,0,0,0.035)]">
+      {!queueMode && <section className="mt-7 overflow-hidden rounded-[24px] border border-black/[0.07] bg-white shadow-[0_10px_35px_rgba(0,0,0,0.035)]">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-black/[0.06] px-5 py-4 sm:px-7">
           <div>
             <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#F97316]">
@@ -244,7 +251,9 @@ const Orders = () => {
             </select>
           </FieldGroup>
         </div>
-      </section>
+      </section>}
+
+      {queueMode && <p className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900">Pending voluntary cancellation requests. Open an order to approve or reject. Approval does not initiate a payment refund.</p>}
 
       {error && (
         <div className="mt-5 rounded-2xl border border-red-100 bg-red-50 px-5 py-4 text-sm font-semibold text-red-700">
@@ -265,7 +274,7 @@ const Orders = () => {
               style={{ fontFamily: DISPLAY_FONT }}
               className="mt-1 text-[26px] font-semibold leading-none"
             >
-              All Orders
+              {queueMode ? "Pending Cancellations" : "All Orders"}
             </h2>
 
             <p className="mt-2 text-xs text-black/40">

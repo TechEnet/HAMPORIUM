@@ -96,7 +96,7 @@ const SupportTicketDetails = () => {
             <Hero label="Customer" value={ticket.user?.name || ticket.user?.email || "Customer"} />
             <Hero label="Assigned" value={ticket.assignedTo?.name || "Unassigned"} borderLeft />
             <Hero label="Order" value={ticket.order?.orderNumber || "—"} borderTop />
-            <Hero label="Refund" value={ticket.refund?.status ? pretty(ticket.refund.status) : "—"} borderLeft borderTop />
+            <Hero label="Status" value={pretty(ticket.status)} borderLeft borderTop />
           </div>
         </div>
       </section>

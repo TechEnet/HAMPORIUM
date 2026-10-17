@@ -111,7 +111,6 @@ import Payments from "./pages/account/Payments.jsx";
 
 import PaymentDetails from "./pages/account/PaymentDetails.jsx";
 
-import Refunds from "./pages/account/Refunds.jsx";
 
 import MyReviews from "./pages/account/MyReviews.jsx";
 
@@ -173,9 +172,7 @@ import AdminCorporate from "./pages/admin/corporate/Corporate.jsx";
 
 import AdminCorporateDetails from "./pages/admin/corporate/CorporateDetails.jsx";
 
-import AdminWeddings from "./pages/admin/weddings/Weddings.jsx";
 
-import AdminWeddingDetails from "./pages/admin/weddings/WeddingDetails.jsx";
 
 import AdminSearchAnalytics from "./pages/admin/analytics/SearchAnalytics.jsx";
 
@@ -193,7 +190,6 @@ import AdminPayouts from "./pages/admin/Payouts.jsx";
 
 import AdminPartnerShowcases from "./pages/admin/PartnerShowcases.jsx";
 
-import AdminRefunds from "./pages/admin/Refunds.jsx";
 
 import AdminReviews from "./pages/admin/Reviews.jsx";
 
@@ -372,7 +368,6 @@ const App = () => (
 
         <Route path="/corporate" element={<Navigate to="/custom-hamper?mode=bulk&purpose=corporate" replace />} />
 
-        <Route path="/weddings" element={<Navigate to="/custom-hamper?mode=bulk&purpose=wedding" replace />} />
 
         <Route path="/diwali" element={<Navigate to="/gifts?category=diwali-hampers" replace />} />
 
@@ -422,7 +417,6 @@ const App = () => (
 
           <Route path="notifications" element={<Navigate to="/account" replace />} />
 
-          <Route path="refunds" element={<Refunds />} />
 
           <Route path="reviews" element={<MyReviews />} />
 
@@ -452,21 +446,13 @@ const App = () => (
 
           <Route path="corporate/quotes/:id" element={<AccountQuoteDetails />} />
 
-          <Route path="weddings" element={<Navigate to="/custom-hamper?mode=bulk&purpose=wedding" replace />} />
 
-          <Route path="weddings/brief" element={<Navigate to="/custom-hamper?mode=bulk&purpose=wedding" replace />} />
 
-          <Route path="weddings/:id/edit" element={<Navigate to="/account/corporate/rfqs" replace />} />
 
-          <Route path="weddings/:id" element={<Navigate to="/account/corporate/rfqs" replace />} />
 
-          <Route path="weddings/:id/concepts" element={<Navigate to="/account/corporate/rfqs" replace />} />
 
-          <Route path="weddings/:id/quotes" element={<Navigate to="/account/corporate/quotes" replace />} />
 
-          <Route path="weddings/:id/approvals" element={<Navigate to="/account/corporate/rfqs" replace />} />
 
-          <Route path="weddings/:id/guests" element={<Navigate to="/account/corporate/rfqs" replace />} />
 
           <Route path="partner" element={<Navigate to="/event-partners" replace />} />
 
@@ -544,7 +530,6 @@ const App = () => (
 
           <Route path="payments/:paymentId" element={<AdminPaymentDetails />} />
 
-          <Route path="refunds" element={<AdminRefunds />} />
 
           <Route path="reviews" element={<AdminReviews />} />
 
@@ -566,9 +551,7 @@ const App = () => (
 
           <Route path="corporate/:id" element={<AdminCorporateDetails />} />
 
-          <Route path="weddings" element={<AdminWeddings />} />
 
-          <Route path="weddings/:id" element={<AdminWeddingDetails />} />
 
           <Route path="partners" element={<AdminPartners />} />
 

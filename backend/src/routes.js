@@ -1,3 +1,5 @@
+
+
 import { Router } from "express";
 
 import authRoutes from "./modules/auth/auth.routes.js";
@@ -7,7 +9,6 @@ import deliveryRoutes from "./modules/delivery/delivery.routes.js";
 import cartRoutes from "./modules/cart/cart.routes.js";
 import orderRoutes from "./modules/orders/order.routes.js";
 import paymentRoutes from "./modules/payments/payment.routes.js";
-import refundRoutes from "./modules/refunds/refund.routes.js";
 import reviewRoutes from "./modules/reviews/review.routes.js";
 import supportRoutes from "./modules/support/support.routes.js";
 import contactRoutes from "./modules/contact/contact.routes.js";
@@ -19,7 +20,6 @@ import rfqRoutes from "./modules/rfq/rfq.routes.js";
 import quoteRoutes from "./modules/quotes/quote.routes.js";
 import approvalRoutes from "./modules/approvals/approval.routes.js";
 import corporateRoutes from "./modules/corporate/corporate.routes.js";
-import weddingRoutes from "./modules/weddings/wedding.routes.js";
 import partnerRoutes from "./modules/partners/partner.routes.js";
 import showcaseRoutes from "./modules/showcases/showcase.routes.js";
 import commissionRoutes from "./modules/commissions/commission.routes.js";
@@ -49,7 +49,7 @@ router.use("/delivery", deliveryRoutes);
 router.use("/cart", cartRoutes);
 router.use("/orders", orderRoutes);
 router.use("/payments", paymentRoutes);
-router.use("/refunds", refundRoutes);
+// The /refunds API has been removed. No refund requests are accepted.
 router.use("/reviews", reviewRoutes);
 router.use("/support", supportRoutes);
 router.use("/contact", contactRoutes);
@@ -61,7 +61,6 @@ router.use("/rfqs", rfqRoutes);
 router.use("/quotes", quoteRoutes);
 router.use("/approvals", approvalRoutes);
 router.use("/corporate", corporateRoutes);
-router.use("/weddings", weddingRoutes);
 router.use("/partners", partnerRoutes);
 router.use("/showcases", showcaseRoutes);
 router.use("/commissions", commissionRoutes);

@@ -265,7 +265,7 @@ const HeaderNotifications = ({
               </div>
 
               <p className="mt-1.5 text-[9px] font-medium text-black/38">
-                Order, payment, delivery and refund updates
+                Order, payment and delivery updates
               </p>
             </div>
 
@@ -416,7 +416,7 @@ const HeaderNotifications = ({
 const NotificationGlyph = ({ type }) => {
   const normalized = String(type || "").toLowerCase();
 
-  if (normalized === "payment" || normalized === "refund") {
+  if (normalized === "payment") {
     return (
       <svg
         viewBox="0 0 24 24"
@@ -462,7 +462,7 @@ const EmptyNotifications = () => (
     </p>
 
     <p className="mt-1.5 max-w-[250px] text-[9px] font-medium leading-5 text-black/38">
-      Your order, payment, delivery and refund updates will appear here.
+      Your order, payment and delivery updates will appear here.
     </p>
   </div>
 );

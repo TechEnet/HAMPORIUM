@@ -1593,7 +1593,6 @@ const Icon = ({ name, className = "" }) => {
     stack: <><path d="m12 3 9 5-9 5-9-5 9-5ZM3 12l9 5 9-5M3 16l9 5 9-5" /></>,
     locate: <><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="2" /><path d="M12 2v4M12 18v4M2 12h4M18 12h4" /></>,
     check: <path d="m5 12 4 4L19 6" />,
-    refund: <><path d="M4 9a8 8 0 1 1-1 8M3 4v6h6" /><path d="M14.5 8H10v4h3a2 2 0 0 1 0 4h-3M12 6v2m0 8v2" /></>,
     handshake: <><path d="m3 8 4-3 5 2 5-2 4 3-2 8-5 4-9-5-2-7Z" /><path d="m12 7-4 4 3 2 3-3 5 6M6 16l3-3m0 6 3-3" /></>,
     logout: <><path d="M10 4H4v16h6M9 12h12m-4-4 4 4-4 4" /></>,
     loader: <><circle cx="12" cy="12" r="9" opacity=".18" /><path d="M12 3a9 9 0 0 1 9 9" /></>,

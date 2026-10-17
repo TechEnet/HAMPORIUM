@@ -1,3 +1,4 @@
+
 import mongoose from "mongoose";
 import { DOCUMENT_STATUS } from "../../constants/statuses.js";
 
@@ -56,7 +57,6 @@ const documentSchema = new Schema(
         "approval",
         "order",
         "corporate",
-        "wedding",
         "partner",
         "partner_project",
         "partner_payout",

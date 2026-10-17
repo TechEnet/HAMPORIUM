@@ -1,9 +1,11 @@
+
 import mongoose from "mongoose";
 import asyncHandler from "../../utils/asyncHandler.js";
 import User from "../users/user.model.js";
 import Address from "../users/address.model.js";
 import Order from "../orders/order.model.js";
 import Payment from "../payments/payment.model.js";
+import { ORDER_PAYMENT_STATUS } from "../../constants/statuses.js";
 import Partner from "../partners/partner.model.js";
 import { CustomerActivity, CustomerActivityConsent, CustomerAccountAction }
   from "./customerIntelligence.model.js";
@@ -114,6 +116,11 @@ const numeric = (value) => Number(Number(value || 0).toFixed(2));
 const safePage = (raw) => Math.max(1, Math.min(100000, Math.floor(Number(raw) || 1)));
 const safeLimit = (raw) => Math.max(1, Math.min(100, Math.floor(Number(raw) || 20)));
 const escapeRegExp = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+// Include all historically settled order statuses without exposing retired features.
+// This keeps historical paid-order counts consistent with existing reporting.
+const COMPLETED_ORDER_PAYMENT_STATUSES = Object.values(ORDER_PAYMENT_STATUS).filter(
+  (status) => ![ORDER_PAYMENT_STATUS.PENDING, ORDER_PAYMENT_STATUS.FAILED].includes(status)
+);
 const ORDER_DELIVERED_SUPPORTED =
   (Order.schema.path("status")?.enumValues || []).includes("delivered");
 
@@ -135,10 +142,10 @@ const orderSummaryPipeline = (match) => [
       } },
       deliveredOrders: { $sum: { $cond: [{ $eq: ["$status", "delivered"] }, 1, 0] } },
       paidOrders: { $sum: { $cond: [
-        { $in: ["$paymentStatus", ["paid", "partially_refunded", "refunded"]] }, 1, 0,
+        { $in: ["$paymentStatus", COMPLETED_ORDER_PAYMENT_STATUSES] }, 1, 0,
       ] } },
       paidOrderValue: { $sum: { $cond: [
-        { $in: ["$paymentStatus", ["paid", "partially_refunded", "refunded"]] },
+        { $in: ["$paymentStatus", COMPLETED_ORDER_PAYMENT_STATUSES] },
         "$totalAmount", 0,
       ] } },
       latestOrderAt: { $max: "$createdAt" },
@@ -146,36 +153,15 @@ const orderSummaryPipeline = (match) => [
   },
 ];
 
-const paymentRefundPipeline = (match) => [
-  { $match: match },
-  { $match: { sourceType: { $in: ["order", null] } } },
-  { $group: {
-    _id: { user: "$user", order: "$order" },
-    refundAmount: { $sum: "$refundedAmount" },
-    refundPaymentRecords: { $sum: { $cond: [
-      { $gt: ["$refundedAmount", 0] }, 1, 0,
-    ] } },
-  } },
-  { $group: {
-    _id: "$_id.user",
-    refundAmount: { $sum: "$refundAmount" },
-    refundPaymentRecords: { $sum: "$refundPaymentRecords" },
-    refundedOrders: { $sum: { $cond: [
-      { $and: [ { $gt: ["$refundAmount", 0] }, { $ne: ["$_id.order", null] } ] },
-      1, 0,
-    ] } },
-  } },
-];
-
 const defaults = () => ({
   totalOrders: 0, cancelledOrders: 0, cancellationRequests: 0,
   deliveredOrders: ORDER_DELIVERED_SUPPORTED ? 0 : null,
   deliveredSupported: ORDER_DELIVERED_SUPPORTED,
-  paidOrders: 0, paidOrderValue: 0, refundAmount: 0, refundedOrders: 0, refundPaymentRecords: 0,
-  latestOrderAt: null, netPaidAfterRefund: 0,
+  paidOrders: 0, paidOrderValue: 0,
+  latestOrderAt: null,
 });
 
-const mergeStats = (orderRow, refundRow) => ({
+const mergeStats = (orderRow) => ({
   ...defaults(),
   ...(orderRow ? {
     totalOrders: orderRow.totalOrders,
@@ -185,11 +171,6 @@ const mergeStats = (orderRow, refundRow) => ({
     paidOrders: orderRow.paidOrders,
     paidOrderValue: numeric(orderRow.paidOrderValue),
     latestOrderAt: orderRow.latestOrderAt,
-  } : {}),
-  ...(refundRow ? {
-    refundAmount: numeric(refundRow.refundAmount),
-    refundedOrders: refundRow.refundedOrders || 0,
-    refundPaymentRecords: refundRow.refundPaymentRecords,
   } : {}),
 });
 
@@ -239,7 +220,7 @@ const roleTypeForUser = (roles = []) => {
 export const getCustomerOverview = async () => {
   const base = customerFilter();
   const [registeredUsers, activeUsers, deletedUsers, customerOnly, partnerOnly, both,
-    orders, refunds, recent] = await Promise.all([
+    orders, recent] = await Promise.all([
     User.countDocuments(base),
     User.countDocuments({ ...base, isActive: true, isDeleted: { $ne: true } }),
     User.countDocuments({ ...base, isDeleted: true }),
@@ -247,7 +228,6 @@ export const getCustomerOverview = async () => {
     User.countDocuments(customerFilter("", "partner")),
     User.countDocuments(customerFilter("", "both")),
     Order.aggregate(orderSummaryPipeline({})),
-    Payment.aggregate(paymentRefundPipeline({})),
     User.find(base).select("name email avatar roles isDeleted createdAt isActive")
       .sort({ createdAt: -1 }).limit(6).lean(),
   ]);
@@ -267,11 +247,6 @@ export const getCustomerOverview = async () => {
       deliveredOrders: ORDER_DELIVERED_SUPPORTED ? combinedOrders.deliveredOrders : null,
       deliveredSupported: ORDER_DELIVERED_SUPPORTED,
       paidOrderValue: numeric(combinedOrders.paidOrderValue),
-    },
-    refunds: {
-      refundedAmount: numeric(refunds.reduce((sum, row) => sum + (row.refundAmount || 0), 0)),
-      refundPaymentRecords: refunds.reduce((sum, row) => sum + row.refundPaymentRecords, 0),
-      refundedOrders: refunds.reduce((sum, row) => sum + (row.refundedOrders || 0), 0),
     },
     recentCustomers: recent.map((u) => ({
       id: u._id, name: u.name, email: u.email, avatar: u.avatar || "",
@@ -295,9 +270,8 @@ export const listCustomerProfiles = async ({ search, page, limit, roleType = "al
   const ids = users.map((u) => u._id);
   if (!ids.length) return { customers: [], total, page: pageNumber, limit: pageSize,
     totalPages: Math.ceil(total / pageSize) };
-  const [orders, refunds, addresses] = await Promise.all([
+  const [orders, addresses] = await Promise.all([
     Order.aggregate(orderSummaryPipeline({ user: { $in: ids } })),
-    Payment.aggregate(paymentRefundPipeline({ user: { $in: ids } })),
     Address.aggregate([
       { $match: { user: { $in: ids } } },
       { $sort: { isDefault: -1, updatedAt: -1 } },
@@ -305,7 +279,6 @@ export const listCustomerProfiles = async ({ search, page, limit, roleType = "al
     ]),
   ]);
   const orderMap = new Map(orders.map((x) => [String(x._id), x]));
-  const refundMap = new Map(refunds.map((x) => [String(x._id), x]));
   const locationMap = new Map(addresses.map((x) => [String(x._id), x]));
   return {
     customers: users.map((u) => ({
@@ -316,7 +289,7 @@ export const listCustomerProfiles = async ({ search, page, limit, roleType = "al
       emailVerified: u.emailVerified, createdAt: u.createdAt,
       lastLoginAt: u.lastLoginAt || null,
       location: locationMap.get(String(u._id)) || null,
-      metrics: mergeStats(orderMap.get(String(u._id)), refundMap.get(String(u._id))),
+      metrics: mergeStats(orderMap.get(String(u._id))),
     })),
     total, page: pageNumber, limit: pageSize,
     totalPages: Math.ceil(total / pageSize), roleType, status,
@@ -339,12 +312,11 @@ const ensureCustomer = async (id) => {
 
 export const getCustomerProfile = async (id) => {
   const user = await ensureCustomer(id);
-  const [addresses, orders, payments, consent, recentOrders, partners, lastActions] = await Promise.all([
+  const [addresses, orders, consent, recentOrders, partners, lastActions] = await Promise.all([
     Address.find({ user: user._id })
       .select("label fullName phone addressLine1 addressLine2 landmark city state postalCode country isDefault createdAt")
       .sort({ isDefault: -1, createdAt: -1 }).lean(),
     Order.aggregate(orderSummaryPipeline({ user: user._id })),
-    Payment.aggregate(paymentRefundPipeline({ user: user._id })),
     CustomerActivityConsent.findOne({ user: user._id }).lean(),
     Order.find({ user: user._id })
       .select("orderNumber status paymentStatus totalAmount currency createdAt")
@@ -369,7 +341,7 @@ export const getCustomerProfile = async (id) => {
     location: addresses[0]
       ? { city: addresses[0].city, state: addresses[0].state, country: addresses[0].country }
       : null,
-    metrics: mergeStats(orders[0], payments[0]),
+    metrics: mergeStats(orders[0]),
     recentOrders,
     analyticsConsent: Boolean(consent?.analyticsEnabled),
     partnerRecords: partners.map((p) => ({
@@ -390,7 +362,7 @@ export const getCustomerOrders = async (id, { page, limit } = {}) => {
   const [total, rows] = await Promise.all([
     Order.countDocuments(filter),
     Order.find(filter)
-      .select("orderNumber checkoutMode items.itemType items.productName items.skuName items.quantity items.lineTotal status paymentStatus totalAmount currency cancellation deliveryDate deliveryAddress.city deliveryAddress.state deliveryAddress.postalCode createdAt updatedAt paidAt")
+      .select("orderNumber checkoutMode items.itemType items.productName items.skuName items.quantity items.lineTotal status paymentStatus totalAmount currency cancellation.status cancellation.reason cancellation.requestedAt cancellation.requestedBy cancellation.reviewedAt cancellation.reviewedBy cancellation.reviewNote cancellation.customerAcknowledgedNoRefundAt cancellation.policyVersion deliveryDate deliveryAddress.city deliveryAddress.state deliveryAddress.postalCode createdAt updatedAt paidAt")
       .sort({ createdAt: -1 }).skip((pageNumber - 1) * pageSize).limit(pageSize).lean(),
   ]);
   return { orders: rows, total, page: pageNumber, limit: pageSize, totalPages: Math.ceil(total / pageSize) };
@@ -403,7 +375,7 @@ export const getCustomerPayments = async (id, { page, limit } = {}) => {
   const [total, payments] = await Promise.all([
     Payment.countDocuments(filter),
     Payment.find(filter)
-      .select("order quote sourceType status amount refundedAmount currency paidAt lastRefundAt method createdAt updatedAt")
+      .select("order quote sourceType status amount currency paidAt method createdAt updatedAt")
       .sort({ createdAt: -1 }).skip((pageNumber - 1) * pageSize).limit(pageSize).lean(),
   ]);
   return { payments, total, page: pageNumber, limit: pageSize, totalPages: Math.ceil(total / pageSize) };
@@ -455,7 +427,7 @@ export const getCustomerTimeline = async (id) => {
       .sort({ createdAt: -1 }).limit(100).lean(),
     Order.find({ user: id }).select("orderNumber status paymentStatus cancellation.status cancellation.reason cancellation.requestedAt totalAmount createdAt")
       .sort({ createdAt: -1 }).limit(100).lean(),
-    Payment.find({ user: id }).select("order status refundedAmount currency paidAt lastRefundAt")
+    Payment.find({ user: id }).select("order status currency paidAt")
       .sort({ createdAt: -1 }).limit(100).lean(),
     CustomerAccountAction.find({ target: id, status: "completed" })
       .select("action reason completedAt actor").sort({ createdAt: -1 }).limit(50).lean(),
@@ -477,9 +449,6 @@ export const getCustomerTimeline = async (id) => {
     ...payments.flatMap((p) => [
       ...(p.paidAt ? [{ kind: "payment_captured", at: p.paidAt,
         orderId: p.order, status: p.status }] : []),
-      ...(p.lastRefundAt && Number(p.refundedAmount) > 0 ? [{ kind: "refund_recorded",
-        at: p.lastRefundAt, orderId: p.order, refundedAmountToDate: p.refundedAmount,
-        status: p.status }] : []),
     ]),
   ].filter((e) => e.at);
   items.sort((a, b) => new Date(b.at) - new Date(a.at));

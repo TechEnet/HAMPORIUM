@@ -1,0 +1,152 @@
+﻿routes.js:52: // The /refunds API has been removed. No refund requests are accepted.
+constants\statuses.js:49: PARTIALLY_REFUNDED: "partially_refunded",
+constants\statuses.js:50: REFUNDED: "refunded",
+constants\statuses.js:62: PARTIALLY_REFUNDED: "partially_refunded",
+constants\statuses.js:63: REFUNDED: "refunded",
+constants\statuses.js:68: export const REFUND_TYPE = Object.freeze({
+constants\statuses.js:73: export const REFUND_TYPE_VALUES = Object.values(REFUND_TYPE);
+constants\statuses.js:75: export const REFUND_STATUS = Object.freeze({
+constants\statuses.js:82: export const REFUND_STATUS_VALUES = Object.values(REFUND_STATUS);
+constants\statuses.js:194: REFUNDED: "refunded",
+constants\statuses.js:460: REFUND: "refund",
+helpers\refundGateway.js:32: // export const createGatewayRefund = async ({
+helpers\refundGateway.js:39: //     throw new Error("Razorpay payment ID is required for refund");
+helpers\refundGateway.js:45: //     throw new Error("Refund amount must be greater than zero");
+helpers\refundGateway.js:57: //   return getClient().payments.refund(paymentId, payload);
+helpers\refundGateway.js:60: // export default createGatewayRefund;
+helpers\whatsappCloud.js:11: refund_initiated: "WHATSAPP_TEMPLATE_REFUND_INITIATED",
+helpers\whatsappCloud.js:12: refund_completed: "WHATSAPP_TEMPLATE_REFUND_COMPLETED",
+helpers\whatsappCloud.js:13: refund_failed: "WHATSAPP_TEMPLATE_REFUND_FAILED",
+helpers\whatsappCloud.js:24: refund_initiated: "hamporium_refund_initiated",
+helpers\whatsappCloud.js:25: refund_completed: "hamporium_refund_completed",
+helpers\whatsappCloud.js:26: refund_failed: "hamporium_refund_failed",
+modules\admin\admin.controller.js:34: // Remove obsolete UI-facing refund links without deleting stored audit history.
+modules\admin\admin.controller.js:35: const hideLegacyRefundLinks = (value) => {
+modules\admin\admin.controller.js:38: delete value.cancellation.refund;
+modules\admin\admin.controller.js:41: hideLegacyRefundLinks(value.order);
+modules\admin\admin.controller.js:96: ORDER_PAYMENT_STATUS.PARTIALLY_REFUNDED,
+modules\admin\admin.controller.js:97: ORDER_PAYMENT_STATUS.REFUNDED,
+modules\admin\admin.controller.js:106: PAYMENT_STATUS.PARTIALLY_REFUNDED,
+modules\admin\admin.controller.js:107: PAYMENT_STATUS.REFUNDED,
+modules\admin\admin.controller.js:118: PAYMENT_STATUS.PARTIALLY_REFUNDED,
+modules\admin\admin.controller.js:119: PAYMENT_STATUS.REFUNDED,
+modules\admin\admin.controller.js:131: { $ifNull: ["$refundedAmount", 0] },
+modules\admin\admin.controller.js:160: ORDER_PAYMENT_STATUS.PARTIALLY_REFUNDED,
+modules\admin\admin.controller.js:202: recentOrders: recentOrders.map(hideLegacyRefundLinks),
+modules\admin\admin.controller.js:320: orders: orders.map(hideLegacyRefundLinks),
+modules\admin\admin.controller.js:374: order: hideLegacyRefundLinks(order),
+modules\admin\admin.controller.js:426: order: hideLegacyRefundLinks(order.toObject()),
+modules\admin\admin.controller.js:442: ORDER_PAYMENT_STATUS.PARTIALLY_REFUNDED,
+modules\admin\admin.controller.js:443: ORDER_PAYMENT_STATUS.REFUNDED,
+modules\admin\admin.controller.js:490: ORDER_PAYMENT_STATUS.PARTIALLY_REFUNDED,
+modules\admin\admin.controller.js:512: order: hideLegacyRefundLinks(order.toObject()),
+modules\admin\admin.controller.js:615: payments: payments.map(hideLegacyRefundLinks),
+modules\admin\admin.controller.js:674: payment: hideLegacyRefundLinks(payment),
+modules\admin\admin.controller.js:679: // ADMIN CANCELLATION REQUESTS (VOLUNTARY, NO REFUNDS)
+modules\admin\admin.controller.js:717: orders.forEach(hideLegacyRefundLinks);
+modules\admin\admin.controller.js:760: if (!order.cancellation?.customerAcknowledgedNoRefundAt) {
+modules\admin\admin.controller.js:888: ? `Your cancellation request for ${order.orderNumber} has been approved. No payment refund was initiated.`
+modules\admin\admin.controller.js:899: ? `Your cancellation request for ${order.orderNumber} was approved. The order was cancelled without initiating a payment refund, subject to applicable law.`
+modules\admin\admin.controller.js:903: // No WhatsApp template here: the previous template may promise a refund.
+modules\admin\admin.controller.js:904: // Re-enable only after reviewing and approving non-refund wording.
+modules\admin\admin.controller.js:918: const orderData = hideLegacyRefundLinks(updated.toObject());
+modules\admin\admin.controller.js:923: ? "Cancellation approved. No payment refund was initiated."
+modules\catalog\catalog.controller.js:7132: - Fully refunded and cancelled orders are excluded.
+modules\catalog\catalog.controller.js:7153: ORDER_PAYMENT_STATUS.PARTIALLY_REFUNDED,
+modules\commissions\commission.model.js:15: type: { type: String, enum: ["refund", "manual"], required: true },
+modules\corporate\corporate.controller.js:310: "refunded",
+modules\corporate\corporate.controller.js:311: "refund",
+modules\corporate\corporate.controller.js:312: "partially_refunded",
+modules\corporate\corporate.controller.js:315: return CORPORATE_PAYMENT_STATUS.REFUNDED;
+modules\customerIntelligence\customerIntelligence.controller.js:138: { $in: ["$paymentStatus", ["paid", "partially_refunded", "refunded"]] }, 1, 0,
+modules\customerIntelligence\customerIntelligence.controller.js:141: { $in: ["$paymentStatus", ["paid", "partially_refunded", "refunded"]] },
+modules\customerIntelligence\customerIntelligence.controller.js:149: const paymentRefundPipeline = (match) => [
+modules\customerIntelligence\customerIntelligence.controller.js:154: refundAmount: { $sum: "$refundedAmount" },
+modules\customerIntelligence\customerIntelligence.controller.js:155: refundPaymentRecords: { $sum: { $cond: [
+modules\customerIntelligence\customerIntelligence.controller.js:156: { $gt: ["$refundedAmount", 0] }, 1, 0,
+modules\customerIntelligence\customerIntelligence.controller.js:161: refundAmount: { $sum: "$refundAmount" },
+modules\customerIntelligence\customerIntelligence.controller.js:162: refundPaymentRecords: { $sum: "$refundPaymentRecords" },
+modules\customerIntelligence\customerIntelligence.controller.js:163: refundedOrders: { $sum: { $cond: [
+modules\customerIntelligence\customerIntelligence.controller.js:164: { $and: [ { $gt: ["$refundAmount", 0] }, { $ne: ["$_id.order", null] } ] },
+modules\customerIntelligence\customerIntelligence.controller.js:174: paidOrders: 0, paidOrderValue: 0, refundAmount: 0, refundedOrders: 0, refundPaymentRecords: 0,
+modules\customerIntelligence\customerIntelligence.controller.js:175: latestOrderAt: null, netPaidAfterRefund: 0,
+modules\customerIntelligence\customerIntelligence.controller.js:178: const mergeStats = (orderRow, refundRow) => ({
+modules\customerIntelligence\customerIntelligence.controller.js:189: ...(refundRow ? {
+modules\customerIntelligence\customerIntelligence.controller.js:190: refundAmount: numeric(refundRow.refundAmount),
+modules\customerIntelligence\customerIntelligence.controller.js:191: refundedOrders: refundRow.refundedOrders || 0,
+modules\customerIntelligence\customerIntelligence.controller.js:192: refundPaymentRecords: refundRow.refundPaymentRecords,
+modules\customerIntelligence\customerIntelligence.controller.js:242: orders, refunds, recent] = await Promise.all([
+modules\customerIntelligence\customerIntelligence.controller.js:250: Payment.aggregate(paymentRefundPipeline({})),
+modules\customerIntelligence\customerIntelligence.controller.js:271: refunds: {
+modules\customerIntelligence\customerIntelligence.controller.js:272: refundedAmount: numeric(refunds.reduce((sum, row) => sum + (row.refundAmount || 0), 0)),
+modules\customerIntelligence\customerIntelligence.controller.js:273: refundPaymentRecords: refunds.reduce((sum, row) => sum + row.refundPaymentRecords, 0),
+modules\customerIntelligence\customerIntelligence.controller.js:274: refundedOrders: refunds.reduce((sum, row) => sum + (row.refundedOrders || 0), 0),
+modules\customerIntelligence\customerIntelligence.controller.js:298: const [orders, refunds, addresses] = await Promise.all([
+modules\customerIntelligence\customerIntelligence.controller.js:300: Payment.aggregate(paymentRefundPipeline({ user: { $in: ids } })),
+modules\customerIntelligence\customerIntelligence.controller.js:308: const refundMap = new Map(refunds.map((x) => [String(x._id), x]));
+modules\customerIntelligence\customerIntelligence.controller.js:319: metrics: mergeStats(orderMap.get(String(u._id)), refundMap.get(String(u._id))),
+modules\customerIntelligence\customerIntelligence.controller.js:347: Payment.aggregate(paymentRefundPipeline({ user: user._id })),
+modules\customerIntelligence\customerIntelligence.controller.js:406: .select("order quote sourceType status amount refundedAmount currency paidAt lastRefundAt method createdAt updatedAt")
+modules\customerIntelligence\customerIntelligence.controller.js:458: Payment.find({ user: id }).select("order status refundedAmount currency paidAt lastRefundAt")
+modules\customerIntelligence\customerIntelligence.controller.js:480: ...(p.lastRefundAt && Number(p.refundedAmount) > 0 ? [{ kind: "refund_recorded",
+modules\customerIntelligence\customerIntelligence.controller.js:481: at: p.lastRefundAt, orderId: p.order, refundedAmountToDate: p.refundedAmount,
+modules\fulfilment\fulfilment.controller.js:575: ORDER_PAYMENT_STATUS.PARTIALLY_REFUNDED,
+modules\fulfilment\fulfilment.controller.js:770: ORDER_PAYMENT_STATUS.PARTIALLY_REFUNDED,
+modules\notifications\notification.controller.js:10: // Retired refund messages stay archived in MongoDB for financial auditing,
+modules\notifications\notification.controller.js:12: const filter = { recipient: req.user._id, type: { $ne: "refund" } };
+modules\notifications\notification.controller.js:14: if (req.query.type && req.query.type !== "refund") filter.type = req.query.type;
+modules\notifications\notification.controller.js:15: if (req.query.type === "refund") return res.json({
+modules\notifications\notification.controller.js:25: type: { $ne: "refund" },
+modules\notifications\notification.controller.js:41: type: { $ne: "refund" },
+modules\notifications\notification.controller.js:55: type: { $ne: "refund" },
+modules\notifications\notification.controller.js:68: const filter = { type: { $ne: "refund" } };
+modules\notifications\notification.controller.js:71: if (req.query.type && req.query.type !== "refund") filter.type = req.query.type;
+modules\notifications\notification.controller.js:72: if (req.query.type === "refund") return res.json({
+modules\orders\invoice.service.js:90: ORDER_PAYMENT_STATUS.PARTIALLY_REFUNDED,
+modules\orders\invoice.service.js:91: ORDER_PAYMENT_STATUS.REFUNDED,
+modules\orders\order.controller.js:403: if (data.cancellation) delete data.cancellation.refund;
+modules\orders\order.controller.js:1105: if (order.cancellation) delete order.cancellation.refund;
+modules\orders\order.controller.js:1133: if (order.cancellation) delete order.cancellation.refund;
+modules\orders\order.controller.js:1179: ORDER_PAYMENT_STATUS.PARTIALLY_REFUNDED,
+modules\orders\order.controller.js:1180: ORDER_PAYMENT_STATUS.REFUNDED,
+modules\orders\order.controller.js:1494: delete cancellation.refund; // historical reference never exposed in UI
+modules\orders\order.controller.js:1510: // Do not silently reinterpret historic partially/fully refunded payments.
+modules\orders\order.controller.js:1518: if (req.body?.acknowledgeNoRefund !== true) {
+modules\orders\order.controller.js:1522: message: "Please confirm that you understand voluntary cancellation does not initiate a refund, subject to applicable law.",
+modules\orders\order.controller.js:1588: "cancellation.customerAcknowledgedNoRefundAt": now,
+modules\orders\order.controller.js:1607: description: `Cancellation requested for ${order.orderNumber}; customer acknowledged voluntary non-refund policy.`,
+modules\orders\order.controller.js:1615: message: `We received the cancellation request for ${order.orderNumber}. This does not initiate a payment refund.`,
+modules\orders\order.controller.js:1623: textContent: `Your cancellation request is under review. Voluntary cancellation does not initiate a refund, subject to applicable law.`,
+modules\orders\order.controller.js:1629: delete cancellation.refund;
+modules\orders\order.controller.js:1632: message: "Cancellation request submitted for review. No payment refund is initiated.",
+modules\orders\order.controller.js:1663: ORDER_PAYMENT_STATUS.PARTIALLY_REFUNDED,
+modules\orders\order.controller.js:1664: ORDER_PAYMENT_STATUS.REFUNDED,
+modules\orders\order.model.js:550: customerAcknowledgedNoRefundAt: { type: Date, default: null },
+modules\orders\order.model.js:552: refund: {
+modules\orders\order.model.js:554: ref: "Refund",
+modules\payments\payment.controller.js:487: ![PAYMENT_STATUS.PARTIALLY_REFUNDED, PAYMENT_STATUS.REFUNDED].includes(
+modules\payments\payment.controller.js:527: ORDER_PAYMENT_STATUS.PARTIALLY_REFUNDED,
+modules\payments\payment.controller.js:528: ORDER_PAYMENT_STATUS.REFUNDED,
+modules\payments\payment.controller.js:568: order.paymentStatus !== ORDER_PAYMENT_STATUS.REFUNDED
+modules\payments\payment.controller.js:596: PAYMENT_STATUS.PARTIALLY_REFUNDED,
+modules\payments\payment.controller.js:597: PAYMENT_STATUS.REFUNDED,
+modules\payments\payment.controller.js:680: ORDER_PAYMENT_STATUS.PARTIALLY_REFUNDED,
+modules\payments\payment.controller.js:681: ORDER_PAYMENT_STATUS.REFUNDED,
+modules\payments\payment.controller.js:686: message: "Refunded order cannot start a new payment",
+modules\payments\payment.controller.js:1238: if (payment.order?.cancellation) delete payment.order.cancellation.refund;
+modules\payments\payment.model.js:83: refundedAmount: {
+modules\payments\payment.model.js:89: refundedAmountPaise: {
+modules\payments\payment.model.js:95: lastRefundAt: {
+modules\payments\payment.model.js:225: lastRefundAt: -1,
+modules\payments\payment.webhook.js:75: // No refund handler is imported, so no refund workflow can be triggered.
+modules\payments\payment.webhook.js:76: // Deploy ONLY after all existing gateway refunds are reconciled. Razorpay
+modules\payments\payment.webhook.js:78: if (eventType.startsWith("refund.")) {
+modules\payments\payment.webhook.js:119: PAYMENT_STATUS.PARTIALLY_REFUNDED,
+modules\payments\payment.webhook.js:120: PAYMENT_STATUS.REFUNDED,
+modules\production\productionAutomation.service.js:17: ORDER_PAYMENT_STATUS.PARTIALLY_REFUNDED,
+modules\promotions\promotion.service.js:585: ORDER_PAYMENT_STATUS.PARTIALLY_REFUNDED,
+modules\promotions\promotion.service.js:586: ORDER_PAYMENT_STATUS.REFUNDED,
+modules\support\support.controller.js:64: delete data.refund;
+modules\support\support.controller.js:93: if (Object.prototype.hasOwnProperty.call(req.body || {}, "refundId")) {
+modules\support\support.controller.js:194: }).select("-refund")
+modules\support\support.controller.js:293: { path: "order", select: "orderNumber status paymentStatus totalAmount currency deliveryDate cancellation.status cancellation.reason cancellation.requestedAt cancellation.reviewedAt cancellation.reviewNote cancellation.customerAcknowledgedNoRefundAt cancellation.policyVersion" },

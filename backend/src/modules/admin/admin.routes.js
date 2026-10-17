@@ -1,85 +1,40 @@
+
 import { Router } from "express";
 
 import protect from "../../middlewares/auth.middleware.js";
-
-import {
-  allowRoles,
-} from "../../middlewares/access.middleware.js";
-
-import {
-  ROLES,
-} from "../../constants/roles.js";
+import { allowRoles } from "../../middlewares/access.middleware.js";
+import { ROLES } from "../../constants/roles.js";
 
 import {
   getAdminDashboard,
-
   getAdminOrders,
   getAdminOrderById,
   updateAdminOrderStatus,
-
+  getCancellationRequests,
+  reviewOrderCancellation,
   getAdminPayments,
   getAdminPaymentById,
 } from "./admin.controller.js";
 
-
 const router = Router();
+const adminAccess = allowRoles(ROLES.ADMIN, ROLES.OPERATIONS);
 
+router.use(protect, adminAccess);
 
-const adminAccess = allowRoles(
-  ROLES.ADMIN,
-  ROLES.OPERATIONS
-);
+// Dashboard
+router.get("/dashboard", getAdminDashboard);
 
+// Cancellation routes BEFORE /orders/:orderId to avoid route shadowing.
+router.get("/orders/cancellations", getCancellationRequests);
+router.patch("/orders/cancellations/:orderId/review", reviewOrderCancellation);
 
-router.use(
-  protect,
-  adminAccess
-);
+// Orders
+router.get("/orders", getAdminOrders);
+router.get("/orders/:orderId", getAdminOrderById);
+router.patch("/orders/:orderId/status", updateAdminOrderStatus);
 
-
-// ================================
-// DASHBOARD
-// ================================
-
-router.get(
-  "/dashboard",
-  getAdminDashboard
-);
-
-
-// ================================
-// ORDERS
-// ================================
-
-router.get(
-  "/orders",
-  getAdminOrders
-);
-
-router.get(
-  "/orders/:orderId",
-  getAdminOrderById
-);
-
-router.patch(
-  "/orders/:orderId/status",
-  updateAdminOrderStatus
-);
-
-
-// ================================
-// PAYMENTS
-// ================================
-
-router.get(
-  "/payments",
-  getAdminPayments
-);
-
-router.get(
-  "/payments/:paymentId",
-  getAdminPaymentById
-);
-
+// Payments
+router.get("/payments", getAdminPayments);
+router.get("/payments/:paymentId", getAdminPaymentById);
 
 export default router;

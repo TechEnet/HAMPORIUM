@@ -1,3 +1,4 @@
+
 const clean = (value) => String(value || "").trim();
 
 const TEMPLATE_ENV = Object.freeze({
@@ -8,9 +9,6 @@ const TEMPLATE_ENV = Object.freeze({
   shipment_dispatched: "WHATSAPP_TEMPLATE_SHIPMENT_DISPATCHED",
   out_for_delivery: "WHATSAPP_TEMPLATE_OUT_FOR_DELIVERY",
   order_delivered: "WHATSAPP_TEMPLATE_ORDER_DELIVERED",
-  refund_initiated: "WHATSAPP_TEMPLATE_REFUND_INITIATED",
-  refund_completed: "WHATSAPP_TEMPLATE_REFUND_COMPLETED",
-  refund_failed: "WHATSAPP_TEMPLATE_REFUND_FAILED",
 });
 
 const TEMPLATE_FALLBACK = Object.freeze({
@@ -21,9 +19,6 @@ const TEMPLATE_FALLBACK = Object.freeze({
   shipment_dispatched: "hamporium_shipment_dispatched",
   out_for_delivery: "hamporium_out_for_delivery",
   order_delivered: "hamporium_order_delivered",
-  refund_initiated: "hamporium_refund_initiated",
-  refund_completed: "hamporium_refund_completed",
-  refund_failed: "hamporium_refund_failed",
 });
 
 export const normalizeWhatsAppPhone = (value) => {

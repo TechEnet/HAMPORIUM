@@ -20,29 +20,15 @@ const STATUS_TRANSITIONS = {
   cancelled: [],
 };
 
-const createRequestKey = () => {
-  if (typeof crypto !== "undefined" && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-
-  return `refund-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-};
-
 const OrderDetails = () => {
   const { orderId } = useParams();
 
   const [order, setOrder] = useState(null);
-  const [refunds, setRefunds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [reviewNote, setReviewNote] = useState("");
-  const [refundForm, setRefundForm] = useState({
-    amount: "",
-    reason: "",
-    requestKey: createRequestKey(),
-  });
 
   const loadOrder = async () => {
     const response = await api.get(`/admin/orders/${orderId}`);
@@ -50,17 +36,6 @@ const OrderDetails = () => {
     return response.data.order;
   };
 
-  const loadRefunds = async () => {
-    try {
-      const response = await api.get(
-        `/refunds/admin?order=${encodeURIComponent(orderId)}&limit=100`
-      );
-      setRefunds(response.data.refunds || []);
-    } catch (requestError) {
-      console.error("Unable to load refund history:", requestError);
-      setRefunds([]);
-    }
-  };
 
   useEffect(() => {
     const load = async () => {
@@ -68,18 +43,6 @@ const OrderDetails = () => {
       setError("");
 
       try {
-        const loaded = await loadOrder();
-        setRefundForm((current) => ({
-          ...current,
-          amount: String(
-            Math.max(
-              0,
-              Number(loaded.payment?.amount || loaded.totalAmount || 0) -
-                Number(loaded.payment?.refundedAmount || 0)
-            ) || ""
-          ),
-        }));
-        await loadRefunds();
       } catch (requestError) {
         setError(
           requestError.response?.data?.message || "Unable to load order"
@@ -93,7 +56,7 @@ const OrderDetails = () => {
   }, [orderId]);
 
   const refresh = async () => {
-    await Promise.all([loadOrder(), loadRefunds()]);
+    await loadOrder();
   };
 
   const updateStatus = async (status) => {
@@ -126,7 +89,7 @@ const OrderDetails = () => {
   const reviewCancellation = async (decision) => {
     const confirmed = window.confirm(
       decision === "approve"
-        ? "Approve cancellation? For a paid pre-dispatch order this starts the full refund workflow."
+        ? "Approve voluntary cancellation? This cancels the order WITHOUT initiating a payment refund. Confirm the customer acknowledged the policy."
         : "Reject this cancellation request?"
     );
     if (!confirmed) return;
@@ -137,7 +100,7 @@ const OrderDetails = () => {
 
     try {
       const response = await api.patch(
-        `/refunds/admin/cancellations/${orderId}/review`,
+        `/admin/orders/cancellations/${orderId}/review`,
         {
           decision,
           note: reviewNote.trim(),
@@ -151,54 +114,6 @@ const OrderDetails = () => {
       setError(
         requestError.response?.data?.message ||
           "Unable to review cancellation"
-      );
-    } finally {
-      setWorking(false);
-    }
-  };
-
-  const submitRefund = async (event) => {
-    event.preventDefault();
-
-    const amount = Number(refundForm.amount);
-    const reason = refundForm.reason.trim();
-
-    if (!Number.isFinite(amount) || amount <= 0) {
-      setError("Enter a valid refund amount greater than zero.");
-      return;
-    }
-
-    if (!reason) {
-      setError("Refund reason is required.");
-      return;
-    }
-
-    const confirmed = window.confirm(
-      `Initiate a refund of ${formatCurrency(amount)} for ${order.orderNumber}?`
-    );
-    if (!confirmed) return;
-
-    setWorking(true);
-    setError("");
-    setNotice("");
-
-    try {
-      const response = await api.post(`/refunds/admin/orders/${orderId}`, {
-        amount,
-        reason,
-        requestKey: refundForm.requestKey,
-      });
-
-      setNotice(response.data.message || "Refund workflow started.");
-      setRefundForm({
-        amount: "",
-        reason: "",
-        requestKey: createRequestKey(),
-      });
-      await refresh();
-    } catch (requestError) {
-      setError(
-        requestError.response?.data?.message || "Unable to create refund"
       );
     } finally {
       setWorking(false);
@@ -228,11 +143,6 @@ const OrderDetails = () => {
 
   const nextStatuses = STATUS_TRANSITIONS[order.status] || [];
   const cancellation = order.cancellation || {};
-  const refundablePayment = [
-    "paid",
-    "partially_refunded",
-  ].includes(order.paymentStatus);
-
   return (
     <div
       className="mx-auto w-full max-w-[1600px] pb-12 text-[#171717]"
@@ -260,10 +170,10 @@ const OrderDetails = () => {
             Fulfilment
           </Link>
           <Link
-            to="/admin/refunds"
+            to="/admin/orders?queue=cancellations"
             className="rounded-lg bg-[#171717] px-3 py-2 text-[10px] font-bold text-white hover:bg-[#F97316]"
           >
-            Refund Queue
+            Cancellation Queue
           </Link>
         </div>
       </div>
@@ -371,6 +281,12 @@ const OrderDetails = () => {
                 <StatusBadge status="requested" />
               </div>
 
+              {cancellation.customerAcknowledgedNoRefundAt && (
+                <p className="mt-3 text-xs font-bold text-amber-800">Customer acknowledged the voluntary cancellation policy on {formatDate(cancellation.customerAcknowledgedNoRefundAt, true)}.</p>
+              )}
+              {!cancellation.customerAcknowledgedNoRefundAt && (
+                <p className="mt-3 text-xs font-bold text-red-700">Legacy request: policy acknowledgement not recorded. Backend may reject approval.</p>
+              )}
               <p className="mt-4 rounded-xl bg-white/70 p-4 text-sm leading-6 text-black/65">
                 {cancellation.reason || "No reason supplied."}
               </p>
@@ -398,7 +314,7 @@ const OrderDetails = () => {
                   onClick={() => reviewCancellation("approve")}
                   className="rounded-xl bg-[#F97316] px-5 py-3 text-xs font-extrabold text-white transition hover:bg-[#171717] disabled:opacity-40"
                 >
-                  Approve + Start Refund
+                  Approve Cancellation
                 </button>
               </div>
             </section>
@@ -518,34 +434,7 @@ const OrderDetails = () => {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-black/[0.07] bg-white p-5 sm:p-6">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-[10px] font-extrabold uppercase tracking-wider text-[#F97316]">Refund Ledger</p>
-                <h2 className="mt-1 text-lg font-black">Order refunds</h2>
-              </div>
-              <Link to="/admin/refunds" className="text-xs font-bold text-[#F97316]">All refunds →</Link>
-            </div>
 
-            {!refunds.length ? (
-              <p className="mt-4 text-sm text-black/40">No refunds for this order.</p>
-            ) : (
-              <div className="mt-4 space-y-3">
-                {refunds.map((refund) => (
-                  <div key={refund._id} className="flex flex-col gap-3 rounded-xl bg-[#FFF9F2] p-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <div className="flex flex-wrap gap-2">
-                        <StatusBadge status={refund.status} />
-                        <StatusBadge status={refund.type} />
-                      </div>
-                      <p className="mt-2 text-xs text-black/45">{refund.reason || "Refund"}</p>
-                    </div>
-                    <p className="text-lg font-black text-[#F97316]">{formatCurrency(refund.amount)}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
         </div>
 
         <aside className="space-y-6">
@@ -568,47 +457,6 @@ const OrderDetails = () => {
             </div>
           </section>
 
-          {refundablePayment && (
-            <form onSubmit={submitRefund} className="rounded-2xl border border-black/[0.07] bg-white p-5">
-              <p className="text-[10px] font-extrabold uppercase tracking-wider text-[#F97316]">Manual Refund</p>
-              <h2 className="mt-1 text-lg font-black">Full or partial refund</h2>
-              <p className="mt-2 text-[10px] leading-5 text-black/40">
-                Use only for an approved financial exception. requestKey prevents accidental duplicate gateway refunds.
-              </p>
-
-              <label className="mt-4 block">
-                <span className="mb-1.5 block text-[9px] font-extrabold uppercase tracking-wider text-black/35">Amount</span>
-                <input
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  value={refundForm.amount}
-                  onChange={(event) => setRefundForm((current) => ({ ...current, amount: event.target.value }))}
-                  className="h-11 w-full rounded-xl border border-black/10 px-3 text-sm outline-none focus:border-[#F97316]"
-                />
-              </label>
-
-              <label className="mt-3 block">
-                <span className="mb-1.5 block text-[9px] font-extrabold uppercase tracking-wider text-black/35">Reason</span>
-                <textarea
-                  rows="4"
-                  value={refundForm.reason}
-                  onChange={(event) => setRefundForm((current) => ({ ...current, reason: event.target.value }))}
-                  className="w-full rounded-xl border border-black/10 p-3 text-sm outline-none focus:border-[#F97316]"
-                />
-              </label>
-
-              <p className="mt-3 break-all text-[9px] text-black/25">Request key: {refundForm.requestKey}</p>
-
-              <button
-                type="submit"
-                disabled={working}
-                className="mt-4 w-full rounded-xl bg-[#171717] px-4 py-3 text-xs font-extrabold text-white transition hover:bg-[#F97316] disabled:opacity-40"
-              >
-                {working ? "Working..." : "Initiate Refund"}
-              </button>
-            </form>
-          )}
         </aside>
       </div>
     </div>

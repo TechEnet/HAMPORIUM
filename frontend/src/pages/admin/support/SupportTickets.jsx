@@ -12,7 +12,6 @@ const CATEGORIES = [
   "missing_item",
   "payment",
   "cancellation",
-  "refund",
   "invoice",
   "product",
   "other",
@@ -71,7 +70,7 @@ const SupportTickets = () => {
         <div>
           <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#D4AF37]">Customer Care Operations</p>
           <h1 className="mt-2 font-serif text-[44px] font-semibold leading-none">Support Tickets</h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-white/50">Resolve customer questions about orders, delivery, refunds, payments, invoices and products from one queue.</p>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-white/50">Resolve customer questions about orders, delivery, cancellations, payments, invoices and products from one queue.</p>
         </div>
         <button type="button" onClick={load} disabled={loading} className="rounded-xl border border-white/15 px-5 py-3 text-xs font-bold transition hover:border-[#F97316] hover:text-[#F97316] disabled:opacity-40">Refresh</button>
       </header>

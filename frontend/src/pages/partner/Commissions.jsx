@@ -49,7 +49,7 @@ const Commissions = () => {
       <PageHeader
         eyebrow="Earnings"
         title="Commissions"
-        description="Track automatic order attribution, eligibility, payable amounts, completed payouts and refund reversals."
+        description="Track automatic order attribution, eligibility, payable amounts, completed payouts and commission reversals."
         action={<select value={status} onChange={(event) => setStatus(event.target.value)} className="h-11 rounded-xl border border-black/10 bg-white px-4 text-xs font-bold"><option value="">All statuses</option>{["potential", "attributed", "order_confirmed", "eligible", "payable", "paid", "reversed"].map((value) => <option key={value} value={value}>{value.replaceAll("_", " ")}</option>)}</select>}
       />
 

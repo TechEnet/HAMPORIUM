@@ -1,3 +1,4 @@
+
 import mongoose from "mongoose";
 import asyncHandler from "../../utils/asyncHandler.js";
 import Partner from "../partners/partner.model.js";
@@ -245,71 +246,6 @@ export const markCommissionEligibleForOrder = async (
     `Commission ${commission.commissionId} is now eligible.`,
     "eligible"
   );
-  return commission;
-};
-export const syncCommissionForRefundedOrder = async ({
-  order,
-  payment,
-  actorId = null,
-}) => {
-  const commission = await Commission.findOne({ order: order._id }).select(
-    "+rate"
-  );
-  if (!commission || commission.status === COMMISSION_STATUS.REVERSED) {
-    return commission;
-  }
-  const total = Number(payment?.amount || order.totalAmount || 0);
-  const refunded = Number(payment?.refundedAmount || 0);
-  const remainingRatio =
-    total > 0
-      ? Math.max(0, Math.min(1, (total - refunded) / total))
-      : 0;
-  const nextEligible = roundMoney(
-    Number(
-      commission.originalEligibleValue || commission.eligibleValue || 0
-    ) * remainingRatio
-  );
-  if (nextEligible <= 0) {
-    commission.status = COMMISSION_STATUS.REVERSED;
-    commission.payoutStatus = COMMISSION_PAYOUT_STATUS.REVERSED;
-    commission.reversal = {
-      reason: "Order fully refunded",
-      reversedAt: new Date(),
-      reversedBy: actorId,
-    };
-    commission.history.push({
-      status: COMMISSION_STATUS.REVERSED,
-      changedBy: actorId,
-      note: "Commission reversed after full refund.",
-    });
-    await commission.save();
-    await notifyPartner(
-      commission,
-      "Commission Reversed",
-      `Commission ${commission.commissionId} was reversed because the order was fully refunded.`,
-      "refund-reversed"
-    );
-    return commission;
-  }
-  if (nextEligible < Number(commission.eligibleValue || 0)) {
-    const oldAmount = commission.amount;
-    commission.eligibleValue = nextEligible;
-    commission.amount = calc(nextEligible, commission.rate);
-    commission.adjustments.push({
-      type: "refund",
-      amount: roundMoney(commission.amount - oldAmount),
-      note: `Adjusted after refund of INR ${refunded.toFixed(2)}.`,
-      at: new Date(),
-      by: actorId,
-    });
-    await commission.save();
-    await notifyPartner(
-      commission,
-      "Commission Adjusted",
-      `Commission ${commission.commissionId} was adjusted to INR ${commission.amount.toFixed(2)} after a partial refund.`,
-      `refund-adjusted-${refunded}`
-    );
-  }
   return commission;
 };
 export const getMyCommissions = asyncHandler(async (req, res) => {

@@ -6,7 +6,6 @@ import SupportTicket, {
   SUPPORT_STATUSES,
 } from "./supportTicket.model.js";
 import Order from "../orders/order.model.js";
-import Refund from "../refunds/refund.model.js";
 
 import asyncHandler from "../../utils/asyncHandler.js";
 import createAuditLog from "../../helpers/createAuditLog.js";
@@ -56,9 +55,15 @@ const populateTicket = (query) =>
   query
     .populate("user", "name email phone")
     .populate("order", "orderNumber status paymentStatus totalAmount currency deliveryDate")
-    .populate("refund", "status amount currency razorpayRefundId")
     .populate("assignedTo", "name email")
     .populate("messages.author", "name email");
+
+// Keep historical ticket records while omitting retired links from all responses.
+const publicTicket = (ticket) => {
+  const data = typeof ticket?.toObject === "function" ? ticket.toObject() : { ...ticket };
+  delete data.refund;
+  return data;
+};
 
 const notifyCustomer = ({ ticket, title, message, eventKey }) => {
   void notifyUser({
@@ -83,7 +88,14 @@ export const createSupportTicket = asyncHandler(async (req, res) => {
   const subject = clean(req.body?.subject, 180);
   const message = clean(req.body?.message, 5000);
   const orderId = req.body?.orderId || null;
-  const refundId = req.body?.refundId || null;
+
+  // Reject stale support form submissions that still send a retired reference.
+  if (Object.prototype.hasOwnProperty.call(req.body || {}, "refundId")) {
+    return res.status(400).json({
+      success: false,
+      message: "This reference is no longer accepted. Please submit an order-linked ticket.",
+    });
+  }
 
   if (!SUPPORT_CATEGORIES.includes(category)) {
     return res.status(400).json({ success: false, message: "Invalid support category" });
@@ -96,7 +108,6 @@ export const createSupportTicket = asyncHandler(async (req, res) => {
   }
 
   let order = null;
-  let refund = null;
 
   if (orderId) {
     if (!isValidId(orderId)) {
@@ -108,23 +119,9 @@ export const createSupportTicket = asyncHandler(async (req, res) => {
     }
   }
 
-  if (refundId) {
-    if (!isValidId(refundId)) {
-      return res.status(400).json({ success: false, message: "Invalid refund ID" });
-    }
-    refund = await Refund.findOne({ _id: refundId, user: req.user._id }).select("_id order");
-    if (!refund) {
-      return res.status(404).json({ success: false, message: "Refund not found" });
-    }
-    if (order && String(refund.order) !== String(order._id)) {
-      return res.status(400).json({ success: false, message: "Refund does not belong to the selected order" });
-    }
-  }
-
   const ticket = await SupportTicket.create({
     user: req.user._id,
-    order: order?._id || refund?.order || null,
-    refund: refund?._id || null,
+    order: order?._id || null,
     category,
     subject,
     status: "open",
@@ -147,13 +144,13 @@ export const createSupportTicket = asyncHandler(async (req, res) => {
     entityType: "support_ticket",
     entityId: ticket._id,
     description: `Support ticket ${ticket.ticketNumber} created.`,
-    metadata: { category, orderId: ticket.order, refundId: ticket.refund },
+    metadata: { category, orderId: ticket.order },
   });
 
   res.status(201).json({
     success: true,
     message: "Support request submitted",
-    ticket,
+    ticket: publicTicket(ticket),
   });
 });
 
@@ -194,14 +191,14 @@ export const getMySupportTicketById = asyncHandler(async (req, res) => {
         { ticketNumber: clean(req.params.ticketId, 80).toUpperCase() },
       ],
       user: req.user._id,
-    })
+    }).select("-refund")
   ).lean();
 
   if (!ticket) {
     return res.status(404).json({ success: false, message: "Support ticket not found" });
   }
 
-  res.json({ success: true, ticket });
+  res.json({ success: true, ticket: publicTicket(ticket) });
 });
 
 export const replyToMySupportTicket = asyncHandler(async (req, res) => {
@@ -234,7 +231,7 @@ export const replyToMySupportTicket = asyncHandler(async (req, res) => {
 
   await ticket.save();
 
-  res.json({ success: true, message: "Reply added", ticket });
+  res.json({ success: true, message: "Reply added", ticket: publicTicket(ticket) });
 });
 
 export const getAdminSupportTickets = asyncHandler(async (req, res) => {
@@ -293,13 +290,12 @@ export const getAdminSupportTicketById = asyncHandler(async (req, res) => {
 
   await ticket.populate([
     { path: "user", select: "name email phone" },
-    { path: "order", select: "orderNumber status paymentStatus totalAmount currency deliveryDate cancellation" },
-    { path: "refund", select: "status amount currency razorpayRefundId" },
+    { path: "order", select: "orderNumber status paymentStatus totalAmount currency deliveryDate cancellation.status cancellation.reason cancellation.requestedAt cancellation.reviewedAt cancellation.reviewNote cancellation.customerAcknowledgedNoRefundAt cancellation.policyVersion" },
     { path: "assignedTo", select: "name email" },
     { path: "messages.author", select: "name email" },
   ]);
 
-  res.json({ success: true, ticket });
+  res.json({ success: true, ticket: publicTicket(ticket) });
 });
 
 export const replyToSupportTicketAdmin = asyncHandler(async (req, res) => {
@@ -343,7 +339,7 @@ export const replyToSupportTicketAdmin = asyncHandler(async (req, res) => {
     description: `Internal reply sent on ${ticket.ticketNumber}.`,
   });
 
-  res.json({ success: true, message: "Reply sent", ticket });
+  res.json({ success: true, message: "Reply sent", ticket: publicTicket(ticket) });
 });
 
 export const updateSupportTicketAdmin = asyncHandler(async (req, res) => {
@@ -411,5 +407,5 @@ export const updateSupportTicketAdmin = asyncHandler(async (req, res) => {
     },
   });
 
-  res.json({ success: true, message: "Support ticket updated", ticket });
+  res.json({ success: true, message: "Support ticket updated", ticket: publicTicket(ticket) });
 });

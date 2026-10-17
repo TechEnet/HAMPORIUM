@@ -1,3 +1,4 @@
+
 import {
   createHash,
   createHmac,
@@ -5,13 +6,10 @@ import {
 } from "node:crypto";
 
 import Payment from "./payment.model.js";
-
 import {
   markPaymentCaptured,
   markPaymentFailed,
 } from "./payment.controller.js";
-import { processRefundWebhookEvent } from "../refunds/refund.webhook.js";
-
 import { PAYMENT_STATUS } from "../../constants/statuses.js";
 
 const safeSignatureEqual = (expected, received) => {
@@ -20,15 +18,12 @@ const safeSignatureEqual = (expected, received) => {
 
   const expectedBuffer = Buffer.from(expected, "hex");
   const receivedBuffer = Buffer.from(received, "hex");
-
   if (expectedBuffer.length !== receivedBuffer.length) return false;
-
   return timingSafeEqual(expectedBuffer, receivedBuffer);
 };
 
 const verifyWebhookSignature = (rawBody, receivedSignature) => {
   const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
-
   if (!secret) {
     const error = new Error("RAZORPAY_WEBHOOK_SECRET is not configured");
     error.statusCode = 500;
@@ -55,7 +50,6 @@ const paymentWebhook = async (req, res, next) => {
     }
 
     const signature = String(req.headers["x-razorpay-signature"] || "").trim();
-
     if (!verifyWebhookSignature(req.body, signature)) {
       return res.status(400).json({
         success: false,
@@ -64,7 +58,6 @@ const paymentWebhook = async (req, res, next) => {
     }
 
     let event;
-
     try {
       event = JSON.parse(req.body.toString("utf8"));
     } catch {
@@ -77,31 +70,19 @@ const paymentWebhook = async (req, res, next) => {
     const webhookEventId =
       String(req.headers["x-razorpay-event-id"] || "").trim() ||
       fallbackEventId(req.body);
-
     const eventType = String(event?.event || "");
-    const gatewayRefund = event?.payload?.refund?.entity || null;
 
-    if (eventType.startsWith("refund.") && gatewayRefund) {
-      const result = await processRefundWebhookEvent({
-        eventType,
-        gatewayRefund,
-        webhookEventId,
-      });
-
-      return res.status(200).json({
-        success: true,
-        ignored: Boolean(result?.ignored),
-        duplicate: Boolean(result?.duplicate),
-      });
+    // No refund handler is imported, so no refund workflow can be triggered.
+    // Deploy ONLY after all existing gateway refunds are reconciled. Razorpay
+    // still owns external settlement events; never interpret 200 as settlement.
+    if (eventType.startsWith("refund.")) {
+      console.warn(`[Razorpay] Received untracked legacy event ${eventType}: ${webhookEventId}`);
+      return res.status(200).json({ success: true, ignored: true });
     }
 
     const gatewayPayment = event?.payload?.payment?.entity || null;
-
     if (!gatewayPayment?.order_id) {
-      return res.status(200).json({
-        success: true,
-        ignored: true,
-      });
+      return res.status(200).json({ success: true, ignored: true });
     }
 
     const paymentRecord = await Payment.findOne({
@@ -112,41 +93,26 @@ const paymentWebhook = async (req, res, next) => {
       console.warn(
         `Webhook payment record not found for Razorpay order ${gatewayPayment.order_id}`
       );
-
-      return res.status(200).json({
-        success: true,
-        ignored: true,
-      });
+      return res.status(200).json({ success: true, ignored: true });
     }
 
     if (paymentRecord.webhookEventIds.includes(webhookEventId)) {
-      return res.status(200).json({
-        success: true,
-        duplicate: true,
-      });
+      return res.status(200).json({ success: true, duplicate: true });
     }
 
     if (eventType === "payment.captured") {
-      await markPaymentCaptured({
-        paymentRecord,
-        gatewayPayment,
-        webhookEventId,
-      });
-
+      await markPaymentCaptured({ paymentRecord, gatewayPayment, webhookEventId });
       return res.status(200).json({ success: true });
     }
 
     if (eventType === "payment.failed") {
-      await markPaymentFailed({
-        paymentRecord,
-        gatewayPayment,
-        webhookEventId,
-      });
-
+      await markPaymentFailed({ paymentRecord, gatewayPayment, webhookEventId });
       return res.status(200).json({ success: true });
     }
 
     if (eventType === "payment.authorized") {
+      // Historical statuses must still be respected: an old fully/partially
+      // reversed payment cannot be changed back to authorized by a late event.
       if (
         ![
           PAYMENT_STATUS.CAPTURED,
@@ -162,17 +128,12 @@ const paymentWebhook = async (req, res, next) => {
         if (!paymentRecord.webhookEventIds.includes(webhookEventId)) {
           paymentRecord.webhookEventIds.push(webhookEventId);
         }
-
         await paymentRecord.save();
       }
-
       return res.status(200).json({ success: true });
     }
 
-    return res.status(200).json({
-      success: true,
-      ignored: true,
-    });
+    return res.status(200).json({ success: true, ignored: true });
   } catch (error) {
     next(error);
   }

@@ -1,3 +1,4 @@
+
 import mongoose from "mongoose";
 import Cart from "../cart/cart.model.js";
 import { validateCustomHamper } from "../cart/cart.controller.js";
@@ -6,6 +7,7 @@ import Address from "../users/address.model.js";
 import ProductionJob from "../production/productionJob.model.js";
 import Fulfilment from "../fulfilment/fulfilment.model.js";
 import Order from "./order.model.js";
+import Payment from "../payments/payment.model.js";
 import Partner from "../partners/partner.model.js";
 import PartnerReferral from "../partners/partnerReferral.model.js";
 import { resolvePartnerAttributionForOrder } from "../partners/partnerReferral.controller.js";
@@ -27,6 +29,7 @@ import {
   FULFILMENT_STATUS,
   NOTIFICATION_TYPE,
   ORDER_PAYMENT_STATUS,
+  PAYMENT_STATUS,
   ORDER_STATUS,
   PRODUCT_STATUS,
   PRODUCTION_STAGE,
@@ -397,6 +400,7 @@ const toPublicOrder = (order) => {
   const data =
     typeof order?.toObject === "function" ? order.toObject() : { ...order };
   delete data.partnerCommissionSnapshot;
+  if (data.cancellation) delete data.cancellation.refund;
   return data;
 };
 
@@ -1097,7 +1101,10 @@ export const getMyOrders = asyncHandler(async (req, res) => {
     .lean();
   res.status(200).json({
     success: true,
-    orders,
+    orders: orders.map((order) => {
+      if (order.cancellation) delete order.cancellation.refund;
+      return order;
+    }),
   });
 });
 export const getMyOrderById = asyncHandler(async (req, res) => {
@@ -1114,11 +1121,7 @@ export const getMyOrderById = asyncHandler(async (req, res) => {
   })
     .populate(
       "payment",
-      "status amount refundedAmount razorpayOrderId razorpayPaymentId method paidAt lastRefundAt"
-    )
-    .populate(
-      "cancellation.refund",
-      "type status amount currency razorpayRefundId initiatedAt completedAt failedAt"
+      "status amount razorpayOrderId razorpayPaymentId method paidAt"
     )
     .lean();
   if (!order) {
@@ -1127,6 +1130,7 @@ export const getMyOrderById = asyncHandler(async (req, res) => {
       message: "Order not found",
     });
   }
+  if (order.cancellation) delete order.cancellation.refund;
   res.status(200).json({
     success: true,
     order,
@@ -1436,7 +1440,15 @@ export const getMyOrderTracking = asyncHandler(async (req, res) => {
       dispatchReadyDate: order.deliveryPlan?.dispatchReadyDate || null,
       deliveryHealth: deliveryHealth.status,
       isDeliveryDelayed: deliveryHealth.isDelayed,
-      cancellation: order.cancellation || null,
+      cancellation: order.cancellation
+        ? {
+            status: order.cancellation.status,
+            reason: order.cancellation.reason,
+            requestedAt: order.cancellation.requestedAt,
+            reviewedAt: order.cancellation.reviewedAt,
+            reviewNote: order.cancellation.reviewNote,
+          }
+        : null,
       timeline,
       production: job
         ? {
@@ -1464,62 +1476,62 @@ export const getMyOrderTracking = asyncHandler(async (req, res) => {
     },
   });
 });
+// A cancellation is an operational request, never a payment reversal.
+// Customer must explicitly acknowledge the published voluntary-cancellation policy.
 export const requestOrderCancellation = asyncHandler(async (req, res) => {
   const { orderId } = req.params;
-  const reason = cleanString(req.body?.reason, 1000);
   if (!isValidId(orderId)) {
-    return res.status(400).json({
-      success: false,
-      message: "Invalid order ID",
-    });
+    return res.status(400).json({ success: false, message: "Invalid order ID" });
   }
-  if (reason.length < 5) {
-    return res.status(400).json({
-      success: false,
-      message: "Please provide a cancellation reason of at least 5 characters",
-    });
-  }
-  const order = await Order.findOne({
-    _id: orderId,
-    user: req.user._id,
-  });
+
+  const order = await Order.findOne({ _id: orderId, user: req.user._id });
   if (!order) {
-    return res.status(404).json({
-      success: false,
-      message: "Order not found",
-    });
+    return res.status(404).json({ success: false, message: "Order not found" });
   }
+
   if (order.cancellation?.status === CANCELLATION_STATUS.REQUESTED) {
+    const cancellation = order.cancellation.toObject?.() || { ...order.cancellation };
+    delete cancellation.refund; // historical reference never exposed in UI
     return res.status(200).json({
       success: true,
-      message: "Cancellation request is already under review",
-      cancellation: order.cancellation,
+      message: "Your cancellation request is already under review",
+      cancellation,
     });
   }
-  if (
-    ![
-      ORDER_PAYMENT_STATUS.PAID,
-      ORDER_PAYMENT_STATUS.PARTIALLY_REFUNDED,
-    ].includes(order.paymentStatus)
-  ) {
+
+  if (![ORDER_STATUS.CONFIRMED, ORDER_STATUS.PROCESSING].includes(order.status)) {
     return res.status(409).json({
       success: false,
-      message: "Only successfully paid orders can request cancellation",
+      message: "Cancellation requests are available only before dispatch for confirmed orders.",
     });
   }
-  if (
-    [
-      ORDER_STATUS.SHIPPED,
-      ORDER_STATUS.DELIVERED,
-      ORDER_STATUS.CANCELLED,
-    ].includes(order.status)
-  ) {
+
+  // This new policy applies to fully paid, non-legacy orders only.
+  // Do not silently reinterpret historic partially/fully refunded payments.
+  if (order.paymentStatus !== ORDER_PAYMENT_STATUS.PAID) {
     return res.status(409).json({
       success: false,
-      message: "This order can no longer be cancelled",
+      message: "This order is not eligible for an online cancellation request. Contact support.",
     });
   }
-  const blockingShipment = await Fulfilment.findOne({
+
+  if (req.body?.acknowledgeNoRefund !== true) {
+    return res.status(400).json({
+      success: false,
+      code: "CANCELLATION_POLICY_ACKNOWLEDGEMENT_REQUIRED",
+      message: "Please confirm that you understand voluntary cancellation does not initiate a refund, subject to applicable law.",
+    });
+  }
+
+  const reason = cleanString(req.body?.reason, 1000);
+  if (!reason) {
+    return res.status(400).json({
+      success: false,
+      message: "Please enter a reason for cancellation.",
+    });
+  }
+
+  const shipment = await Fulfilment.exists({
     sourceType: "order",
     sourceId: String(order._id),
     status: {
@@ -1532,63 +1544,96 @@ export const requestOrderCancellation = asyncHandler(async (req, res) => {
         FULFILMENT_STATUS.RETURNED,
       ],
     },
-  }).lean();
-  if (blockingShipment) {
+  });
+  if (shipment) {
     return res.status(409).json({
       success: false,
-      message: "This order has already entered shipment and cannot be cancelled",
+      message: "This order has already entered shipping and cannot be cancelled online.",
     });
   }
-  const requestTime = new Date();
-  order.cancellation = {
-    status: CANCELLATION_STATUS.REQUESTED,
-    reason,
-    requestedAt: requestTime,
-    requestedBy: req.user._id,
-    reviewedAt: null,
-    reviewedBy: null,
-    reviewNote: "",
-    refund: null,
-  };
-  await order.save();
-  void notifyUser({
-    recipient: order.user,
-    type: NOTIFICATION_TYPE.ORDER,
-    title: "Cancellation Request Received",
-    message: `We received your cancellation request for ${order.orderNumber}.`,
-    entityType: "order",
-    entityId: order._id,
-    actionUrl: `/account/orders/${order._id}`,
-    eventKey: `cancellation-requested:${order._id}:${requestTime.getTime()}`,
-    metadata: { reason },
-    email: {
-      enabled: true,
-      subject: `Cancellation request received - ${order.orderNumber}`,
-      textContent: `We received your cancellation request for ${order.orderNumber}. Our team will review it and send you an update.`,
-      actionLabel: "View order",
-    },
-    whatsapp: {
-      enabled: true,
-      templateKey: "cancellation_requested",
-      bodyParameters: [order.orderNumber],
-      includeActionUrl: true,
-    },
+
+  // Require a known captured payment; do not turn an in-flight payment into
+  // a cancellation while its settlement status is unresolved.
+  const capturedPayment = await Payment.exists({
+    order: order._id,
+    status: PAYMENT_STATUS.CAPTURED,
   });
+  if (!capturedPayment) {
+    return res.status(409).json({
+      success: false,
+      message: "Payment state must be confirmed by support before cancellation.",
+    });
+  }
+
+  const now = new Date();
+  const updated = await Order.findOneAndUpdate(
+    {
+      _id: order._id,
+      user: req.user._id,
+      status: { $in: [ORDER_STATUS.CONFIRMED, ORDER_STATUS.PROCESSING] },
+      paymentStatus: ORDER_PAYMENT_STATUS.PAID,
+      "cancellation.status": {
+        $in: [CANCELLATION_STATUS.NONE, CANCELLATION_STATUS.REJECTED],
+      },
+    },
+    {
+      $set: {
+        "cancellation.status": CANCELLATION_STATUS.REQUESTED,
+        "cancellation.reason": reason,
+        "cancellation.requestedAt": now,
+        "cancellation.requestedBy": req.user._id,
+        "cancellation.reviewedAt": null,
+        "cancellation.reviewedBy": null,
+        "cancellation.reviewNote": "",
+        "cancellation.customerAcknowledgedNoRefundAt": now,
+        "cancellation.policyVersion": "voluntary-cancellation-v1",
+      },
+    },
+    { new: true, runValidators: true }
+  );
+  if (!updated) {
+    return res.status(409).json({
+      success: false,
+      message: "Order status changed or a cancellation request already exists. Please refresh.",
+    });
+  }
+
   await createAuditLog({
     req,
     action: "order_cancellation_requested",
     module: "orders",
     entityType: "order",
     entityId: order._id,
-    description: `Cancellation requested for ${order.orderNumber}.`,
-    metadata: { reason },
+    description: `Cancellation requested for ${order.orderNumber}; customer acknowledged voluntary non-refund policy.`,
+    metadata: { policyVersion: "voluntary-cancellation-v1" },
   });
-  res.status(202).json({
+
+  void notifyUser({
+    recipient: order.user,
+    type: NOTIFICATION_TYPE.ORDER,
+    title: "Cancellation Request Received",
+    message: `We received the cancellation request for ${order.orderNumber}. This does not initiate a payment refund.`,
+    entityType: "order",
+    entityId: order._id,
+    actionUrl: `/account/orders/${order._id}`,
+    eventKey: `cancellation-requested:${order._id}:${now.getTime()}`,
+    email: {
+      enabled: true,
+      subject: `Cancellation request for ${order.orderNumber}`,
+      textContent: `Your cancellation request is under review. Voluntary cancellation does not initiate a refund, subject to applicable law.`,
+      actionLabel: "View order",
+    },
+  });
+
+  const cancellation = updated.cancellation.toObject();
+  delete cancellation.refund;
+  return res.status(201).json({
     success: true,
-    message: "Cancellation request submitted",
-    cancellation: order.cancellation,
+    message: "Cancellation request submitted for review. No payment refund is initiated.",
+    cancellation,
   });
 });
+
 export const downloadMyInvoice = asyncHandler(async (req, res) => {
   const { orderId } = req.params;
   if (!isValidId(orderId)) {

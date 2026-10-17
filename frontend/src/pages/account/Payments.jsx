@@ -609,23 +609,7 @@ const Payments = () => {
               gap-7
             "
           >
-            <Link
-              to="/account/refunds"
-              className="
-                text-link
-                text-[11px]
-                font-bold
-                uppercase
-                tracking-[0.08em]
-                text-black/45
-              "
-            >
-              Refunds
 
-              <span>
-                ↗
-              </span>
-            </Link>
 
             <label>
               <span
@@ -688,13 +672,9 @@ const Payments = () => {
                   Failed
                 </option>
 
-                <option value="partially_refunded">
-                  Partially refunded
-                </option>
 
-                <option value="refunded">
-                  Refunded
-                </option>
+
+
               </select>
             </label>
           </div>
@@ -859,12 +839,6 @@ const PaymentRow = ({
     getExtraItemCount(
       payment
     );
-
-  const refunded =
-    Number(
-      payment.refundedAmount ||
-        0
-    ) > 0;
 
   const orderNumber =
     payment.order
@@ -1130,21 +1104,6 @@ const PaymentRow = ({
             )}
           </p>
 
-          {refunded && (
-            <p
-              className="
-                mt-2
-                text-[12px]
-                font-semibold
-                text-[#F47822]
-              "
-            >
-              {formatCurrency(
-                payment.refundedAmount
-              )}{" "}
-              refunded
-            </p>
-          )}
         </div>
 
         {/* ===============================================

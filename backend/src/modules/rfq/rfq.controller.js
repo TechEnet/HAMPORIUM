@@ -1,3 +1,4 @@
+
 import crypto from "node:crypto";
 
 import RFQ from "./rfq.model.js";
@@ -378,6 +379,10 @@ export const createRFQ = catchAsync(async (req, res) => {
 
   if (!userId) {
     throw createError(401, "Authentication required.");
+  }
+
+  if (req.body?.sourceType === "wedding") {
+    throw createError(410, "The dedicated wedding project workflow has been retired.");
   }
 
   const rfq = await RFQ.create({
