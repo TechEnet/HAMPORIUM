@@ -1,3 +1,4 @@
+
 // EXACT PATH: frontend/src/pages/admin/customerIntelligence/Customers.jsx
 // ACTION: NEW - CUSTOMER 360 FRONTEND V1
 import { useEffect, useMemo, useState } from "react";
@@ -95,7 +96,7 @@ export default function Customers() {
       <div className="pointer-events-none absolute -right-16 -top-32 h-80 w-80 rounded-full border border-[#D5AA6D]/20" />
       <p className="text-[10px] font-bold uppercase tracking-[.2em] text-[#D2AD78]">HAMPORIUM / CUSTOMER 360°</p>
       <div className="mt-3 flex flex-col items-start justify-between gap-5 md:flex-row md:items-end">
-        <div><h1 className="text-[43px] font-semibold leading-none sm:text-[56px]" style={{ fontFamily: font }}>Customer <em className="text-[#D7B47D]">Intelligence.</em></h1><p className="mt-3 max-w-xl text-[12px] leading-6 text-white/55">Every customer and partner, one account. Real orders, payments, delivery addresses and consented browsing insights.</p></div>
+        <div><h1 className="text-[43px] font-semibold leading-none sm:text-[56px]" style={{ fontFamily: font }}>Customer <em className="text-[#D7B47D]">Intelligence.</em></h1><p className="mt-3 max-w-xl text-[12px] leading-6 text-white/55">Every customer and partner, one account. Real orders, payments, delivery addresses and website activity insights.</p></div>
         <button type="button" onClick={() => setReload(v => v + 1)} className="rounded-xl border border-white/25 px-5 py-3 text-[11px] font-bold text-white transition hover:bg-white/10">↻ Refresh data</button>
       </div>
     </section>
@@ -119,6 +120,6 @@ export default function Customers() {
       </>}
       <div className="flex items-center justify-between gap-3 border-t border-black/[.06] px-5 py-4"><p className="text-[11px] text-black/40">Page {data?.page || page} of {Math.max(1, data?.totalPages || 1)}</p><div className="flex gap-2"><button type="button" disabled={busy || page <= 1} onClick={() => setFilter({ page: page - 1 })} className="rounded-lg border border-black/10 px-4 py-2 text-xs font-bold disabled:opacity-35">← Previous</button><button type="button" disabled={busy || page >= (data?.totalPages || 1)} onClick={() => setFilter({ page: page + 1 })} className="rounded-lg border border-black/10 px-4 py-2 text-xs font-bold disabled:opacity-35">Next →</button></div></div>
     </section>
-    <p className="mt-4 text-[11px] leading-5 text-black/35">Financial counts use existing Order and Payment records. Product views and submitted searches appear after the customer opts in to activity analytics; previously unrecorded browsing cannot be restored.</p>
+    <p className="mt-4 text-[11px] leading-5 text-black/35">Financial counts use existing Order and Payment records. Website activity appears from newly recorded visits when tracking is active. Previously unrecorded browsing cannot be restored.</p>
   </main>;
 }

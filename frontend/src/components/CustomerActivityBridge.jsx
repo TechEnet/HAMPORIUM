@@ -1,9 +1,10 @@
+
 // EXACT PATH: frontend/src/components/CustomerActivityBridge.jsx
 // ACTION: NEW - CUSTOMER 360 FRONTEND V1
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
-import { configureCustomerActivityUser, readCustomerActivityConsent, trackCustomerActivity } from "../utils/customerActivity.js";
+import { configureCustomerActivityUser, readCustomerActivityPreference, trackCustomerActivity } from "../utils/customerActivity.js";
 
 // Mounted within AuthProvider and Router, outside all page layouts.
 export default function CustomerActivityBridge() {
@@ -13,7 +14,7 @@ export default function CustomerActivityBridge() {
   useEffect(() => {
     if (authLoading) return;
     configureCustomerActivityUser(user);
-    if (id) void readCustomerActivityConsent();
+    if (id) void readCustomerActivityPreference();
   }, [id, authLoading]);
   useEffect(() => {
     if (!id || authLoading) return;

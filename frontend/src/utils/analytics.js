@@ -1,4 +1,6 @@
+
 import api from "../api/api.js";
+import { analyticsExplicitlyRejected } from "./customerActivity.js";
 
 const ANALYTICS_SESSION_KEY =
   "hamporium-analytics-session-id";
@@ -81,6 +83,7 @@ export const buildAnalyticsPayload = ({
 export const trackSearchAnalytics = async (
   payload = {}
 ) => {
+  if (analyticsExplicitlyRejected()) return null;
   try {
     const response = await api.post(
       "/analytics/search",
@@ -95,7 +98,8 @@ export const trackSearchAnalytics = async (
         location: normalizeLocation(
           payload.location
         ),
-      }
+      },
+      { headers: { "X-Hamporium-Analytics-Preference": "on" } }
     );
 
     return response.data;
@@ -120,7 +124,7 @@ export const trackProductView = async ({
   pagePath,
   location,
 } = {}) => {
-  if (!productId && !productSlug) {
+  if ((!productId && !productSlug) || analyticsExplicitlyRejected()) {
     return null;
   }
 
@@ -137,7 +141,8 @@ export const trackProductView = async ({
         productSlug,
         productName,
         location: normalizeLocation(location),
-      }
+      },
+      { headers: { "X-Hamporium-Analytics-Preference": "on" } }
     );
 
     return response.data;
