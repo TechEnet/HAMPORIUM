@@ -1,4 +1,5 @@
 
+
 import mongoose from "mongoose";
 import Cart from "../cart/cart.model.js";
 import { validateCustomHamper } from "../cart/cart.controller.js";
@@ -11,6 +12,7 @@ import Payment from "../payments/payment.model.js";
 import Partner from "../partners/partner.model.js";
 import PartnerReferral from "../partners/partnerReferral.model.js";
 import { resolvePartnerAttributionForOrder } from "../partners/partnerReferral.controller.js";
+import { getSkuCheckoutIssue } from "../catalog/catalogReadiness.service.js";
 import Promotion from "../promotions/promotion.model.js";
 import {
   applyPartnerCodeWithMarginGuard,
@@ -31,7 +33,6 @@ import {
   ORDER_PAYMENT_STATUS,
   PAYMENT_STATUS,
   ORDER_STATUS,
-  PRODUCT_STATUS,
   PRODUCTION_STAGE,
 } from "../../constants/statuses.js";
 import {
@@ -786,16 +787,12 @@ export const createOrder = asyncHandler(async (req, res) => {
       continue;
     }
     const sku = skuMap.get(String(cartItem.sku));
-    if (
-      !sku ||
-      !sku.isActive ||
-      !sku.product ||
-      sku.product.status !== PRODUCT_STATUS.ACTIVE
-    ) {
+    const issue = getSkuCheckoutIssue(sku);
+    if (issue) {
       return res.status(409).json({
         success: false,
-        message:
-          "One or more cart items are no longer available. Please review your cart.",
+        code: issue.code,
+        message: issue.message,
       });
     }
     const item = buildSkuOrderItem(
@@ -953,14 +950,15 @@ export const createBuyNowOrder = asyncHandler(async (req, res) => {
   }
   const sku = await SKU.findOne({
     _id: skuId,
-    isActive: true,
   })
     .populate("product", "name slug images status")
     .lean();
-  if (!sku || !sku.product || sku.product.status !== PRODUCT_STATUS.ACTIVE) {
+  const issue = getSkuCheckoutIssue(sku);
+  if (issue) {
     return res.status(409).json({
       success: false,
-      message: "This product is currently unavailable",
+      code: issue.code,
+      message: issue.message,
     });
   }
   const searchAttribution = await resolveSearchAttribution({

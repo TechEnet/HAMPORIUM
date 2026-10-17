@@ -1,3 +1,4 @@
+
 import mongoose from "mongoose";
 
 import {
@@ -189,6 +190,8 @@ const skuSchema = new mongoose.Schema(
       type: weightSchema,
       default: () => ({ value: null, unit: "kg" }),
     },
+
+    leadTimeDays: { type: Number, default: null, min: 0, max: 365 },
 
     productionLeadTime: {
       type: productionLeadTimeSchema,

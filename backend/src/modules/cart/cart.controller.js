@@ -1,3 +1,4 @@
+
 import crypto from "node:crypto";
 
 import mongoose from "mongoose";
@@ -22,7 +23,7 @@ import asyncHandler from "../../utils/asyncHandler.js";
 
 import uploadFile, { deleteFile } from "../../helpers/uploadFile.js";
 
-import { PRODUCT_STATUS } from "../../constants/statuses.js";
+import { getSkuCheckoutIssue } from "../catalog/catalogReadiness.service.js";
 
 import { calculateCatalogPricing } from "../tax/tax.service.js";
 
@@ -2199,7 +2200,8 @@ const getCartResponse = async (userId) => {
       { path: "items.product", select: "name slug images status" },
       {
         path: "items.sku",
-        select: "code name baseSellingPrice mrp taxEnabled taxPercent hsnSac discount price compareAtPrice images optionValues isActive",
+        select: "product code name baseSellingPrice mrp taxEnabled taxPercent hsnSac discount price compareAtPrice images optionValues isActive",
+        populate: { path: "product", select: "name slug images status" },
       },
     ]);
   }
@@ -2386,35 +2388,32 @@ const getCartResponse = async (userId) => {
 
 
 
-    const isUnavailable =
-      !item.product ||
-      !item.sku ||
-      item.product.status !== PRODUCT_STATUS.ACTIVE ||
-      !item.sku.isActive;
+    // A Cart item stores both `product` and `sku` references. The product
+    // reference may be stale after a master import, while checkout validates
+    // SKU.product. Use the SAME canonical reference as checkout/order creation.
+    const canonicalProduct = item.sku?.product || null;
+    const skuIssue = getSkuCheckoutIssue(item.sku || null);
+    const displayProduct = canonicalProduct || item.product || null;
+    const displaySku = item.sku ? { ...item.sku, product: undefined } : null;
 
-    if (isUnavailable) {
+    if (skuIssue) {
       // Do not hide invalid SKU lines: the checkout and order services read
       // the raw MongoDB cart and correctly reject them. Hiding them here left
       // customers stuck with an unexplained HTTP 409 and no remove button.
       // Preserve the old reference for a missing SKU so it can be deleted.
       const originalSkuId = originalSkuIds.get(String(item._id));
-      const reason = !item.sku
-        ? "This item was removed from the catalogue. Remove it from your cart."
-        : !item.product
-          ? "This product is no longer available. Remove it from your cart."
-          : item.product.status !== PRODUCT_STATUS.ACTIVE
-            ? "This product is not currently published. Remove it from your cart."
-            : "This product option is inactive. Remove it from your cart.";
+      const reason = skuIssue.message;
 
       items.push({
         cartItemId: item._id,
         itemType: "sku",
-        product: item.product || null,
-        sku: item.sku || null,
+        product: displayProduct,
+        sku: displaySku,
         skuId: originalSkuId,
         quantity: Number(item.quantity || 1),
         lineTotal: 0,
         orderable: false,
+        availabilityCode: skuIssue.code,
         message: reason,
         attribution: item.attribution || null,
       });
@@ -2435,9 +2434,9 @@ const getCartResponse = async (userId) => {
 
       itemType: "sku",
 
-      product: item.product,
+      product: canonicalProduct,
 
-      sku: item.sku,
+      sku: displaySku,
 
       quantity,
 
@@ -2785,16 +2784,13 @@ export const addCartItem = asyncHandler(async (req, res) => {
 
 
 
-  if (!sku.isActive || sku.product.status !== PRODUCT_STATUS.ACTIVE) {
-
-    return res.status(400).json({
-
+  const issue = getSkuCheckoutIssue(sku);
+  if (issue) {
+    return res.status(409).json({
       success: false,
-
-      message: "This product is currently unavailable",
-
+      code: issue.code,
+      message: issue.message,
     });
-
   }
 
 

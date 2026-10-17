@@ -1,4 +1,5 @@
 
+
 import mongoose from "mongoose";
 import { closeSync, fstatSync, openSync, readFileSync, readSync } from "node:fs";
 import { inflateRawSync } from "node:zlib";
@@ -11,6 +12,10 @@ import Collection from "./collection.model.js";
 import Component from "./component.model.js";
 import Container from "./container.model.js";
 import Order from "../orders/order.model.js";
+import {
+  calculateSkuDeliveryEstimate as calculateSkuExcelLeadEstimate,
+  calculateCustomHamperDeliveryEstimate as calculateCustomExcelLeadEstimate,
+} from "../delivery/delivery.service.js";
 
 import asyncHandler from "../../utils/asyncHandler.js";
 import { getPagination, getPaginationMeta } from "../../utils/pagination.js";
@@ -1518,182 +1523,10 @@ const makeDependency = (
   blockingReason: readyResult.reason,
 });
 
-const finalizeDeliveryEstimate = ({
-  dependencies,
-  leadTime,
-  courierDays,
-  today = toUtcDay(new Date()),
-  includeDetails = false,
-}) => {
-  const blocked = dependencies.filter((item) => !item.ready);
-  const normalizedLeadTime = normalizeProductionLeadTime(leadTime || {});
-  const productionLeadDays =
-    normalizedLeadTime.personalizationDays +
-    normalizedLeadTime.assemblyDays +
-    normalizedLeadTime.packingDays;
-
-  if (blocked.length > 0) {
-    const result = {
-      status: "unavailable",
-      canEstimate: false,
-      materialsReadyDate: null,
-      productionLeadDays,
-      dispatchReadyDate: null,
-      courierDays,
-      expectedDeliveryDate: null,
-    };
-
-    if (includeDetails) {
-      result.dependencies = dependencies;
-      result.blockedDependencies = blocked;
-    }
-
-    return result;
-  }
-
-  const readyDates = dependencies
-    .map((item) => item.readyDate && new Date(item.readyDate))
-    .filter((date) => date && !Number.isNaN(date.getTime()));
-
-  const materialsReadyDate = new Date(
-    Math.max(today.getTime(), ...readyDates.map((date) => date.getTime()))
-  );
-
-  const dispatchReadyDate = addCalendarDays(materialsReadyDate, productionLeadDays);
-  const expectedDeliveryDate =
-    courierDays === null ? null : addCalendarDays(dispatchReadyDate, courierDays);
-
-  const result = {
-    status: materialsReadyDate > today ? "scheduled" : "ready",
-    canEstimate: true,
-    materialsReadyDate,
-    productionLeadDays,
-    dispatchReadyDate,
-    courierDays,
-    expectedDeliveryDate,
-  };
-
-  if (includeDetails) {
-    result.dependencies = dependencies;
-    result.blockedDependencies = [];
-  }
-
-  return result;
-};
-
-const calculateSkuDeliveryEstimate = async (
-  sku,
-  { courierDays = null, includeDetails = false } = {}
-) => {
-  const today = toUtcDay(new Date());
-  const dependencies = [];
-
-  const containerId = getReferenceId(sku.container);
-  if (containerId) {
-    const container = await Container.findById(containerId)
-      .select("_id name code isActive availability")
-      .lean();
-
-    const ready = resolveDependencyReadyDate(container, today, {
-      requiredQuantity: 1,
-      requiredUnit: "pc",
-      stockUnit: false,
-    });
-
-    dependencies.push(
-      makeDependency("container", container, ready, {
-        requiredQuantity: 1,
-        requiredUnit: "pc",
-      })
-    );
-  }
-
-  const contentEntries = Array.isArray(sku.hamperContents)
-    ? sku.hamperContents.filter((item) => !item.isOptional)
-    : [];
-
-  const materialEntries = Array.isArray(sku.internalMaterials)
-    ? sku.internalMaterials
-    : [];
-
-  const decorationEntries = Array.isArray(sku.decorations)
-    ? sku.decorations.filter((item) => !item.isOptional)
-    : [];
-
-  const componentIds = [
-    ...new Set(
-      [...contentEntries, ...materialEntries, ...decorationEntries]
-        .map((item) => String(getReferenceId(item.component) || ""))
-        .filter((id) => isValidId(id))
-    ),
-  ];
-
-  const components = componentIds.length
-    ? await Component.find({ _id: { $in: componentIds } })
-        .select("_id name code isActive availability")
-        .lean()
-    : [];
-
-  const componentMap = new Map(
-    components.map((component) => [String(component._id), component])
-  );
-
-  for (const item of contentEntries) {
-    const component = componentMap.get(String(getReferenceId(item.component)));
-    const ready = resolveDependencyReadyDate(component, today, {
-      requiredQuantity: item.quantity,
-      requiredUnit: item.unit || "pc",
-      stockUnit: true,
-    });
-
-    dependencies.push(
-      makeDependency("hamper_content", component, ready, {
-        requiredQuantity: item.quantity,
-        requiredUnit: item.unit || "pc",
-      })
-    );
-  }
-
-  for (const item of materialEntries) {
-    const component = componentMap.get(String(getReferenceId(item.component)));
-    const ready = resolveDependencyReadyDate(component, today, {
-      requiredQuantity: item.quantity,
-      requiredUnit: item.unit || "pc",
-      stockUnit: true,
-    });
-
-    dependencies.push(
-      makeDependency("internal_material", component, ready, {
-        requiredQuantity: item.quantity,
-        requiredUnit: item.unit || "pc",
-      })
-    );
-  }
-
-  for (const item of decorationEntries) {
-    const component = componentMap.get(String(getReferenceId(item.component)));
-    const ready = resolveDependencyReadyDate(component, today, {
-      requiredQuantity: item.quantity,
-      requiredUnit: item.unit || "pc",
-      stockUnit: true,
-    });
-
-    dependencies.push(
-      makeDependency("decoration", component, ready, {
-        requiredQuantity: item.quantity,
-        requiredUnit: item.unit || "pc",
-      })
-    );
-  }
-
-  return finalizeDeliveryEstimate({
-    dependencies,
-    leadTime: sku.productionLeadTime,
-    courierDays,
-    today,
-    includeDetails,
-  });
-};
+// Product pages use the exact same SKU lead-time calculation as checkout.
+// The old local courier/extra-day ETA implementation has been retired.
+const calculateSkuDeliveryEstimate = async (sku, { includeDetails = false } = {}) =>
+  calculateSkuExcelLeadEstimate(sku, { includeDetails });
 
 /* =========================================================
    3D CUSTOM HAMPER CAPACITY ENGINE
@@ -2128,103 +1961,14 @@ const calculateConfigurationPricing = (
   };
 };
 
+// Custom builder uses the same max(Excel Lead Time Days) rule as checkout.
 const calculateCustomConfigurationEta = async (
-  container,
-  selections,
-  componentMap,
-  courierDays,
-  decorationSelections = []
-) => {
-  const today = toUtcDay(new Date());
-  const dependencies = [];
-
-  const containerReady = resolveDependencyReadyDate(container, today, {
-    requiredQuantity: 1,
-    requiredUnit: "pc",
-    stockUnit: false,
-  });
-
-  dependencies.push(
-    makeDependency("container", container, containerReady, {
-      requiredQuantity: 1,
-      requiredUnit: "pc",
-    })
-  );
-
-  for (const selection of selections) {
-    const component = componentMap.get(String(selection.componentId));
-    const ready = resolveDependencyReadyDate(component, today, {
-      requiredQuantity: selection.quantity,
-      requiredUnit: "pc",
-      stockUnit: true,
-    });
-
-    dependencies.push(
-      makeDependency("selected_component", component, ready, {
-        requiredQuantity: selection.quantity,
-        requiredUnit: "pc",
-      })
-    );
-  }
-
-  for (const selection of decorationSelections) {
-    const component = componentMap.get(String(selection.componentId));
-    const ready = resolveDependencyReadyDate(component, today, {
-      requiredQuantity: selection.quantity,
-      requiredUnit: "pc",
-      stockUnit: true,
-    });
-
-    dependencies.push(
-      makeDependency("decorative_component", component, ready, {
-        requiredQuantity: selection.quantity,
-        requiredUnit: "pc",
-      })
-    );
-  }
-
-  const packingMaterials = Array.isArray(container.packingMaterials)
-    ? container.packingMaterials
-    : [];
-
-  if (packingMaterials.length > 0) {
-    const ids = packingMaterials
-      .map((item) => String(getReferenceId(item.component) || ""))
-      .filter((id) => isValidId(id));
-
-    const materials = await Component.find({ _id: { $in: ids } })
-      .select("_id name code isActive availability")
-      .lean();
-
-    const materialMap = new Map(
-      materials.map((component) => [String(component._id), component])
-    );
-
-    for (const item of packingMaterials) {
-      const component = materialMap.get(String(getReferenceId(item.component)));
-      const ready = resolveDependencyReadyDate(component, today, {
-        requiredQuantity: item.quantity,
-        requiredUnit: item.unit || "pc",
-        stockUnit: true,
-      });
-
-      dependencies.push(
-        makeDependency("packing_material", component, ready, {
-          requiredQuantity: item.quantity,
-          requiredUnit: item.unit || "pc",
-        })
-      );
-    }
-  }
-
-  return finalizeDeliveryEstimate({
-    dependencies,
-    leadTime: container.productionLeadTime,
-    courierDays,
-    today,
-    includeDetails: false,
-  });
-};
+  container, selections, _componentMap, _legacyCourierDays, decorationSelections = []
+) => calculateCustomExcelLeadEstimate({
+  containerId: container._id,
+  items: selections.map((entry) => ({ componentId: entry.componentId, quantity: entry.quantity })),
+  decorations: decorationSelections.map((entry) => ({ componentId: entry.componentId, quantity: entry.quantity })),
+});
 
 /* =========================================================
    PRODUCT MASTER EXCEL IMPORT HELPERS
@@ -5177,10 +4921,10 @@ const buildReadyMadeMasterPayload = async (
       common.weight && Number(common.weight.value) > 0
         ? common.weight
         : { value: null, unit: "kg" },
+    leadTimeDays: common.leadTimeDays,
     productionLeadTime: {
-      // Excel Lead Time Days is the total base production window, so don't
-      // silently add an extra personalization day on top of a provided value.
-      personalizationDays: common.leadTimeDays === null && common.personalizable ? 1 : 0,
+      // The Excel hamper lead time is the ONLY delivery duration source.
+      personalizationDays: 0,
       assemblyDays: Math.max(0, Number(common.leadTimeDays || 0)),
       packingDays: 0,
     },
@@ -7856,16 +7600,11 @@ export const validateConfiguration = asyncHandler(async (req, res) => {
     componentMap
   );
 
-  const courier = parseCourierDays(courierDays, container.defaultCourierDays);
-  if (!courier.valid) {
-    return res.status(400).json({ success: false, message: courier.message });
-  }
-
   const deliveryEstimate = await calculateCustomConfigurationEta(
     container,
     normalizedItems.items,
     componentMap,
-    courier.value,
+    null,
     normalizedDecorations.items
   );
 
@@ -8262,7 +8001,7 @@ export const getProductBySlug = asyncHandler(async (req, res) => {
     price: { $gt: 0 },
   })
     .select(
-      "product code name optionValues baseSellingPrice mrp taxEnabled taxPercent hsnSac discount price compareAtPrice images container hamperContents internalMaterials decorations packagedDimensions packagedWeight productionLeadTime defaultCourierDays earliestExpiryDate isActive sortOrder createdAt updatedAt"
+      "product code name optionValues baseSellingPrice mrp taxEnabled taxPercent hsnSac discount price compareAtPrice images container hamperContents internalMaterials decorations packagedDimensions packagedWeight productionLeadTime leadTimeDays source earliestExpiryDate isActive sortOrder createdAt updatedAt"
     )
     .populate({
       path: "container",
@@ -8288,16 +8027,7 @@ export const getProductBySlug = asyncHandler(async (req, res) => {
 
   const skus = await Promise.all(
     rawSkus.map(async (sku) => {
-      const courier = parseCourierDays(req.query.courierDays, sku.defaultCourierDays);
-
-      if (!courier.valid) {
-        const error = new Error(courier.message);
-        error.statusCode = 400;
-        throw error;
-      }
-
       const deliveryEstimate = await calculateSkuDeliveryEstimate(sku, {
-        courierDays: courier.value,
         includeDetails: false,
       });
 
@@ -9793,17 +9523,9 @@ export const getAdminProductById = asyncHandler(async (req, res) => {
 
   const skus = await Promise.all(
     rawSkus.map(async (sku) => {
-      const courier = parseCourierDays(req.query.courierDays, sku.defaultCourierDays);
-      if (!courier.valid) {
-        const error = new Error(courier.message);
-        error.statusCode = 400;
-        throw error;
-      }
-
       return {
         ...sku,
         deliveryEstimate: await calculateSkuDeliveryEstimate(sku, {
-          courierDays: courier.value,
           includeDetails: true,
         }),
       };

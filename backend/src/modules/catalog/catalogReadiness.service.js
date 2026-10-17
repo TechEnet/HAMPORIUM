@@ -1,3 +1,6 @@
+
+import { PRODUCT_STATUS } from "../../constants/statuses.js";
+
 // backend/src/modules/catalog/catalogReadiness.service.js
 // Read-only storefront eligibility: missing information is never invented.
 // Admin retains all records; these predicates only decide public visibility.
@@ -180,3 +183,46 @@ export function inspectContainerWebsiteVisibility(box) {
       !warnings.some((w) => w.startsWith("Inner dimensions are larger")),
   };
 }
+
+
+/* Shared cart / checkout / order eligibility guard, kept in an EXISTING module. */
+export const getSkuCheckoutIssue = (sku) => {
+  if (!sku) {
+    return {
+      code: "SKU_NOT_FOUND",
+      message: "A product option saved in your cart no longer exists. Remove it and add the product again.",
+    };
+  }
+
+  if (sku.isActive !== true) {
+    return {
+      code: "SKU_INACTIVE",
+      message: `Product option ${String(sku.code || "").slice(0, 60) || "selected"} is currently inactive. Please review your cart.`,
+    };
+  }
+
+  if (!sku.product || typeof sku.product !== "object" || !sku.product.status) {
+    return {
+      code: "SKU_PRODUCT_NOT_FOUND",
+      message: "A product option is missing its linked catalogue product. Please remove it and add it again.",
+    };
+  }
+
+  if (sku.product.status !== PRODUCT_STATUS.ACTIVE) {
+    return {
+      code: "PRODUCT_NOT_PUBLISHED",
+      message: `${String(sku.product.name || "Selected product").slice(0, 80)} is not currently published. Please review your cart.`,
+    };
+  }
+
+  if (sku.price === null || sku.price === undefined || sku.price === "" ||
+      !Number.isFinite(Number(sku.price)) || Number(sku.price) <= 0) {
+    return {
+      code: "SKU_PRICE_MISSING",
+      message: "A selected product option has no valid selling price. Please review your cart.",
+    };
+  }
+
+  return null;
+};
+

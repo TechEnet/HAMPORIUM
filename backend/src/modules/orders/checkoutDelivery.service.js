@@ -1,4 +1,5 @@
 
+
 import mongoose from "mongoose";
 
 import Address from "../users/address.model.js";
@@ -6,100 +7,23 @@ import Cart from "../cart/cart.model.js";
 import SKU from "../catalog/sku.model.js";
 import Container from "../catalog/container.model.js";
 
-import { PRODUCT_STATUS } from "../../constants/statuses.js";
+import { getSkuCheckoutIssue } from "../catalog/catalogReadiness.service.js";
 import {
   calculateCustomHamperDeliveryEstimate,
   calculateSkuDeliveryEstimate,
-  getSystemDefaultCourierDays,
 } from "../delivery/delivery.service.js";
 
 const INDIA_PINCODE_REGEX = /^[1-9][0-9]{5}$/;
-const MAX_COURIER_DAYS = 60;
-
+// No courier-day configuration or secondary delivery timing (Excel-only V6).
 const httpError = (message, statusCode = 400, code = "") => {
   const error = new Error(message);
   error.statusCode = statusCode;
   if (code) error.code = code;
   return error;
 };
-
 const normalizeQuantity = (value) => {
   const quantity = Number(value);
-  if (!Number.isInteger(quantity) || quantity < 1 || quantity > 99) return null;
-  return quantity;
-};
-
-const normalizeCourierDays = (value) => {
-  if (value === undefined || value === null || value === "") return null;
-
-  const days = Number(value);
-  if (!Number.isInteger(days) || days < 0 || days > MAX_COURIER_DAYS) {
-    return null;
-  }
-
-  return days;
-};
-
-/*
- * Fallback order:
- * 1. SKU / Container configured courier days
- * 2. CHECKOUT_DEFAULT_COURIER_DAYS environment variable
- * 3. DEFAULT_COURIER_DAYS / same configured fallback as delivery.service
- *
- * Checkout and product ETA must never disagree on courier fallback.
- */
-const resolveCourierDays = (...values) => {
-  for (const value of values) {
-    const normalized = normalizeCourierDays(value);
-    if (normalized !== null) return normalized;
-  }
-
-  return (
-    normalizeCourierDays(process.env.CHECKOUT_DEFAULT_COURIER_DAYS) ??
-    normalizeCourierDays(getSystemDefaultCourierDays())
-  );
-};
-
-const requireCourierDays = (courierDays, label) => {
-  if (courierDays !== null) return courierDays;
-
-  throw httpError(
-    `Default courier days are not configured for ${label}. Set courier days in admin or configure CHECKOUT_DEFAULT_COURIER_DAYS.`,
-    409,
-    "COURIER_DAYS_MISSING"
-  );
-};
-
-const addCalendarDays = (value, days) => {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-
-  const result = new Date(date);
-  result.setUTCDate(result.getUTCDate() + Number(days || 0));
-  return result;
-};
-
-/*
- * Defensive repair for older delivery.service implementations that return a
- * dispatchReadyDate but leave expectedDeliveryDate empty when courierDays was
- * not previously forwarded by checkoutDelivery.service.
- */
-const ensureExpectedDeliveryDate = (estimate, courierDays) => {
-  if (!estimate || estimate.canEstimate === false) return estimate;
-  if (estimate.expectedDeliveryDate) return estimate;
-
-  const baseDate = estimate.dispatchReadyDate || estimate.materialsReadyDate;
-  const expectedDeliveryDate = baseDate
-    ? addCalendarDays(baseDate, courierDays)
-    : null;
-
-  if (!expectedDeliveryDate) return estimate;
-
-  return {
-    ...estimate,
-    courierDays,
-    expectedDeliveryDate,
-  };
+  return Number.isInteger(quantity) && quantity >= 1 && quantity <= 99 ? quantity : null;
 };
 
 const toDateKey = (value) => {
@@ -163,6 +87,12 @@ const describeCheckoutBlocker = (estimate, label) => {
       return { reason, message: `${label}: ${item} is inactive (INACTIVE). Please choose another item or contact support.` };
     case "INSUFFICIENT_STOCK":
       return { reason, message: `${label}: ${item} has insufficient stock for the selected quantity (INSUFFICIENT_STOCK).` };
+    case "LEAD_TIME_MISSING":
+      return { reason, message: dependency
+        ? `${label}: Excel Lead Time Days is missing for ${item} (LEAD_TIME_MISSING). Add it and confirm import.`
+        : `${label}: its own Lead Time Days is missing in Excel Hamper Master (LEAD_TIME_MISSING). Add it and confirm import.` };
+    case "STOCK_UNIT_MISMATCH":
+      return { reason, message: `${label}: stock quantity units for ${item} are inconsistent. Please contact support (STOCK_UNIT_MISMATCH).` };
     case "AVAILABILITY_DATE_UNKNOWN":
       return { reason, message: `${label}: the restock date for ${item} is not confirmed (AVAILABILITY_DATE_UNKNOWN).` };
     case "UNAVAILABLE":
@@ -195,24 +125,25 @@ const validateEstimate = (estimate, label) => {
   }
 };
 
+const requireEligibleSku = (sku, { mode = "cart", itemId = null } = {}) => {
+  const issue = getSkuCheckoutIssue(sku);
+  if (!issue) return;
+  console.warn("[CheckoutDelivery] SKU eligibility blocked", {
+    code: issue.code,
+    mode,
+    skuCode: sku?.code || null,
+    cartItemId: itemId ? String(itemId) : null,
+  });
+  throw httpError(issue.message, 409, issue.code);
+};
+
 const buildSkuEstimate = async ({ sku, quantity, itemId = null }) => {
   const label = sku.product?.name || sku.name || sku.code || "Hamper";
 
-  const courierDays = requireCourierDays(
-    resolveCourierDays(
-      sku.defaultCourierDays,
-      sku.container?.defaultCourierDays
-    ),
-    label
-  );
-
-  const rawEstimate = await calculateSkuDeliveryEstimate(sku, {
+  const estimate = await calculateSkuDeliveryEstimate(sku, {
     quantity,
-    courierDays,
     includeDetails: true,
   });
-
-  const estimate = ensureExpectedDeliveryDate(rawEstimate, courierDays);
   validateEstimate(estimate, label);
 
   return {
@@ -245,7 +176,7 @@ const buildCustomEstimate = async ({ cartItem }) => {
     _id: customHamper.container,
     isActive: true,
   })
-    .select("_id name code defaultCourierDays")
+    .select("_id name code isActive leadTimeDays")
     .lean();
 
   if (!container) {
@@ -256,21 +187,13 @@ const buildCustomEstimate = async ({ cartItem }) => {
     );
   }
 
-  const courierDays = requireCourierDays(
-    resolveCourierDays(container.defaultCourierDays),
-    container.name || "Custom Hamper"
-  );
-
-  const rawEstimate = await calculateCustomHamperDeliveryEstimate({
+  const estimate = await calculateCustomHamperDeliveryEstimate({
     containerId: customHamper.container,
     items: customHamper.items || [],
     decorations: customHamper.decorations || [],
     quantity,
-    courierDays,
     includeDetails: true,
   });
-
-  const estimate = ensureExpectedDeliveryDate(rawEstimate, courierDays);
   validateEstimate(estimate, "Custom Hamper");
 
   return {
@@ -333,9 +256,9 @@ export const calculateCartCheckoutDelivery = async ({ userId, addressId }) => {
   const skuIds = skuItems.map((item) => item.sku).filter(Boolean);
 
   const skus = skuIds.length
-    ? await SKU.find({ _id: { $in: skuIds }, isActive: true })
+    ? await SKU.find({ _id: { $in: skuIds } })
         .populate("product", "name slug status")
-        .populate("container", "name code defaultCourierDays")
+        .populate("container", "name code leadTimeDays")
         .lean()
     : [];
 
@@ -356,17 +279,7 @@ export const calculateCartCheckoutDelivery = async ({ userId, addressId }) => {
     }
 
     const sku = skuMap.get(String(cartItem.sku));
-    if (
-      !sku ||
-      !sku.product ||
-      sku.product.status !== PRODUCT_STATUS.ACTIVE
-    ) {
-      throw httpError(
-        "One or more cart items are no longer available. Please review your cart.",
-        409,
-        "ITEM_UNAVAILABLE"
-      );
-    }
+    requireEligibleSku(sku, { mode: "cart", itemId: cartItem._id });
 
     itemEstimates.push(
       await buildSkuEstimate({
@@ -406,18 +319,12 @@ export const calculateBuyNowCheckoutDelivery = async ({
     );
   }
 
-  const sku = await SKU.findOne({ _id: skuId, isActive: true })
+  const sku = await SKU.findOne({ _id: skuId })
     .populate("product", "name slug status")
-    .populate("container", "name code defaultCourierDays")
+    .populate("container", "name code leadTimeDays")
     .lean();
 
-  if (!sku || !sku.product || sku.product.status !== PRODUCT_STATUS.ACTIVE) {
-    throw httpError(
-      "This product is currently unavailable",
-      409,
-      "ITEM_UNAVAILABLE"
-    );
-  }
+  requireEligibleSku(sku, { mode: "buy_now" });
 
   const itemEstimates = [
     await buildSkuEstimate({
