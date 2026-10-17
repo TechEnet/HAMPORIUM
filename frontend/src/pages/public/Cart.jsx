@@ -298,6 +298,9 @@ const SkuItem = ({ item, updateQuantity, removeItem }) => {
 
   const product = item.product || {};
 
+  const unavailable = item.orderable === false;
+  const removeId = item.sku?._id || item.skuId || item.cartItemId;
+
   const image = sku.images?.[0]?.url || product.images?.[0]?.url || "";
 
 
@@ -338,7 +341,11 @@ const SkuItem = ({ item, updateQuantity, removeItem }) => {
 
           <p className="mt-1 text-xs text-black/40">{sku.name || sku.code || ""}</p>
 
-
+          {unavailable && (
+            <p className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
+              {item.message || "This item is unavailable. Remove it before checkout."}
+            </p>
+          )}
 
           <div className="mt-3 flex flex-wrap gap-2 text-[9px] font-bold text-black/40">
 
@@ -372,7 +379,9 @@ const SkuItem = ({ item, updateQuantity, removeItem }) => {
 
 
 
-          <p className="mt-3 text-sm font-black">{formatCurrency(sku.price)}</p>
+          <p className="mt-3 text-sm font-black">
+            {unavailable ? "Unavailable" : formatCurrency(sku.price)}
+          </p>
 
         </div>
 
@@ -380,19 +389,21 @@ const SkuItem = ({ item, updateQuantity, removeItem }) => {
 
         <div className="flex flex-wrap items-center gap-4 lg:justify-end">
 
-          <Quantity
-
-            quantity={item.quantity}
-
-            onDecrease={() => updateQuantity(sku._id, item.quantity - 1)}
-
-            onIncrease={() => updateQuantity(sku._id, item.quantity + 1)}
-
-          />
+          {unavailable ? (
+            <span className="text-xs font-semibold text-black/50">
+              Qty: {item.quantity}
+            </span>
+          ) : (
+            <Quantity
+              quantity={item.quantity}
+              onDecrease={() => updateQuantity(sku._id, item.quantity - 1)}
+              onIncrease={() => updateQuantity(sku._id, item.quantity + 1)}
+            />
+          )}
 
           <p className="min-w-[100px] text-right text-sm font-black">
 
-            {formatCurrency(item.lineTotal)}
+            {unavailable ? "—" : formatCurrency(item.lineTotal)}
 
           </p>
 
@@ -400,7 +411,7 @@ const SkuItem = ({ item, updateQuantity, removeItem }) => {
 
             type="button"
 
-            onClick={() => removeItem(sku._id)}
+            onClick={() => removeItem(removeId)}
 
             className="text-xs font-bold text-red-600"
 

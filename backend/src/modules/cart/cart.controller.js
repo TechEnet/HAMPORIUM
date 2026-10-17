@@ -2184,19 +2184,25 @@ const cleanupDetachedPersonalizationAssets = async ({
 
 const getCartResponse = async (userId) => {
 
-  const cart = await Cart.findOne({ user: userId })
-
-    .populate("items.product", "name slug images status")
-
-    .populate(
-
-      "items.sku",
-
-      "code name baseSellingPrice mrp taxEnabled taxPercent hsnSac discount price compareAtPrice images optionValues isActive"
-
-    )
-
-    .lean();
+  // Keep original SKU ObjectIds before population. A deleted SKU populates to
+  // null, but its old ObjectId must remain available so customers can remove
+  // the stale cart line through the existing authenticated cart endpoint.
+  const cart = await Cart.findOne({ user: userId }).lean();
+  const originalSkuIds = new Map(
+    (cart?.items || []).map((item) => [
+      String(item._id),
+      item.sku ? String(item.sku) : null,
+    ])
+  );
+  if (cart) {
+    await Cart.populate(cart, [
+      { path: "items.product", select: "name slug images status" },
+      {
+        path: "items.sku",
+        select: "code name baseSellingPrice mrp taxEnabled taxPercent hsnSac discount price compareAtPrice images optionValues isActive",
+      },
+    ]);
+  }
 
 
 
@@ -2380,23 +2386,42 @@ const getCartResponse = async (userId) => {
 
 
 
-    if (
-
+    const isUnavailable =
       !item.product ||
-
       !item.sku ||
-
       item.product.status !== PRODUCT_STATUS.ACTIVE ||
+      !item.sku.isActive;
 
-      !item.sku.isActive
+    if (isUnavailable) {
+      // Do not hide invalid SKU lines: the checkout and order services read
+      // the raw MongoDB cart and correctly reject them. Hiding them here left
+      // customers stuck with an unexplained HTTP 409 and no remove button.
+      // Preserve the old reference for a missing SKU so it can be deleted.
+      const originalSkuId = originalSkuIds.get(String(item._id));
+      const reason = !item.sku
+        ? "This item was removed from the catalogue. Remove it from your cart."
+        : !item.product
+          ? "This product is no longer available. Remove it from your cart."
+          : item.product.status !== PRODUCT_STATUS.ACTIVE
+            ? "This product is not currently published. Remove it from your cart."
+            : "This product option is inactive. Remove it from your cart.";
 
-    ) {
-
+      items.push({
+        cartItemId: item._id,
+        itemType: "sku",
+        product: item.product || null,
+        sku: item.sku || null,
+        skuId: originalSkuId,
+        quantity: Number(item.quantity || 1),
+        lineTotal: 0,
+        orderable: false,
+        message: reason,
+        attribution: item.attribution || null,
+      });
+      hasUnavailableItems = true;
+      totalItems += Number(item.quantity || 1);
       continue;
-
     }
-
-
 
     const quantity = Number(item.quantity || 1);
 
@@ -3622,7 +3647,8 @@ export const removeCartItem = asyncHandler(async (req, res) => {
 
         (item.itemType || "sku") === "sku" &&
 
-        String(item.sku) === String(skuId)
+        (String(item.sku) === String(skuId) ||
+       String(item._id) === String(skuId))
 
       )
 
