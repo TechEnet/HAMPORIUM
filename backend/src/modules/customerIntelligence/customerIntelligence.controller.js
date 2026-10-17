@@ -1,4 +1,5 @@
 
+
 import mongoose from "mongoose";
 import asyncHandler from "../../utils/asyncHandler.js";
 import User from "../users/user.model.js";
@@ -10,7 +11,7 @@ import Partner from "../partners/partner.model.js";
 import { CustomerActivity, CustomerActivityConsent, CustomerAccountAction }
   from "./customerIntelligence.model.js";
 
-// ===== Analytics ingest, opt-in and auth response hook =====
+// ===== Analytics ingest, opt-out settings and auth response hook =====
 
 export const ALLOWED_WEB_TYPES = new Set([
   "search_submitted", "product_viewed", "cart_item_added",
@@ -72,11 +73,9 @@ export const setActivityConsent = async ({ userId, enabled }) => {
 };
 
 export const storeWebEvents = async ({ userId, events }) => {
-  const consent = await CustomerActivityConsent.exists({
-    user: userId,
-    analyticsEnabled: true,
-  });
-  if (!consent) return { consentRequired: true, stored: 0 };
+  const preference = await CustomerActivityConsent.findOne({ user: userId })
+    .select("analyticsEnabled").lean();
+  if (preference?.analyticsEnabled === false) return { trackingDisabled: true, stored: 0 };
   const seenKeys = new Set();
   const normalized = events.map(normalizeWebEvent).filter((event) => {
     if (!event) return false;
@@ -85,7 +84,7 @@ export const storeWebEvents = async ({ userId, events }) => {
     seenKeys.add(event.eventKey);
     return true;
   });
-  if (!normalized.length) return { consentRequired: false, stored: 0 };
+  if (!normalized.length) return { trackingDisabled: false, stored: 0 };
   // Deduplicate by optional eventKey. Only write customer-owned, allowlisted fields.
   const writes = normalized.map((event) => event.eventKey
     ? {
@@ -105,7 +104,7 @@ export const storeWebEvents = async ({ userId, events }) => {
     result = error.result || {};
   }
   return {
-    consentRequired: false,
+    trackingDisabled: false,
     stored: Number(result.insertedCount || 0) + Number(result.upsertedCount || 0),
   };
 };
@@ -343,7 +342,8 @@ export const getCustomerProfile = async (id) => {
       : null,
     metrics: mergeStats(orders[0]),
     recentOrders,
-    analyticsConsent: Boolean(consent?.analyticsEnabled),
+    analyticsConsent: consent?.analyticsEnabled !== false, // compatibility with earlier admin clients
+    activityTrackingEnabled: consent?.analyticsEnabled !== false,
     partnerRecords: partners.map((p) => ({
       id: p._id, partnerId: p.partnerId || "", businessName: p.businessName || "",
       status: p.status || "", relationship: String(p.owner) === String(user._id)
@@ -398,7 +398,7 @@ export const getCustomerActivity = async (id, { page, limit, type } = {}) => {
 export const getCustomerInsights = async (id) => {
   await ensureCustomer(id);
   const userId = new mongoose.Types.ObjectId(String(id));
-  const [topSearches, topViewedProducts, eventCount] = await Promise.all([
+  const [topSearches, topViewedProducts, eventCount, webCount] = await Promise.all([
     CustomerActivity.aggregate([
       { $match: { user: userId, type: "search_submitted", searchQuery: { $ne: "" } } },
       { $group: { _id: "$searchQuery", count: { $sum: 1 }, lastAt: { $max: "$createdAt" } } },
@@ -412,9 +412,12 @@ export const getCustomerInsights = async (id) => {
       { $project: { count: 1, lastAt: 1, productName: { $ifNull: [{ $first: "$product.name" }, "" ] } } },
     ]),
     CustomerActivity.countDocuments({ user: userId }),
+    CustomerActivity.countDocuments({ user: userId, source: "web" }),
   ]);
   return {
     totalTrackedEvents: eventCount,
+    websiteEvents: webCount,
+    accountEvents: eventCount - webCount,
     topSearches: topSearches.map((e) => ({ query: e._id, count: e.count, lastAt: e.lastAt })),
     topViewedProducts: topViewedProducts.map((e) => ({ productId: e._id, name: e.productName, views: e.count, lastAt: e.lastAt })),
   };
@@ -458,12 +461,12 @@ export const getCustomerTimeline = async (id) => {
   };
 };
 
-// ===== Opt-in browser / registered-user API handlers =====
+// ===== Customer browsing preference / registered-user API handlers =====
 export const getMyActivityConsent = asyncHandler(async (req, res) => {
   const consent = await CustomerActivityConsent.findOne({ user: req.user._id }).lean();
   res.json({ success: true, consent: {
-    analyticsEnabled: Boolean(consent?.analyticsEnabled),
-    noticeVersion: consent?.noticeVersion || "customer-analytics-v1",
+    analyticsEnabled: consent?.analyticsEnabled !== false,
+    noticeVersion: consent?.noticeVersion || "customer-analytics-v2",
     updatedAt: consent?.updatedAt || null,
   } });
 });
@@ -484,7 +487,7 @@ export const deleteMyActivityHistory = asyncHandler(async (req, res) => {
   await setActivityConsent({ userId: req.user._id, enabled: false });
   const deleted = await CustomerActivity.deleteMany({ user: req.user._id, source: "web" });
   res.json({ success: true, deleted: deleted.deletedCount,
-    message: "Optional browsing activity erased and tracking disabled" });
+    message: "Browsing activity erased and further customer-linked tracking paused" });
 });
 
 export const collectMyActivityEvents = asyncHandler(async (req, res) => {
@@ -492,8 +495,9 @@ export const collectMyActivityEvents = asyncHandler(async (req, res) => {
     return res.status(400).json({ success: false, message: "events must contain 1 to 20 items" });
   }
   const result = await storeWebEvents({ userId: req.user._id, events: req.body.events });
-  if (result.consentRequired) return res.status(403).json({
-    success: false, code: "CONSENT_REQUIRED", message: "Analytics consent is required",
+  if (result.trackingDisabled) return res.status(403).json({
+    success: false, code: "ACTIVITY_TRACKING_DISABLED",
+    message: "Activity tracking is disabled for this account",
   });
   res.status(202).json({ success: true, stored: result.stored });
 });
