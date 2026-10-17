@@ -36,11 +36,22 @@ const addCalendarDays = (date, days = 0) => {
   return result;
 };
 
-const normalizeProductionLeadTime = (leadTime = {}) => ({
-  personalizationDays: Math.max(0, Number(leadTime.personalizationDays || 0)),
-  assemblyDays: Math.max(0, Number(leadTime.assemblyDays || 0)),
-  packingDays: Math.max(0, Number(leadTime.packingDays || 0)),
-});
+const normalizeProductionLeadTime = (leadTime = {}, fallbackLeadTimeDays = null) => {
+  const normalized = {
+    personalizationDays: Math.max(0, Number(leadTime?.personalizationDays || 0)),
+    assemblyDays: Math.max(0, Number(leadTime?.assemblyDays || 0)),
+    packingDays: Math.max(0, Number(leadTime?.packingDays || 0)),
+  };
+  const configuredTotal = Object.values(normalized).reduce((sum, days) => sum + days, 0);
+  const fallback = fallbackLeadTimeDays === null || fallbackLeadTimeDays === undefined || fallbackLeadTimeDays === ""
+    ? null : Number(fallbackLeadTimeDays);
+  // Historical Product Master imports stored Lead Time Days separately from
+  // productionLeadTime. Do not override a genuine configured production window.
+  if (configuredTotal === 0 && Number.isInteger(fallback) && fallback > 0 && fallback <= 365) {
+    normalized.assemblyDays = fallback;
+  }
+  return normalized;
+};
 
 const parseCourierDays = (value) => {
   if (value === undefined || value === null || value === "") return null;
@@ -185,12 +196,13 @@ const makeDependency = (
 const finalizeDeliveryEstimate = ({
   dependencies,
   leadTime,
+  fallbackLeadTimeDays = null,
   courierDays,
   today = toUtcDay(new Date()),
   includeDetails = false,
 }) => {
   const blocked = dependencies.filter((item) => !item.ready);
-  const normalizedLeadTime = normalizeProductionLeadTime(leadTime || {});
+  const normalizedLeadTime = normalizeProductionLeadTime(leadTime || {}, fallbackLeadTimeDays);
   const productionLeadDays =
     normalizedLeadTime.personalizationDays +
     normalizedLeadTime.assemblyDays +
@@ -275,14 +287,22 @@ export const calculateSkuDeliveryEstimate = async (
   const orderQuantity = Math.max(1, Number(quantity || 1));
   const dependencies = [];
   let containerCourierDays = null;
+  let containerLeadTimeDays = null;
 
   const containerId = getReferenceId(sku.container);
   if (containerId) {
     const container = await Container.findById(containerId)
-      .select("_id name code isActive availability defaultCourierDays")
+      .select("_id name code isActive availability defaultCourierDays productionLeadTime leadTimeDays")
       .lean();
 
     containerCourierDays = container?.defaultCourierDays ?? null;
+    // Legacy container records may have Lead Time Days but zero-valued
+    // productionLeadTime. Use that value if no SKU production time is set.
+    const containerProduction = normalizeProductionLeadTime(container?.productionLeadTime || {});
+    const containerProductionTotal = Object.values(containerProduction).reduce((sum, days) => sum + days, 0);
+    containerLeadTimeDays = containerProductionTotal > 0
+      ? containerProductionTotal
+      : container?.leadTimeDays ?? null;
 
     const requiredQuantity = orderQuantity;
     const ready = resolveDependencyReadyDate(container, today, {
@@ -359,6 +379,7 @@ export const calculateSkuDeliveryEstimate = async (
   return finalizeDeliveryEstimate({
     dependencies,
     leadTime: sku.productionLeadTime,
+    fallbackLeadTimeDays: containerLeadTimeDays,
     courierDays: resolvedCourierDays,
     today,
     includeDetails,
@@ -383,7 +404,7 @@ export const calculateCustomHamperDeliveryEstimate = async ({
 
   const container = await Container.findOne({ _id: containerId, isActive: true })
     .select(
-      "_id name code isActive availability packingMaterials productionLeadTime defaultCourierDays"
+      "_id name code isActive availability packingMaterials productionLeadTime leadTimeDays defaultCourierDays"
     )
     .lean();
 
@@ -465,6 +486,7 @@ export const calculateCustomHamperDeliveryEstimate = async ({
   return finalizeDeliveryEstimate({
     dependencies,
     leadTime: container.productionLeadTime,
+    fallbackLeadTimeDays: container.leadTimeDays,
     courierDays: courierDays === undefined
       ? firstConfiguredCourierDays(
           container.defaultCourierDays,

@@ -4,4 +4,15 @@ import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+
+  server: {
+    proxy: {
+      "/api": {
+        target: "https://hamporium.onrender.com",
+        changeOrigin: true,
+        secure: true,
+        cookieDomainRewrite: "",
+      },
+    },
+  },
 });

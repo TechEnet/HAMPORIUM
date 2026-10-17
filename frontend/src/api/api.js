@@ -1,10 +1,16 @@
 import axios from "axios";
 
+const productionApiUrl = String(
+  import.meta.env.VITE_API_URL || ""
+).trim();
+
 const api = axios.create({
-  baseURL:
-    import.meta.env.VITE_API_URL ||
-    // "http://localhost:5000/api",
-    "https://hamporium.onrender.com/api",
+  baseURL: import.meta.env.DEV
+    ? "/api"
+    : productionApiUrl ||
+      "https://hamporium.onrender.com/api",
+       // "http://localhost:5000/api",
+
   withCredentials: true,
 });
 

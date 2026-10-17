@@ -139,21 +139,58 @@ const getAddress = async ({ userId, addressId }) => {
   return { address, pincode };
 };
 
+const describeCheckoutBlocker = (estimate, label) => {
+  const dependency = estimate?.blockedDependencies?.[0] || null;
+  const reason = dependency?.blockingReason || estimate?.blockedReasons?.[0] || "ITEM_UNAVAILABLE";
+  const category = {
+    container: "box",
+    hamper_content: "hamper item",
+    internal_material: "packing material",
+    container_packing_material: "packing material",
+    custom_content: "custom hamper item",
+    decoration: "decoration",
+    selected_component: "hamper item",
+  }[dependency?.source] || "item";
+  // Product names are already public; never expose MongoDB IDs, supplier costs
+  // or customer address data through checkout errors.
+  const name = String(dependency?.name || "").trim().slice(0, 80);
+  const item = name && name !== dependency?.source ? `${category} "${name}"` : `required ${category}`;
+
+  switch (reason) {
+    case "REFERENCE_NOT_FOUND":
+      return { reason, message: `${label}: a required ${category} is missing from the catalogue (REFERENCE_NOT_FOUND). Please contact support.` };
+    case "INACTIVE":
+      return { reason, message: `${label}: ${item} is inactive (INACTIVE). Please choose another item or contact support.` };
+    case "INSUFFICIENT_STOCK":
+      return { reason, message: `${label}: ${item} has insufficient stock for the selected quantity (INSUFFICIENT_STOCK).` };
+    case "AVAILABILITY_DATE_UNKNOWN":
+      return { reason, message: `${label}: the restock date for ${item} is not confirmed (AVAILABILITY_DATE_UNKNOWN).` };
+    case "UNAVAILABLE":
+      return { reason, message: `${label}: ${item} is currently unavailable (UNAVAILABLE).` };
+    default:
+      return { reason, message: `${label} cannot be scheduled right now (${reason}). Please review your cart or contact support.` };
+  }
+};
+
 const validateEstimate = (estimate, label) => {
   if (!estimate?.canEstimate) {
-    const reason = estimate?.blockedReasons?.[0] || "ITEM_UNAVAILABLE";
-    throw httpError(
-      `${label} is not currently available for checkout.`,
-      409,
-      reason
-    );
+    const blocker = describeCheckoutBlocker(estimate, label);
+    // A 409 is correct for an unavailable dependency. Log a stable code so
+    // the admin can fix the Product Master / MongoDB record instead of guessing.
+    console.warn("[CheckoutDelivery] blocked", {
+      product: label,
+      code: blocker.reason,
+      source: estimate?.blockedDependencies?.[0]?.source || null,
+      referenceId: estimate?.blockedDependencies?.[0]?.referenceId || null,
+    });
+    throw httpError(blocker.message, 409, blocker.reason);
   }
 
   if (!estimate.expectedDeliveryDate) {
     throw httpError(
-      `Expected delivery is temporarily unavailable for ${label}. Please try again later.`,
+      `Expected delivery is temporarily unavailable for ${label} (DELIVERY_DATE_MISSING). Please try again later.`,
       409,
-      "COURIER_DAYS_MISSING"
+      "DELIVERY_DATE_MISSING"
     );
   }
 };
