@@ -1,3 +1,4 @@
+
 import mongoose from "mongoose";
 import { closeSync, fstatSync, openSync, readFileSync, readSync } from "node:fs";
 import { inflateRawSync } from "node:zlib";
@@ -4184,19 +4185,19 @@ const buildContainerMasterPayload = (row, setupEntry = null, { allowIncompleteCa
 
   const innerWidth = masterNumber(
     row,
-    ["True Inner Width cm (Container Only)", "True Inner W cm", "Inner Width cm"],
+    ["Container Inner Width cm", "True Inner Width cm (Container Only)", "True Inner W cm", "Inner Width cm"],
     "True Inner Width cm",
     errors
   );
   const innerLength = masterNumber(
     row,
-    ["True Inner Length cm (Container Only)", "True Inner L cm", "Inner Length cm"],
+    ["Container Inner Length cm", "True Inner Length cm (Container Only)", "True Inner L cm", "Inner Length cm"],
     "True Inner Length cm",
     errors
   );
   const innerHeight = masterNumber(
     row,
-    ["True Inner Height cm (Container Only)", "True Inner H cm", "Inner Height cm"],
+    ["Container Inner Height cm", "True Inner Height cm (Container Only)", "True Inner H cm", "Inner Height cm"],
     "True Inner Height cm",
     errors
   );
@@ -4252,6 +4253,17 @@ const buildContainerMasterPayload = (row, setupEntry = null, { allowIncompleteCa
   payload.taxSource = "product_master";
   setMasterField(payload, "minGrossMarginPercent", common.minGrossMarginPercent);
   setMasterField(payload, "leadTimeDays", common.leadTimeDays);
+  // Excel AH: Lead Time Days is an overall production/preparation window.
+  // Checkout ETA reads productionLeadTime, NOT leadTimeDays directly.
+  // Only override the default production schedule when Excel has a value.
+  if (common.leadTimeDays !== null && Number.isInteger(Number(common.leadTimeDays)) &&
+      Number(common.leadTimeDays) >= 0) {
+    payload.productionLeadTime = {
+      personalizationDays: 0,
+      assemblyDays: Number(common.leadTimeDays),
+      packingDays: 0,
+    };
+  }
 
   const outerDimensions = validPositiveDimensions(common.dimensions)
     ? common.dimensions
@@ -4674,7 +4686,7 @@ const parseProcurementHamperMasterSheet = (workbook) => {
     const salesNotes = masterText(row, ["Sales Notes"]);
     const opsNotes = masterText(row, ["Ops Notes", "Notes"]);
     const recipeVersion = masterText(row, ["Recipe Version"]);
-    const status = masterText(row, ["Status"]) || "Draft";
+    const status = masterText(row, ["Hamper Status", "Status"]) || "Draft";
     const imageUrl = masterText(row, ["Image / Asset URL", "Image URL"]);
 
     const synthetic = normalizeMasterRow({
@@ -5166,7 +5178,9 @@ const buildReadyMadeMasterPayload = async (
         ? common.weight
         : { value: null, unit: "kg" },
     productionLeadTime: {
-      personalizationDays: common.personalizable ? 1 : 0,
+      // Excel Lead Time Days is the total base production window, so don't
+      // silently add an extra personalization day on top of a provided value.
+      personalizationDays: common.leadTimeDays === null && common.personalizable ? 1 : 0,
       assemblyDays: Math.max(0, Number(common.leadTimeDays || 0)),
       packingDays: 0,
     },
@@ -5930,7 +5944,7 @@ const buildContainerReviewData = (result) => {
     material: payload.material || "",
     usableVolumePercent: payload.usableVolumePercent ?? 85,
     maxItems: payload.maxItems ?? 0,
-    productionLeadTime: {
+    productionLeadTime: payload.productionLeadTime || {
       personalizationDays: 0,
       assemblyDays: 0,
       packingDays: 0,
@@ -6413,6 +6427,7 @@ export const completeProductMasterContainerReview = asyncHandler(
     }
 
     const currentLeadTime = toPlainObject(existingPlain.productionLeadTime);
+    const sourceLeadTime = toPlainObject(sourcePayload.productionLeadTime);
     const requestedLeadTime =
       completion.productionLeadTime &&
       typeof completion.productionLeadTime === "object"
@@ -6422,12 +6437,17 @@ export const completeProductMasterContainerReview = asyncHandler(
     const productionLeadTime = {
       personalizationDays:
         requestedLeadTime.personalizationDays ??
+        sourceLeadTime.personalizationDays ??
         currentLeadTime.personalizationDays ??
         0,
       assemblyDays:
-        requestedLeadTime.assemblyDays ?? currentLeadTime.assemblyDays ?? 0,
+        requestedLeadTime.assemblyDays ??
+        sourceLeadTime.assemblyDays ??
+        currentLeadTime.assemblyDays ?? 0,
       packingDays:
-        requestedLeadTime.packingDays ?? currentLeadTime.packingDays ?? 0,
+        requestedLeadTime.packingDays ??
+        sourceLeadTime.packingDays ??
+        currentLeadTime.packingDays ?? 0,
     };
 
     const leadTimeError = validateProductionLeadTime(productionLeadTime);

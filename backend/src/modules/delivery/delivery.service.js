@@ -1,3 +1,4 @@
+
 import mongoose from "mongoose";
 
 import Product from "../catalog/product.model.js";
@@ -56,7 +57,7 @@ const firstConfiguredCourierDays = (...values) => {
   return null;
 };
 
-const getSystemDefaultCourierDays = () =>
+export const getSystemDefaultCourierDays = () =>
   firstConfiguredCourierDays(
     process.env.DEFAULT_COURIER_DAYS,
     3
@@ -369,6 +370,7 @@ export const calculateCustomHamperDeliveryEstimate = async ({
   items = [],
   decorations = [],
   quantity = 1,
+  courierDays = undefined,
   includeDetails = false,
 }) => {
   if (!isValidId(containerId)) {
@@ -463,10 +465,12 @@ export const calculateCustomHamperDeliveryEstimate = async ({
   return finalizeDeliveryEstimate({
     dependencies,
     leadTime: container.productionLeadTime,
-    courierDays: firstConfiguredCourierDays(
-      container.defaultCourierDays,
-      getSystemDefaultCourierDays()
-    ),
+    courierDays: courierDays === undefined
+      ? firstConfiguredCourierDays(
+          container.defaultCourierDays,
+          getSystemDefaultCourierDays()
+        )
+      : parseCourierDays(courierDays),
     today,
     includeDetails,
   });

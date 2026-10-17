@@ -1,3 +1,4 @@
+
 import mongoose from "mongoose";
 
 import Address from "../users/address.model.js";
@@ -9,6 +10,7 @@ import { PRODUCT_STATUS } from "../../constants/statuses.js";
 import {
   calculateCustomHamperDeliveryEstimate,
   calculateSkuDeliveryEstimate,
+  getSystemDefaultCourierDays,
 } from "../delivery/delivery.service.js";
 
 const INDIA_PINCODE_REGEX = /^[1-9][0-9]{5}$/;
@@ -42,8 +44,9 @@ const normalizeCourierDays = (value) => {
  * Fallback order:
  * 1. SKU / Container configured courier days
  * 2. CHECKOUT_DEFAULT_COURIER_DAYS environment variable
+ * 3. DEFAULT_COURIER_DAYS / same configured fallback as delivery.service
  *
- * We intentionally do not hard-code a shipping promise in code.
+ * Checkout and product ETA must never disagree on courier fallback.
  */
 const resolveCourierDays = (...values) => {
   for (const value of values) {
@@ -51,7 +54,10 @@ const resolveCourierDays = (...values) => {
     if (normalized !== null) return normalized;
   }
 
-  return normalizeCourierDays(process.env.CHECKOUT_DEFAULT_COURIER_DAYS);
+  return (
+    normalizeCourierDays(process.env.CHECKOUT_DEFAULT_COURIER_DAYS) ??
+    normalizeCourierDays(getSystemDefaultCourierDays())
+  );
 };
 
 const requireCourierDays = (courierDays, label) => {
