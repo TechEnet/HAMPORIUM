@@ -1,5 +1,3 @@
-
-
 import { Router } from "express";
 
 import authRoutes from "./modules/auth/auth.routes.js";
@@ -30,6 +28,11 @@ import fulfilmentRoutes from "./modules/fulfilment/fulfilment.routes.js";
 import notificationRoutes from "./modules/notifications/notification.routes.js";
 import auditRoutes from "./modules/audit/audit.routes.js";
 import promotionRoutes from "./modules/promotions/promotion.routes.js";
+// V1 additive admin modules: all existing routes remain untouched.
+import catalogStudioRoutes from "./modules/catalogStudio/catalogStudio.routes.js";
+import inventoryStudioRoutes from "./modules/inventoryStudio/inventoryStudio.routes.js";
+import marketingStudioRoutes from "./modules/marketingStudio/marketingStudio.routes.js";
+import demandStudioRoutes from "./modules/demandStudio/demandStudio.routes.js";
 
 const router = Router();
 
@@ -71,5 +74,9 @@ router.use("/fulfilment", fulfilmentRoutes);
 router.use("/notifications", notificationRoutes);
 router.use("/audit", auditRoutes);
 router.use("/promotions", promotionRoutes);
+router.use("/catalog-studio", catalogStudioRoutes);
+router.use("/inventory-studio", inventoryStudioRoutes);
+router.use("/marketing-studio", marketingStudioRoutes);
+router.use("/demand-studio", demandStudioRoutes);
 
 export default router;

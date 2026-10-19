@@ -1,5 +1,6 @@
 
 
+
 import mongoose from "mongoose";
 import { closeSync, fstatSync, openSync, readFileSync, readSync } from "node:fs";
 import { inflateRawSync } from "node:zlib";
@@ -9715,6 +9716,7 @@ export const createSKU = asyncHandler(async (req, res) => {
     packagedWeight,
     productionLeadTime,
     defaultCourierDays,
+    leadTimeDays,
     isActive,
     sortOrder,
     source,
@@ -9853,6 +9855,11 @@ export const createSKU = asyncHandler(async (req, res) => {
     return res.status(400).json({ success: false, message: sourceError });
   }
 
+  if (leadTimeDays !== undefined && leadTimeDays !== null && leadTimeDays !== "" &&
+      (!Number.isInteger(Number(leadTimeDays)) || Number(leadTimeDays) < 0 || Number(leadTimeDays) > 365)) {
+    return res.status(400).json({ success: false, message: "Lead Time Days must be 0 to 365" });
+  }
+
   const sku = await SKU.create({
     product: product._id,
     code: normalizedCode,
@@ -9878,6 +9885,8 @@ export const createSKU = asyncHandler(async (req, res) => {
     packagedWeight: packagedWeight ? normalizeWeight(packagedWeight) : undefined,
     productionLeadTime: normalizeProductionLeadTime(productionLeadTime),
     defaultCourierDays: courier.value,
+    // Exact Excel Lead Time Days; never add courier/packing buffer.
+    leadTimeDays: leadTimeDays === undefined || leadTimeDays === null || leadTimeDays === "" ? null : Number(leadTimeDays),
     earliestExpiryDate: contentsResult.earliestExpiryDate,
     isActive: activeValue ?? true,
     sortOrder: Number(sortOrder) || 0,
@@ -10084,6 +10093,14 @@ export const updateSKU = asyncHandler(async (req, res) => {
     }
 
     sku.productionLeadTime = normalizeProductionLeadTime(nextLeadTime);
+  }
+
+  if (req.body.leadTimeDays !== undefined) {
+    const value = req.body.leadTimeDays;
+    if (value === null || value === "") sku.leadTimeDays = null;
+    else if (!Number.isInteger(Number(value)) || Number(value) < 0 || Number(value) > 365) {
+      return res.status(400).json({ success: false, message: "Lead Time Days must be 0 to 365" });
+    } else sku.leadTimeDays = Number(value);
   }
 
   if (req.body.defaultCourierDays !== undefined) {
