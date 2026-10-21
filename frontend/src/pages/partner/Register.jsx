@@ -1,3 +1,4 @@
+
 import { useCallback, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 
@@ -8,7 +9,7 @@ import { useAuth } from "../../context/AuthContext.jsx";
 import { PARTNER_TYPES } from "../../constants/partnerOptions.js";
 import { getPartnerLandingPath } from "../../utils/authRouting.js";
 
-const TOTAL_STEPS = 4;
+const TOTAL_STEPS = 5;
 const MAX_KYC_FILE_SIZE = 8 * 1024 * 1024;
 const KYC_FILE_TYPES = new Set([
   "image/jpeg",
@@ -189,25 +190,21 @@ const PartnerRegister = () => {
         return "Enter a valid email address.";
       }
       if (form.phone.trim().length < 7) return "Enter a valid phone number.";
-      if (!form.businessName.trim()) return "Enter your business or working name.";
-      if (!form.city.trim() || !form.state.trim()) {
-        return "City and state are required.";
-      }
-      if (form.about.trim().length < 10) {
-        return "Tell us briefly what you provide or what kind of work you do.";
-      }
-
       if (!existingCustomer) {
-        if (form.password.length < 8) {
-          return "Password must be at least 8 characters.";
-        }
-        if (form.password !== form.confirmPassword) {
-          return "Passwords do not match.";
-        }
+        if (form.password.length < 8) return "Password must be at least 8 characters.";
+        if (form.password !== form.confirmPassword) return "Passwords do not match.";
       }
     }
 
     if (step === 3) {
+      if (!form.businessName.trim()) return "Enter your business or working name.";
+      if (!form.city.trim() || !form.state.trim()) return "City and state are required.";
+      if (form.about.trim().length < 10) {
+        return "Tell us briefly what you provide or what kind of work you do.";
+      }
+    }
+
+    if (step === 4) {
       if (form.kycChoice === "pan" || form.kycChoice === "both") {
         if (!/^[A-Z]{5}[0-9]{4}[A-Z]$/i.test(form.panNumber.trim())) {
           return "Enter a valid PAN number.";
@@ -215,7 +212,6 @@ const PartnerRegister = () => {
         const problem = validateFile(form.panDocument);
         if (problem) return `PAN: ${problem}`;
       }
-
       if (form.kycChoice === "aadhaar" || form.kycChoice === "both") {
         if (!/^\d{12}$/.test(form.aadhaarNumber.replace(/\D/g, ""))) {
           return "Enter a valid 12 digit Aadhaar number.";
@@ -225,7 +221,7 @@ const PartnerRegister = () => {
       }
     }
 
-    if (step === 4 && !form.accepted) {
+    if (step === 5 && !form.accepted) {
       return "Accept the partner terms and declaration to submit.";
     }
 
@@ -244,6 +240,7 @@ const PartnerRegister = () => {
   };
 
   const submitPasswordOrExisting = async () => {
+    if (submitting) return;
     const problem = validateStep();
     setError(problem);
     if (problem) return;
@@ -334,22 +331,25 @@ const PartnerRegister = () => {
   }
 
   const titles = [
-    "Choose your partner type.",
-    existingCustomer ? "Tell us the essentials." : "Create your partner account.",
-    "Verify your identity.",
-    "Review & apply.",
+    "Become a partner.",
+    "Your details.",
+    "Business details.",
+    "Verify identity.",
+    "Review application.",
   ];
 
   const descriptions = [
-    "Pick the closest match. You can update it later.",
-    "Only the details needed for application review.",
-    "Use PAN, Aadhaar or both. Banking and profile extras can be added after approval.",
-    "Check the essentials and submit your application.",
+    "Choose your partner type.",
+    "Basic contact and account details.",
+    "Tell us what you do.",
+    "Upload PAN or Aadhaar.",
+    "Confirm your application.",
   ];
 
   return (
     <TypeformShell
       eyebrow="Partner Application"
+      authMode="partnerRegister"
       title={titles[step - 1]}
       description={descriptions[step - 1]}
       step={step}
@@ -357,20 +357,20 @@ const PartnerRegister = () => {
       sideTitle="Partner with HAMPORIUM."
       sideText=""
       closeTo="/event-partners"
-      compact
+      simple
     >
       {error && <ErrorBox>{error}</ErrorBox>}
 
       {step === 1 && (
-        <div className="max-w-[520px] space-y-4">
-          <label className="block">
+        <div className="space-y-3">
+          <label className="block min-w-0">
             <span className={labelClass}>I want to join as</span>
             <div className="relative">
               <select
                 autoFocus
                 value={form.partnerType}
                 onChange={(event) => set("partnerType", event.target.value)}
-                className="h-14 w-full appearance-none rounded-2xl border border-black/10 bg-white px-4 pr-12 text-[14px] font-black text-[#171717] outline-none transition hover:border-[#D4AF37] focus:border-[#F97316] focus:ring-4 focus:ring-[#F97316]/10"
+                className="h-[50px] w-full appearance-none rounded-[12px] border border-[#DED6CA] bg-white px-4 pr-12 text-[14px] font-medium text-[#211E1B] outline-none focus:border-[#B79B6A] focus:ring-[3px] focus:ring-[#B79B6A]/15"
               >
                 {PARTNER_TYPES.map(([value, label]) => (
                   <option key={value} value={value}>
@@ -384,14 +384,11 @@ const PartnerRegister = () => {
             </div>
           </label>
 
-          <div className="rounded-2xl border border-[#D4AF37]/25 bg-[#FFF9F2] px-4 py-3 text-[12px] font-semibold leading-5 text-black/50">
-            Choose the closest option. Detailed products, services and profile information can be completed later.
-          </div>
         </div>
       )}
 
       {step === 2 && (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid min-w-0 gap-3 sm:grid-cols-2">
           <TextInput
             label="Full name"
             value={form.name}
@@ -400,20 +397,19 @@ const PartnerRegister = () => {
             autoFocus
           />
           <TextInput
-            label="Phone"
+            label="Phone number"
             value={form.phone}
             onChange={(value) => set("phone", value)}
             placeholder="+91 98765 43210"
           />
           <TextInput
-            label="Email"
+            label="Email address"
             type="email"
             value={form.email}
             onChange={(value) => set("email", value)}
             disabled={existingCustomer}
             full
           />
-
           {!existingCustomer && (
             <>
               <PasswordInput
@@ -434,7 +430,11 @@ const PartnerRegister = () => {
               />
             </>
           )}
+        </div>
+      )}
 
+      {step === 3 && (
+        <div className="grid min-w-0 gap-3 sm:grid-cols-2">
           <TextInput
             label="Business / working name"
             value={form.businessName}
@@ -451,26 +451,21 @@ const PartnerRegister = () => {
             value={form.state}
             onChange={(value) => set("state", value)}
           />
-
           <label className="sm:col-span-2">
             <span className={labelClass}>What do you provide?</span>
             <textarea
-              rows="2"
+              rows={2}
               value={form.about}
               onChange={(event) => set("about", event.target.value)}
-              placeholder="Example: Rigid hamper boxes, ribbons and custom packaging."
+              placeholder="For example: premium hamper boxes and custom packaging."
               className={textareaClass}
             />
           </label>
-
-          <div className="sm:col-span-2 rounded-xl bg-black/[0.035] px-4 py-3 text-[11px] font-semibold leading-5 text-black/40">
-            Website, GST, portfolio, experience, service areas, bank and payout details are not required now. Add them after approval.
-          </div>
         </div>
       )}
 
-      {step === 3 && (
-        <div className="space-y-4">
+      {step === 4 && (
+        <div className="space-y-3">
           <div>
             <p className={labelClass}>Choose verification</p>
             <div className="grid grid-cols-3 gap-2">
@@ -485,13 +480,13 @@ const PartnerRegister = () => {
                     type="button"
                     key={value}
                     onClick={() => set("kycChoice", value)}
-                    className={`rounded-xl border px-3 py-2.5 text-[11px] font-black transition ${
+                    className={`rounded-[12px] border px-3 py-2 text-[12px] font-semibold transition ${
                       active
-                        ? "border-[#F97316] bg-[#FFF1E8] text-[#F97316]"
+                        ? "border-[#B79B6A] bg-[#F7F1E7] text-[#73562F]"
                         : "border-black/10 bg-white text-black/55 hover:border-[#D4AF37]"
                     }`}
                   >
-                    {active ? "OK " : ""}
+                    {active ? "✓ " : ""}
                     {label}
                   </button>
                 );
@@ -499,7 +494,7 @@ const PartnerRegister = () => {
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid min-w-0 gap-3 sm:grid-cols-2">
             {(form.kycChoice === "pan" || form.kycChoice === "both") && (
               <>
                 <TextInput
@@ -545,14 +540,11 @@ const PartnerRegister = () => {
             )}
           </div>
 
-          <div className="rounded-xl border border-[#D4AF37]/25 bg-[#FFF9F2] px-4 py-3 text-[11px] font-semibold leading-5 text-black/45">
-            Bank account and payout details are intentionally collected after partner approval.
-          </div>
         </div>
       )}
 
-      {step === 4 && (
-        <div className="space-y-4">
+      {step === 5 && (
+        <div className="space-y-3">
           <div className="grid gap-2 sm:grid-cols-2">
             <Review label="Partner type" value={findLabel(PARTNER_TYPES, form.partnerType)} />
             <Review label="Business" value={form.businessName} />
@@ -574,7 +566,7 @@ const PartnerRegister = () => {
               type="checkbox"
               checked={form.accepted}
               onChange={(event) => set("accepted", event.target.checked)}
-              className="mt-0.5 h-4 w-4 accent-[#F97316]"
+              className="mt-0.5 h-4 w-4 accent-[#B79B6A]"
             />
             <span className="text-[12px] font-semibold leading-5 text-black/55">
               I accept the Partner Terms, Privacy Policy and confirm that the submitted information is accurate.
@@ -583,7 +575,7 @@ const PartnerRegister = () => {
         </div>
       )}
 
-      <div className="mt-6 flex flex-wrap items-center gap-3">
+      <div className="mt-4 flex items-center gap-2">
         {step > 1 && (
           <button type="button" onClick={back} className={secondaryButton}>
             Back
@@ -621,11 +613,11 @@ const PartnerRegister = () => {
         </>
       )}
 
-      <p className="mt-6 text-[13px] text-black/45">
+      <p className="mt-3 border-t border-[#EAE2D8] pt-2 text-center text-[12px] text-[#786F64]">
         Already a partner?{" "}
         <Link
           to="/partner/login"
-          className="font-black text-[#F97316] hover:text-[#171717]"
+          className="font-semibold text-[#967343] hover:text-[#171717]"
         >
           Partner login
         </Link>
@@ -704,7 +696,7 @@ const FilePicker = ({ label, file, onChange }) => (
       />
     </div>
     {file && (
-      <span className="mt-1 block truncate text-[10px] font-semibold text-[#F97316]">
+      <span className="mt-1 block [overflow-wrap:anywhere] text-[11px] font-medium leading-4 text-[#907147]">
         {file.name}
       </span>
     )}
@@ -712,16 +704,16 @@ const FilePicker = ({ label, file, onChange }) => (
 );
 
 const Review = ({ label, value }) => (
-  <div className="rounded-xl border border-black/10 bg-white px-4 py-3">
-    <p className="text-[9px] font-black uppercase tracking-wider text-black/35">
+  <div className="min-w-0 rounded-xl border border-[#E6DDD0] bg-white px-4 py-3">
+    <p className="text-[11px] font-semibold text-[#736C62]">
       {label}
     </p>
-    <p className="mt-1 text-[13px] font-black text-[#171717]">{value || "-"}</p>
+    <p className="mt-1 min-w-0 text-[13px] font-semibold leading-5 text-[#171717] [overflow-wrap:anywhere]">{value || "-"}</p>
   </div>
 );
 
 const Divider = ({ text }) => (
-  <div className="my-5 flex items-center gap-3">
+  <div className="my-3 flex items-center gap-3">
     <span className="h-px flex-1 bg-black/10" />
     <span className="text-[9px] font-black uppercase tracking-[0.12em] text-black/30">
       {text}
@@ -768,14 +760,14 @@ const findLabel = (options, value) =>
   options.find(([optionValue]) => optionValue === value)?.[1] || value;
 
 const labelClass =
-  "mb-1.5 block text-[10px] font-black uppercase tracking-[0.08em] text-black/45";
+  "mb-1.5 block text-[13px] font-medium text-[#302B25]";
 const smallInput =
-  "h-12 w-full rounded-xl border border-black/10 bg-white px-3.5 text-[13px] font-semibold text-[#171717] outline-none transition placeholder:font-medium placeholder:text-black/25 focus:border-[#F97316] focus:ring-4 focus:ring-[#F97316]/10";
+  "block min-w-0 h-[50px] w-full rounded-[12px] border border-[#DED6CA] bg-white px-4 text-[14px] font-medium text-[#28241F] outline-none transition-[border-color,box-shadow] duration-200 placeholder:font-normal placeholder:text-[#A39A8F] hover:border-[#CABBA6] focus:border-[#B79B6A] focus:ring-[3px] focus:ring-[#B79B6A]/15";
 const textareaClass =
-  "w-full resize-none rounded-xl border border-black/10 bg-white px-3.5 py-3 text-[13px] font-medium leading-5 text-[#171717] outline-none transition placeholder:text-black/25 focus:border-[#F97316] focus:ring-4 focus:ring-[#F97316]/10";
+  "w-full resize-none rounded-[12px] border border-[#DED6CA] bg-white px-4 py-2.5 text-[14px] font-medium leading-5 text-[#28241F] outline-none transition-[border-color,box-shadow] placeholder:text-[#A39A8F] focus:border-[#B79B6A] focus:ring-[3px] focus:ring-[#B79B6A]/15";
 const primaryButton =
-  "inline-flex min-h-11 items-center justify-center rounded-xl bg-[#F97316] px-6 py-3 text-[11px] font-black uppercase tracking-[0.06em] text-white transition hover:bg-[#171717] disabled:cursor-not-allowed disabled:opacity-45";
+  "inline-flex min-h-[50px] min-w-0 flex-1 items-center justify-center rounded-[12px] bg-[#161715] px-5 text-[13px] font-semibold text-white shadow-[0_7px_18px_rgba(22,23,21,.12)] transition-[background-color,transform] hover:bg-[#34302A] active:scale-[.99] disabled:cursor-not-allowed disabled:opacity-45";
 const secondaryButton =
-  "inline-flex min-h-11 items-center justify-center rounded-xl border border-black/10 bg-white px-5 py-3 text-[11px] font-black text-[#171717] transition hover:border-black/20 hover:bg-black/[0.03]";
+  "inline-flex h-[50px] items-center justify-center rounded-[12px] border border-[#DED6CA] bg-white px-5 text-[13px] font-semibold text-[#403A32] transition-colors hover:bg-[#FAF8F4]";
 
 export default PartnerRegister;

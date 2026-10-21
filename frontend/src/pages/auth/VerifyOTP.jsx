@@ -4,242 +4,125 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import api from "../../api/api.js";
 import TypeformShell from "../../components/TypeformShell.jsx";
 
+const inputClass =
+  "block min-w-0 h-[50px] w-full rounded-[12px] border border-[#DED6CA] bg-white px-4 text-[14px] font-medium text-[#28241F] outline-none transition-[border-color,box-shadow] duration-200 placeholder:font-normal placeholder:text-[#A39A8F] hover:border-[#CABBA6] focus:border-[#B79B6A] focus:ring-[3px] focus:ring-[#B79B6A]/15";
+const labelClass = "mb-1.5 block text-[12px] font-semibold text-[#494239]";
+const buttonClass =
+  "flex h-[50px] w-full items-center justify-center gap-2 rounded-[12px] bg-[#171715] px-5 text-[14px] font-semibold tracking-[.015em] text-[#E9D0A1] shadow-[0_7px_18px_rgba(22,23,21,.12)] transition-[background-color,transform,box-shadow] duration-200 hover:bg-[#34302A] hover:shadow-[0_10px_22px_rgba(22,23,21,.18)] active:scale-[.99] disabled:cursor-not-allowed disabled:opacity-45 disabled:shadow-none";
+
 const VerifyOTP = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const partnerFlow = Boolean(location.state?.partner);
-
+  const loginPath = partnerFlow ? "/partner/login" : "/login";
   const [step, setStep] = useState(1);
-  const [form, setForm] = useState({
-    email: location.state?.email || "",
-    otp: "",
-    newPassword: "",
-    confirmPassword: "",
-  });
+  const [form, setForm] = useState({ email: location.state?.email || "", otp: "", newPassword: "", confirmPassword: "" });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const continueOtp = (event) => {
+  const update = (key, value) => {
+    setForm((previous) => ({ ...previous, [key]: value }));
+    if (error) setError("");
+  };
+
+  const nextStep = (event) => {
     event.preventDefault();
-    setError("");
-    if (!form.email || !/^\d{6}$/.test(form.otp)) {
-      setError("Enter your email and the 6-digit OTP.");
+    if (!form.email.trim() || !/^\d{6}$/.test(form.otp)) {
+      setError("Enter your email and the 6-digit code.");
       return;
     }
+    setForm((previous) => ({ ...previous, email: previous.email.trim() }));
+    setError("");
     setStep(2);
   };
 
-  const submit = async (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
+    if (submitting) return;
     setError("");
-
     if (form.newPassword.length < 8) {
-      setError("Password must be at least 8 characters.");
+      setError("Use 8 or more characters.");
       return;
     }
-
     if (form.newPassword !== form.confirmPassword) {
-      setError("Passwords do not match");
+      setError("Passwords do not match. Please try again.");
       return;
     }
-
     setSubmitting(true);
     try {
       await api.post("/auth/reset-password", {
-        email: form.email,
+        email: form.email.trim(),
         otp: form.otp,
         newPassword: form.newPassword,
       });
-
-      navigate(partnerFlow ? "/partner/login" : "/login", {
-        replace: true,
-        state: { resetSuccess: true },
-      });
+      navigate(loginPath, { replace: true, state: { resetSuccess: true } });
     } catch (requestError) {
-      setError(
-        requestError.response?.data?.message ||
-          requestError.response?.data?.errors?.[0]?.message ||
-          "Unable to reset password"
-      );
+      setError(requestError.response?.data?.message || requestError.response?.data?.errors?.[0]?.message || "Unable to reset your password.");
     } finally {
       setSubmitting(false);
     }
   };
 
-  const loginPath = partnerFlow ? "/partner/login" : "/login";
-
   return (
     <TypeformShell
-      eyebrow={partnerFlow ? "Partner Password Reset" : "Password Reset"}
-      title={step === 1 ? "Enter your reset code." : "Choose a new password."}
-      description={
-        step === 1
-          ? "Use the OTP sent to your email."
-          : "Use at least 8 characters for your new password."
-      }
+      eyebrow="RESET PASSWORD"
+      simple
+      closeTo={loginPath}
+      title={step === 1 ? "Enter reset code." : "New password."}
+      description={step === 1 ? "Enter the 6-digit email code." : "Use 8 or more characters."}
       step={step}
       totalSteps={2}
-      sideTitle={partnerFlow ? "Recover partner access." : "Secure account recovery."}
-      sideText=""
-      closeTo={loginPath}
     >
-      {error && <ErrorBox>{error}</ErrorBox>}
+      {error && <div role="alert" className="mb-3 rounded-[12px] border border-red-200 bg-red-50 px-3.5 py-3 text-[13px] leading-5 text-red-700">{error}</div>}
 
       {step === 1 ? (
-        <form onSubmit={continueOtp} className="space-y-5">
-          <Field label="Email address">
+        <form onSubmit={nextStep} className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="block min-w-0">
+            <span className={labelClass}>Email address</span>
+            <input autoComplete="email" type="email" required value={form.email} onChange={(event) => update("email", event.target.value)} placeholder="you@example.com" className={inputClass} />
+          </label>
+          <label className="block min-w-0">
+            <span className={labelClass}>Reset code</span>
             <input
-              type="email"
-              value={form.email}
-              onChange={(event) =>
-                setForm((current) => ({
-                  ...current,
-                  email: event.target.value,
-                }))
-              }
-              placeholder="you@example.com"
-              className={inputClass}
-              required
-            />
-          </Field>
-
-          <Field label="Reset code">
-            <input
-              autoFocus
-              inputMode="numeric"
+              autoFocus type="text" inputMode="numeric" autoComplete="one-time-code"
+              pattern="[0-9]{6}" maxLength={6} required
               value={form.otp}
-              onChange={(event) =>
-                setForm((current) => ({
-                  ...current,
-                  otp: event.target.value.replace(/\D/g, "").slice(0, 6),
-                }))
-              }
-              placeholder="6-digit OTP"
-              className={inputClass}
-              required
+              onChange={(event) => update("otp", event.target.value.replace(/\D/g, "").slice(0, 6))}
+              placeholder="000000"
+              className={`${inputClass} text-center text-[22px] font-semibold tracking-[0.16em] sm:tracking-[0.23em]`}
             />
-          </Field>
-
-          <button className={primaryButton}>Continue</button>
+          </label>
+          <button type="submit" disabled={form.otp.length !== 6} className={`${buttonClass} sm:col-span-2`}>Continue →</button>
         </form>
       ) : (
-        <form onSubmit={submit} className="space-y-5">
-          <PasswordField
-            label="New password"
-            value={form.newPassword}
-            onChange={(value) =>
-              setForm((current) => ({ ...current, newPassword: value }))
-            }
-            visible={showPassword}
-            onToggle={() => setShowPassword((value) => !value)}
-            autoFocus
-          />
-
-          <PasswordField
-            label="Confirm password"
-            value={form.confirmPassword}
-            onChange={(value) =>
-              setForm((current) => ({ ...current, confirmPassword: value }))
-            }
-            visible={showConfirmPassword}
-            onToggle={() => setShowConfirmPassword((value) => !value)}
-          />
-
-          <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={() => setStep(1)}
-              className={secondaryButton}
-            >
-              Back
-            </button>
-            <button disabled={submitting} className={primaryButton}>
-              {submitting ? "Resetting..." : "Reset password"}
-            </button>
-          </div>
+        <form onSubmit={handleSubmit} className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+          <PasswordInput label="New password" value={form.newPassword} onChange={(value) => update("newPassword", value)} visible={showPassword} toggle={() => setShowPassword((value) => !value)} autoFocus />
+          <PasswordInput label="Confirm password" value={form.confirmPassword} onChange={(value) => update("confirmPassword", value)} visible={showConfirm} toggle={() => setShowConfirm((value) => !value)} />
+          <button type="submit" disabled={submitting} className={`${buttonClass} sm:col-span-2`}>{submitting ? "Resetting password..." : "Reset password →"}</button>
+          <button type="button" disabled={submitting} onClick={() => { setStep(1); setError(""); }} className="w-full py-1 text-[12px] font-medium text-[#77716B] sm:col-span-2 transition-colors hover:text-[#171717]">← Back to reset code</button>
         </form>
       )}
 
-      <Link
-        to={loginPath}
-        className="mt-7 inline-block text-[13px] font-extrabold text-[#F97316] hover:text-[#171717]"
-      >
-        Back to {partnerFlow ? "Partner Login" : "Login"}
-      </Link>
+      <div className="mt-4 border-t border-[#EAE2D8] pt-3 text-center">
+        {step === 1 && (
+          <Link to="/forgot-password" state={{ email: form.email.trim(), partner: partnerFlow }} className="mb-2 block text-[12px] font-medium text-[#82796F] hover:text-[#967343]">Need a new code?</Link>
+        )}
+        <Link to={loginPath} className="text-[13px] font-semibold text-[#1A1917] underline decoration-[#B79B6A]/65 underline-offset-4 hover:text-[#967343]">← Back to {partnerFlow ? "partner login" : "login"}</Link>
+      </div>
     </TypeformShell>
   );
 };
 
-const Field = ({ label, children }) => (
-  <label className="block">
-    <span className="mb-2 block text-[13px] font-bold text-black/58">
-      {label}
+const PasswordInput = ({ label, value, onChange, visible, toggle, autoFocus = false }) => (
+  <label className="block min-w-0">
+    <span className={labelClass}>{label}</span>
+    <span className="relative block">
+      <input autoFocus={autoFocus} type={visible ? "text" : "password"} autoComplete="new-password" minLength={8} required value={value} onChange={(event) => onChange(event.target.value)} placeholder={label} className={`${inputClass} pr-20`} />
+      <button type="button" onClick={toggle} aria-label={visible ? `Hide ${label.toLowerCase()}` : `Show ${label.toLowerCase()}`} className="absolute right-3 top-1/2 -translate-y-1/2 rounded px-2 py-1 text-[12px] font-semibold text-[#77716B] hover:text-[#1A1917]">{visible ? "Hide" : "Show"}</button>
     </span>
-    {children}
   </label>
 );
-
-const PasswordField = ({
-  label,
-  value,
-  onChange,
-  visible,
-  onToggle,
-  autoFocus = false,
-}) => (
-  <Field label={label}>
-    <div className="relative">
-      <input
-        autoFocus={autoFocus}
-        type={visible ? "text" : "password"}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder={label}
-        className={`${inputClass} pr-12`}
-        autoComplete="new-password"
-        required
-      />
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-label={visible ? "Hide password" : "Show password"}
-        className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-black/40 transition hover:bg-black/[0.05] hover:text-[#171717]"
-      >
-        <EyeIcon visible={visible} />
-      </button>
-    </div>
-  </Field>
-);
-
-const EyeIcon = ({ visible }) => (
-  <svg viewBox="0 0 24 24" fill="none" className="h-[18px] w-[18px]" aria-hidden="true">
-    <path
-      d="M2.8 12s3.3-5.2 9.2-5.2S21.2 12 21.2 12s-3.3 5.2-9.2 5.2S2.8 12 2.8 12Z"
-      stroke="currentColor"
-      strokeWidth="1.7"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <circle cx="12" cy="12" r="2.6" stroke="currentColor" strokeWidth="1.7" />
-    {!visible && (
-      <path d="M4 4 20 20" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-    )}
-  </svg>
-);
-
-const ErrorBox = ({ children }) => (
-  <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] font-semibold leading-5 text-red-700">
-    {children}
-  </div>
-);
-
-const inputClass =
-  "h-13 w-full rounded-xl border border-black/10 bg-[#FBF8F3] px-4 text-[16px] font-semibold text-[#171717] outline-none transition placeholder:font-medium placeholder:text-black/28 focus:border-[#D59A3A] focus:bg-white focus:ring-4 focus:ring-[#D59A3A]/10";
-const primaryButton =
-  "inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#171717] px-6 py-3 text-[13px] font-extrabold text-white transition hover:bg-[#F97316] disabled:cursor-not-allowed disabled:opacity-45";
-const secondaryButton =
-  "inline-flex min-h-12 items-center justify-center rounded-xl border border-black/10 bg-white px-5 py-3 text-[13px] font-bold text-[#171717] transition hover:border-black/20 hover:bg-black/[0.03]";
 
 export default VerifyOTP;

@@ -6654,29 +6654,41 @@ const Home = () => {
             background:linear-gradient(90deg,var(--hmp-gold),var(--hmp-stone),var(--hmp-gold));
           }
 
-          /* V6: Journey headings never wait invisibly for a nested viewport
-             observer. The original diagonal handoff remains unchanged. */
+          /* V7: KEEP the cinematic journey heading entrance, but make it QUICK.
+             Animate on the heading's existing IntersectionObserver class so the
+             effect does not finish behind the preceding sticky story panel.
+             Never hide an image or delay network work to start text animation. */
           @keyframes hpJourneyFastTitle {
-            from { opacity: .78; transform: translate3d(0, 12px, 0); }
-            to { opacity: 1; transform: translate3d(0, 0, 0); }
+            0% { opacity: 0; transform: translate3d(0, 34px, 0) scale(.976); }
+            68% { opacity: 1; transform: translate3d(0, -2px, 0) scale(1.004); }
+            100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
           }
-          .hp-home-v65 [data-home-section="journey"] .hp-journey-feature-title.hp-kinetic-heading,
+          .hp-home-v65 [data-home-section="journey"] .hp-journey-feature-title.hp-kinetic-heading {
+            opacity: 0;
+            transform: translate3d(0, 34px, 0) scale(.976);
+            will-change: transform, opacity;
+          }
           .hp-home-v65 [data-home-section="journey"] .hp-journey-feature-title.hp-kinetic-heading.is-kinetic-visible {
             opacity: 1;
-            transform: none;
-            animation: none;
+            animation: hpJourneyFastTitle 560ms cubic-bezier(.16,1,.3,1) both !important;
+            will-change: transform, opacity;
+          }
+          .hp-home-v65 [data-home-section="journey"] .hp-journey-feature-title.is-kinetic-visible::after {
+            transition-duration: .56s;
+          }
+          .hp-home-v65 [data-home-section="journey"] .hp-journey-feature-title.hp-kinetic-heading.is-kinetic-settled {
             will-change: auto;
           }
-          .hp-home-v65 [data-home-section="journey"] .hp-story-page.is-story-visible .hp-journey-feature-title.hp-kinetic-heading {
-            animation: hpJourneyFastTitle 420ms cubic-bezier(.2,.75,.2,1) both;
-          }
-          /* Faster third-panel photo blend, without changing the artwork. */
+          /* V6 image decoding + faster third-panel photo crossfade stay intact. */
           .hp-home-v65 .hp-journey-bulk-page .hp-fluid-image {
             transition: opacity .46s cubic-bezier(.22,1,.36,1), transform .72s cubic-bezier(.22,1,.36,1) !important;
           }
           @media (prefers-reduced-motion: reduce) {
-            .hp-home-v65 [data-home-section="journey"] .hp-story-page.is-story-visible .hp-journey-feature-title.hp-kinetic-heading {
-              animation: none;
+            .hp-home-v65 [data-home-section="journey"] .hp-journey-feature-title.hp-kinetic-heading,
+            .hp-home-v65 [data-home-section="journey"] .hp-journey-feature-title.hp-kinetic-heading.is-kinetic-visible {
+              opacity: 1 !important;
+              transform: none !important;
+              animation: none !important;
             }
           }
 

@@ -1,256 +1,70 @@
+
 import { useCallback, useMemo, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
-
 import GoogleAuthButton from "../../components/GoogleAuthButton.jsx";
 import TypeformShell from "../../components/TypeformShell.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { getPartnerLandingPath } from "../../utils/authRouting.js";
 
-const PartnerLogin = () => {
-  const { user, partner, partnerLogin, partnerGoogleLogin } = useAuth();
-  const navigate = useNavigate();
-  const location = useLocation();
+const field = "block h-[50px] w-full min-w-0 rounded-[11px] border border-[#DDD5CA] bg-white px-4 text-[14px] text-[#211E1B] outline-none transition-colors placeholder:text-[#A69F96] focus:border-[#B79B6A] focus:ring-[3px] focus:ring-[#B79B6A]/15";
+const button = "flex h-[50px] w-full items-center justify-center gap-3 rounded-[11px] bg-[#171715] px-5 text-[14px] font-semibold text-[#E9D0A1] transition-colors hover:bg-[#34302A] disabled:cursor-not-allowed disabled:opacity-50";
 
-  const [step, setStep] = useState(1);
+export default function PartnerLogin() {
+  const { user, partner, partnerLogin, partnerGoogleLogin } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [form, setForm] = useState({ email: "", password: "" });
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
 
   const requestedPath = useMemo(() => {
     const from = location.state?.from;
-    return from?.pathname ? `${from.pathname}${from.search || ""}` : "";
+    return typeof from?.pathname === "string" && from.pathname.startsWith("/") && !from.pathname.startsWith("//")
+      ? `${from.pathname}${from.search || ""}` : "";
   }, [location.state]);
+  const finish = useCallback((data) => navigate(requestedPath || getPartnerLandingPath(data.partner), { replace: true }), [navigate, requestedPath]);
 
-  const finish = useCallback(
-    (data) =>
-      navigate(requestedPath || getPartnerLandingPath(data.partner), {
-        replace: true,
-      }),
-    [navigate, requestedPath]
-  );
-
-  const handleGoogle = useCallback(
-    async (credential) => {
-      setError("");
-      setSubmitting(true);
-      try {
-        finish(await partnerGoogleLogin(credential));
-      } catch (requestError) {
-        setError(
-          requestError.response?.data?.message || "Unable to login with Google"
-        );
-      } finally {
-        setSubmitting(false);
-      }
-    },
-    [partnerGoogleLogin, finish]
-  );
-
-  const googleError = useCallback((message) => setError(message), []);
-
-  if (user?.roles?.includes("partner")) {
-    return (
-      <Navigate
-        to={requestedPath || getPartnerLandingPath(partner)}
-        replace
-      />
-    );
-  }
+  const google = useCallback(async (credential) => {
+    if (submitting) return;
+    setError(""); setSubmitting(true);
+    try { finish(await partnerGoogleLogin(credential)); }
+    catch (err) { setError(err.response?.data?.message || "Unable to sign in with Google."); }
+    finally { setSubmitting(false); }
+  }, [partnerGoogleLogin, finish, submitting]);
 
   const submit = async (event) => {
     event.preventDefault();
-    setError("");
-    setSubmitting(true);
-
-    try {
-      finish(await partnerLogin(form));
-    } catch (requestError) {
-      const data = requestError.response?.data;
+    if (submitting) return;
+    setError(""); setSubmitting(true);
+    try { finish(await partnerLogin({ email: form.email.trim(), password: form.password })); }
+    catch (err) {
+      const data = err.response?.data;
       if (data?.verificationRequired && data?.email) {
-        sessionStorage.setItem(
-          "hamporium.pendingVerification",
-          JSON.stringify({ email: data.email, partner: true })
-        );
-        navigate("/verify-email", {
-          replace: true,
-          state: { email: data.email, partner: true },
-        });
+        try { sessionStorage.setItem("hamporium.pendingVerification", JSON.stringify({ email: data.email, partner: true })); }
+        catch { /* route state carries the email */ }
+        navigate("/verify-email", { replace: true, state: { email: data.email, partner: true } });
         return;
       }
-      setError(data?.message || "Unable to login to Partner Portal");
-    } finally {
-      setSubmitting(false);
-    }
+      setError(data?.message || "Unable to sign in to Partner Portal.");
+    } finally { setSubmitting(false); }
   };
 
+  if (user?.roles?.includes("partner")) return <Navigate to={requestedPath || getPartnerLandingPath(partner)} replace />;
+
   return (
-    <TypeformShell
-      eyebrow="Partner Portal"
-      title={step === 1 ? "Partner email?" : "Welcome back, partner."}
-      description={
-        step === 1
-          ? "Use the email registered with your partner account."
-          : `Enter the password for ${form.email}.`
-      }
-      step={step}
-      totalSteps={2}
-      sideTitle="Your partner workspace."
-      sideText=""
-      closeTo="/event-partners"
-    >
-      {error && <ErrorBox>{error}</ErrorBox>}
-
-      {step === 1 ? (
-        <>
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (form.email) setStep(2);
-            }}
-            className="space-y-5"
-          >
-            <input
-              autoFocus
-              type="email"
-              value={form.email}
-              onChange={(event) =>
-                setForm((current) => ({
-                  ...current,
-                  email: event.target.value,
-                }))
-              }
-              placeholder="partner@example.com"
-              autoComplete="email"
-              className={bigInput}
-              required
-            />
-            <button className={primaryButton}>Continue</button>
-          </form>
-
-          <Divider />
-          <GoogleAuthButton
-            onSuccess={handleGoogle}
-            onError={googleError}
-            disabled={submitting}
-          />
-        </>
-      ) : (
-        <form onSubmit={submit} className="space-y-5">
-          <div>
-            <div className="relative">
-              <input
-                autoFocus
-                type={showPassword ? "text" : "password"}
-                value={form.password}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    password: event.target.value,
-                  }))
-                }
-                placeholder="Partner password"
-                autoComplete="current-password"
-                className={`${bigInput} pr-12`}
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword((value) => !value)}
-                aria-label={showPassword ? "Hide password" : "Show password"}
-                className="absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg text-black/35 transition hover:bg-black/[0.05] hover:text-[#171717]"
-              >
-                <EyeIcon visible={showPassword} />
-              </button>
-            </div>
-
-            <div className="mt-3 flex justify-end">
-              <Link
-                to="/forgot-password"
-                state={{ partner: true, email: form.email }}
-                className="text-[12px] font-black text-[#F97316] transition hover:text-[#171717]"
-              >
-                Forgot password?
-              </Link>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                setStep(1);
-                setShowPassword(false);
-                setForm((current) => ({ ...current, password: "" }));
-              }}
-              className={secondaryButton}
-            >
-              Back
-            </button>
-            <button disabled={submitting} className={primaryButton}>
-              {submitting ? "Signing in..." : "Open Partner Portal"}
-            </button>
-          </div>
-        </form>
-      )}
-
-      <p className="mt-7 text-[13px] text-black/45">
-        Want to join?{" "}
-        <Link
-          to="/partner/register"
-          className="font-black text-[#F97316] hover:text-[#171717]"
-        >
-          Apply as a Partner
-        </Link>
-        {"  |  "}
-        <Link
-          to="/login"
-          className="font-black text-[#171717] hover:text-[#F97316]"
-        >
-          Customer login
-        </Link>
-      </p>
+    <TypeformShell simple authMode="partnerLogin" eyebrow="PARTNER LOGIN" title="Partner login" closeTo="/event-partners">
+      {location.state?.resetSuccess && <p role="status" className="mb-3 rounded-lg bg-[#F3F8F0] px-4 py-3 text-[13px] text-[#3D6944]">Password updated. Please sign in.</p>}
+      {error && <p role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">{error}</p>}
+      <form onSubmit={submit} className="space-y-4">
+        <label className="block"><span className="mb-2 block text-[13px] font-medium text-[#302B25]">Partner email</span><input autoFocus type="email" autoComplete="email" required value={form.email} onChange={(e) => { setForm(v => ({ ...v, email: e.target.value })); setError(""); }} placeholder="partner@example.com" className={field}/></label>
+        <label className="block"><span className="mb-2 flex items-center justify-between gap-3"><span className="text-[13px] font-medium text-[#302B25]">Password</span><Link to="/forgot-password" state={{ email: form.email, partner: true }} className="text-[12px] text-[#967343] hover:text-[#171715]">Forgot password?</Link></span><span className="relative block"><input type={showPassword ? "text" : "password"} autoComplete="current-password" required value={form.password} onChange={(e) => { setForm(v => ({ ...v, password: e.target.value })); setError(""); }} placeholder="Enter password" className={`${field} pr-20`}/><button type="button" onClick={() => setShowPassword(v => !v)} aria-label={showPassword ? "Hide password" : "Show password"} className="absolute right-3 top-1/2 -translate-y-1/2 px-2 text-[12px] text-[#7D776F] hover:text-[#171715]">{showPassword ? "Hide" : "Show"}</button></span></label>
+        <button type="submit" disabled={submitting} className={button}>{submitting ? "Signing in..." : "Continue →"}</button>
+      </form>
+      <div className="my-5 flex items-center gap-4" aria-hidden="true"><span className="h-px flex-1 bg-[#E6DED4]"/><span className="text-[12px] text-[#989088]">or</span><span className="h-px flex-1 bg-[#E6DED4]"/></div>
+      <div className="flex justify-center"><GoogleAuthButton onSuccess={google} onError={setError} disabled={submitting}/></div>
+      <p className="mt-5 text-center text-[13px] text-[#777067]">New partner? <Link to="/partner/register" className="font-semibold text-[#927044]">Apply to join</Link></p>
+      <p className="mt-2 text-center"><Link to="/login" className="text-[12px] text-[#8A8378]">Customer login →</Link></p>
     </TypeformShell>
   );
-};
-
-const Divider = () => (
-  <div className="my-6 flex items-center gap-4">
-    <span className="h-px flex-1 bg-black/10" />
-    <span className="text-[9px] font-black uppercase tracking-[0.14em] text-black/30">
-      or
-    </span>
-    <span className="h-px flex-1 bg-black/10" />
-  </div>
-);
-
-const ErrorBox = ({ children }) => (
-  <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[12px] font-semibold leading-5 text-red-700">
-    {children}
-  </div>
-);
-
-const EyeIcon = ({ visible }) => (
-  <svg viewBox="0 0 24 24" fill="none" className="h-[19px] w-[19px]" aria-hidden="true">
-    <path
-      d="M2.8 12s3.3-5.2 9.2-5.2S21.2 12 21.2 12s-3.3 5.2-9.2 5.2S2.8 12 2.8 12Z"
-      stroke="currentColor"
-      strokeWidth="1.7"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <circle cx="12" cy="12" r="2.6" stroke="currentColor" strokeWidth="1.7" />
-    {!visible && (
-      <path d="M4 4 20 20" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-    )}
-  </svg>
-);
-
-const bigInput =
-  "h-14 w-full rounded-xl border border-black/10 bg-white px-4 text-[16px] font-semibold text-[#171717] outline-none transition placeholder:font-medium placeholder:text-black/25 focus:border-[#F97316] focus:ring-4 focus:ring-[#F97316]/10";
-const primaryButton =
-  "inline-flex min-h-12 items-center justify-center rounded-xl bg-[#F97316] px-6 py-3 text-[12px] font-black text-white transition hover:bg-[#171717] disabled:opacity-50";
-const secondaryButton =
-  "inline-flex min-h-12 items-center justify-center rounded-xl border border-black/10 bg-white px-5 py-3 text-[12px] font-black text-[#171717] transition hover:bg-black/[0.03]";
-
-export default PartnerLogin;
+}

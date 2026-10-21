@@ -1,3 +1,4 @@
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -2705,14 +2706,13 @@ const CustomHamper = () => {
           position: relative; isolation: isolate; display: flex; flex-direction: column;
           height: 100%; min-width: 0; overflow: hidden;
           border: 1px solid var(--v83-border); border-radius: 19px;
-          background: linear-gradient(154deg,#fff 10%,var(--v83-soft) 100%);
-          box-shadow: 0 6px 17px rgba(39,23,16,.055),0 1px 2px rgba(33,24,19,.045);
+          background: linear-gradient(155deg, #FFFFFF 0%, var(--v83-soft) 100%);
+          box-shadow: 0 6px 18px rgba(22,23,21,.045), 0 1px 2px rgba(22,23,21,.04);
           transition: transform .36s cubic-bezier(.22,1,.36,1), box-shadow .36s ease, border-color .3s;
           -webkit-tap-highlight-color: transparent;
         }
-        .v83-card:hover { transform: translateY(-5px); border-color:var(--v83-accent); box-shadow: 0 18px 35px var(--v83-shadow),0 5px 12px rgba(35,25,20,.08); }
-        .v83-card.is-selected { border-color: var(--v83-accent); box-shadow:0 0 0 2px var(--v83-accent),0 13px 29px var(--v83-shadow); }
-        .v83-card, .v83-card:hover, .v83-card.is-selected { border-top-color: rgba(64,48,42,.12); }
+        .v83-card:hover { transform: translateY(-5px); border-color:var(--v83-accent); box-shadow: 0 18px 36px var(--v83-shadow), 0 5px 12px rgba(22,23,21,.05); }
+        .v83-card.is-selected { border-color: var(--v83-accent); box-shadow:0 0 0 1px var(--v83-accent),0 13px 29px var(--v83-shadow); }
         .v83-card:focus-visible { outline: 3px solid var(--v83-accent); outline-offset: 3px; }
         .v83-media { position: relative; overflow: hidden; flex: none; background: var(--v83-soft); }
         .v83-media .v83-photo { position: relative; z-index: 0; aspect-ratio: 3 / 2; }
@@ -2723,35 +2723,35 @@ const CustomHamper = () => {
           font-size:10px; line-height:1.15; letter-spacing:.015em; font-weight:900;
           box-shadow:0 5px 15px rgba(0,0,0,.14); backdrop-filter: blur(9px);
         }
-        .v83-recommend { left:8px; color:white; background:linear-gradient(110deg,var(--v83-accent),var(--v83-deep)); max-width:80%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-        .v83-pending { left:8px; color:#865410; background:rgba(255,248,226,.96); border:1px solid #f7d17e; }
-        .v83-quantity-badge { right:8px; background:rgba(18,22,26,.86); color:#fff; }
+        .v83-recommend { left:8px; color:#161715; background:linear-gradient(115deg, #DBC59F, var(--v83-accent)); max-width:80%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; border:1px solid rgba(22,23,21,.10); }
+        .v83-pending { left:8px; color:#715731; background:rgba(250,248,244,.97); border:1px solid #CDBA98; }
+        .v83-quantity-badge { right:8px; background:rgba(22,23,21,.94); color:#FAF8F4; border:1px solid rgba(183,155,106,.68); }
         .v83-content { display:flex; flex:1; flex-direction:column; gap:0; min-width:0; padding:10px 12px 10px; }
         .v83-topline { display:flex; align-items:center; justify-content:space-between; gap:6px; min-height:18px; margin-bottom:4px; }
-        .v83-category { min-width:0; max-width:100%; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:9px; line-height:1.35; font-weight:900; letter-spacing:.08em; color:var(--v83-deep); text-transform:uppercase; }
+        .v83-category { min-width:0; max-width:100%; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:9px; line-height:1.35; font-weight:900; letter-spacing:.08em; color:#886C46; text-transform:uppercase; }
         .v83-topline-star { flex:0 0 auto; font-size:13px; color:var(--v83-accent); opacity:.78; }
-        .v83-title { margin:0; min-height:36px; overflow:hidden; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; font-size:13px; line-height:1.48; font-weight:850; letter-spacing:-.018em; color:#282027; }
+        .v83-title { margin:0; min-height:36px; overflow:hidden; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; font-size:13px; line-height:1.48; font-weight:850; letter-spacing:-.018em; color:#161715; }
         .v83-price-row { display:flex; align-items:baseline; gap:7px; flex-wrap:wrap; margin-top:auto; padding-top:8px; }
         .v83-price { font-size:19px; font-weight:950; letter-spacing:-.045em; color:var(--v83-deep); line-height:1.15; }
-        .v83-mrp { color:#8d8584; font-size:10px; font-weight:700; text-decoration:line-through; }
+        .v83-mrp { color:#857B6E; font-size:10px; font-weight:700; text-decoration:line-through; }
         .v83-rule { height:1px; margin:8px 0 8px; background:linear-gradient(90deg,var(--v83-border),transparent); }
         .v83-actions { display:grid; grid-template-columns:minmax(0,.92fr) minmax(0,1.08fr); align-items:stretch; gap:7px; }
         .v83-btn { position:relative; min-width:0; min-height:37px; border-radius:10px; padding:6px 5px; font-size:11px; font-weight:900; line-height:1.1; transition:transform .25s,background .25s,box-shadow .25s; }
         .v83-btn:focus-visible, .v83-qty button:focus-visible { outline:2px solid var(--v83-accent); outline-offset:2px; }
         .v83-btn:active:not(:disabled) { transform:scale(.97); }
-        .v83-btn-details { border:1px solid var(--v83-border); color:var(--v83-deep); background:rgba(255,255,255,.83); }
-        .v83-btn-details:hover { background:#fff; box-shadow:0 3px 12px var(--v83-shadow); }
-        .v83-btn-add { border:1px solid transparent; color:white; background:linear-gradient(117deg,var(--v83-accent),var(--v83-deep)); box-shadow:0 4px 10px var(--v83-shadow); }
-        .v83-btn-add:hover:not(:disabled) { box-shadow:0 6px 15px var(--v83-shadow); filter:brightness(1.06); }
+        .v83-btn-details { border:1px solid var(--v83-border); color:#161715; background:#FAF8F4; }
+        .v83-btn-details:hover { background:#F2EBDD; border-color:#B79B6A; box-shadow:0 3px 12px var(--v83-shadow); }
+        .v83-btn-add { border:1px solid #161715; color:#FAF8F4; background:#161715; box-shadow:0 4px 10px var(--v83-shadow); }
+        .v83-btn-add:hover:not(:disabled) { background:#403A32; border-color:#B79B6A; box-shadow:0 6px 15px var(--v83-shadow); }
         .v83-btn:disabled { cursor:not-allowed; box-shadow:none; background:#ece9e5; border-color:#e4dfdb; color:#98918d; filter:none; }
-        .v83-qty { display:grid; min-width:0; grid-template-columns:32px minmax(0,1fr) 32px; min-height:37px; overflow:hidden; border:1px solid var(--v83-border); border-radius:10px; background:rgba(255,255,255,.9); }
+        .v83-qty { display:grid; min-width:0; grid-template-columns:32px minmax(0,1fr) 32px; min-height:37px; overflow:hidden; border:1px solid var(--v83-border); border-radius:10px; background:#FAF8F4; }
         .v83-qty button { min-width:0; border:0; background:transparent; color:var(--v83-deep); font-size:16px; font-weight:900; transition:background .2s; }
         .v83-qty button:hover:not(:disabled) { background:var(--v83-tint); }
         .v83-qty button:disabled { opacity:.3; cursor:not-allowed; }
-        .v83-qty strong { display:flex; align-items:center; justify-content:center; font-size:11px; color:#2f2630; border-left:1px solid var(--v83-border); border-right:1px solid var(--v83-border); }
-        /* V85: gift box selection cards use the same colourful system. */
+        .v83-qty strong { display:flex; align-items:center; justify-content:center; font-size:11px; color:#161715; border-left:1px solid var(--v83-border); border-right:1px solid var(--v83-border); }
+        /* Gift box selection follows the same HAMPORIUM charcoal/ivory/champagne system. */
         .v85-box-card .v83-photo { aspect-ratio: 3 / 2; }
-        .v85-box-selected { border:1px solid var(--v83-border); color:var(--v83-deep); background:var(--v83-tint); cursor:default; }
+        .v85-box-selected { border:1px solid #B79B6A; color:#161715; background:#F2EBDD; cursor:default; }
         .v85-box-selected:hover { background:var(--v83-tint); }
         .v83-decor .v83-photo { aspect-ratio:3 / 2; }
         .v83-decor .v83-title { min-height:36px; }
@@ -3628,7 +3628,7 @@ const CustomHamper = () => {
         </div>
 
         <div
-          className="mb-2 lg:sticky lg:z-[95] lg:mb-3 lg:rounded-[16px] lg:border lg:border-black/[0.055] lg:bg-[#FAF8F4]/95 lg:px-3 lg:py-2.5 lg:shadow-[0_10px_28px_rgba(35,24,13,.08)] lg:backdrop-blur-xl xl:mr-[430px] 2xl:mr-[484px]"
+          className="mb-2 lg:sticky lg:z-[95] lg:mb-3 lg:rounded-[16px] lg:border lg:border-black/[0.055] lg:bg-[#FAF8F4]/95 lg:px-3 lg:py-2.5 lg:shadow-[0_10px_28px_rgba(35,24,13,.08)] lg:backdrop-blur-xl xl:mr-[370px] 2xl:mr-[414px]"
           style={{
             top: desktopHeaderVisible ? "84px" : "0px",
             transition: "top 240ms cubic-bezier(.22,1,.36,1)",
@@ -3675,7 +3675,7 @@ const CustomHamper = () => {
           </div>
         )}
 
-        <div className="mt-2 grid min-w-0 gap-5 sm:mt-4 xl:grid-cols-[minmax(0,1fr)_410px] xl:items-start 2xl:grid-cols-[minmax(0,1fr)_460px] 2xl:gap-6">
+        <div className="mt-2 grid min-w-0 gap-5 sm:mt-4 xl:grid-cols-[minmax(0,1fr)_350px] xl:items-start 2xl:grid-cols-[minmax(0,1fr)_390px] 2xl:gap-6">
           <div className="min-w-0">
             {mobileStep === 1 && (
               <V30Panel
@@ -4129,9 +4129,9 @@ const CustomHamper = () => {
             )}
           </div>
 
-          <aside className="hidden xl:block xl:w-[410px] 2xl:w-[460px]" aria-label="Live hamper preview">
+          <aside className="hidden xl:block xl:w-[350px] 2xl:w-[390px]" aria-label="Live hamper preview">
             <div
-              className="v31-studio-compact v30-scrollbar-none fixed top-[88px] z-30 max-h-[calc(100vh-104px)] w-[410px] overflow-y-auto overscroll-contain pr-1 2xl:w-[460px]"
+              className="v31-studio-compact v30-scrollbar-none fixed top-[88px] z-30 max-h-[calc(100vh-104px)] w-[350px] overflow-y-auto overscroll-contain pr-1 2xl:w-[390px]"
               style={{
                 right: "max(1.75rem, calc((100vw - 1920px) / 2 + 1.75rem))",
               }}
@@ -4817,8 +4817,8 @@ const V11ContainerDetailsModal = ({
           <div className="flex shrink-0 items-center justify-between gap-5 border-b border-black/[0.07] bg-white px-5 py-4 sm:px-6 sm:py-5">
             <div className="min-w-0">
               <div className="flex items-center gap-2.5">
-                <span className="h-2 w-2 rounded-full bg-[#F47822]" />
-                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#F47822]">
+                <span className="h-2 w-2 rounded-full bg-[#B79B6A]" />
+                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#B79B6A]">
                   Box details
                 </p>
               </div>
@@ -4834,7 +4834,7 @@ const V11ContainerDetailsModal = ({
             <button
               type="button"
               onClick={onClose}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-black/[0.08] bg-[#FAF8F5] text-[22px] leading-none text-black/48 transition hover:border-[#F47822]/35 hover:bg-[#FFF7F1] hover:text-[#F47822]"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-black/[0.08] bg-[#FAF8F5] text-[22px] leading-none text-black/48 transition hover:border-[#B79B6A]/35 hover:bg-[#F2EBDD] hover:text-[#B79B6A]"
               aria-label="Close box details"
             >
               ×
@@ -4870,7 +4870,7 @@ const V11ContainerDetailsModal = ({
                   </div>
 
                   {active && (
-                    <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] font-black text-emerald-700">
+                    <span className="rounded-full border border-[#B79B6A]/50 bg-[#F2EBDD] px-3 py-1.5 text-[11px] font-black text-[#403A32]">
                       ✓ Selected
                     </span>
                   )}
@@ -4942,8 +4942,8 @@ const V11ContainerDetailsModal = ({
                 }}
                 className={`h-11 rounded-[11px] px-6 text-[12px] font-black transition ${
                   active
-                    ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
-                    : "bg-[#F47822] text-white hover:bg-[#171717]"
+                    ? "border border-[#B79B6A]/50 bg-[#F2EBDD] text-[#403A32]"
+                    : "bg-[#161715] text-[#FAF8F4] hover:bg-[#403A32]"
                 }`}
               >
                 {active
@@ -5280,8 +5280,8 @@ const V10ProductDetailsModal = ({
           <div className="flex shrink-0 items-center justify-between gap-5 border-b border-black/[0.07] bg-white px-5 py-4 sm:px-6 sm:py-5">
             <div className="min-w-0">
               <div className="flex items-center gap-2.5">
-                <span className="h-2 w-2 rounded-full bg-[#F47822]" />
-                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#F47822]">
+                <span className="h-2 w-2 rounded-full bg-[#B79B6A]" />
+                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#B79B6A]">
                   {eyebrow}
                 </p>
               </div>
@@ -5297,7 +5297,7 @@ const V10ProductDetailsModal = ({
             <button
               type="button"
               onClick={onClose}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-black/[0.08] bg-[#FAF8F5] text-[22px] leading-none text-black/48 transition hover:border-[#F47822]/35 hover:bg-[#FFF7F1] hover:text-[#F47822]"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-black/[0.08] bg-[#FAF8F5] text-[22px] leading-none text-black/48 transition hover:border-[#B79B6A]/35 hover:bg-[#F2EBDD] hover:text-[#B79B6A]"
               aria-label="Close product details"
             >
               ×
@@ -5428,7 +5428,7 @@ const V10ProductDetailsModal = ({
                 </button>
 
                 {quantity > 0 ? (
-                  <div className="grid h-11 flex-1 grid-cols-[44px_1fr_44px] overflow-hidden rounded-[11px] border border-[#F47822]/25 bg-[#FFF8F2] sm:w-[170px] sm:flex-none">
+                  <div className="grid h-11 flex-1 grid-cols-[44px_1fr_44px] overflow-hidden rounded-[11px] border border-[#B79B6A]/25 bg-[#FAF8F4] sm:w-[170px] sm:flex-none">
                     <button
                       type="button"
                       onClick={onMinus}
@@ -5437,14 +5437,14 @@ const V10ProductDetailsModal = ({
                     >
                       −
                     </button>
-                    <span className="flex items-center justify-center border-x border-[#F47822]/15 text-[13px] font-black">
+                    <span className="flex items-center justify-center border-x border-[#B79B6A]/15 text-[13px] font-black">
                       {quantity}
                     </span>
                     <button
                       type="button"
                       disabled={cannotIncrease}
                       onClick={onPlus}
-                      className="text-base font-black text-[#F47822] transition hover:bg-[#F47822] hover:text-white disabled:cursor-not-allowed disabled:opacity-25"
+                      className="text-base font-black text-[#B79B6A] transition hover:bg-[#161715] hover:text-[#FAF8F4] disabled:cursor-not-allowed disabled:opacity-25"
                       aria-label={`Add ${component.name}`}
                     >
                       +
@@ -5455,7 +5455,7 @@ const V10ProductDetailsModal = ({
                     type="button"
                     disabled={cannotIncrease}
                     onClick={onPlus}
-                    className="h-11 flex-1 rounded-[11px] bg-[#F47822] px-6 text-[12px] font-black text-white transition hover:bg-[#171717] disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/25 sm:flex-none"
+                    className="h-11 flex-1 rounded-[11px] bg-[#161715] px-6 text-[12px] font-black text-[#FAF8F4] transition hover:bg-[#403A32] disabled:cursor-not-allowed disabled:bg-black/10 disabled:text-black/25 sm:flex-none"
                   >
                     {addLabel}
                   </button>
@@ -5469,30 +5469,19 @@ const V10ProductDetailsModal = ({
   );
 };
 
-// V83 - palette is stable for each SKU, keeping a colourful collection without
-// changing actual product photos or any price/stock/cart calculation.
-const V83_CARD_THEMES = [
-  { accent: "#DA5278", deep: "#983452", second: "#F4B381", soft: "#FFF1F4", tint: "#FCE0E9", border: "#F5C9D5", shadow: "rgba(177,64,105,.18)" },
-  { accent: "#7562D9", deep: "#4D3DA8", second: "#C19DFF", soft: "#F3F0FF", tint: "#E7E1FF", border: "#D9D0FF", shadow: "rgba(106,82,196,.18)" },
-  { accent: "#168F7C", deep: "#0D665B", second: "#79D7B7", soft: "#EEFAF5", tint: "#D6F3E6", border: "#C4E9DB", shadow: "rgba(28,132,105,.17)" },
-  { accent: "#DB762F", deep: "#A94B23", second: "#F4C46E", soft: "#FFF6EB", tint: "#FDE7CF", border: "#F4D8BE", shadow: "rgba(181,102,39,.18)" },
-  { accent: "#347DD2", deep: "#25589B", second: "#8FC9F0", soft: "#EFF8FF", tint: "#DCEEFF", border: "#C7E2F7", shadow: "rgba(49,110,174,.17)" },
-  { accent: "#B45BA8", deep: "#813E82", second: "#E6A1D0", soft: "#FCF0F9", tint: "#F5DDF0", border: "#E9C9E4", shadow: "rgba(157,75,137,.18)" },
-];
-
-const v83CardTheme = (component) => {
-  const key = String(component?._id || component?.code || component?.name || "gift");
-  const palette = V83_CARD_THEMES[v7Hash(key) % V83_CARD_THEMES.length];
-  return {
-    "--v83-accent": palette.accent,
-    "--v83-deep": palette.deep,
-    "--v83-second": palette.second,
-    "--v83-soft": palette.soft,
-    "--v83-tint": palette.tint,
-    "--v83-border": palette.border,
-    "--v83-shadow": palette.shadow,
-  };
-};
+// HAMPORIUM BRAND PALETTE | Box, gift & finishing cards share ONE consistent theme.
+// Stable CSS variables across SKUs; product photography remains unchanged.
+// Do not confuse this with V7_PALETTES: those are actual 3D packing-art colours.
+const V83_CARD_STYLE = Object.freeze({
+  "--v83-accent": "#B79B6A",      // Champagne gold
+  "--v83-deep": "#161715",        // HAMPORIUM charcoal
+  "--v83-second": "#D8C29B",      // Warm gold highlight
+  "--v83-soft": "#FAF8F4",        // Ivory
+  "--v83-tint": "#F2EBDD",        // Pale champagne
+  "--v83-border": "#E3D9C9",      // Soft neutral border
+  "--v83-shadow": "rgba(22,23,21,.12)",
+});
+const v83CardTheme = () => V83_CARD_STYLE;
 
 const V7ProductCard = ({
   component,
@@ -7813,7 +7802,7 @@ const CustomHamperSkeleton = () => (
     <div className="mx-auto w-full max-w-[1760px]">
       <div className="h-[250px] animate-pulse rounded-[30px] bg-[#171614]/90" />
       <div className="mt-4 h-[64px] animate-pulse rounded-[18px] bg-white" />
-      <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_460px]">
+      <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_350px] 2xl:grid-cols-[minmax(0,1fr)_390px]">
         <div className="h-[620px] animate-pulse rounded-[28px] bg-white" />
         <div className="h-[610px] animate-pulse rounded-[28px] bg-white" />
       </div>

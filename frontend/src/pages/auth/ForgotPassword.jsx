@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
@@ -8,82 +9,59 @@ const ForgotPassword = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const partnerFlow = Boolean(location.state?.partner);
-
+  const backPath = partnerFlow ? "/partner/login" : "/login";
   const [email, setEmail] = useState(location.state?.email || "");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    if (submitting) return;
+    const address = email.trim();
+    if (!address) return;
     setError("");
     setSubmitting(true);
-
     try {
-      await api.post("/auth/forgot-password", { email });
-      navigate("/verify-otp", {
-        state: { email, partner: partnerFlow },
-      });
+      await api.post("/auth/forgot-password", { email: address });
+      navigate("/verify-otp", { state: { email: address, partner: partnerFlow } });
     } catch (requestError) {
-      setError(requestError.response?.data?.message || "Unable to send OTP");
+      setError(requestError.response?.data?.message || "Unable to send your recovery code.");
     } finally {
       setSubmitting(false);
     }
   };
 
-  const backPath = partnerFlow ? "/partner/login" : "/login";
-
   return (
     <TypeformShell
-      eyebrow={partnerFlow ? "Partner Recovery" : "Account Recovery"}
-      title="Reset your password."
-      description="Enter your account email and we will send a 6-digit recovery code."
-      sideTitle={partnerFlow ? "Recover partner access." : "Reset access securely."}
-      sideText=""
-      closeTo={partnerFlow ? "/partner/login" : "/login"}
+      eyebrow="ACCOUNT RECOVERY"
+      simple
+      closeTo={backPath}
+      title="Reset password."
+      description="Get a 6-digit code by email."
     >
-      {error && <ErrorBox>{error}</ErrorBox>}
-
-      <form onSubmit={handleSubmit} className="space-y-5">
-        <label className="block">
-          <span className="mb-2 block text-[13px] font-bold text-black/58">
-            Email address
-          </span>
-          <input
-            autoFocus
-            type="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            placeholder="you@example.com"
-            autoComplete="email"
-            className={inputClass}
-            required
-          />
-        </label>
-
-        <button disabled={submitting} className={primaryButton}>
-          {submitting ? "Sending..." : "Send recovery OTP"}
+      {error && <div role="alert" className="mb-3 rounded-[12px] border border-red-200 bg-red-50 px-3.5 py-3 text-[13px] leading-5 text-red-700">{error}</div>}
+      <form onSubmit={handleSubmit}>
+        <label htmlFor="hamp-recovery-email" className="mb-1.5 block text-[12px] font-semibold text-[#494239]">Email address</label>
+        <input
+          id="hamp-recovery-email"
+          autoFocus
+          type="email"
+          autoComplete="email"
+          required
+          value={email}
+          onChange={(event) => { setEmail(event.target.value); if (error) setError(""); }}
+          placeholder="you@example.com"
+          className="block min-w-0 h-[50px] w-full rounded-[12px] border border-[#DED6CA] bg-white px-4 text-[14px] font-medium text-[#28241F] outline-none transition-[border-color,box-shadow] duration-200 placeholder:font-normal placeholder:text-[#A39A8F] hover:border-[#CABBA6] focus:border-[#B79B6A] focus:ring-[3px] focus:ring-[#B79B6A]/15"
+        />
+        <button disabled={submitting} className="mt-4 flex h-[50px] w-full items-center justify-center gap-2 rounded-[12px] bg-[#171715] px-5 text-[14px] font-semibold tracking-[.015em] text-[#E9D0A1] shadow-[0_7px_18px_rgba(22,23,21,.12)] transition-[background-color,transform,box-shadow] duration-200 hover:bg-[#34302A] hover:shadow-[0_10px_22px_rgba(22,23,21,.18)] active:scale-[.99] disabled:cursor-not-allowed disabled:opacity-45 disabled:shadow-none">
+          {submitting ? "Sending code..." : "Send reset code →"}
         </button>
       </form>
-
-      <Link
-        to={backPath}
-        className="mt-7 inline-block text-[13px] font-extrabold text-[#F97316] hover:text-[#171717]"
-      >
-        Back to {partnerFlow ? "partner login" : "login"}
-      </Link>
+      <div className="mt-4 border-t border-[#EAE2D8] pt-3 text-center">
+        <Link to={backPath} className="text-[13px] font-semibold text-[#1A1917] underline decoration-[#B79B6A]/65 underline-offset-4 transition-colors hover:text-[#967343]">← Back to {partnerFlow ? "partner login" : "login"}</Link>
+      </div>
     </TypeformShell>
   );
 };
-
-const ErrorBox = ({ children }) => (
-  <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] font-semibold leading-5 text-red-700">
-    {children}
-  </div>
-);
-
-const inputClass =
-  "h-13 w-full rounded-xl border border-black/10 bg-[#FBF8F3] px-4 text-[16px] font-semibold text-[#171717] outline-none transition placeholder:font-medium placeholder:text-black/28 focus:border-[#D59A3A] focus:bg-white focus:ring-4 focus:ring-[#D59A3A]/10";
-const primaryButton =
-  "inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#171717] px-6 py-3 text-[13px] font-extrabold text-white transition hover:bg-[#F97316] disabled:cursor-not-allowed disabled:opacity-45";
 
 export default ForgotPassword;

@@ -1,3 +1,4 @@
+
 import { Link } from "react-router-dom";
 
 const TypeformShell = ({
@@ -12,6 +13,8 @@ const TypeformShell = ({
   closeTo = "/",
   footer,
   compact = false,
+  simple = false, // Modern auth experience (legacy branch below is preserved).
+  authMode = "",
 }) => {
   const safeStep = Math.max(1, Number(step) || 1);
   const safeTotalSteps = Math.max(1, Number(totalSteps) || 1);
@@ -22,6 +25,82 @@ const TypeformShell = ({
         Math.min(100, ((safeStep - 1) / (safeTotalSteps - 1)) * 100)
       )
     : 0;
+
+  // Editorial auth layout: only screens explicitly opting into `simple` use this.
+  // The existing legacy partner/other shell below remains completely unchanged.
+  // Compact brand layout for public and partner auth. The legacy branch below
+  // stays intact for screens which don't request the `simple` layout.
+  if (simple) {
+    const tabs = {
+      login: { first: "/login", second: "/signup", firstLabel: "Sign in", secondLabel: "Create account", current: "first" },
+      signup: { first: "/login", second: "/signup", firstLabel: "Sign in", secondLabel: "Create account", current: "second" },
+      partnerLogin: { first: "/partner/login", second: "/partner/register", firstLabel: "Partner login", secondLabel: "Apply as partner", current: "first" },
+      partnerRegister: { first: "/partner/login", second: "/partner/register", firstLabel: "Partner login", secondLabel: "Apply as partner", current: "second" },
+    }[authMode];
+    return (
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-label={typeof title === "string" ? title : "HAMPORIUM account"}
+        className="fixed inset-0 z-[250] overflow-y-auto overscroll-contain bg-[#11110F]/80 px-3 py-4 backdrop-blur-[5px] sm:px-5 sm:py-7"
+      >
+        <div className="flex min-h-full items-center justify-center">
+          <div className={`relative grid w-full min-w-0 grid-cols-1 overflow-hidden rounded-[22px] border border-[#D8D0C4]/55 bg-[#FAF8F4] shadow-[0_28px_100px_rgba(0,0,0,.36)] lg:grid-cols-[40%_minmax(0,1fr)] ${compact ? "max-w-[1080px]" : "max-w-[1000px]"}`}>
+            <aside className="relative isolate flex min-w-0 items-center justify-center overflow-hidden bg-[#171613] px-5 py-6 text-[#FAF8F4] sm:py-8 lg:min-h-full lg:px-9 lg:py-12">
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_65%_54%,#393027_0%,#1B1916_45%,#100F0E_100%)]" aria-hidden="true" />
+              <svg aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full opacity-90" viewBox="0 0 420 640" preserveAspectRatio="xMidYMid slice" fill="none">
+                <path d="M-165 125 C30 128 168 30 311 -58" stroke="#C0A172" strokeWidth="1.2" strokeOpacity=".8" />
+                <path d="M-110 160 C58 124 204 6 347 -100" stroke="#6E5639" strokeWidth="1" strokeOpacity=".35" />
+                <path d="M-120 525 C84 395 240 650 550 390" stroke="#C0A172" strokeWidth="1.3" strokeOpacity=".85" />
+                <path d="M-140 562 C92 426 242 698 553 431" stroke="#7B654B" strokeWidth="1" strokeOpacity=".35" />
+              </svg>
+              <div className="relative flex flex-col items-center gap-2 text-center">
+                <span className="font-serif text-[43px] leading-none font-normal text-[#D9B980] sm:text-[56px]" aria-hidden="true">H</span>
+                <span className="h-px w-9 bg-[#B79B6A]/80" aria-hidden="true" />
+                <Link to="/" className="whitespace-nowrap font-serif text-[17px] tracking-[.23em] text-[#FAF8F4] sm:text-[22px] lg:text-[25px]">
+                  HAMPORIUM
+                </Link>
+              </div>
+            </aside>
+
+            <main className="relative min-w-0 bg-[#FAF8F4] px-5 pb-7 pt-9 sm:px-9 sm:pb-9 sm:pt-10 lg:px-12 lg:pb-11 lg:pt-11">
+              <Link
+                to={closeTo}
+                aria-label="Close"
+                className="absolute right-3 top-3 z-20 flex h-8 w-8 items-center justify-center rounded-full text-[#6A6258] transition hover:bg-[#EDE6DC] hover:text-[#171715] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B79B6A] sm:right-4 sm:top-4"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true" className="h-4 w-4"><path d="M5 5 19 19M19 5 5 19" /></svg>
+              </Link>
+              <div className="mx-auto w-full min-w-0 max-w-[535px]">
+                {tabs ? (
+                  <>
+                    <h1 className="sr-only">{title}</h1>
+                    <nav aria-label="Account options" className="mb-7 grid grid-cols-2 gap-1 rounded-[12px] bg-[#F0EBE4] p-1 sm:mb-8">
+                      <Link to={tabs.first} aria-current={tabs.current === "first" ? "page" : undefined} className={`flex min-h-[46px] min-w-0 items-center justify-center rounded-[9px] px-2 text-center text-[13px] font-semibold transition-colors sm:text-[14px] ${tabs.current === "first" ? "bg-[#171715] text-[#E6C992] shadow-sm" : "text-[#403A32] hover:bg-white/75"}`}>{tabs.firstLabel}</Link>
+                      <Link to={tabs.second} aria-current={tabs.current === "second" ? "page" : undefined} className={`flex min-h-[46px] min-w-0 items-center justify-center rounded-[9px] px-2 text-center text-[13px] font-semibold transition-colors sm:text-[14px] ${tabs.current === "second" ? "bg-[#171715] text-[#E6C992] shadow-sm" : "text-[#403A32] hover:bg-white/75"}`}>{tabs.secondLabel}</Link>
+                    </nav>
+                  </>
+                ) : (
+                  <div className="mb-6 pr-6">
+                    <h1 className="text-[24px] font-semibold leading-snug tracking-[-.025em] text-[#171715] sm:text-[28px] break-normal [overflow-wrap:normal]">{title}</h1>
+                    {description && <p className="mt-2 text-[13px] leading-5 text-[#777067] [overflow-wrap:break-word]">{description}</p>}
+                  </div>
+                )}
+                {tabs && hasProgress && (
+                  <div aria-label={`Step ${safeStep} of ${safeTotalSteps}`} className="mb-5 flex items-center gap-2">
+                    {Array.from({ length: safeTotalSteps }, (_, index) => <span key={index} className={`h-[3px] min-w-0 flex-1 rounded-full ${index < safeStep ? "bg-[#B79B6A]" : "bg-[#E2DAD0]"}`} />)}
+                    <span className="ml-2 text-[11px] font-medium tabular-nums text-[#877B6A]">{safeStep}/{safeTotalSteps}</span>
+                  </div>
+                )}
+                {children}
+                {footer && <div className="mt-4">{footer}</div>}
+              </div>
+            </main>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="fixed inset-0 z-[250] overflow-y-auto bg-[#090909]/82 px-3 py-4 backdrop-blur-sm sm:px-5 sm:py-5">
