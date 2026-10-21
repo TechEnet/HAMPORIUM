@@ -571,6 +571,61 @@ const Home = () => {
   const finishCinematicIntro = useCallback(() => setIntroFinished(true), []);
   useHomeEnhancements(homeRef, reducedMotion);
 
+  // V6: start decoding the next journey panels before they become visible.
+  // Triggered by proximity, never on every scroll; no new network requests
+  // for offscreen bulk imagery while the user is watching the opening film.
+  useEffect(() => {
+    const journey = homeRef.current?.querySelector('[data-home-section="journey"]');
+    if (!journey || typeof window === "undefined") return undefined;
+
+    const warmedImages = [];
+    let hoverTimer = 0;
+    let started = false;
+    const warm = (source) => {
+      if (!source) return;
+      const responsive = HOME_OPTIMIZED_IMAGES.get(source);
+      const image = new Image();
+      image.decoding = "async";
+      image.fetchPriority = "low";
+      if (responsive?.srcSet) {
+        image.sizes = "100vw";
+        image.srcset = responsive.srcSet;
+      }
+      image.src = responsive?.src || source;
+      warmedImages.push(image);
+      image.decode?.().catch(() => {});
+    };
+
+    let observer;
+    const start = () => {
+      if (started) return;
+      started = true;
+      observer?.disconnect();
+      // The signature panel is already browser-lazy-loaded nearby.
+      // Prepare the build and bulk panels before a quick wheel/trackpad move.
+      warm(HOME_IMAGES.journeyBuild1);
+      warm(HOME_IMAGES.journeyBulk1);
+      // Alternate artwork is decorative, so defer it until base requests start.
+      hoverTimer = window.setTimeout(() => warm(HOME_IMAGES.journeyBulk2), 280);
+    };
+
+    if (typeof IntersectionObserver === "undefined") {
+      start();
+    } else {
+      observer = new IntersectionObserver(
+        ([entry]) => { if (entry?.isIntersecting) start(); },
+        { rootMargin: "1250px 0px", threshold: 0 }
+      );
+      observer.observe(journey);
+    }
+
+    return () => {
+      observer?.disconnect();
+      if (hoverTimer) window.clearTimeout(hoverTimer);
+      warmedImages.length = 0;
+    };
+  }, []);
+
   // The existing catalogue endpoint and filter contract are retained.
   // A stale response never overwrites a newer request or an unmounted page.
   useEffect(() => {
@@ -6599,6 +6654,32 @@ const Home = () => {
             background:linear-gradient(90deg,var(--hmp-gold),var(--hmp-stone),var(--hmp-gold));
           }
 
+          /* V6: Journey headings never wait invisibly for a nested viewport
+             observer. The original diagonal handoff remains unchanged. */
+          @keyframes hpJourneyFastTitle {
+            from { opacity: .78; transform: translate3d(0, 12px, 0); }
+            to { opacity: 1; transform: translate3d(0, 0, 0); }
+          }
+          .hp-home-v65 [data-home-section="journey"] .hp-journey-feature-title.hp-kinetic-heading,
+          .hp-home-v65 [data-home-section="journey"] .hp-journey-feature-title.hp-kinetic-heading.is-kinetic-visible {
+            opacity: 1;
+            transform: none;
+            animation: none;
+            will-change: auto;
+          }
+          .hp-home-v65 [data-home-section="journey"] .hp-story-page.is-story-visible .hp-journey-feature-title.hp-kinetic-heading {
+            animation: hpJourneyFastTitle 420ms cubic-bezier(.2,.75,.2,1) both;
+          }
+          /* Faster third-panel photo blend, without changing the artwork. */
+          .hp-home-v65 .hp-journey-bulk-page .hp-fluid-image {
+            transition: opacity .46s cubic-bezier(.22,1,.36,1), transform .72s cubic-bezier(.22,1,.36,1) !important;
+          }
+          @media (prefers-reduced-motion: reduce) {
+            .hp-home-v65 [data-home-section="journey"] .hp-story-page.is-story-visible .hp-journey-feature-title.hp-kinetic-heading {
+              animation: none;
+            }
+          }
+
           /* V152 - critical-scroll work stays compositor-only where possible.
              Free GPU layers once one-time headings have already animated. */
           .hp-home-v65 .hp-kinetic-heading.is-kinetic-settled,
@@ -6718,7 +6799,7 @@ const Home = () => {
             <SignatureLink
               key={item.to}
               to={item.to}
-              className={`hp-story-page hp-journey-story-page hp-fluid-host group relative block ${index === 0 ? "hp-journey-first-page" : ""}`}
+              className={`hp-story-page hp-journey-story-page hp-fluid-host group relative block ${index === 0 ? "hp-journey-first-page" : ""} ${index === 2 ? "hp-journey-bulk-page" : ""}`}
               aria-label={`${item.title}. ${item.cta}`}
             >
               <div className="hp-story-sheet hp-journey-story-sheet">
@@ -6727,7 +6808,7 @@ const Home = () => {
                   hoverSrc={item.hoverImage}
                   alt={item.title}
                   loading="lazy"
-                  fetchPriority="low"
+                  fetchPriority={index === 2 ? "auto" : "low"}
                   style={{ objectPosition: item.objectPosition }}
                   imageClassName="hp-story-image hp-journey-story-image object-cover"
                   strength={index === 1 ? 21 : 19}
