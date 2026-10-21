@@ -874,9 +874,6 @@ export default function Footer() {
           <div className="hp-footer-mobile-links"><MobileLinks /></div>
           <div className="hp-footer-social"><SocialLinks /></div>
         </div>
-        <div className="hp-footer-copyright">
-          <p>© {year} HAMPORIUM. All rights reserved.</p>
-        </div>
       </div>
 
       <div
@@ -895,6 +892,11 @@ export default function Footer() {
             </span>
           ))}
         </div>
+      </div>
+
+      {/* Copyright stays at the absolute end, beneath the large HAMPORIUM wordmark. */}
+      <div className="hp-footer-copyright">
+        <p>© {year} HAMPORIUM. All rights reserved.</p>
       </div>
     </footer>
   );

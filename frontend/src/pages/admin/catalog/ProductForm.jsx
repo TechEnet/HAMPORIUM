@@ -1,5 +1,6 @@
+
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 import api, {
   deleteCatalogImage,
@@ -50,6 +51,7 @@ const createEmptySku = () => ({
     packingDays: 0,
   },
   defaultCourierDays: "",
+  leadTimeDays: "",
   sortOrder: 0,
   isActive: true,
 });
@@ -111,6 +113,7 @@ const ProductForm = () => {
   const [containers, setContainers] = useState([]);
   const [components, setComponents] = useState([]);
   const [skus, setSkus] = useState([]);
+  const [readiness, setReadiness] = useState(null);
 
   const [editingSkuId, setEditingSkuId] = useState(null);
 
@@ -175,6 +178,12 @@ const ProductForm = () => {
 
     setProductImageFile(null);
     setSkus(product.skus || []);
+    try {
+      const r = await api.get(`/catalog-studio/readiness/product/${productId}`);
+      setReadiness(r.data);
+    } catch {
+      setReadiness(null); // Existing product editing still works if Studio API is unavailable.
+    }
   };
 
   useEffect(() => {
@@ -575,6 +584,8 @@ const ProductForm = () => {
             ),
         },
 
+        leadTimeDays: skuForm.leadTimeDays === "" ? null : Number(skuForm.leadTimeDays),
+
         defaultCourierDays:
           skuForm.defaultCourierDays === ""
             ? null
@@ -737,6 +748,7 @@ const ProductForm = () => {
       defaultCourierDays:
         sku.defaultCourierDays ??
         "",
+      leadTimeDays: sku.leadTimeDays ?? "",
 
       sortOrder:
         sku.sortOrder ?? 0,
@@ -810,6 +822,11 @@ const ProductForm = () => {
           {error}
         </div>
       )}
+
+      {editing && <section className="mt-5 rounded-2xl border border-[#E5D9C7] bg-white p-5">
+        <div className="flex flex-wrap justify-between gap-3"><div><h2 className="text-base font-extrabold">Website publishing checklist</h2><p className="mt-1 text-[12px] text-black/50">Actual public catalog rules stay in the backend. This checklist shows missing details; imported Live status is never reset here.</p></div><Link className="rounded-xl border border-[#D6C9B6] px-4 py-2 text-xs font-bold" to={`/admin/studio/excel-fields?kind=product&sheet=hamperMaster&id=${productId}`}>All Excel fields</Link></div>
+        {readiness ? <><div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{(readiness.checklist||[]).map(item=><div key={item.key} className={`rounded-xl p-3 text-xs ${item.complete?'bg-emerald-50 text-emerald-800':'bg-[#FFF8E9] text-[#87632E]'}`}><strong>{item.complete?'✓':'○'} {item.label}</strong><span className="mt-1 block text-[10px] opacity-70">{item.requiredForStorefront?'Storefront essential':item.recommendedForDelivery?'Delivery recommendation':'Review'}</span></div>)}</div><p className="mt-3 text-xs font-semibold">{readiness.completed}/{readiness.total} checks complete · {readiness.readyToPublish?'Backend readiness passed':'Needs review before publishing'}</p>{(readiness.reasons||[]).length>0&&<p className="mt-2 text-[11px] leading-5 text-red-700">{readiness.reasons.join(' · ')}</p>}</>:<p className="mt-3 text-xs text-black/50">Save this product first to see its backend readiness.</p>}
+      </section>}
 
       <form
         onSubmit={saveProduct}
@@ -1557,8 +1574,12 @@ const ProductForm = () => {
               <SkuSection
                 eyebrow="Timeline"
                 title="Production & Delivery"
-                description="These defaults are used by the delivery estimate engine."
+                description="Keep the Excel-only Lead Time Days value separate from courier estimates. Existing delivery engine remains authoritative."
               >
+                <div className="mb-4 rounded-xl border border-[#D8C39E] bg-[#FFF9EC] p-4">
+                  <Field label="Lead Time Days — Excel Master" type="number" min="0" max="365" value={skuForm.leadTimeDays} onChange={(value) => setSkuForm(current => ({ ...current, leadTimeDays: value }))} placeholder="Optional until verified" />
+                  <p className="mt-2 text-[11px] leading-5 text-[#755C34]">Enter the approved Lead Time Days value only. This field is not courier days and does not automatically change your existing ETA logic.</p>
+                </div>
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   <Field
                     label="Personalization Days"

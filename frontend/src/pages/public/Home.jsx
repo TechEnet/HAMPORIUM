@@ -1,4 +1,5 @@
 
+
 // V154: Hamper One home section uses the same crisp SVG wordmark as Hamper One V12.
 // V153: mobile vertical guide hidden; cinematic video loops across scrolling until manually paused.
 // V152: frame-perfect scroll indicator, lighter hero compositing, scroll-paint optimizations.
@@ -19,6 +20,7 @@ import { Link, useNavigate } from "react-router-dom";
 
 import api from "../../api/api.js";
 import Loader from "../../components/Loader.jsx";
+import WebsiteCampaigns from "../../components/WebsiteCampaigns.jsx";
 import {
   PromotionAnnouncement,
   PromotionHomeBanner,
@@ -6674,6 +6676,9 @@ const Home = () => {
           visible
         />
 
+        {/* New published/scheduled campaign showcase. Empty until an approved campaign exists. */}
+        <WebsiteCampaigns placement="home_hero" />
+
         {/* ==================================================
             CHOOSE YOUR GIFTING JOURNEY · DIAGONAL SCROLL STORY
             Uses the same sticky sheet / diagonal hand-off language as
@@ -6732,6 +6737,9 @@ const Home = () => {
                 <div className="absolute inset-0 bg-gradient-to-r from-black/66 via-black/12 to-transparent" />
                 <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_20%,rgba(183,155,106,.12),transparent_28%),radial-gradient(circle_at_80%_78%,rgba(183,155,106,.08),transparent_26%)]" />
 
+                {/*
+                  TEMPORARILY COMMENTED OUT: "How Do You Want To Gift Today?"
+                  Only the heading is hidden; all three journey cards are active.
                 {index === 0 && (
                   <div className="hp-journey-first-intro absolute z-20">
                     <h2 className="hp-section-heading hp-journey-intro-heading mt-0 max-w-[1000px] text-[#FFF4DC] drop-shadow-[0_12px_42px_rgba(0,0,0,.58)]">
@@ -6747,6 +6755,7 @@ const Home = () => {
                     </h2>
                   </div>
                 )}
+                */}
 
                 <div className="hp-journey-story-content absolute inset-x-0 z-20 p-5 pb-9 sm:p-8 sm:pb-12 lg:p-14 lg:pb-16 xl:p-20 xl:pb-20">
                   <div className="max-w-[760px]">
@@ -7530,6 +7539,9 @@ const Home = () => {
             BULK / EVENT GIFTING · EDITORIAL FLOW
         =================================================== */}
 
+        {/* BULK / EVENT GIFTING temporarily disabled on request.
+            The complete section is retained below for future re-enabling. */}
+        {false && (
         <section data-home-section="bulk" className="relative overflow-hidden bg-[#E8E1D6] text-[#161715]">
           <div className="hp-bulk-layout grid min-h-[850px] lg:grid-cols-[0.92fr_1.08fr]">
             {/* LEFT VISUAL */}
@@ -7639,10 +7651,15 @@ const Home = () => {
             </div>
           </div>
         </section>
+        )}
 
         {/* ==================================================
             FINAL FULL-SCREEN CTA
         =================================================== */}
+
+        {/*
+          SECTION DISABLED ON REQUEST: Final full-screen gifting CTA
+          (A Gift Should Never Feel Ordinary / Shop Hampers / Build Yours)
 
         <section data-home-section="finale" className="hp-final-parallax-zone hp-fluid-host hp-pointer-glow relative flex min-h-[82svh] items-center overflow-hidden bg-black text-white">
           <FluidBackdrop
@@ -7692,6 +7709,7 @@ const Home = () => {
             </div>
           </Reveal>
         </section>
+        */}
 
         {/* ==================================================
             CONTACT / V145 - atelier invitation; luxury two-tone frame
@@ -7877,9 +7895,12 @@ const FluidBackdrop = ({
     }
 
     let active = true;
+    let decodeStarted = false;
     const preload = new Image();
 
     const markReady = async () => {
+      if (decodeStarted) return;
+      decodeStarted = true;
       try {
         if (typeof preload.decode === "function") await preload.decode();
       } catch {
@@ -7932,6 +7953,7 @@ const FluidBackdrop = ({
 
     let timerId = 0;
     let visible = false;
+    let lastObservedScrollY = window.scrollY;
 
     const clearTimer = () => {
       if (timerId) {
@@ -7945,6 +7967,14 @@ const FluidBackdrop = ({
       if (!visible || document.hidden) return;
       timerId = window.setTimeout(() => {
         if (document.hidden || !visible) return;
+        const currentScrollY = window.scrollY;
+        if (Math.abs(currentScrollY - lastObservedScrollY) > 6) {
+          // Full-screen image blends during a fling compete with sticky-page scrolling.
+          lastObservedScrollY = currentScrollY;
+          scheduleSwap(1050);
+          return;
+        }
+        lastObservedScrollY = currentScrollY;
         layer.classList.toggle("is-mobile-alt");
         scheduleSwap(4800);
       }, delay);
@@ -7956,6 +7986,7 @@ const FluidBackdrop = ({
         visible = Boolean(entry?.isIntersecting && entry.intersectionRatio >= 0.38);
 
         if (visible) {
+          lastObservedScrollY = window.scrollY;
           scheduleSwap(2600);
         } else {
           clearTimer();
@@ -7967,7 +7998,10 @@ const FluidBackdrop = ({
 
     const onTabVisibility = () => {
       if (document.hidden) clearTimer();
-      else if (visible) scheduleSwap(2600);
+      else if (visible) {
+        lastObservedScrollY = window.scrollY;
+        scheduleSwap(2600);
+      }
     };
     observer.observe(host);
     document.addEventListener("visibilitychange", onTabVisibility);
@@ -8005,7 +8039,7 @@ const FluidBackdrop = ({
         className={`hp-fluid-image hp-fluid-image-base ${imageClassName}`}
       />
 
-      {hoverSrc && hoverRequested && (
+      {hoverSrc && hoverReady && (
         <MemoSmartImage
           src={hoverSrc}
           alt=""
@@ -10649,6 +10683,7 @@ const useHomeEnhancements = (homeRef, reducedMotion) => {
     let frame = 0;
     let pageTravel = 1;
     let heroTravel = 1;
+    let goldenKnotTravel = Math.max(0, window.innerHeight - 10);
     let lastScrollY = -1;
     let heroSettled = false;
     let lastDecorationUpdate = -Infinity;
@@ -10679,10 +10714,9 @@ const useHomeEnhancements = (homeRef, reducedMotion) => {
       // using transform, but rate-limit the SVG dash repaint. On low-end or
       // touch screens the guide stays static to reserve frames for scrolling.
       if (animateGoldenThread && goldenKnot) {
-        const knotTravel = Math.max(0, window.innerHeight - 10);
-        goldenKnot.style.transform = `translate3d(-50%, ${(progress * knotTravel).toFixed(2)}px, 0) rotate(45deg)`;
+        goldenKnot.style.transform = `translate3d(-50%, ${(progress * goldenKnotTravel).toFixed(2)}px, 0) rotate(45deg)`;
       }
-      if (animateGoldenThread && now - lastDecorationUpdate >= 16) {
+      if (animateGoldenThread && now - lastDecorationUpdate >= 32) {
         lastDecorationUpdate = now;
         if (goldenPath) goldenPath.style.strokeDashoffset = String(1 - progress);
         const fade = progress > .91
@@ -10724,6 +10758,7 @@ const useHomeEnhancements = (homeRef, reducedMotion) => {
     const scheduleScroll = () => schedulePaint();
 
     const measure = () => {
+      goldenKnotTravel = Math.max(0, window.innerHeight - 10);
       pageTravel = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
       heroTravel = Math.max(
         1,
@@ -11185,6 +11220,7 @@ const CinematicHero = ({ onIntroComplete }) => {
 const InteractiveRail = ({ id, label, className = "", controlsClass = "", children, showStatus = true }) => {
   const ref = useRef(null);
   const frame = useRef(0);
+  const geometryCacheRef = useRef(null);
   const nearViewportRef = useRef(true);
   const reducedMotion = useMediaPreference("(prefers-reduced-motion: reduce)");
   const [range, setRange] = useState({ start: 1, end: 1, total: 0, prev: false, next: false });
@@ -11198,21 +11234,27 @@ const InteractiveRail = ({ id, label, className = "", controlsClass = "", childr
     const viewportRight = viewportLeft + node.clientWidth;
     const viewportCenter = viewportLeft + node.clientWidth / 2;
 
-    // Read all layout geometry first. Keeping reads and writes in separate phases
-    // prevents forced synchronous layout while a rail is moving.
-    const geometry = items.map((item, index) => {
+    // offsetLeft/offsetWidth can force layout on every scroll tick. Cache them
+    // until a ResizeObserver or actual child change invalidates the geometry.
+    const cached = geometryCacheRef.current;
+    const cacheValid = cached && cached.width === node.clientWidth &&
+      cached.count === items.length && cached.first === items[0] &&
+      cached.last === items[items.length - 1];
+    const geometry = cacheValid ? cached.items : items.map((item, index) => {
       const width = Math.max(1, item.offsetWidth);
       const left = item.offsetLeft;
-      const right = left + width;
-      const visibleWidth = Math.max(0, Math.min(right, viewportRight) - Math.max(left, viewportLeft));
-      const visibleRatio = visibleWidth / width;
-      const center = left + width / 2;
-      return { item, index, width, center, visibleRatio };
+      return { item, index, width, center: left + width / 2, left, right: left + width };
     });
+    if (!cacheValid) {
+      geometryCacheRef.current = {
+        width: node.clientWidth, count: items.length,
+        first: items[0], last: items[items.length - 1], items: geometry,
+      };
+    }
 
-    const visible = geometry
-      .filter((entry) => entry.visibleRatio > .6)
-      .map((entry) => entry.index);
+    const visible = geometry.filter(({ width, left, right }) =>
+      Math.max(0, Math.min(right, viewportRight) - Math.max(left, viewportLeft)) / width > .6
+    ).map(({ index }) => index);
 
     const next = {
       start: visible.length ? visible[0] + 1 : 1,
@@ -11315,10 +11357,12 @@ const InteractiveRail = ({ id, label, className = "", controlsClass = "", childr
          Rail geometry depends on width, so do nothing unless width changed. */
       if (Math.abs(nextWidth - lastWidth) < 2) return;
       lastWidth = nextWidth;
+      geometryCacheRef.current = null;
       if (nearViewportRef.current) schedule();
     };
 
     const resize = window.ResizeObserver ? new ResizeObserver(() => {
+      geometryCacheRef.current = null;
       if (nearViewportRef.current) schedule();
     }) : null;
     resize?.observe(node);
@@ -11332,8 +11376,10 @@ const InteractiveRail = ({ id, label, className = "", controlsClass = "", childr
     visibilityObserver?.observe(node);
     node.addEventListener("scroll", schedule, { passive: true });
     window.addEventListener("resize", onViewportResize, { passive: true });
+    geometryCacheRef.current = null;
     schedule();
     return () => {
+      geometryCacheRef.current = null;
       resize?.disconnect();
       visibilityObserver?.disconnect();
       cancelAnimationFrame(frame.current);
@@ -11388,15 +11434,17 @@ const FloatingGiftConcierge = ({
 
   useEffect(() => {
     const sentinel = visibilitySentinelRef.current;
-    const finale = document.querySelector('[data-home-section="finale"]');
+    // The old finale section is intentionally commented out. Observe the real
+    // shared footer instead, so the floating button never covers footer content.
+    const footer = document.querySelector(".hp-footer") || document.querySelector("footer");
 
     if (!sentinel || typeof IntersectionObserver === "undefined") {
       return undefined;
     }
 
-    const state = { passedJourney: false, nearFinale: false };
+    const state = { passedJourney: false, footerReached: false };
     const sync = () => {
-      const next = state.passedJourney && !state.nearFinale;
+      const next = state.passedJourney && !state.footerReached;
       setVisible((current) => (current === next ? current : next));
     };
 
@@ -11413,22 +11461,23 @@ const FloatingGiftConcierge = ({
 
     startObserver.observe(sentinel);
 
-    const finaleObserver = finale
+    // Hide slightly before the footer reaches the viewport to avoid overlap
+    // during the button's existing fade-out transition. No scroll listener.
+    const footerObserver = footer
       ? new IntersectionObserver(
           ([entry]) => {
-            const boundary = entry?.rootBounds?.bottom ?? window.innerHeight * .72;
-            state.nearFinale = Boolean(entry && entry.boundingClientRect.top < boundary);
+            state.footerReached = Boolean(entry?.isIntersecting);
             sync();
           },
-          { rootMargin: "0px 0px -28% 0px", threshold: 0 }
+          { rootMargin: "0px 0px 64px 0px", threshold: 0 }
         )
       : null;
 
-    finaleObserver?.observe(finale);
+    footerObserver?.observe(footer);
 
     return () => {
       startObserver.disconnect();
-      finaleObserver?.disconnect();
+      footerObserver?.disconnect();
     };
   }, []);
 

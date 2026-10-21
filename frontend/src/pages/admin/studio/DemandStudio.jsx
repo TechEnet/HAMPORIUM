@@ -1,0 +1,20 @@
+
+// EXACT PATH: frontend/src/pages/admin/studio/DemandStudio.jsx
+import {useEffect,useState} from 'react';
+import {Link} from 'react-router-dom';
+import api from '../../../api/api.js';
+import {Page,Section,Metric,Notice,Empty,Shortcuts,input,secondary,getError,number} from '../../../components/adminStudio/StudioUI.jsx';
+const ranking=(rows,type)=>rows?.length?<div className="space-y-2">{rows.map((x,i)=><div key={`${x.productId||x.query||i}`} className="flex items-center justify-between gap-4 rounded-xl border border-[#EBE3D8] p-3"><div className="min-w-0"><p className="truncate text-[12px] font-bold">{x.name||x.query||'Unknown'}</p>{type==='products'&&<p className="mt-1 text-[10px] text-black/50">{number(x.views)} views · {number(x.searchClicks)} search clicks · {String(x.stockStatus||'unverified').replaceAll('_',' ')}</p>}</div><div className="shrink-0 text-right"><strong className="text-sm tabular-nums">{number(x.count??x.score)}</strong>{x.productId&&<Link to={`/admin/catalog/products/${x.productId}/edit`} className="mt-1 block text-[10px] font-bold text-[#9D7746] underline">Open</Link>}</div></div>)}</div>:<Empty>No matching activity recorded for the selected time period.</Empty>;
+export default function DemandStudio(){const [days,setDays]=useState(30),[data,setData]=useState(null),[busy,setBusy]=useState(false),[error,setError]=useState('');
+ useEffect(()=>{const controller=new AbortController();setBusy(true);setError('');api.get('/demand-studio/overview',{params:{days,limit:25},signal:controller.signal}).then(r=>setData(r.data)).catch(e=>{if(e.code!=='ERR_CANCELED')setError(getError(e))}).finally(()=>{if(!controller.signal.aborted)setBusy(false)});return()=>controller.abort()},[days]);
+ const d=data?.demand||{},o=data?.overview||{};
+ return <Page title="Customer Demand Intelligence" description="Understand what visitors search and view, and spot interest in unavailable or unverified products. Aggregated analytics only."><Shortcuts/>
+ <div className="flex items-center justify-between gap-2"><label className="text-[12px] font-bold">Report window <select className={`${input} ml-2 inline-block w-auto`} value={days} onChange={e=>setDays(Number(e.target.value))}><option value={7}>Last 7 days</option><option value={30}>Last 30 days</option><option value={90}>Last 90 days</option></select></label>{busy&&<span className="text-xs text-black/50">Refreshing…</span>}</div>
+ <Notice tone="warning">Stock source is not yet approved. <strong>Unverified stock with demand</strong> is a review queue, not proof of a stockout. Never order inventory solely from these analytics without validating sales and supply.</Notice>
+ {error&&<Notice tone="error">{error}</Notice>}
+ <div className="grid grid-cols-2 gap-3 xl:grid-cols-4"><Metric label="Live catalog products" value={number(o.liveProducts)}/><Metric label="SKUs" value={number(o.totalSkus)}/><Metric label="Stock unverified, with interest" value={number(d.stockUnverifiedWithDemand?.length)}/><Metric label="Confirmed OOS with demand" value={number(d.outOfStockHighDemand?.length)}/></div>
+ <div className="grid gap-4 xl:grid-cols-2"><Section title="Most searched phrases" description="Queries visitors actually submitted.">{ranking(d.topSearches)}</Section><Section title="Zero-result searches" description="Potential catalog gaps to investigate.">{ranking(d.zeroResultSearches)}</Section></div>
+ <Section title="Product interest ranking" description="Views + 2 × search clicks; this is a demand signal, not an order count.">{ranking(d.mostInterestedProducts,'products')}</Section>
+ <div className="grid gap-4 xl:grid-cols-2"><Section title="Interest despite unverified stock">{ranking(d.stockUnverifiedWithDemand,'products')}</Section><Section title="High demand / verified out of stock">{ranking(d.outOfStockHighDemand,'products')}</Section></div>
+ <Notice>Search numbers depend on existing analytics being enabled and operating correctly. Inferred individual customer identities are not needed to produce these aggregated reports.</Notice>
+ </Page>}

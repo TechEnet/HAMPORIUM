@@ -1,3 +1,4 @@
+
 // EXACT PATH: frontend/src/App.jsx
 // ACTION: REPLACE - CUSTOMER 360 FRONTEND V1
 import { useLayoutEffect } from "react";
@@ -147,6 +148,18 @@ import Components from "./pages/admin/catalog/Components.jsx";
 import Containers from "./pages/admin/catalog/Containers.jsx";
 
 import ProductMasterImport from "./pages/admin/catalog/ProductMasterImport.jsx";
+import StudioHome from "./pages/admin/studio/StudioHome.jsx";
+import MarketingHome from "./pages/admin/studio/MarketingHome.jsx";
+import ExcelImportHome from "./pages/admin/studio/ExcelImportHome.jsx";
+import InventoryStudio from "./pages/admin/studio/InventoryStudio.jsx";
+import DemandStudio from "./pages/admin/studio/DemandStudio.jsx";
+import MarketingExcelSync from "./pages/admin/studio/MarketingExcelSync.jsx";
+import OccasionStudio from "./pages/admin/studio/OccasionStudio.jsx";
+import CampaignStudio from "./pages/admin/studio/CampaignStudio.jsx";
+import ExcelFields from "./pages/admin/studio/ExcelFields.jsx";
+import CatalogAudit from "./pages/admin/studio/CatalogAudit.jsx";
+import OccasionGifts from "./pages/public/OccasionGifts.jsx";
+import CampaignLanding from "./pages/public/CampaignLanding.jsx";
 
 import AdminMasterControl from "./pages/admin/MasterControl.jsx";
 
@@ -353,6 +366,8 @@ const App = () => (
         <Route path="/gifts" element={<Gifts />} />
 
         <Route path="/collections/:slug" element={<Collection />} />
+        <Route path="/occasions/:slug" element={<OccasionGifts />} />
+        <Route path="/campaigns/:slug" element={<CampaignLanding />} />
 
         <Route path="/products/:slug" element={<ProductDetails />} />
 
@@ -519,6 +534,16 @@ const App = () => (
           <Route path="catalog/containers" element={<Containers />} />
 
           <Route path="catalog/product-master-import" element={<ProductMasterImport />} />
+          <Route path="studio" element={<StudioHome />} />
+          <Route path="studio/marketing" element={<MarketingHome />} />
+          <Route path="studio/import" element={<ExcelImportHome />} />
+          <Route path="studio/inventory" element={<InventoryStudio />} />
+          <Route path="studio/demand" element={<DemandStudio />} />
+          <Route path="studio/occasions" element={<OccasionStudio />} />
+          <Route path="studio/campaigns" element={<CampaignStudio />} />
+          <Route path="studio/excel-sync" element={<MarketingExcelSync />} />
+          <Route path="studio/excel-fields" element={<ExcelFields />} />
+          <Route path="studio/audit" element={<CatalogAudit />} />
 
           <Route path="master-control" element={<AdminMasterControl />} />
 

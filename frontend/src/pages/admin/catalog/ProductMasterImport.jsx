@@ -1,3 +1,4 @@
+
 // EXACT PATH: frontend/src/pages/admin/catalog/ProductMasterImport.jsx
 // HAMPORIUM V24 - FULL REPLACEMENT FILE
 
@@ -675,6 +676,8 @@ const ProductMasterImport = () => {
     previewBlockingRowCount + previewSheetErrorCount;
   const archiveMode = preview?.importMode === "archive_upsert";
   const replaceMode = preview?.importMode === "replace_product_master";
+  // Prevent accidental destructive import even when legacy backend returns replace mode.
+  const liveSafeMode = Boolean(preview) && !replaceMode;
   const partialImportMode =
     replaceMode && preview?.allowPartialImport === true;
   const legacyMergeHasChanges = previewCreateCount + previewUpdateCount > 0;
@@ -685,7 +688,8 @@ const ProductMasterImport = () => {
     !reviewSaving &&
     (archiveMode || previewBlockingCount === 0) &&
     previewImportableCount > 0 &&
-    (archiveMode || replaceMode || legacyMergeHasChanges);
+    !replaceMode &&
+    (archiveMode || legacyMergeHasChanges);
   const summaryCards = useMemo(() => {
     if (!currentData?.summary) return [];
     if (importResult) {
@@ -793,6 +797,12 @@ const ProductMasterImport = () => {
       preview.importMode === "replace_product_master";
     const isPartialReplace =
       isReplaceMode && preview.allowPartialImport === true;
+    // PRODUCTION SAFETY: never confirm legacy destructive replacement from Admin UI.
+    if (isReplaceMode) {
+      setError("Unsafe legacy Replace Catalogue import blocked. Only non-destructive archive/upsert/merge modes are allowed for live HAMPORIUM. No changes were made.");
+      return;
+    }
+
     if (!isArchiveMode && (blockingRows.length > 0 || sheetErrorCount > 0)) {
       setError(
         "Resolve the blocking REVIEW/ERROR items before importing. The existing catalogue has not been changed."
