@@ -39,7 +39,19 @@ const describePartner = (referral) => {
     return `${discount}% customer benefit on eligible products.`;
   }
 
-  return "Partner code accepted. Final eligibility is verified at checkout.";
+  return "Partner code applied successfully.";
+};
+
+const getPublicCodeError = (requestError) => {
+  const message = String(
+    requestError?.response?.data?.message || requestError?.message || ""
+  ).trim();
+
+  if (/protected.?margin|backend|server.side|database|stack trace|excel/i.test(message)) {
+    return "This code cannot be applied to your order. Please try another code.";
+  }
+
+  return message || "Unable to check this code right now. Please try again.";
 };
 
 const PromoCodeField = ({
@@ -58,7 +70,7 @@ const PromoCodeField = ({
 
   useEffect(() => {
     setResult(initialResult || null);
-  }, [initialResult?.kind, initialResult?.code]);
+  }, [initialResult?.kind, initialResult?.code, initialResult?.detail]);
 
   const updateValue = (nextValue) => {
     setError("");
@@ -82,9 +94,8 @@ const PromoCodeField = ({
     setError("");
 
     try {
-      // The authenticated backend is the only authority that classifies the
-      // entered code. The browser never guesses whether it is a HAMPORIUM
-      // promotion or a partner referral.
+      // The authenticated backend classifies promo and partner codes.
+      // Existing server-side validation is unchanged.
       const response = await api.post("/promotions/code/preview", { code });
       const kind = response.data?.kind;
 
@@ -131,11 +142,7 @@ const PromoCodeField = ({
       onChange?.(next.code);
       onApplied?.(next);
     } catch (requestError) {
-      setError(
-        requestError?.response?.data?.message ||
-          requestError?.message ||
-          "Unable to check this code right now. Please try again."
-      );
+      setError(getPublicCodeError(requestError));
     } finally {
       setChecking(false);
     }
@@ -153,8 +160,7 @@ const PromoCodeField = ({
   const handleInputKeyDown = (event) => {
     if (event.key !== "Enter") return;
 
-    // This component can live inside Checkout's main <form>. Prevent Enter
-    // from submitting that outer form while the customer is applying a code.
+    // Prevent Enter from submitting Checkout's outer form.
     event.preventDefault();
     event.stopPropagation();
     void apply();
@@ -261,12 +267,6 @@ const PromoCodeField = ({
               {error}
             </div>
           )}
-
-          <p className="mt-3 text-[10px] font-medium leading-5 text-black/35">
-            One code can be used per order. Final item eligibility, customer
-            savings and protected margin are checked again securely before the
-            payment amount is created.
-          </p>
         </div>
       )}
     </section>

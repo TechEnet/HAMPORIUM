@@ -231,19 +231,11 @@ const Cart = () => {
 
               <SummaryRow label="Shipping" value="FREE" accent />
 
-              <p className="text-[11px] font-semibold leading-5 text-black/50">
-                Delivery is based only on Excel Lead Time Days. When multiple items are ordered, the longest lead time determines the date. Your actual date is calculated at checkout.
-              </p>
 
             </div>
 
 
 
-            <div className="mt-5 rounded-xl border border-[#D4AF37]/25 bg-[#FFF9F2] px-4 py-3 text-[10px] leading-5 text-black/50">
-
-              Catalogue prices shown here include configured GST after any configured discount. The final taxable value and CGST/SGST or IGST split is recalculated and permanently snapshotted at checkout using the delivery state.
-
-            </div>
 
 
 

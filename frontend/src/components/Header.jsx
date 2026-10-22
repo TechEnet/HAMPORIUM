@@ -1,3 +1,4 @@
+
 // V157 HEADER: centered orange shield spins once on each mouse/pen hover entry and on every click. Horse and wordmark stay fixed.
 // V155 HEADER: transparent overlay on Home / Hamper One hero; 72% Obsidian glass beyond hero.
 // V156 HEADER: soft 24% Obsidian tint over hero; V155 translucent glass elsewhere.
@@ -2119,8 +2120,8 @@ const HEADER_CSS = `
   flex:0 0 var(--hh-v139-logo-width);
 }
 .hh-header .hh-gift-trigger .hh-gift-art {
-  width:var(--hh-v139-logo-width);
-  height:var(--hh-v139-side-height);
+  width:calc(var(--hh-v139-logo-width) * .64);
+  height:calc(var(--hh-v139-side-height) * .64);
   max-height:calc(var(--hh-height) - 8px);
   flex:0 0 auto;
 }
@@ -2149,8 +2150,8 @@ const HEADER_CSS = `
     padding:0;
   }
   .hh-header .hh-mobile-menu-trigger .hh-gift-art {
-    width:var(--hh-v139-logo-width);
-    height:var(--hh-v139-side-height);
+    width:calc(var(--hh-v139-logo-width) * .64);
+    height:calc(var(--hh-v139-side-height) * .64);
     max-height:calc(var(--hh-height) - 8px);
     max-width:100%;
   }

@@ -90,42 +90,21 @@ const formatExpectedDeliveryDate = (value) => {
 
 
 
-// V6 Excel-only: display the backend's own lead time. Never add courier or
-// packing days in the browser, and never guess an ETA if backend rejected it.
-const getExcelLeadDays = (estimate) => {
-  const value = estimate?.leadTimeDays ?? estimate?.productionLeadDays;
-  if (value === undefined || value === null || value === "") return null;
-  const days = Number(value);
-  return Number.isInteger(days) && days >= 0 && days <= 365 ? days : null;
-};
-
-const getOrderExcelLeadDays = (estimate) => {
-  const lines = Array.isArray(estimate?.itemEstimates)
-    ? estimate.itemEstimates
-    : [];
-  if (lines.length === 0) return null;
-  const days = lines.map(getExcelLeadDays);
-  if (days.some((value) => value === null)) return null;
-  return Math.max(...days);
-};
-
-const formatLeadDays = (value) =>
-  `${value} ${value === 1 ? "day" : "days"}`;
-
 const getPublicDeliveryError = (requestError) => {
   const payload = requestError?.response?.data || {};
   const message = String(payload.message || "").trim();
   const code = String(payload.code || "").trim().toUpperCase();
 
-  // Preserve the backend's actionable item/Excel error; don't obscure it with
-  // outdated courier-day messages from the previous delivery engine.
-  if (message) return message;
-  if (code === "LEAD_TIME_MISSING") {
-    return "Excel Lead Time Days is missing for a selected hamper or gift. Please contact support.";
-  }
   if (code === "ITEM_UNAVAILABLE") {
     return "A selected hamper is not currently orderable. Please review your cart.";
   }
+  if (code === "LEAD_TIME_MISSING" || /excel|lead[ -]?time|productionlead/i.test(message)) {
+    return "Delivery timing is currently unavailable for a selected item. Please contact support.";
+  }
+  if (/protected.?margin|internal server|database|stack trace/i.test(message)) {
+    return "Delivery is temporarily unavailable for this order. Please contact support.";
+  }
+  if (message) return message;
   return "Unable to calculate a delivery date. Please try again or review your cart.";
 };
 
@@ -183,7 +162,15 @@ const loadRazorpay = () => {
 
 
 
-  return razorpayScriptPromise;
+  return razorpayScriptPromise.then((loaded) => {
+    if (!loaded) {
+      razorpayScriptPromise = null;
+      document.querySelector(
+        'script[src="https://checkout.razorpay.com/v1/checkout.js"]'
+      )?.remove();
+    }
+    return loaded && Boolean(window.Razorpay);
+  });
 
 };
 
@@ -257,7 +244,10 @@ const Checkout = () => {
 
 
 
-  const [deliveryEstimate, setDeliveryEstimate] = useState(null);
+  const [deliveryEstimateState, setDeliveryEstimateState] = useState({
+    key: "",
+    estimate: null,
+  });
 
   const [deliveryLoading, setDeliveryLoading] = useState(false);
 
@@ -289,7 +279,10 @@ const Checkout = () => {
     )
   );
   const [promoWarning, setPromoWarning] = useState("");
-  const [promotionQuote, setPromotionQuote] = useState(null);
+  const [promotionQuoteState, setPromotionQuoteState] = useState({
+    key: "",
+    quote: null,
+  });
   const [promotionQuoteLoading, setPromotionQuoteLoading] = useState(false);
 
 
@@ -316,7 +309,27 @@ const Checkout = () => {
 
         .join("|");
 
+  // An estimate/quote must match this exact cart or Buy Now selection and address.
+  const estimateKey = `${isBuyNow ? "buy_now" : "cart"}|${addressId}|${deliveryFingerprint}`;
+  const quoteKey = `${estimateKey}|${
+    appliedPromo?.kind === "promotion" ? appliedPromo.code || "" : ""
+  }`;
 
+  const deliveryEstimate =
+    deliveryEstimateState.key === estimateKey
+      ? deliveryEstimateState.estimate
+      : null;
+  const promotionQuote =
+    promotionQuoteState.key === quoteKey
+      ? promotionQuoteState.quote
+      : null;
+
+  const setDeliveryEstimate = (estimate) => {
+    setDeliveryEstimateState({ key: estimateKey, estimate });
+  };
+  const setPromotionQuote = (quote) => {
+    setPromotionQuoteState({ key: quoteKey, quote });
+  };
 
   useEffect(() => {
 
@@ -686,6 +699,7 @@ const Checkout = () => {
     let active = true;
 
     const loadPromotionQuote = async () => {
+      setPromotionQuote(null);
       setPromotionQuoteLoading(true);
       setPromoWarning("");
 
@@ -753,42 +767,23 @@ const Checkout = () => {
   ]);
 
   const handleRemovePartnerPromo = async () => {
-
     setPromoWarning("");
-
-
+    clearStoredPartnerReferral();
+    clearStoredAppliedPromotion();
+    setPartnerReferral(null);
+    setAppliedPromo(null);
+    setPromoCode("");
+    setPromotionQuote(null);
 
     try {
-
       if (user) {
-
         await api.delete("/partners/referrals/mine");
-
       }
-
     } catch (requestError) {
-
       if (![404, 409].includes(requestError.response?.status)) {
-
         setPromoWarning(
-
-          requestError.response?.data?.message ||
-
-            "Partner promo was removed from this checkout, but account sync could not be completed."
-
+          "Partner code was removed from this checkout, but account sync could not be completed."
         );
-
-      }
-
-    } finally {
-      clearStoredPartnerReferral();
-      setPartnerReferral(null);
-      setPromotionQuote(null);
-
-      if (appliedPromo?.kind === "partner") {
-        clearStoredAppliedPromotion();
-        setAppliedPromo(null);
-        setPromoCode("");
       }
     }
   };
@@ -818,6 +813,10 @@ const Checkout = () => {
   };
 
   const handleClearPromo = () => {
+    if (appliedPromo?.kind === "partner" || partnerReferral?.referralCode) {
+      void handleRemovePartnerPromo();
+      return;
+    }
     clearStoredAppliedPromotion();
     setPromotionQuote(null);
     setAppliedPromo(null);
@@ -948,7 +947,9 @@ const Checkout = () => {
 
     event.preventDefault();
 
-
+    if (paying || loading || cartLoading || promoLoading) {
+      return;
+    }
 
     if (!addressId) {
 
@@ -1419,9 +1420,7 @@ const Checkout = () => {
     activePromotion?.code && promotionQuote
       ? roundMoney(
           Number(
-            promotionQuote.totalSavings ??
-              promotionQuote.customerSavings ??
-              0
+            promotionQuote.customerSavings ?? 0
           )
         )
       : 0;
@@ -1445,7 +1444,7 @@ const Checkout = () => {
 
 
 
-  if (!isBuyNow && !cart.items.length && !loading) {
+  if (!isBuyNow && !cartLoading && !cart.items.length && !loading) {
 
     return <Navigate to="/cart" replace />;
 
@@ -1911,42 +1910,6 @@ const Checkout = () => {
 
                       </p>
 
-
-
-                      {getOrderExcelLeadDays(deliveryEstimate) !== null && (
-                        <div className="mt-3 inline-flex flex-wrap items-center gap-2 rounded-full border border-[#F47822]/20 bg-white px-3.5 py-2 text-[11px] font-extrabold text-[#B95513]">
-                          <span>Excel lead time</span>
-                          <span aria-hidden="true">·</span>
-                          <span>{formatLeadDays(getOrderExcelLeadDays(deliveryEstimate))}</span>
-                        </div>
-                      )}
-
-                      {Array.isArray(deliveryEstimate.itemEstimates) &&
-                        deliveryEstimate.itemEstimates.length > 1 && (
-                          <div className="mt-4 max-w-[650px] rounded-[14px] border border-black/[0.07] bg-white p-3.5">
-                            <p className="mb-2 text-[10px] font-extrabold uppercase tracking-[0.08em] text-black/40">
-                              Lead time by hamper (maximum applies)
-                            </p>
-                            <div className="space-y-2">
-                              {deliveryEstimate.itemEstimates.map((line, index) => {
-                                const days = getExcelLeadDays(line);
-                                return (
-                                  <div key={String(line.itemId || line.skuId || index)} className="flex items-start justify-between gap-3 text-[11px] font-semibold">
-                                    <span className="min-w-0 text-black/65">{line.name || `Hamper ${index + 1}`}</span>
-                                    <span className="shrink-0 font-extrabold text-[#171717]">
-                                      {days === null ? "Not available" : formatLeadDays(days)}
-                                    </span>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-
-                      <p className="mt-2 max-w-[650px] text-[11px] font-medium leading-5 text-black/45">
-                        Delivery date is calculated using only the imported Excel Lead Time Days.
-                      </p>
-
                       <p className="mt-2 text-[12px] font-semibold text-black/42">
 
                         {deliveryEstimate.city || "Selected city"}
@@ -2256,7 +2219,7 @@ const Checkout = () => {
 
               {activePromotion?.code && promotionQuote && (
                 <div className="mt-4 rounded-[14px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-[11px] font-semibold leading-5 text-emerald-800">
-                  You save {formatCurrency(estimatedPromotionSavings)} with {activePromotion.code} on this checkout. The backend will verify the same offer again before creating the payment amount.
+                  You save {formatCurrency(estimatedPromotionSavings)} with {activePromotion.code}.
                 </div>
               )}
 
@@ -2297,12 +2260,6 @@ const Checkout = () => {
                     <p className="text-[31px] font-black tracking-[-0.04em] text-[#171717]">
                       {formatCurrency(estimatedCheckoutTotal)}
                     </p>
-
-                    {activePromotion?.code && (
-                      <p className="mt-1 text-[9px] font-semibold text-black/35">
-                        Final coupon total is confirmed before payment.
-                      </p>
-                    )}
 
                   </div>
 
