@@ -1,4 +1,5 @@
 
+
 // V157 HEADER: centered orange shield spins once on each mouse/pen hover entry and on every click. Horse and wordmark stay fixed.
 // V155 HEADER: transparent overlay on Home / Hamper One hero; 72% Obsidian glass beyond hero.
 // V156 HEADER: soft 24% Obsidian tint over hero; V155 translucent glass elsewhere.
@@ -1283,9 +1284,9 @@ const Header = () => {
     handleLogout, logoutBusy, logoutError,
   };
   const panelTitle = {
-    hampers: "Find your kind of gift.", search: "A thoughtful gift starts here.",
+    hampers: "Explore hampers", search: "A thoughtful gift starts here.",
     account: user ? "Your account" : "Welcome to HAMPORIUM",
-    menu: "Explore HAMPORIUM",
+    menu: "Explore hampers",
   }[renderedPanel];
 
   if (introHidden) return null;
@@ -1323,7 +1324,7 @@ const Header = () => {
             <ActionButton label="Open menu" className="hh-mobile-menu-trigger" active={panel === "menu"}
               controls={panel === "menu" ? panelId : undefined}
               onClick={(event) => togglePanel("menu", event)}>
-              {panel === "menu" ? <Icon name="close" /> : <GiftHamperArt />}
+              <GiftHamperArt />
             </ActionButton>
           )}
 
@@ -1413,8 +1414,14 @@ const Header = () => {
             }}
           >
             <div className="hh-panel-top">
-              <div><p className="hh-eyebrow">{renderedPanel === "hampers" ? "Gifting, your way" : renderedPanel === "search" ? "Discover HAMPORIUM" : renderedPanel === "menu" ? "The gifting edit" : "HAMPORIUM"}</p>
-                <h2 id={`${panelId}-title`}>{panelTitle}</h2></div>
+              <div>
+                {renderedPanel !== "hampers" && (
+                  <p className="hh-eyebrow">
+                    {renderedPanel === "search" ? "Discover HAMPORIUM" : renderedPanel === "menu" ? "HAMPORIUM" : "HAMPORIUM"}
+                  </p>
+                )}
+                <h2 id={`${panelId}-title`}>{panelTitle}</h2>
+              </div>
               <button type="button" className="hh-close" onClick={() => closePanel()} aria-label="Close panel"><Icon name="close" /></button>
             </div>
             <div className="hh-panel-body">
@@ -1429,7 +1436,7 @@ const Header = () => {
               {renderedPanel === "account" && <AccountPanel {...accountProps} />}
               {renderedPanel === "menu" && <MobileMenu
                 hamperOneLogoSrc={sizedHamperOneLogo || TRANSPARENT_IMAGE}
-                {...accountProps}
+                user={user}
                 notificationUnread={notificationUnread} onUnreadChange={setNotificationUnread}
                 onSearch={() => openPanel("search")}
               />}
@@ -1449,31 +1456,43 @@ const ActionButton = ({ label, className = "", active, controls, onClick, childr
 const COLLECTIONS = HAMPER_DROPDOWN.filter((item) => !item.special && item.to !== "/gifts");
 const BUILDER_OPTIONS = HAMPER_DROPDOWN.find((item) => item.special)?.options || [];
 
+// Compact desktop menu: three clear actions + the existing five collections.
+// Route destinations and the original dropdown hover/click behaviour are unchanged.
 const HamperMenu = () => (
-  <div className="hh-mega-grid">
-    <Link className="hh-shop-feature" to="/gifts">
-      <ParcelArt />
-      <div><p className="hh-eyebrow">The ready-made edit</p><h3>Beautifully chosen.<br /><em>Ready to gift.</em></h3>
-        <span className="hh-text-link">Shop all hampers <Icon name="arrow" /></span></div>
-    </Link>
-    <div className="hh-mega-create">
-      <p className="hh-eyebrow">Make it personal</p><h3>Build your own hamper</h3>
-      {BUILDER_OPTIONS.map((item, index) => (
-        <Link to={item.to} key={item.to} className="hh-choice-row">
-          <span className="hh-choice-icon"><Icon name={index ? "stack" : "gift"} /></span>
-          <span><strong>{item.label}</strong><small>{index ? "Request a quotation" : "Build & checkout"}</small></span><Icon name="arrow" />
+  <nav className="hh-quick-menu" aria-label="Explore hampers">
+    <div className="hh-quick-menu-main">
+      <p className="hh-quick-menu-label">Shop & create</p>
+      <div className="hh-quick-menu-actions">
+        <Link to="/gifts" className="hh-quick-menu-link hh-quick-menu-feature">
+          <span className="hh-quick-menu-icon"><Icon name="gift" /></span>
+          <span>Shop All Hampers</span>
+          <Icon name="arrow" />
         </Link>
-      ))}
+        <Link to="/custom-hamper" className="hh-quick-menu-link">
+          <span className="hh-quick-menu-icon"><Icon name="spark" /></span>
+          <span>Build Your Own</span>
+          <Icon name="arrow" />
+        </Link>
+        <Link to="/custom-hamper?mode=bulk" className="hh-quick-menu-link">
+          <span className="hh-quick-menu-icon"><Icon name="stack" /></span>
+          <span>Bulk & Event Gifting</span>
+          <Icon name="arrow" />
+        </Link>
+      </div>
     </div>
-    <div className="hh-mega-collections">
-      <p className="hh-eyebrow">Shop by collection</p>
-      <div className="hh-collection-links">
-        {COLLECTIONS.map((item, index) => (
-          <Link key={item.to} to={item.to}><span className="hh-index">{String(index + 1).padStart(2, "0")}</span><span>{item.label}</span><Icon name="arrow" /></Link>
+
+    <div className="hh-quick-menu-collections">
+      <p className="hh-quick-menu-label">Shop by collection</p>
+      <div className="hh-quick-menu-categories">
+        {COLLECTIONS.map((item) => (
+          <Link key={item.to} to={item.to} aria-label={item.label}>
+            <span>{item.label.replace(/ Hampers$/, "")}</span>
+            <Icon name="arrow" />
+          </Link>
         ))}
       </div>
     </div>
-  </div>
+  </nav>
 );
 
 // CSS-only packaging detail; no external image, font or animation package.
@@ -1581,27 +1600,57 @@ const AccountPanel = ({ user, isAdmin, isPartner, partnerPortalPath, becomePartn
   );
 };
 
-const MobileMenu = ({ hamperOneLogoSrc, notificationUnread, onUnreadChange, onSearch, ...accountProps }) => (
-  <div className="hh-menu-content">
-    <button type="button" onClick={onSearch} className="hh-menu-search"><Icon name="search" /><span>Search for the perfect gift</span><Icon name="arrow" /></button>
-    <nav aria-label="Mobile primary navigation" className="hh-mobile-nav">
-      <Link to="/gifts" className="hh-mobile-major"><span className="hh-index">01</span><span>Shop hampers</span><Icon name="arrow" /></Link>
-      <div className="hh-mobile-build"><div><span className="hh-index">02</span><span>Build your own</span><Icon name="gift" /></div>
-        <div className="hh-mobile-order-links">{BUILDER_OPTIONS.map((item) => <Link key={item.to} to={item.to}>{item.label}<Icon name="arrow" /></Link>)}</div>
-      </div>
-      <Link to="/hamper-one" className="hh-mobile-private" aria-label="Hamper One private collection">
-        <img src={hamperOneLogoSrc} className="hh-hamperone-image hh-hamperone-mobile-image" alt="HAMPER ONE" loading="lazy" draggable="false" />
+// Mobile hamburger: essentials only; account / partner actions remain in the
+// separate Account button in the header. Keep notifications in the menu only
+// for very narrow screens where the header notification button is hidden.
+const MobileMenu = ({
+  hamperOneLogoSrc,
+  notificationUnread,
+  onUnreadChange,
+  onSearch,
+  user,
+}) => (
+  <div className="hh-mobile-clean">
+    <button type="button" onClick={onSearch} className="hh-mobile-clean-search">
+      <Icon name="search" />
+      <span>Search gifts</span>
+      <Icon name="arrow" />
+    </button>
+
+    <nav aria-label="Mobile primary navigation" className="hh-mobile-clean-shop">
+      <p className="hh-mobile-clean-label">Shop &amp; create</p>
+      <Link to="/gifts" className="hh-mobile-clean-action is-featured">
+        <span className="hh-mobile-clean-icon"><Icon name="gift" /></span>
+        <span>Shop All Hampers</span>
+        <Icon name="arrow" />
+      </Link>
+      <Link to="/custom-hamper" className="hh-mobile-clean-action">
+        <span className="hh-mobile-clean-icon"><Icon name="spark" /></span>
+        <span>Build Your Own</span>
+        <Icon name="arrow" />
+      </Link>
+      <Link to="/custom-hamper?mode=bulk" className="hh-mobile-clean-action">
+        <span className="hh-mobile-clean-icon"><Icon name="stack" /></span>
+        <span>Bulk &amp; Event Gifting</span>
         <Icon name="arrow" />
       </Link>
     </nav>
-    <div className="hh-mobile-collections"><p className="hh-eyebrow">Explore the collections</p><div>{COLLECTIONS.map((item) => <Link key={item.to} to={item.to}>{item.label.replace(" Hampers", "")}<Icon name="arrow" /></Link>)}</div></div>
-    {accountProps.user && (
-      <div className="hh-menu-notifications">
+
+    <Link to="/hamper-one" className="hh-mobile-clean-private" aria-label="Hamper One premium collection">
+      <img src={hamperOneLogoSrc} alt="" loading="lazy" draggable="false" />
+      <span className="hh-mobile-clean-private-copy">
+        <strong>Hamper One</strong>
+        <small>Premium Collection</small>
+      </span>
+      <Icon name="arrow" />
+    </Link>
+
+    {user && (
+      <div className="hh-menu-notifications hh-mobile-clean-notifications">
         <span>Notifications</span>
         <HeaderNotifications mobile darkContent unread={notificationUnread} onUnreadChange={onUnreadChange} />
       </div>
     )}
-    <AccountPanel {...accountProps} />
   </div>
 );
 
@@ -2043,7 +2092,23 @@ const HEADER_CSS = `
   .hh-notifications { max-width:46px; }
   .hh-mobile-overlay .hh-backdrop { inset:0; background:#17130c65; }
   .hh-mobile-overlay .hh-panel { top:calc(var(--hh-height) + 10px); left:12px; right:12px; width:calc(100% - 24px); max-width:700px; max-height:calc(100dvh - var(--hh-height) - 26px); margin-inline:auto; border-radius:16px; }
-  .hh-mobile-overlay.hh-overlay-menu .hh-panel { top:0; right:0; left:auto; width:min(100%,460px); height:100dvh; max-height:100dvh; margin:0; border-radius:0; animation:hh-drawer-in .42s var(--hh-ease) both; }
+  .hh-mobile-overlay.hh-overlay-menu .hh-panel {
+    top:calc(var(--hh-height) + 10px);
+    right:12px;
+    left:auto;
+    width:min(380px,calc(100% - 24px));
+    height:auto;
+    max-height:calc(100dvh - var(--hh-height) - 22px);
+    margin:0;
+    border-radius:16px;
+    animation:hh-drawer-in .42s var(--hh-ease) both;
+  }
+  .hh-mobile-overlay.hh-overlay-menu .hh-panel-body {
+    flex:0 1 auto;
+    min-height:0;
+    overflow-y:auto;
+    padding-bottom:0;
+  }
   .hh-mobile-overlay.hh-overlay-menu.is-leaving .hh-panel { animation:hh-drawer-out .22s ease both; }
   .hh-overlay-menu .hh-panel-top { padding-top:max(24px,env(safe-area-inset-top)); }
   .hh-mobile-overlay .hh-panel-body { padding-bottom:env(safe-area-inset-bottom,0px); }
@@ -2436,6 +2501,359 @@ const HEADER_CSS = `
     backdrop-filter: blur(2px);
   }
 }
+
+/* Compact HAMPERS dropdown only. The header, search, account and mobile drawer stay intact. */
+.hh-overlay .hh-panel-hampers {
+  max-width:920px;
+  border-radius:16px;
+}
+.hh-panel-hampers .hh-panel-top {
+  align-items:center;
+  padding:19px 26px 17px;
+}
+.hh-panel-hampers .hh-panel-top h2 {
+  margin:0;
+  font-size:29px;
+  line-height:1.12;
+}
+.hh-panel-hampers .hh-close {
+  width:34px;
+  height:34px;
+}
+.hh-quick-menu {
+  display:grid;
+  grid-template-columns:minmax(0,.95fr) minmax(0,1.05fr);
+  color:#403A32;
+}
+.hh-quick-menu-main,
+.hh-quick-menu-collections {
+  min-width:0;
+  padding:24px 25px 26px;
+}
+.hh-quick-menu-main {
+  border-right:1px solid rgba(88,72,50,.12);
+  background:linear-gradient(135deg,#f7f1e5 0%,#faf7f0 100%);
+}
+.hh-quick-menu-label {
+  margin:0 0 13px!important;
+  color:#98743c;
+  font-size:11px;
+  font-weight:750;
+  line-height:1.5;
+  letter-spacing:.11em;
+  text-transform:uppercase;
+}
+.hh-quick-menu-actions { display:grid; gap:9px; }
+.hh-quick-menu-link {
+  display:flex;
+  align-items:center;
+  gap:12px;
+  width:100%;
+  min-height:54px;
+  padding:10px 13px;
+  border:1px solid rgba(145,118,77,.17);
+  border-radius:11px;
+  background:rgba(255,255,255,.84);
+  font-size:14px;
+  font-weight:650;
+  line-height:1.3;
+  transition:background .2s ease,border-color .2s ease,transform .2s ease;
+}
+.hh-quick-menu-link > span:nth-child(2) { min-width:0; flex:1; }
+.hh-quick-menu-link.hh-quick-menu-feature {
+  background:#eee2ca;
+  border-color:#dcc59e;
+}
+.hh-quick-menu-icon {
+  display:grid;
+  flex:0 0 31px;
+  width:31px;
+  height:31px;
+  place-items:center;
+  border-radius:9px;
+  background:rgba(183,155,106,.13);
+  color:#97702d;
+}
+.hh-quick-menu-icon .hh-icon { width:17px; height:17px; }
+.hh-quick-menu-link > .hh-icon {
+  width:15px;
+  height:15px;
+  flex:0 0 auto;
+  color:#ac874b;
+}
+.hh-quick-menu-link:hover,
+.hh-quick-menu-link:focus-visible {
+  transform:translateY(-1px);
+  background:#fff;
+  border-color:#b79b6a;
+}
+.hh-quick-menu-categories {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:9px;
+}
+.hh-quick-menu-categories > a {
+  display:flex;
+  min-width:0;
+  min-height:54px;
+  align-items:center;
+  gap:10px;
+  justify-content:space-between;
+  border:1px solid rgba(96,84,66,.12);
+  border-radius:10px;
+  padding:10px 13px;
+  background:rgba(250,248,244,.72);
+  font-size:14px;
+  font-weight:600;
+  line-height:1.3;
+  transition:background .2s ease,border-color .2s ease,color .2s ease;
+}
+.hh-quick-menu-categories > a:last-child:nth-child(odd) { grid-column:span 2; }
+.hh-quick-menu-categories > a > span { min-width:0; }
+.hh-quick-menu-categories > a > .hh-icon {
+  width:15px;
+  height:15px;
+  flex:0 0 auto;
+  color:#b79b6a;
+}
+.hh-quick-menu-categories > a:hover,
+.hh-quick-menu-categories > a:focus-visible {
+  color:#78541d;
+  border-color:#c5a873;
+  background:#f7f0e3;
+}
+@media (max-width:760px) {
+  .hh-quick-menu { grid-template-columns:1fr; }
+  .hh-quick-menu-main { border-right:0; border-bottom:1px solid rgba(88,72,50,.12); }
+  .hh-quick-menu-main,.hh-quick-menu-collections { padding:20px; }
+}
+
+
+/* Mobile menu V2: match the clean two-column desktop menu without oversized rows. */
+.hh-mobile-overlay.hh-overlay-menu .hh-panel {
+  background:#FAF8F4;
+}
+.hh-mobile-overlay.hh-overlay-menu .hh-panel-top {
+  align-items:center;
+  padding:15px 20px 13px;
+  border-bottom:1px solid rgba(64,58,50,.12);
+}
+.hh-mobile-overlay.hh-overlay-menu .hh-panel-top h2 {
+  margin-top:3px;
+  font-size:25px;
+  line-height:1.05;
+}
+.hh-mobile-overlay.hh-overlay-menu .hh-panel-top .hh-eyebrow {
+  font-size:10px;
+  letter-spacing:.13em;
+}
+.hh-mobile-overlay.hh-overlay-menu .hh-panel-top .hh-close {
+  width:35px;
+  height:35px;
+}
+.hh-mobile-overlay .hh-mobile-clean {
+  display:flex;
+  flex-direction:column;
+  padding:15px 20px 18px;
+  color:#403A32;
+}
+.hh-mobile-clean-label {
+  margin:0 0 11px!important;
+  color:#98743c;
+  font-size:10px;
+  line-height:1.4;
+  font-weight:750;
+  text-transform:uppercase;
+  letter-spacing:.115em;
+}
+.hh-mobile-clean-search {
+  display:flex;
+  align-items:center;
+  gap:12px;
+  width:100%;
+  min-height:49px;
+  padding:10px 14px;
+  border:1px solid #dfcfb5;
+  border-radius:11px;
+  background:#f3eadc;
+  color:#6e5634;
+  font-size:13px;
+  font-weight:650;
+  text-align:left;
+  transition:background .2s ease,border-color .2s ease;
+}
+.hh-mobile-clean-search:hover { background:#eaddc5; border-color:#b79b6a; }
+.hh-mobile-clean-search > span { flex:1; }
+.hh-mobile-clean-search .hh-icon { width:18px; height:18px; flex:0 0 18px; }
+.hh-mobile-clean-search .hh-icon:last-child { width:15px; height:15px; flex-basis:15px; }
+.hh-mobile-clean-shop { display:grid; gap:7px; margin-top:17px; }
+.hh-mobile-clean-shop .hh-mobile-clean-label { margin-bottom:3px!important; }
+.hh-mobile-clean-action {
+  display:flex;
+  align-items:center;
+  gap:11px;
+  width:100%;
+  min-height:49px;
+  padding:8px 12px;
+  border:1px solid rgba(145,118,77,.17);
+  border-radius:11px;
+  background:#fffdf9;
+  color:#403A32;
+  font-size:14px;
+  font-weight:650;
+  line-height:1.3;
+  transition:background .2s ease,border-color .2s ease;
+}
+.hh-mobile-clean-action.is-featured {
+  background:#eee2ca;
+  border-color:#dcc59e;
+}
+.hh-mobile-clean-action:hover,.hh-mobile-clean-action:focus-visible {
+  background:#f5ebd8;
+  border-color:#b79b6a;
+}
+.hh-mobile-clean-action > span:nth-child(2) { flex:1; min-width:0; }
+.hh-mobile-clean-action > .hh-icon { width:15px; height:15px; flex:0 0 15px; color:#a68754; }
+.hh-mobile-clean-icon {
+  display:grid;
+  place-items:center;
+  width:32px;
+  height:32px;
+  flex:0 0 32px;
+  border-radius:9px;
+  background:rgba(183,155,106,.13);
+  color:#97702d;
+}
+.hh-mobile-clean-icon .hh-icon { width:17px; height:17px; }
+.hh-mobile-clean-collections { margin-top:23px; }
+.hh-mobile-clean-category-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+.hh-mobile-clean-category-grid > a {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  min-width:0;
+  min-height:46px;
+  gap:6px;
+  padding:9px 12px;
+  border:1px solid rgba(96,84,66,.13);
+  border-radius:10px;
+  background:#fffdf9;
+  color:#403A32;
+  font-size:13px;
+  font-weight:600;
+  transition:background .2s ease,border-color .2s ease;
+}
+.hh-mobile-clean-category-grid > a:last-child:nth-child(odd) { grid-column:span 2; }
+.hh-mobile-clean-category-grid > a > span { min-width:0; }
+.hh-mobile-clean-category-grid > a > .hh-icon { width:14px; height:14px; flex:0 0 14px; color:#b79b6a; }
+.hh-mobile-clean-category-grid > a:hover { background:#f4ead8; border-color:#b79b6a; }
+.hh-mobile-clean-private {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  min-height:54px;
+  margin-top:13px;
+  padding:7px 14px;
+  border:1px solid rgba(183,155,106,.30);
+  border-radius:11px;
+  background:linear-gradient(120deg,#f1e5d1,#faf6ee);
+  transition:border-color .2s ease,background .2s ease;
+}
+.hh-mobile-clean-private:hover { border-color:#b79b6a; background:#efe1c8; }
+/* While the mobile panel is open, its own close control is the only visible close icon. */
+.hh-header .hh-mobile-menu-trigger.is-open { opacity:0; pointer-events:none; }
+.hh-mobile-clean-private img { display:block; width:96px; height:41px; max-width:30%; flex:0 0 auto; object-fit:contain; object-position:left center; }
+.hh-mobile-clean-private-copy { display:flex; flex:1; min-width:0; flex-direction:column; justify-content:center; gap:2px; }
+.hh-mobile-clean-private-copy strong { color:#403A32; font-size:14px; font-weight:700; line-height:1.25; }
+.hh-mobile-clean-private-copy small { color:#98743c; font-size:10px; font-weight:650; line-height:1.35; letter-spacing:.055em; }
+.hh-mobile-clean-private > .hh-icon { width:16px; height:16px; flex:0 0 16px; color:#9e783d; }
+.hh-mobile-clean-notifications {
+  display:none;
+  margin-top:17px;
+  padding:12px 3px;
+  border-block:1px solid rgba(64,58,50,.12);
+}
+.hh-mobile-clean-account {
+  margin-top:19px;
+  padding-top:17px;
+  border-top:1px solid rgba(64,58,50,.12);
+}
+.hh-mobile-clean-account-link {
+  display:flex;
+  width:100%;
+  align-items:center;
+  min-height:45px;
+  gap:12px;
+  padding:8px 3px;
+  border:0;
+  border-bottom:1px solid rgba(64,58,50,.08);
+  background:transparent;
+  color:#51483d;
+  font-size:13px;
+  font-weight:600;
+  text-align:left;
+}
+.hh-mobile-clean-account-link:hover { color:#9a6d2b; }
+.hh-mobile-clean-account-link > span { flex:1; }
+.hh-mobile-clean-account-link > .hh-icon { width:17px; height:17px; flex:0 0 17px; color:#9a793f; }
+.hh-mobile-clean-account-link > .hh-icon:last-child { width:15px; height:15px; flex-basis:15px; }
+.hh-mobile-clean-signout { color:#8d6544; }
+.hh-mobile-clean-auth { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:0 0 8px; }
+.hh-mobile-clean-auth > a {
+  display:grid;
+  place-items:center;
+  min-height:44px;
+  padding:10px;
+  border:1px solid #dcccaf;
+  border-radius:9px;
+  background:#fffdf9;
+  color:#51402e;
+  font-size:13px;
+  font-weight:700;
+}
+.hh-mobile-clean-auth > a:last-child { background:#e9d6b2; border-color:#d9c096; }
+.hh-mobile-clean-auth > a:hover { background:#e6d6ba; border-color:#b79b6a; }
+@media (max-width:399px) {
+  .hh-mobile-clean-notifications { display:flex; }
+}
+@media (max-width:360px) {
+  .hh-mobile-overlay .hh-mobile-clean { padding-inline:16px; }
+  .hh-mobile-clean-private img { width:80px; }
+  .hh-mobile-overlay.hh-overlay-menu .hh-panel-top { padding-inline:16px; }
+  .hh-mobile-clean-category-grid > a { padding-inline:9px; font-size:12px; }
+}
+
+/* Desktop Hampers menu: refined left-to-right entrance, soft exit and subtle content reveal.
+   Only the Hampers dropdown animates; search, account, mobile drawer and routing are untouched. */
+@media (min-width:1180px) {
+  .hh-desktop-overlay.hh-overlay-hampers.is-visible .hh-panel-hampers {
+    animation:hh-hampers-slide-in .58s cubic-bezier(.18,1,.32,1) both;
+    transform-origin:left center;
+  }
+  .hh-desktop-overlay.hh-overlay-hampers.is-leaving .hh-panel-hampers {
+    animation:hh-hampers-slide-out .20s cubic-bezier(.4,0,1,1) both;
+  }
+  .hh-desktop-overlay.hh-overlay-hampers.is-visible .hh-quick-menu-main {
+    animation:hh-hampers-content-in .49s cubic-bezier(.2,1,.3,1) .10s both;
+  }
+  .hh-desktop-overlay.hh-overlay-hampers.is-visible .hh-quick-menu-collections {
+    animation:hh-hampers-content-in .49s cubic-bezier(.2,1,.3,1) .17s both;
+  }
+}
+@keyframes hh-hampers-slide-in {
+  from { opacity:0; transform:translate3d(-86px,0,0) scale(.97); }
+  to { opacity:1; transform:translate3d(0,0,0) scale(1); }
+}
+@keyframes hh-hampers-slide-out {
+  from { opacity:1; transform:translate3d(0,0,0) scale(1); }
+  to { opacity:0; transform:translate3d(-35px,0,0) scale(.99); }
+}
+@keyframes hh-hampers-content-in {
+  from { opacity:0; transform:translate3d(-12px,0,0); }
+  to { opacity:1; transform:translate3d(0,0,0); }
+}
+
 @media (prefers-reduced-transparency: reduce) {
   .hh-header.hh-light,
   .hh-header.hh-hero {
