@@ -1,3 +1,5 @@
+
+// V145: top footer redesigned for balanced space distribution; footer wordmark/animation unchanged.
 // V144: first-scroll auto letter-wave; retain V143 orange wordmark and hover unchanged.
 // V143: restore original orange big HAMPORIUM footer wordmark; retain V142 palette elsewhere.
 // V141: Footer.jsx - responsive layout + modern thin geometric HAMPORIUM wordmark with letter hover.
@@ -385,7 +387,7 @@ function SocialLinks() {
 
   return (
 
-    <section aria-label="HAMPORIUM social media" className="min-w-0 text-left max-lg:pt-5 max-lg:text-center">
+    <section aria-label="HAMPORIUM social media" className="hp-footer-social-links">
 
       <h2 className="mb-4 text-[11px] font-extrabold uppercase tracking-[0.22em] text-[#B79B6A]">
 
@@ -455,7 +457,7 @@ function SocialLinks() {
 
         to="/contact"
 
-        className="group mt-4 inline-flex min-h-9 items-center gap-2 text-[12px] font-semibold text-white/65 transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-[#B79B6A]"
+        className="hp-footer-support-link group mt-4 inline-flex min-h-9 items-center gap-2 text-[12px] font-semibold text-white/65 transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-[#B79B6A]"
 
       >
 
@@ -476,8 +478,8 @@ function Brand({ logo }) {
     <div className="hp-footer-brand">
       <Link to="/" className="hp-footer-brand-link" aria-label="HAMPORIUM Home">
         <img src={logo} alt="" draggable="false" className="hp-footer-brand-icon" />
-        <span style={{ fontFamily: DISPLAY_FONT }} className="hp-footer-brand-title">HAMPORIUM</span>
       </Link>
+      <p className="hp-footer-brand-caption">Gifting, made thoughtful.</p>
     </div>
   );
 }
@@ -490,7 +492,7 @@ function DesktopLinks() {
 
       aria-label="Footer navigation"
 
-      className="grid min-w-0 grid-cols-[minmax(0,1.35fr)_minmax(0,0.65fr)] gap-x-5 xl:gap-x-10"
+      className="hp-footer-link-grid"
 
     >
 
@@ -753,25 +755,78 @@ export default function Footer() {
           color: #fff;
           background: radial-gradient(ellipse at 0% 40%, rgba(183,155,106,.055), transparent 38%), radial-gradient(ellipse at 100% 10%, rgba(183,155,106,.045), transparent 38%), #161715;
         }
-        .hp-footer-container { width: 100%; max-width: 1680px; margin-inline: auto; padding-inline: clamp(20px, 4.2vw, 100px); }
+        /* V145: balanced top footer. The three grid tracks form four visual
+           columns: brand | Company | Help | Social, with no unused logo gutter. */
+        .hp-footer-container { width: 100%; max-width: 1700px; margin-inline: auto; padding-inline: clamp(24px, 4vw, 80px); }
         .hp-footer-main {
           display: grid;
-          grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.06fr) minmax(0, .96fr);
-          align-items: start;
-          gap: clamp(24px, 3.2vw, 70px);
-          padding-block: clamp(35px, 4.2vw, 64px) clamp(26px, 3.3vw, 48px);
+          grid-template-columns: minmax(190px, .78fr) minmax(400px, 1.55fr) minmax(300px, 1.15fr);
+          align-items: stretch;
+          gap: clamp(24px, 2.7vw, 52px);
+          padding-block: clamp(32px, 3.1vw, 46px) clamp(30px, 2.8vw, 42px);
         }
         .hp-footer-main > * { min-width: 0; }
-        .hp-footer-brand { min-width: 0; }
-        .hp-footer-brand-link { display: inline-flex; align-items: center; gap: 10px; min-width: 0; max-width: 100%; text-decoration: none; }
-        .hp-footer-brand-icon { width: clamp(49px, 4.7vw, 75px); height: clamp(65px, 6.5vw, 95px); flex: 0 0 auto; object-fit: contain; }
-        .hp-footer-brand-title { min-width: 0; font-size: clamp(22px, 2.15vw, 36px); font-weight: 600; letter-spacing: .02em; line-height: 1; color: #FAF8F4; white-space: nowrap; }
-        .hp-footer-brand-link:hover .hp-footer-brand-title { color: #f7e7ca; }
-        .hp-footer-desktop-links { min-width: 0; }
+        .hp-footer-brand {
+          min-width: 0; display: flex; flex-direction: column;
+          align-items: center; justify-content: center;
+          padding-right: clamp(12px, 1.65vw, 30px);
+          border-right: 1px solid rgba(183, 155, 106, .22);
+        }
+        .hp-footer-brand-link { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
+        .hp-footer-brand-icon {
+          display: block; width: clamp(82px, 6vw, 110px);
+          height: clamp(108px, 7.8vw, 136px);
+          object-fit: contain; transition: transform .35s ease;
+        }
+        .hp-footer-brand-link:hover .hp-footer-brand-icon { transform: translateY(-3px); }
+        .hp-footer-brand-caption {
+          margin: 7px 0 0; max-width: 180px;
+          color: rgba(232, 225, 214, .70); text-align: center;
+          font-size: 11px; font-weight: 500;
+          letter-spacing: .035em; line-height: 1.65;
+        }
+        .hp-footer-desktop-links { min-width: 0; padding-top: 3px; }
+        .hp-footer-link-grid {
+          display: grid; grid-template-columns: minmax(0, 1.22fr) minmax(0, .78fr);
+          gap: clamp(24px, 3vw, 58px); align-items: start;
+          width: 100%; min-width: 0;
+        }
+        .hp-footer-main h2 {
+          margin: 0 0 19px; color: #B79B6A;
+          font-size: 11px; font-weight: 800;
+          letter-spacing: .18em; line-height: 1.5; text-transform: uppercase;
+        }
+        .hp-footer-main h2::after {
+          content: ""; display: block; width: 24px; height: 1px;
+          background: rgba(183, 155, 106, .55); margin-top: 12px;
+        }
+        .hp-footer-desktop-links ul {
+          display: flex; flex-direction: column; gap: 10px;
+          margin: 0; padding: 0; list-style: none;
+        }
+        .hp-footer-desktop-links li a {
+          display: inline-block; max-width: 100%; padding-block: 2px;
+          color: rgba(250, 248, 244, .72);
+          font-size: 14px; font-weight: 500; line-height: 1.5;
+          transition: color .25s ease;
+        }
+        .hp-footer-desktop-links li a:hover { color: #FAF8F4; }
         .hp-footer-mobile-links { display: none; }
-        .hp-footer-social { min-width: 0; }
-        .hp-footer-social section { text-align: left; }
-        .hp-footer-social section > div { justify-content: flex-start; }
+        .hp-footer-social { min-width: 0; padding-top: 3px; }
+        .hp-footer-social-links { min-width: 0; text-align: left; }
+        .hp-footer-social-links > div { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 9px; }
+        .hp-footer-social-links > div > a,
+        .hp-footer-social-links > div > span { width: 42px; height: 42px; }
+        .hp-footer-social-links .hp-footer-support-link {
+          display: inline-flex; align-items: center; gap: 9px;
+          margin-top: 18px; padding: 0 0 7px;
+          border-bottom: 1px solid rgba(183,155,106,.36);
+          color: rgba(250,248,244,.76); font-size: 12px; font-weight: 600;
+          transition: color .25s ease, border-color .25s ease;
+        }
+        .hp-footer-social-links .hp-footer-support-link:hover {
+          color: #FAF8F4; border-bottom-color: #B79B6A;
+        }
         .hp-footer-copyright { display: flex; align-items: center; justify-content: center; min-height: 49px; border-top: 1px solid rgba(255,255,255,.1); padding: 14px 0; text-align: center; }
         .hp-footer-copyright p { margin: 0; font-size: 11px; font-weight: 500; line-height: 1.6; letter-spacing: .02em; color: rgba(255,255,255,.52); }
         /* V141: crisp geometry inspired by HAMPORIUM's shield lettering.
@@ -815,37 +870,52 @@ export default function Footer() {
           animation-delay: calc(var(--hp-letter-index) * 165ms);
           will-change: transform;
         }
+        /* Tablet: the brand occupies the left rail; links and social stack neatly. */
         @media (min-width: 768px) and (max-width: 1199px) {
           .hp-footer-main {
-            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-            gap: 24px 36px;
+            grid-template-columns: minmax(155px, .66fr) minmax(0, 1.7fr);
+            gap: 24px clamp(24px, 4.5vw, 52px);
+            padding-block: 34px;
           }
-          .hp-footer-brand { grid-column: 1; }
-          .hp-footer-desktop-links { grid-column: 2; grid-row: 1 / span 2; }
-          .hp-footer-social { grid-column: 1; grid-row: 2; }
-          .hp-footer-brand-title { font-size: clamp(22px, 2.6vw, 32px); }
-          .hp-footer-social section { text-align: left; }
+          .hp-footer-brand { grid-column: 1; grid-row: 1 / span 2; }
+          .hp-footer-desktop-links { grid-column: 2; grid-row: 1; }
+          .hp-footer-link-grid { grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr); gap: clamp(16px, 3vw, 38px); }
+          .hp-footer-social {
+            grid-column: 2; grid-row: 2;
+            border-top: 1px solid rgba(183,155,106,.19);
+            padding-top: 21px;
+          }
+          .hp-footer-social-links > div { gap: 9px; }
         }
+        /* Phones: compact brand, original accessible accordion and social icons. */
         @media (max-width: 767px) {
-          .hp-footer-container { padding-inline: clamp(16px, 5vw, 28px); }
-          .hp-footer-main { display: flex; flex-direction: column; gap: 0; padding-block: 29px 25px; }
-          .hp-footer-brand { align-self: center; width: 100%; margin-bottom: 20px; text-align: center; }
-          .hp-footer-brand-link { justify-content: center; }
-          .hp-footer-brand-icon { width: 49px; height: 64px; }
-          .hp-footer-brand-title { font-size: clamp(23px, 6.2vw, 30px); letter-spacing: .005em; }
+          .hp-footer-container { padding-inline: clamp(18px, 5vw, 28px); }
+          .hp-footer-main { display: flex; flex-direction: column; gap: 0; padding-block: 28px 30px; }
+          .hp-footer-brand {
+            align-self: center; width: 100%; margin: 0 0 13px; padding: 0 0 21px;
+            border-right: 0; border-bottom: 1px solid rgba(183,155,106,.18);
+          }
+          .hp-footer-brand-icon { width: 75px; height: 96px; }
+          .hp-footer-brand-caption { margin-top: 4px; font-size: 11px; }
           .hp-footer-desktop-links { display: none; }
           .hp-footer-mobile-links { display: block; width: 100%; min-width: 0; }
-          .hp-footer-social { width: 100%; padding-top: 6px; }
-          .hp-footer-social section { text-align: center; }
-          .hp-footer-social section > div { justify-content: center; }
+          .hp-footer-social {
+            width: 100%; margin-top: 18px; padding-top: 22px;
+            border-top: 1px solid rgba(183,155,106,.18);
+          }
+          .hp-footer-social-links { text-align: center; }
+          .hp-footer-social-links > div { justify-content: center; gap: 9px; }
+          .hp-footer-main h2::after { margin-inline: auto; }
+          .hp-footer-social-links .hp-footer-support-link { margin-top: 16px; }
           .hp-footer-copyright { min-height: 48px; padding-block: 12px; }
           .hp-footer-wordmark-line { font-size: clamp(35px, 11.8vw, 88px); padding: 14px 5px 12px; letter-spacing: -.075em; }
         }
         @media (max-width: 360px) {
           .hp-footer-wordmark-line { font-size: 11.5vw; letter-spacing: -.09em; }
-          .hp-footer-brand-link { gap: 5px; }
-          .hp-footer-brand-icon { width: 44px; height: 58px; }
-          .hp-footer-brand-title { font-size: 21px; }
+          .hp-footer-brand-icon { width: 68px; height: 89px; }
+          .hp-footer-social-links > div { gap: 6px; }
+          .hp-footer-social-links > div > a,
+          .hp-footer-social-links > div > span { width: 40px; height: 40px; }
         }
         @media (prefers-reduced-motion: reduce) {
           .hp-footer *, .hp-footer *::before, .hp-footer *::after {
