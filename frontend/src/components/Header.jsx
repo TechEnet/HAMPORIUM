@@ -1456,37 +1456,92 @@ const ActionButton = ({ label, className = "", active, controls, onClick, childr
 const COLLECTIONS = HAMPER_DROPDOWN.filter((item) => !item.special && item.to !== "/gifts");
 const BUILDER_OPTIONS = HAMPER_DROPDOWN.find((item) => item.special)?.options || [];
 
-// Compact desktop menu: three clear actions + the existing five collections.
-// Route destinations and the original dropdown hover/click behaviour are unchanged.
+// Premium desktop gifting menu. Routes and click behavior remain unchanged.
+const LuxeGiftArt = () => (
+  <svg className="hh-luxe-gift-art" viewBox="0 0 320 252" fill="none" aria-hidden="true" focusable="false">
+    <defs>
+      <linearGradient id="hh-luxe-box-front" x1="95" y1="118" x2="242" y2="228" gradientUnits="userSpaceOnUse">
+        <stop stopColor="#B88D4C" /><stop offset=".45" stopColor="#E7C585" /><stop offset="1" stopColor="#866133" />
+      </linearGradient>
+      <linearGradient id="hh-luxe-box-lid" x1="70" y1="80" x2="264" y2="168" gradientUnits="userSpaceOnUse">
+        <stop stopColor="#FFF2C9" /><stop offset=".52" stopColor="#DDB778" /><stop offset="1" stopColor="#A57435" />
+      </linearGradient>
+      <linearGradient id="hh-luxe-ribbon" x1="130" y1="66" x2="204" y2="221" gradientUnits="userSpaceOnUse">
+        <stop stopColor="#75451E" /><stop offset=".35" stopColor="#FFF0C1" /><stop offset=".63" stopColor="#C18D45" /><stop offset="1" stopColor="#6F431F" />
+      </linearGradient>
+      <filter id="hh-luxe-art-shadow" x="0" y="0" width="320" height="252" filterUnits="userSpaceOnUse">
+        <feGaussianBlur stdDeviation="7" />
+      </filter>
+    </defs>
+    <ellipse cx="165" cy="222" rx="104" ry="13" fill="#000" opacity=".28" filter="url(#hh-luxe-art-shadow)" />
+    <path d="M63 108L160 151V229L63 184V108Z" fill="#987043" stroke="#F1D69A" strokeOpacity=".65" />
+    <path d="M160 151L262 108V184L160 229V151Z" fill="url(#hh-luxe-box-front)" stroke="#FFE4AA" strokeOpacity=".5" />
+    <path d="M55 100L160 55L271 101L160 151L55 100Z" fill="url(#hh-luxe-box-lid)" stroke="#F6DAA3" strokeWidth="2" />
+    <path d="M50 99L160 147L277 99V115L160 165L50 116V99Z" fill="#D1A565" stroke="#F9E0AC" strokeOpacity=".65" strokeWidth="1.3" />
+    <path d="M130 68L153 58L264 105L244 113L130 68Z" fill="url(#hh-luxe-ribbon)" />
+    <path d="M84 112L102 119L198 70L181 64L84 112Z" fill="url(#hh-luxe-ribbon)" opacity=".95" />
+    <path d="M147 157L170 166V226L147 219V157Z" fill="url(#hh-luxe-ribbon)" />
+    <path d="M166 163L185 155V219L166 227V163Z" fill="url(#hh-luxe-ribbon)" opacity=".8" />
+    <path d="M160 89C137 69 114 54 111 68C107 87 140 98 158 94" fill="#EFD39C" stroke="#93632F" strokeWidth="3" />
+    <path d="M162 89C186 64 214 50 215 67C215 85 182 99 164 94" fill="#DFC085" stroke="#93632F" strokeWidth="3" />
+    <path d="M160 92C148 104 144 113 140 123M164 92C180 103 185 111 189 117" stroke="#EFCB87" strokeWidth="9" strokeLinecap="round" />
+    <ellipse cx="161" cy="91" rx="10" ry="8" fill="#EBC785" stroke="#91612F" strokeWidth="2" />
+    <path d="M78 97L145 68M183 62L246 88" stroke="#FFF7E1" strokeOpacity=".65" strokeWidth="2" strokeLinecap="round" />
+    <path d="M78 150L111 165M203 193L243 176" stroke="#FFE8B7" strokeOpacity=".23" strokeWidth="1.5" strokeLinecap="round" />
+    <g fill="#EED29B">
+      <path d="M44 61L46 67L52 69L46 71L44 77L42 71L36 69L42 67L44 61Z" />
+      <path d="M276 43L278 48L283 50L278 52L276 57L274 52L269 50L274 48L276 43Z" />
+      <circle cx="267" cy="157" r="2" opacity=".8" /><circle cx="64" cy="196" r="1.7" opacity=".7" />
+    </g>
+  </svg>
+);
+
 const HamperMenu = () => (
-  <nav className="hh-quick-menu" aria-label="Explore hampers">
-    <div className="hh-quick-menu-main">
-      <p className="hh-quick-menu-label">Shop & create</p>
-      <div className="hh-quick-menu-actions">
-        <Link to="/gifts" className="hh-quick-menu-link hh-quick-menu-feature">
-          <span className="hh-quick-menu-icon"><Icon name="gift" /></span>
-          <span>Shop All Hampers</span>
-          <Icon name="arrow" />
+  <nav className="hh-luxe-menu" aria-label="Explore hampers">
+    <Link to="/gifts" className="hh-luxe-feature">
+      <span className="hh-luxe-feature-top">
+        <span className="hh-luxe-feature-eyebrow">THE SIGNATURE EDIT</span>
+        <span className="hh-luxe-feature-mark" aria-hidden="true">H</span>
+      </span>
+      <LuxeGiftArt />
+      <span className="hh-luxe-feature-bottom">
+        <strong>Shop All<br />Hampers</strong>
+        <span className="hh-luxe-feature-action">
+          <span>Explore ready-made gifts</span>
+          <span className="hh-luxe-feature-arrow"><Icon name="arrow" /></span>
+        </span>
+      </span>
+    </Link>
+
+    <div className="hh-luxe-create">
+      <p className="hh-luxe-section-label">CREATE YOUR GIFT</p>
+      <div className="hh-luxe-create-links">
+        <Link to="/custom-hamper" className="hh-luxe-create-link">
+          <span className="hh-luxe-create-icon"><Icon name="spark" /></span>
+          <span className="hh-luxe-create-copy">
+            <strong>Build Your Own</strong>
+            <small>Personal gifting</small>
+          </span>
+          <span className="hh-luxe-link-arrow"><Icon name="arrow" /></span>
         </Link>
-        <Link to="/custom-hamper" className="hh-quick-menu-link">
-          <span className="hh-quick-menu-icon"><Icon name="spark" /></span>
-          <span>Build Your Own</span>
-          <Icon name="arrow" />
-        </Link>
-        <Link to="/custom-hamper?mode=bulk" className="hh-quick-menu-link">
-          <span className="hh-quick-menu-icon"><Icon name="stack" /></span>
-          <span>Bulk & Event Gifting</span>
-          <Icon name="arrow" />
+        <Link to="/custom-hamper?mode=bulk" className="hh-luxe-create-link">
+          <span className="hh-luxe-create-icon"><Icon name="stack" /></span>
+          <span className="hh-luxe-create-copy">
+            <strong>Bulk &amp; Event Gifting</strong>
+            <small>For every occasion</small>
+          </span>
+          <span className="hh-luxe-link-arrow"><Icon name="arrow" /></span>
         </Link>
       </div>
     </div>
 
-    <div className="hh-quick-menu-collections">
-      <p className="hh-quick-menu-label">Shop by collection</p>
-      <div className="hh-quick-menu-categories">
-        {COLLECTIONS.map((item) => (
-          <Link key={item.to} to={item.to} aria-label={item.label}>
-            <span>{item.label.replace(/ Hampers$/, "")}</span>
+    <div className="hh-luxe-collections">
+      <p className="hh-luxe-section-label">EXPLORE COLLECTIONS</p>
+      <div className="hh-luxe-collection-links">
+        {COLLECTIONS.map((item, index) => (
+          <Link key={item.to} to={item.to} className="hh-luxe-collection-link" aria-label={item.label}>
+            <span className="hh-luxe-collection-index">{String(index + 1).padStart(2, "0")}</span>
+            <span className="hh-luxe-collection-name">{item.label.replace(/ Hampers$/, "")}</span>
             <Icon name="arrow" />
           </Link>
         ))}
@@ -2502,132 +2557,468 @@ const HEADER_CSS = `
   }
 }
 
-/* Compact HAMPERS dropdown only. The header, search, account and mobile drawer stay intact. */
-.hh-overlay .hh-panel-hampers {
-  max-width:920px;
-  border-radius:16px;
+/* V162: OPEN EDITORIAL MEGA MENU.
+   Full-width left slide remains; remove the repetitive card/box outlines.
+   Change is scoped to the desktop Hampers panel only. */
+@media (min-width:1180px) {
+  .hh-desktop-overlay.hh-overlay-hampers .hh-panel-hampers {
+    position:absolute;
+    top:var(--hh-height);
+    left:0;
+    right:0;
+    width:100%;
+    max-width:none;
+    max-height:calc(100dvh - var(--hh-height) - 12px);
+    margin:0;
+    border:0;
+    border-top:1px solid rgba(183,155,106,.24);
+    border-radius:0 0 12px 12px;
+    overflow:hidden;
+    background:#FAF8F4;
+    box-shadow:0 30px 72px rgba(16,16,14,.20);
+    transform-origin:left top;
+  }
+  .hh-desktop-overlay.hh-overlay-hampers .hh-panel-hampers::before {
+    height:2px;
+    background:linear-gradient(90deg,#F47822 0%,#B79B6A 30%,transparent 75%);
+  }
+  .hh-desktop-overlay.hh-overlay-hampers .hh-panel-top {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:20px;
+    padding:18px clamp(24px,4vw,76px) 18px;
+    border-bottom:1px solid rgba(64,58,50,.12);
+    background:#FAF8F4;
+  }
+  .hh-desktop-overlay.hh-overlay-hampers .hh-panel-top h2 {
+    display:flex;
+    align-items:center;
+    gap:15px;
+    margin:0;
+    color:#302C26;
+    font-family:'Montserrat','Manrope',Arial,sans-serif;
+    font-size:clamp(25px,2.15vw,34px);
+    font-weight:500;
+    line-height:1.15;
+    letter-spacing:-.045em;
+  }
+  .hh-desktop-overlay.hh-overlay-hampers .hh-panel-top h2::before {
+    content:'';
+    width:3px;
+    height:26px;
+    flex:0 0 3px;
+    border-radius:2px;
+    background:#B79B6A;
+  }
+  .hh-desktop-overlay.hh-overlay-hampers .hh-panel-top .hh-close {
+    display:grid;
+    place-items:center;
+    width:38px;
+    height:38px;
+    border:0;
+    border-radius:50%;
+    background:transparent;
+    color:#655846;
+    transition:color .24s,background .24s,transform .26s;
+  }
+  .hh-desktop-overlay.hh-overlay-hampers .hh-panel-top .hh-close:hover {
+    background:#EAE1D3;
+    color:#302C26;
+  }
+  .hh-desktop-overlay.hh-overlay-hampers .hh-panel-body {
+    width:100%;
+    padding:0;
+    overflow-x:hidden;
+    background:#FAF8F4;
+  }
+  .hh-desktop-overlay.hh-overlay-hampers.is-visible .hh-panel-hampers {
+    animation:hh-hampers-slide-in .58s cubic-bezier(.19,1,.22,1) both;
+  }
+  .hh-desktop-overlay.hh-overlay-hampers.is-leaving .hh-panel-hampers {
+    animation:hh-hampers-slide-out .27s cubic-bezier(.55,0,1,1) both;
+  }
+  .hh-desktop-overlay.hh-overlay-hampers.is-visible .hh-luxe-feature {
+    animation:hh-hampers-content-in .50s cubic-bezier(.2,1,.3,1) .13s both;
+  }
+  .hh-desktop-overlay.hh-overlay-hampers.is-visible .hh-luxe-create {
+    animation:hh-hampers-content-in .50s cubic-bezier(.2,1,.3,1) .20s both;
+  }
+  .hh-desktop-overlay.hh-overlay-hampers.is-visible .hh-luxe-collections {
+    animation:hh-hampers-content-in .50s cubic-bezier(.2,1,.3,1) .26s both;
+  }
 }
-.hh-panel-hampers .hh-panel-top {
-  align-items:center;
-  padding:19px 26px 17px;
-}
-.hh-panel-hampers .hh-panel-top h2 {
-  margin:0;
-  font-size:29px;
-  line-height:1.12;
-}
-.hh-panel-hampers .hh-close {
-  width:34px;
-  height:34px;
-}
-.hh-quick-menu {
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-menu,
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-menu * {box-sizing:border-box;}
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-menu {
   display:grid;
-  grid-template-columns:minmax(0,.95fr) minmax(0,1.05fr);
-  color:#403A32;
-}
-.hh-quick-menu-main,
-.hh-quick-menu-collections {
-  min-width:0;
-  padding:24px 25px 26px;
-}
-.hh-quick-menu-main {
-  border-right:1px solid rgba(88,72,50,.12);
-  background:linear-gradient(135deg,#f7f1e5 0%,#faf7f0 100%);
-}
-.hh-quick-menu-label {
-  margin:0 0 13px!important;
-  color:#98743c;
-  font-size:11px;
-  font-weight:750;
-  line-height:1.5;
-  letter-spacing:.11em;
-  text-transform:uppercase;
-}
-.hh-quick-menu-actions { display:grid; gap:9px; }
-.hh-quick-menu-link {
-  display:flex;
-  align-items:center;
-  gap:12px;
+  grid-template-columns:minmax(0,1.03fr) minmax(0,.98fr) minmax(0,1.33fr);
+  gap:0;
+  align-items:stretch;
   width:100%;
-  min-height:54px;
-  padding:10px 13px;
-  border:1px solid rgba(145,118,77,.17);
-  border-radius:11px;
-  background:rgba(255,255,255,.84);
-  font-size:14px;
-  font-weight:650;
-  line-height:1.3;
-  transition:background .2s ease,border-color .2s ease,transform .2s ease;
+  max-width:none;
+  min-height:322px;
+  margin:0;
+  color:#403A32;
+  font-family:'Montserrat','Manrope',Arial,sans-serif;
 }
-.hh-quick-menu-link > span:nth-child(2) { min-width:0; flex:1; }
-.hh-quick-menu-link.hh-quick-menu-feature {
-  background:#eee2ca;
-  border-color:#dcc59e;
-}
-.hh-quick-menu-icon {
-  display:grid;
-  flex:0 0 31px;
-  width:31px;
-  height:31px;
-  place-items:center;
-  border-radius:9px;
-  background:rgba(183,155,106,.13);
-  color:#97702d;
-}
-.hh-quick-menu-icon .hh-icon { width:17px; height:17px; }
-.hh-quick-menu-link > .hh-icon {
-  width:15px;
-  height:15px;
-  flex:0 0 auto;
-  color:#ac874b;
-}
-.hh-quick-menu-link:hover,
-.hh-quick-menu-link:focus-visible {
-  transform:translateY(-1px);
-  background:#fff;
-  border-color:#b79b6a;
-}
-.hh-quick-menu-categories {
-  display:grid;
-  grid-template-columns:repeat(2,minmax(0,1fr));
-  gap:9px;
-}
-.hh-quick-menu-categories > a {
+/* The ONLY dark surface is a seamless featured region, not another outlined card. */
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-feature {
+  position:relative;
+  isolation:isolate;
   display:flex;
+  flex-direction:column;
+  justify-content:space-between;
   min-width:0;
-  min-height:54px;
+  min-height:322px;
+  overflow:hidden;
+  padding:clamp(27px,2.65vw,44px) clamp(25px,3.2vw,58px);
+  border:0;
+  border-radius:0;
+  color:#FDF8ED;
+  background:radial-gradient(circle at 78% 45%,rgba(216,170,94,.20),transparent 43%),
+             linear-gradient(118deg,#33322D 0%,#1D1E1B 100%);
+  box-shadow:none;
+  transition:background .3s ease;
+}
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-feature::before {
+  content:'';
+  position:absolute;
+  top:0;
+  left:0;
+  width:3px;
+  height:100%;
+  border:0;
+  border-radius:0;
+  background:linear-gradient(#F47822,#E4C68E,#6C5B3F);
+  pointer-events:none;
+}
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-feature::after {
+  content:'';
+  position:absolute;
+  z-index:-1;
+  width:280px;
+  height:280px;
+  top:30px;
+  right:-86px;
+  border:1px solid rgba(240,205,153,.13);
+  border-radius:50%;
+  box-shadow:0 0 0 46px rgba(227,183,114,.018),0 0 0 92px rgba(227,183,114,.012);
+  pointer-events:none;
+}
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-feature-top,
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-feature-bottom {
+  position:relative;
+  z-index:2;
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+}
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-feature-top {
+  width:100%;
+  flex-direction:row;
+  justify-content:space-between;
   align-items:center;
   gap:10px;
+}
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-feature-eyebrow {
+  color:#E8CB97;
+  font-size:10px;
+  font-weight:700;
+  letter-spacing:.18em;
+}
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-feature-mark {
+  display:block;
+  width:auto;
+  height:auto;
+  border:0;
+  border-radius:0;
+  color:rgba(232,201,149,.75);
+  background:none;
+  font:italic 24px/1 Georgia,serif;
+}
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-gift-art {
+  position:absolute;
+  z-index:1;
+  top:22px;
+  right:clamp(1px,1.8vw,26px);
+  width:clamp(160px,15.8vw,248px);
+  height:auto;
+  opacity:.94;
+  filter:drop-shadow(0 12px 16px rgba(0,0,0,.18));
+  transform:translate3d(0,0,0) rotate(-3deg);
+  transition:transform .55s cubic-bezier(.2,1,.3,1),filter .55s ease;
+  pointer-events:none;
+}
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-feature:hover .hh-luxe-gift-art,
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-feature:focus-visible .hh-luxe-gift-art {
+  transform:translate3d(0,-8px,0) rotate(0deg);
+  filter:drop-shadow(0 16px 20px rgba(0,0,0,.23));
+}
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-feature-bottom {width:100%;gap:15px;}
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-feature-bottom > strong {
+  color:#FFFCF5;
+  font-size:clamp(28px,2.75vw,45px);
+  font-weight:500;
+  letter-spacing:-.055em;
+  line-height:1.08;
+  text-shadow:0 2px 14px rgba(0,0,0,.22);
+}
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-feature-action {
+  display:flex;
+  align-items:center;
   justify-content:space-between;
-  border:1px solid rgba(96,84,66,.12);
-  border-radius:10px;
-  padding:10px 13px;
-  background:rgba(250,248,244,.72);
-  font-size:14px;
-  font-weight:600;
+  gap:12px;
+  width:100%;
+  padding-top:12px;
+  border-top:1px solid rgba(237,206,156,.24);
+  color:#E9D5B4;
+  font-size:12px;
+  font-weight:550;
+}
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-feature-arrow {
+  display:grid;
+  place-items:center;
+  width:30px;
+  height:30px;
+  border:0;
+  border-radius:50%;
+  background:transparent;
+  color:#E7C891;
+  transition:transform .28s ease,color .28s ease;
+}
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-feature-arrow .hh-icon {width:19px;height:19px;}
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-feature:hover .hh-luxe-feature-arrow {transform:translateX(6px);color:#FFF1C9;background:transparent;}
+/* Create & collection sections are open columns divided by fine hairlines. */
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-create,
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-collections {
+  display:flex;
+  flex-direction:column;
+  min-width:0;
+  padding:clamp(27px,2.65vw,42px) clamp(25px,3vw,55px);
+  background:transparent;
+}
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-create {
+  border-right:1px solid rgba(64,58,50,.11);
+}
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-section-label {
+  margin:0 0 22px!important;
+  color:#977645;
+  font-size:10px;
+  line-height:1.4;
+  font-weight:700;
+  letter-spacing:.17em;
+  text-transform:uppercase;
+}
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-section-label::before {
+  content:'';
+  display:inline-block;
+  width:18px;
+  height:1px;
+  margin:0 10px 3px 0;
+  vertical-align:middle;
+  background:#C8A66E;
+}
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-create-links {
+  display:grid;
+  grid-template-rows:repeat(2,minmax(0,1fr));
+  gap:0;
+  flex:1;
+}
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-create-link {
+  position:relative;
+  display:flex;
+  align-items:center;
+  min-width:0;
+  min-height:108px;
+  gap:clamp(13px,1.3vw,23px);
+  overflow:visible;
+  padding:17px 0;
+  border:0;
+  border-bottom:1px solid rgba(64,58,50,.13);
+  border-radius:0;
+  background:transparent;
+  color:#342F28;
+  box-shadow:none;
+  transform:none;
+  transition:color .25s ease,padding-left .32s cubic-bezier(.2,1,.3,1),border-color .25s ease;
+}
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-create-link:first-child {border-top:1px solid rgba(64,58,50,.13);}
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-create-link::after {
+  content:'';
+  position:absolute;
+  inset:auto auto -1px 0;
+  width:0;
+  height:2px;
+  border:0;
+  border-radius:0;
+  background:#B79B6A;
+  transition:width .32s ease;
+  pointer-events:none;
+}
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-create-link:hover,
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-create-link:focus-visible {
+  color:#9C692F;
+  background:transparent;
+  border-color:rgba(64,58,50,.18);
+  box-shadow:none;
+  transform:none;
+  padding-left:7px;
+}
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-create-link:hover::after,
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-create-link:focus-visible::after {width:100%;}
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-create-icon {
+  display:grid;
+  place-items:center;
+  width:31px;
+  height:37px;
+  flex:0 0 31px;
+  border:0;
+  border-radius:0;
+  background:transparent;
+  color:#A47D47;
+  transform:none;
+  transition:color .25s ease,transform .25s ease;
+}
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-create-icon .hh-icon {width:24px;height:24px;}
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-create-link:hover .hh-luxe-create-icon {transform:translateY(-2px);background:transparent;color:#BC8A4B;}
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-create-copy {display:flex;flex:1;min-width:0;flex-direction:column;gap:5px;}
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-create-copy strong {
+  font-size:clamp(15px,1.25vw,20px);
   line-height:1.3;
-  transition:background .2s ease,border-color .2s ease,color .2s ease;
+  font-weight:580;
+  letter-spacing:-.035em;
 }
-.hh-quick-menu-categories > a:last-child:nth-child(odd) { grid-column:span 2; }
-.hh-quick-menu-categories > a > span { min-width:0; }
-.hh-quick-menu-categories > a > .hh-icon {
-  width:15px;
-  height:15px;
-  flex:0 0 auto;
-  color:#b79b6a;
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-create-copy small {
+  color:#897A66;
+  font-size:11.5px;
+  font-weight:500;
+  line-height:1.4;
 }
-.hh-quick-menu-categories > a:hover,
-.hh-quick-menu-categories > a:focus-visible {
-  color:#78541d;
-  border-color:#c5a873;
-  background:#f7f0e3;
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-link-arrow {
+  display:grid;
+  place-items:center;
+  width:23px;
+  height:23px;
+  flex:0 0 23px;
+  border:0;
+  border-radius:0;
+  background:transparent;
+  color:#997649;
+  transition:transform .25s ease;
 }
-@media (max-width:760px) {
-  .hh-quick-menu { grid-template-columns:1fr; }
-  .hh-quick-menu-main { border-right:0; border-bottom:1px solid rgba(88,72,50,.12); }
-  .hh-quick-menu-main,.hh-quick-menu-collections { padding:20px; }
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-link-arrow .hh-icon {width:17px;height:17px;}
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-create-link:hover .hh-luxe-link-arrow {transform:translateX(5px);background:transparent;}
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-collection-links {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  grid-template-rows:repeat(3,minmax(0,1fr));
+  gap:0 clamp(17px,2vw,32px);
+  flex:1;
 }
-
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-collection-link {
+  position:relative;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  gap:7px;
+  min-width:0;
+  min-height:70px;
+  overflow:hidden;
+  padding:12px 24px 12px 0;
+  border:0;
+  border-bottom:1px solid rgba(64,58,50,.13);
+  border-radius:0;
+  background:transparent;
+  color:#3E3932;
+  box-shadow:none;
+  transform:none;
+  transition:padding-left .28s cubic-bezier(.2,1,.3,1),color .25s ease,border-color .25s ease;
+}
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-collection-link:nth-child(-n+2) {border-top:1px solid rgba(64,58,50,.13);}
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-collection-link:last-child:nth-child(odd) {grid-column:1 / -1;}
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-collection-link::after {
+  content:'';
+  position:absolute;
+  inset:auto auto 0 0;
+  width:0;
+  height:2px;
+  background:#B79B6A;
+  transition:width .32s ease;
+}
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-collection-link:hover,
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-collection-link:focus-visible {
+  padding-left:6px;
+  border-color:rgba(64,58,50,.18);
+  background:transparent;
+  color:#9C692F;
+  box-shadow:none;
+  transform:none;
+}
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-collection-link:hover::after,
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-collection-link:focus-visible::after {width:100%;}
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-collection-index {
+  display:block;
+  color:#AA9068;
+  font-size:10px;
+  font-weight:650;
+  letter-spacing:.1em;
+  line-height:1.1;
+}
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-collection-name {
+  display:block;
+  max-width:calc(100% - 20px);
+  min-width:0;
+  color:inherit;
+  font-size:clamp(13px,1.13vw,18px);
+  font-weight:580;
+  line-height:1.25;
+  letter-spacing:-.03em;
+}
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-collection-link > .hh-icon {
+  position:absolute;
+  right:0;
+  top:50%;
+  bottom:auto;
+  width:16px;
+  height:16px;
+  color:#AD905F;
+  transform:translateY(-50%);
+  transition:transform .25s ease;
+}
+.hh-desktop-overlay.hh-overlay-hampers .hh-luxe-collection-link:hover > .hh-icon {transform:translate(4px,-50%);}
+@keyframes hh-hampers-slide-in {
+  from {opacity:.72;transform:translate3d(-101%,0,0);}
+  to {opacity:1;transform:translate3d(0,0,0);}
+}
+@keyframes hh-hampers-slide-out {
+  from {opacity:1;transform:translate3d(0,0,0);}
+  to {opacity:0;transform:translate3d(-101%,0,0);}
+}
+@keyframes hh-hampers-content-in {
+  from {opacity:0;transform:translate3d(-18px,0,0);}
+  to {opacity:1;transform:translate3d(0,0,0);}
+}
+@media (min-width:1180px) and (max-width:1359px) {
+  .hh-desktop-overlay.hh-overlay-hampers .hh-luxe-menu {
+    grid-template-columns:minmax(0,1.01fr) minmax(0,1fr) minmax(0,1.28fr);
+  }
+  .hh-desktop-overlay.hh-overlay-hampers .hh-luxe-feature {padding:26px;}
+  .hh-desktop-overlay.hh-overlay-hampers .hh-luxe-gift-art {width:155px;right:4px;top:34px;}
+  .hh-desktop-overlay.hh-overlay-hampers .hh-luxe-create,
+  .hh-desktop-overlay.hh-overlay-hampers .hh-luxe-collections {padding:27px 24px;}
+  .hh-desktop-overlay.hh-overlay-hampers .hh-luxe-create-link {gap:10px;}
+  .hh-desktop-overlay.hh-overlay-hampers .hh-luxe-create-copy small {font-size:11px;}
+  .hh-desktop-overlay.hh-overlay-hampers .hh-luxe-collection-links {column-gap:17px;}
+  .hh-desktop-overlay.hh-overlay-hampers .hh-luxe-collection-name {font-size:14px;}
+}
+@media (prefers-reduced-motion:reduce) {
+  .hh-desktop-overlay.hh-overlay-hampers .hh-panel-hampers,
+  .hh-desktop-overlay.hh-overlay-hampers .hh-luxe-feature,
+  .hh-desktop-overlay.hh-overlay-hampers .hh-luxe-create,
+  .hh-desktop-overlay.hh-overlay-hampers .hh-luxe-collections {animation:none!important;}
+  .hh-desktop-overlay.hh-overlay-hampers .hh-luxe-gift-art {transform:none!important;transition:none!important;}
+}
 
 /* Mobile menu V2: match the clean two-column desktop menu without oversized rows. */
 .hh-mobile-overlay.hh-overlay-menu .hh-panel {
@@ -2822,36 +3213,6 @@ const HEADER_CSS = `
   .hh-mobile-clean-private img { width:80px; }
   .hh-mobile-overlay.hh-overlay-menu .hh-panel-top { padding-inline:16px; }
   .hh-mobile-clean-category-grid > a { padding-inline:9px; font-size:12px; }
-}
-
-/* Desktop Hampers menu: refined left-to-right entrance, soft exit and subtle content reveal.
-   Only the Hampers dropdown animates; search, account, mobile drawer and routing are untouched. */
-@media (min-width:1180px) {
-  .hh-desktop-overlay.hh-overlay-hampers.is-visible .hh-panel-hampers {
-    animation:hh-hampers-slide-in .58s cubic-bezier(.18,1,.32,1) both;
-    transform-origin:left center;
-  }
-  .hh-desktop-overlay.hh-overlay-hampers.is-leaving .hh-panel-hampers {
-    animation:hh-hampers-slide-out .20s cubic-bezier(.4,0,1,1) both;
-  }
-  .hh-desktop-overlay.hh-overlay-hampers.is-visible .hh-quick-menu-main {
-    animation:hh-hampers-content-in .49s cubic-bezier(.2,1,.3,1) .10s both;
-  }
-  .hh-desktop-overlay.hh-overlay-hampers.is-visible .hh-quick-menu-collections {
-    animation:hh-hampers-content-in .49s cubic-bezier(.2,1,.3,1) .17s both;
-  }
-}
-@keyframes hh-hampers-slide-in {
-  from { opacity:0; transform:translate3d(-86px,0,0) scale(.97); }
-  to { opacity:1; transform:translate3d(0,0,0) scale(1); }
-}
-@keyframes hh-hampers-slide-out {
-  from { opacity:1; transform:translate3d(0,0,0) scale(1); }
-  to { opacity:0; transform:translate3d(-35px,0,0) scale(.99); }
-}
-@keyframes hh-hampers-content-in {
-  from { opacity:0; transform:translate3d(-12px,0,0); }
-  to { opacity:1; transform:translate3d(0,0,0); }
 }
 
 @media (prefers-reduced-transparency: reduce) {
