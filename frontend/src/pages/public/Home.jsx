@@ -1,5 +1,6 @@
 
 
+
 // V154: Hamper One home section uses the same crisp SVG wordmark as Hamper One V12.
 // V153: mobile vertical guide hidden; cinematic video loops across scrolling until manually paused.
 // V152: frame-perfect scroll indicator, lighter hero compositing, scroll-paint optimizations.
@@ -8199,6 +8200,27 @@ const HamperOneExperienceIcon = ({ type }) => {
 // interaction; supporting copy only appears inside the revealed image.
 // ======================================================
 
+// Original HAMPER ONE Privee vector is unchanged. These boxes isolate each
+// visible letter from that one SVG, so each character appears independently.
+// Coordinates use the SVG's native 1915 x 496 viewBox.
+const HAMPER_ONE_LETTER_SLICES = [
+  { letter: "H", left: 0, right: 196, top: 0, bottom: 244 },
+  { letter: "A", left: 196, right: 428, top: 0, bottom: 244 },
+  { letter: "M", left: 428, right: 668, top: 0, bottom: 244 },
+  { letter: "P", left: 668, right: 862, top: 0, bottom: 244 },
+  { letter: "E", left: 862, right: 1042, top: 0, bottom: 244 },
+  { letter: "R", left: 1042, right: 1236, top: 0, bottom: 244 },
+  { letter: "O", left: 1236, right: 1468, top: 0, bottom: 244 },
+  { letter: "N", left: 1468, right: 1680, top: 0, bottom: 244 },
+  { letter: "E", left: 1680, right: 1915, top: 0, bottom: 244 },
+  { letter: "p", left: 1232, right: 1378, top: 244, bottom: 496 },
+  { letter: "r", left: 1378, right: 1468, top: 244, bottom: 496 },
+  { letter: "i", left: 1468, right: 1502, top: 244, bottom: 496 },
+  { letter: "v", left: 1502, right: 1640, top: 244, bottom: 496 },
+  { letter: "e", left: 1640, right: 1776, top: 244, bottom: 496 },
+  { letter: "e", left: 1776, right: 1915, top: 244, bottom: 496 },
+];
+
 const HamperOneUnwrapExperience = () => {
   const [opened, setOpened] = useState(false);
   const [pullStage, setPullStage] = useState(0);
@@ -8206,6 +8228,55 @@ const HamperOneUnwrapExperience = () => {
   const [isRepacking, setIsRepacking] = useState(false);
   const [tapNudge, setTapNudge] = useState(false);
   const visualRef = useRef(null);
+  const wordmarkHeadingRef = useRef(null);
+
+  // Trigger the individual-letter reveal once the original SVG is ready AND
+  // the heading is on screen. No continuous scroll handlers or React rerenders.
+  useEffect(() => {
+    const heading = wordmarkHeadingRef.current;
+    if (!heading) return undefined;
+
+    const image = heading.querySelector(".hp-hamper-one-wordmark");
+    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    let active = true;
+    let observer;
+
+    const reveal = () => {
+      if (!active) return;
+      heading.classList.add(reduced ? "is-hp-letters-complete" : "is-hp-letters-writing");
+    };
+
+    const startWhenReady = () => {
+      if (!image || image.complete) {
+        reveal();
+      } else {
+        image.addEventListener("load", reveal, { once: true });
+        image.addEventListener("error", reveal, { once: true });
+      }
+    };
+
+    if (reduced || !window.IntersectionObserver) {
+      startWhenReady();
+    } else {
+      observer = new IntersectionObserver(
+        (entries) => {
+          if (!entries.some((entry) => entry.isIntersecting)) return;
+          observer.disconnect();
+          startWhenReady();
+        },
+        { threshold: 0.18, rootMargin: "0px 0px -7% 0px" }
+      );
+      observer.observe(heading);
+    }
+
+    return () => {
+      active = false;
+      observer?.disconnect();
+      image?.removeEventListener("load", reveal);
+      image?.removeEventListener("error", reveal);
+    };
+  }, []);
+
   const pullRef = useRef({
     active: false,
     pointerId: null,
@@ -8502,6 +8573,77 @@ const HamperOneUnwrapExperience = () => {
       } ${isRepacking ? "is-repacking" : ""}`}
     >
       <style>{`
+        /* V156: real staggered LETTER-BY-LETTER entrance.
+           Slices come from the unchanged original SVG (not a substitute font).
+           Each full character fades / rises individually, never a linear wipe. */
+        .hp-home-v65 .hp-hamper-one-ink-surface {
+          position: relative;
+          display: block;
+          flex: 0 1 auto;
+          width: min(100%, 530px);
+          max-width: 100%;
+          line-height: 0;
+          isolation: isolate;
+        }
+
+        .hp-home-v65 .hp-hamper-one-ink-surface > .hp-hamper-one-wordmark {
+          display: block;
+          width: 100%;
+          height: auto;
+          opacity: 0;
+        }
+
+        .hp-home-v65 .hp-hamper-one-letter-slice {
+          position: absolute;
+          inset: 0;
+          display: block;
+          background-position: center;
+          background-repeat: no-repeat;
+          background-size: 100% 100%;
+          opacity: 0;
+          transform: translate3d(0, 13px, 0);
+          pointer-events: none;
+          backface-visibility: hidden;
+          -webkit-backface-visibility: hidden;
+        }
+
+        @keyframes hpHamperOneLetterAppear {
+          0%   { opacity: 0; transform: translate3d(0, 13px, 0); }
+          52%  { opacity: 1; }
+          100% { opacity: 1; transform: translate3d(0, 0, 0); }
+        }
+
+        .hp-home-v65 .hp-hamper-one-wordmark-heading.is-hp-letters-writing .hp-hamper-one-letter-slice {
+          animation: hpHamperOneLetterAppear 580ms cubic-bezier(.16, 1, .3, 1) both;
+          animation-delay: var(--hp-letter-delay, 0ms);
+        }
+
+        .hp-home-v65 .hp-hamper-one-wordmark-heading.is-hp-letters-complete .hp-hamper-one-wordmark {
+          opacity: 1;
+        }
+        .hp-home-v65 .hp-hamper-one-wordmark-heading.is-hp-letters-complete .hp-hamper-one-letter-slice {
+          display: none;
+        }
+
+        @media (max-width: 1023px) {
+          .hp-home-v65 .hp-hamper-one-ink-surface { width: min(100%, 480px); }
+        }
+        @media (max-width: 639px) {
+          .hp-home-v65 .hp-hamper-one-ink-surface { width: min(77vw, 340px); }
+          .hp-home-v65 .hp-hamper-one-wordmark-heading.is-hp-letters-writing .hp-hamper-one-letter-slice {
+            animation-duration: 510ms;
+          }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .hp-home-v65 .hp-hamper-one-ink-surface > .hp-hamper-one-wordmark {
+            opacity: 1 !important;
+          }
+          .hp-home-v65 .hp-hamper-one-letter-slice {
+            display: none !important;
+            animation: none !important;
+          }
+        }
+
         @keyframes hpHamperWrapGlow {
           0%, 100% {
             opacity: .48;
@@ -10291,17 +10433,39 @@ const HamperOneUnwrapExperience = () => {
                   </p>
                 </div>
 
-                <h2 className="hp-hamper-one-heading hp-hamper-one-wordmark-heading mt-6">
-                  <img
-                    src={hamperOneWordmarkSharp}
-                    alt="HAMPER ONE Privée"
-                    loading="lazy"
-                    decoding="async"
-                    width="1915"
-                    height="496"
-                    className="hp-hamper-one-wordmark"
-                    draggable="false"
-                  />
+                <h2
+                  ref={wordmarkHeadingRef}
+                  className={"hp-hamper-one-heading hp-hamper-one-wordmark-heading mt-6"}
+                >
+                  <span className="hp-hamper-one-ink-surface">
+                    <img
+                      src={hamperOneWordmarkSharp}
+                      alt="HAMPER ONE Privée"
+                      loading="lazy"
+                      decoding="async"
+                      width="1915"
+                      height="496"
+                      className="hp-hamper-one-wordmark"
+                      draggable="false"
+                    />
+                    <span aria-hidden="true" className="hp-hamper-one-letter-layers">
+                      {HAMPER_ONE_LETTER_SLICES.map((slice, index) => {
+                        const clip = `inset(${(slice.top / 496) * 100}% ${((1915 - slice.right) / 1915) * 100}% ${((496 - slice.bottom) / 496) * 100}% ${(slice.left / 1915) * 100}%)`;
+                        return (
+                          <span
+                            key={`${slice.letter}-${index}`}
+                            className="hp-hamper-one-letter-slice"
+                            style={{
+                              backgroundImage: `url(${hamperOneWordmarkSharp})`,
+                              clipPath: clip,
+                              WebkitClipPath: clip,
+                              "--hp-letter-delay": `${index * 138}ms`,
+                            }}
+                          />
+                        );
+                      })}
+                    </span>
+                  </span>
                 </h2>
 
                 <div className="hp-hamper-one-actions mt-8 flex w-full sm:w-auto">
@@ -10978,6 +11142,8 @@ const useHomeEnhancements = (homeRef, reducedMotion) => {
       if (!(heading instanceof HTMLElement)) return;
       if (!heading.matches(kineticHeadingSelector)) return;
       if (heading.classList.contains("sr-only")) return;
+      // The logo has its own more intentional calligraphy reveal.
+      if (heading.classList.contains("hp-hamper-one-wordmark-heading")) return;
       if (kineticHeadingNodes.has(heading)) return;
 
       kineticHeadingNodes.add(heading);

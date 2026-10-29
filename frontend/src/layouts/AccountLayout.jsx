@@ -1,5 +1,6 @@
+
 import { useEffect, useState } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 
 import { useAuth } from "../context/AuthContext.jsx";
 import logo from "../assets/images/logo_dark.jpeg";
@@ -119,6 +120,7 @@ const navClass = ({ isActive }) => `
 const AccountLayout = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const transparentLogo = useTransparentLogo(logo);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -137,6 +139,12 @@ const AccountLayout = () => {
     await logout();
     navigate("/");
   };
+
+  // Saved addresses are managed inside My Profile. Keep old deep links working
+  // without showing a second, duplicate address page.
+  if (location.pathname.replace(/\/+$/, "") === "/account/addresses") {
+    return <Navigate to="/account/profile" replace />;
+  }
 
   return (
     <div
@@ -306,7 +314,6 @@ const AccountLayout = () => {
 
             <NavSection number="03">My Account</NavSection>
             <NavItem to="/account/profile" label="My Profile" icon={<UserIcon />} />
-            <NavItem to="/account/addresses" label="Saved Addresses" icon={<PinIcon />} />
             <NavItem to="/account/support" label="Help & Support" icon={<SupportIcon />} />
           </nav>
 
@@ -460,13 +467,6 @@ const UserIcon = () => (
   <Icon>
     <circle cx="12" cy="8" r="3.5" />
     <path d="M5 20c.8-4 3.2-6 7-6s6.2 2 7 6" />
-  </Icon>
-);
-
-const PinIcon = () => (
-  <Icon>
-    <path d="M12 21s7-5.2 7-12a7 7 0 1 0-14 0c0 6.8 7 12 7 12Z" />
-    <circle cx="12" cy="9" r="2.4" />
   </Icon>
 );
 
