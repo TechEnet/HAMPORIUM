@@ -1,6 +1,7 @@
 
 
 
+
 // V154: Hamper One home section uses the same crisp SVG wordmark as Hamper One V12.
 // V153: mobile vertical guide hidden; cinematic video loops across scrolling until manually paused.
 // V152: frame-perfect scroll indicator, lighter hero compositing, scroll-paint optimizations.
@@ -10485,6 +10486,44 @@ const HamperOneUnwrapExperience = () => {
         @media (prefers-reduced-motion: reduce) {
           .hp-home-v65 .hp-hamper-one-visual:not(.is-pulling) .hp-hamper-one-seal {
             animation: none !important;
+          }
+        }
+
+        /* Mobile unwrap fix: position the full gold CTA INSIDE its image card.
+           Desktop centers using left:50% + translateX(-50%); on phones the
+           button has left/right insets, so keeping that transform clips its
+           leading label. Reset it in all mobile interaction states. */
+        @media (max-width: 767px) {
+          .hp-home-v65 .hp-hamper-one-visual .hp-hamper-one-experience-cta {
+            box-sizing: border-box;
+            left: 12px !important;
+            right: 12px !important;
+            bottom: 12px !important;
+            width: auto !important;
+            max-width: none !important;
+            min-width: 0 !important;
+            margin: 0 !important;
+            padding: 0 15px !important;
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            transform: none !important;
+            white-space: nowrap;
+            font-size: clamp(8px, 2.45vw, 10px) !important;
+            letter-spacing: .09em !important;
+          }
+          .hp-home-v65 .hp-hamper-one-visual .hp-hamper-one-experience-cta:hover,
+          .hp-home-v65 .hp-hamper-one-visual .hp-hamper-one-experience-cta:focus-visible,
+          .hp-home-v65 .hp-hamper-one-visual .hp-hamper-one-experience-cta:active {
+            transform: none !important;
+          }
+          .hp-home-v65 .hp-hamper-one-experience-cta > span:first-child {
+            display: block;
+            min-width: 0;
+            overflow: visible;
+          }
+          .hp-home-v65 .hp-hamper-one-experience-cta > span:last-child {
+            flex: 0 0 auto;
           }
         }
       `}</style>
