@@ -36,10 +36,13 @@ import heroVideo from "../../assets/hmp.mp4";
 // hmp_compatible.mp4 = H.264 baseline/main + yuv420p, faststart, AAC or no audio.
 // hmp.webm = VP8/VP9 WebM alternative. Vite resolves only files that exist.
 const HOME_VIDEO_VARIANTS = import.meta.glob(
-  "../../assets/{hmp_compatible.mp4,hmp.webm}",
+  "../../assets/{hmp_compatible.mp4,hmp_desktop_optimized.mp4,hmp.webm}",
   { eager: true, query: "?url", import: "default" }
 );
-const HOME_MP4_VIDEO = HOME_VIDEO_VARIANTS["../../assets/hmp_compatible.mp4"] || heroVideo;
+// Both extras are optional: the original video always remains a fallback.
+// The mobile version is selected only on narrow screens; desktop keeps 1080p.
+const HOME_MOBILE_VIDEO = HOME_VIDEO_VARIANTS["../../assets/hmp_compatible.mp4"] || "";
+const HOME_MP4_VIDEO = HOME_VIDEO_VARIANTS["../../assets/hmp_desktop_optimized.mp4"] || HOME_MOBILE_VIDEO || heroVideo;
 const HOME_WEBM_VIDEO = HOME_VIDEO_VARIANTS["../../assets/hmp.webm"] || "";
 import hamperOneLuxury from "../../assets/images/hamper_one_luxury.webp";
 import hamperOneWordmarkSharp from "../../assets/images/hamperOne_logo_ultraclean.svg";
@@ -6727,6 +6730,64 @@ const Home = () => {
             .hp-home-v65 .hp-home-golden-thread-knot { will-change: auto; }
           }
 
+
+          /* ============================================================
+             V157 | SCROLL RESPONSIVENESS
+             - Keep sticky story geometry and all user interaction intact.
+             - Stop creating large composited layers for offscreen media.
+             - Avoid mobile full-screen image filter/repaint costs.
+             - The Hamper One LETTER animation remains fully enabled.
+          ============================================================ */
+          /* Offscreen sections can contain animated ribbons/clasps implemented
+             with pseudo-elements. Pause those too, not just actual children. */
+          .hp-home-v65 .hp-offscreen *::before,
+          .hp-home-v65 .hp-offscreen *::after {
+            animation-play-state: paused !important;
+          }
+          .hp-home-v65 .hp-hamper-one-wordmark-heading.is-hp-letters-complete .hp-hamper-one-letter-layers {
+            display: none !important;
+          }
+          .hp-home-v65 .hp-hamper-one-ink-surface {
+            contain: paint;
+          }
+          .hp-home-v65 .hp-hamper-one-letter-slice {
+            will-change: auto;
+          }
+          .hp-home-v65 .hp-hamper-one-wordmark-heading.is-hp-letters-writing .hp-hamper-one-letter-slice {
+            will-change: transform, opacity;
+          }
+          .hp-home-v65 .hp-hamper-one-wordmark-heading.is-hp-letters-complete .hp-hamper-one-wordmark {
+            opacity: 1 !important;
+          }
+          /* Large gift sections no longer correct a guessed 900px height while entering view. */
+          .hp-home-v65 [data-home-section="bulk"],
+          .hp-home-v65 [data-home-section="bestsellers"],
+          .hp-home-v65 [data-home-section="contact"] {
+            content-visibility: visible !important;
+            contain-intrinsic-size: none !important;
+          }
+          @media (max-width: 1023px), (pointer: coarse) {
+            /* Retain editorial cuts and photo crossfades, but drop scale
+               interpolation on huge full-screen bitmaps during touch scroll. */
+            .hp-home-v65 [data-home-section="journey"] .hp-fluid-image,
+            .hp-home-v65 [data-home-section="journey"] .hp-journey-base,
+            .hp-home-v65 [data-home-section="journey"] .hp-journey-hover {
+              transition: opacity .50s ease !important;
+              will-change: auto !important;
+            }
+            .hp-home-v65 .hp-hamper-one-section .hp-hamper-one-wrap-design::after {
+              animation: none !important;
+            }
+            .hp-home-v65 .hp-hero-motion-layer,
+            .hp-home-v65 .hp-hero-film {
+              will-change: auto !important;
+            }
+            .hp-home-v65 .hp-concierge-cta,
+            .hp-home-v65 .hp-gift-concierge-fab {
+              -webkit-backdrop-filter: none !important;
+              backdrop-filter: none !important;
+            }
+          }
         `}
       </style>
 
@@ -8240,10 +8301,28 @@ const HamperOneUnwrapExperience = () => {
     const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
     let active = true;
     let observer;
+    let settleTimer = 0;
+    const lastSlice = heading.querySelector(".hp-hamper-one-letter-slice:last-child");
+
+    const settleLetters = () => {
+      if (!active) return;
+      // Restore the original single SVG; stop painting all letter overlays.
+      heading.classList.add("is-hp-letters-complete");
+      heading.classList.remove("is-hp-letters-writing");
+      if (settleTimer) window.clearTimeout(settleTimer);
+      settleTimer = 0;
+    };
 
     const reveal = () => {
       if (!active) return;
-      heading.classList.add(reduced ? "is-hp-letters-complete" : "is-hp-letters-writing");
+      if (reduced || !lastSlice) {
+        settleLetters();
+        return;
+      }
+      lastSlice.addEventListener("animationend", settleLetters, { once: true });
+      heading.classList.add("is-hp-letters-writing");
+      // Background-tab / throttled CSS animations may never emit animationend.
+      settleTimer = window.setTimeout(settleLetters, HAMPER_ONE_LETTER_SLICES.length * 138 + 850);
     };
 
     const startWhenReady = () => {
@@ -8274,6 +8353,8 @@ const HamperOneUnwrapExperience = () => {
       observer?.disconnect();
       image?.removeEventListener("load", reveal);
       image?.removeEventListener("error", reveal);
+      lastSlice?.removeEventListener("animationend", settleLetters);
+      if (settleTimer) window.clearTimeout(settleTimer);
     };
   }, []);
 
@@ -10949,6 +11030,7 @@ const useHomeEnhancements = (homeRef, reducedMotion) => {
       "(max-width: 1023px), (pointer: coarse)"
     )?.matches ?? false;
     let lastViewportWidth = window.innerWidth;
+    let lastUserScrollAt = -Infinity;
     const animateGoldenThread = !liteEffects && !stableMobileScroll;
 
     const paint = (now = performance.now()) => {
@@ -11012,7 +11094,10 @@ const useHomeEnhancements = (homeRef, reducedMotion) => {
 
     // One passive RAF, NO root-wide is-scrolling class toggle. The previous
     // toggle forced selector invalidation across a very large homepage.
-    const scheduleScroll = () => schedulePaint();
+    const scheduleScroll = () => {
+      lastUserScrollAt = performance.now();
+      schedulePaint();
+    };
 
     const measure = () => {
       goldenKnotTravel = Math.max(0, window.innerHeight - 10);
@@ -11031,11 +11116,16 @@ const useHomeEnhancements = (homeRef, reducedMotion) => {
       // callbacks. Batch scrollHeight reads after the layout has settled.
       resizeTimer = window.setTimeout(() => {
         resizeTimer = 0;
+        // Changing scrollHeight can force layout. Never do it during a fling.
+        if (performance.now() - lastUserScrollAt < 220) {
+          scheduleMeasure();
+          return;
+        }
         resizeFrame = window.requestAnimationFrame(() => {
           resizeFrame = 0;
           measure();
         });
-      }, 110);
+      }, 250);
     };
 
     const visibility = () => {
@@ -11205,7 +11295,12 @@ const useHomeEnhancements = (homeRef, reducedMotion) => {
         })
       : null;
 
-    kineticMutationObserver?.observe(root, { childList: true, subtree: true });
+    // Static headings were already registered above. Only the product catalogue
+    // adds headings asynchronously; observe that subtree instead of all Home.
+    const dynamicCatalogue = root.querySelector('[data-home-section="bestsellers"]');
+    if (dynamicCatalogue) {
+      kineticMutationObserver?.observe(dynamicCatalogue, { childList: true, subtree: true });
+    }
 
     return () => {
       resize?.disconnect();
@@ -11243,15 +11338,19 @@ const useHomeEnhancements = (homeRef, reducedMotion) => {
   }, [homeRef, reducedMotion]);
 };
 
-// V150: always-autoplay cinematic hero.  No session-based "seen" lock.
+// V157: autoplay cinematic hero while visible. No session-based "seen" lock.
 // A real image fallback is shown ONLY if playback genuinely cannot work.
 // The header remains gated during the initial film, but scroll, Skip or Pause
-// releases it. The film continues looping until the visitor stops it.
+// releases it. The film loops only while visible, then resumes on return.
 const CinematicHero = ({ onIntroComplete }) => {
   const videoRef = useRef(null);
   const stageRef = useRef(null);
   const completeRef = useRef(false);
   const manualPauseRef = useRef(false);
+  // An off-screen video still consumes decoder/GPU time even when invisible.
+  // This is separate from explicit visitor pause: returning resumes automatically.
+  const heroVisibleRef = useRef(true);
+  const autoSuspendedRef = useRef(false);
   const lastFilmTimeRef = useRef(0);
   const stalledTimerRef = useRef(0);
   const reducedMotion = useMediaPreference("(prefers-reduced-motion: reduce)");
@@ -11291,7 +11390,7 @@ const CinematicHero = ({ onIntroComplete }) => {
   const tryPlay = useCallback((fromGesture = false) => {
     const video = videoRef.current;
     if (!video || (failed && !fromGesture) || manualPauseRef.current ||
-        document.hidden || !video.paused) return;
+        !heroVisibleRef.current || document.hidden || !video.paused) return;
     try {
       const pending = video.play();
       pending?.catch?.((error) => {
@@ -11313,8 +11412,11 @@ const CinematicHero = ({ onIntroComplete }) => {
   useEffect(() => {
     notify(true, "start");
     const onScroll = () => {
-      // Scrolling only releases the hidden header. It NEVER stops the film.
-      if (window.scrollY > 12) finish("scroll");
+      // Header intro unlocks only once; avoid doing work on later scroll events.
+      if (window.scrollY > 12) {
+        finish("scroll");
+        window.removeEventListener("scroll", onScroll);
+      }
     };
     const onEscape = (event) => {
       if (event.key === "Escape") finish("escape", true);
@@ -11339,20 +11441,55 @@ const CinematicHero = ({ onIntroComplete }) => {
     };
   }, [finish, notify]);
 
-  // V153: Video keeps looping after the visitor scrolls past the hero.
-  // No IntersectionObserver pausing or rewind on exit/re-entry.
-  // Browsers may throttle background tabs, but page scrolling will not pause it.
+  // V157: keep the original autoplay/loop while the hero is visible, but
+  // release video decoder work as soon as the section leaves the viewport.
+  // No scroll listener, no frame sampling, and no reloading on re-entry.
   useEffect(() => {
+    const stage = stageRef.current;
+    const video = videoRef.current;
+    if (!stage || !video) return undefined;
+
     const resumeIfNeeded = () => {
-      if (!document.hidden && !manualPauseRef.current &&
-          !videoRef.current?.error && videoRef.current?.paused) {
-        tryPlay();
+      if (document.hidden || !heroVisibleRef.current || manualPauseRef.current || video.error) return;
+      if (autoSuspendedRef.current) autoSuspendedRef.current = false;
+      if (video.paused) tryPlay();
+    };
+
+    const updateVisibility = (isVisible) => {
+      heroVisibleRef.current = isVisible;
+      if (!isVisible) {
+        autoSuspendedRef.current = true;
+        if (!video.paused) video.pause();
+        clearStallTimer();
+      } else {
+        resumeIfNeeded();
       }
     };
-    document.addEventListener("visibilitychange", resumeIfNeeded);
+
+    const observer = typeof IntersectionObserver === "function"
+      ? new IntersectionObserver(
+          ([entry]) => updateVisibility(Boolean(entry?.isIntersecting)),
+          { threshold: 0, rootMargin: "96px 0px" }
+        )
+      : null;
+    observer?.observe(stage);
+
+    const onTabVisibility = () => {
+      if (document.hidden) {
+        if (!video.paused && !manualPauseRef.current) {
+          autoSuspendedRef.current = true;
+          video.pause();
+        }
+        clearStallTimer();
+      } else {
+        resumeIfNeeded();
+      }
+    };
+    document.addEventListener("visibilitychange", onTabVisibility);
     resumeIfNeeded();
     return () => {
-      document.removeEventListener("visibilitychange", resumeIfNeeded);
+      observer?.disconnect();
+      document.removeEventListener("visibilitychange", onTabVisibility);
       clearStallTimer();
     };
   }, [tryPlay, clearStallTimer]);
@@ -11444,7 +11581,8 @@ const CinematicHero = ({ onIntroComplete }) => {
             clearStallTimer();
             setPaused(true);
             // Recover accidental browser/media pauses, never manual pauses.
-            if (!manualPauseRef.current && !document.hidden && !videoRef.current?.error) {
+            if (!manualPauseRef.current && heroVisibleRef.current &&
+                !autoSuspendedRef.current && !document.hidden && !videoRef.current?.error) {
               window.requestAnimationFrame(() => tryPlay());
             }
           }}
@@ -11453,6 +11591,9 @@ const CinematicHero = ({ onIntroComplete }) => {
           onError={() => { clearStallTimer(); setFailed(true); setReady(false); finish("video-error", true); }}
           className={`hp-hero-film ${ready && !failed ? "is-ready" : ""}`}
           aria-label="HAMPORIUM luxury gifting film">
+          {HOME_MOBILE_VIDEO && (
+            <source src={HOME_MOBILE_VIDEO} type="video/mp4" media="(max-width: 767px)" />
+          )}
           <source src={HOME_MP4_VIDEO} type="video/mp4" />
           {HOME_WEBM_VIDEO && <source src={HOME_WEBM_VIDEO} type="video/webm" />}
         </video>
