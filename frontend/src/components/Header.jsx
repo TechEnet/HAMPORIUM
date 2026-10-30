@@ -1,5 +1,6 @@
 
 
+
 // V157 HEADER: centered orange shield spins once on each mouse/pen hover entry and on every click. Horse and wordmark stay fixed.
 // V155 HEADER: transparent overlay on Home / Hamper One hero; 72% Obsidian glass beyond hero.
 // V156 HEADER: soft 24% Obsidian tint over hero; V155 translucent glass elsewhere.
@@ -1406,7 +1407,8 @@ const Header = () => {
             ref={panelRef} id={panelId} tabIndex={-1}
             className={`hh-panel hh-panel-${renderedPanel}`}
             role={isModal ? "dialog" : "region"} aria-modal={isModal ? "true" : undefined}
-            aria-labelledby={`${panelId}-title`}
+            aria-labelledby={desktop && renderedPanel === "hampers" ? undefined : `${panelId}-title`}
+            aria-label={desktop && renderedPanel === "hampers" ? "Explore hampers" : undefined}
             onPointerEnter={renderedPanel === "hampers" ? clearHoverTimer : undefined}
             onPointerLeave={renderedPanel === "hampers" ? scheduleMenuClose : undefined}
             onClickCapture={(event) => {
@@ -1414,14 +1416,16 @@ const Header = () => {
             }}
           >
             <div className="hh-panel-top">
-              <div>
-                {renderedPanel !== "hampers" && (
-                  <p className="hh-eyebrow">
-                    {renderedPanel === "search" ? "Discover HAMPORIUM" : renderedPanel === "menu" ? "HAMPORIUM" : "HAMPORIUM"}
-                  </p>
-                )}
-                <h2 id={`${panelId}-title`}>{panelTitle}</h2>
-              </div>
+              {!(desktop && renderedPanel === "hampers") && (
+                <div>
+                  {renderedPanel !== "hampers" && (
+                    <p className="hh-eyebrow">
+                      {renderedPanel === "search" ? "Discover HAMPORIUM" : "HAMPORIUM"}
+                    </p>
+                  )}
+                  <h2 id={`${panelId}-title`}>{panelTitle}</h2>
+                </div>
+              )}
               <button type="button" className="hh-close" onClick={() => closePanel()} aria-label="Close panel"><Icon name="close" /></button>
             </div>
             <div className="hh-panel-body">
@@ -3018,6 +3022,42 @@ const HEADER_CSS = `
   .hh-desktop-overlay.hh-overlay-hampers .hh-luxe-create,
   .hh-desktop-overlay.hh-overlay-hampers .hh-luxe-collections {animation:none!important;}
   .hh-desktop-overlay.hh-overlay-hampers .hh-luxe-gift-art {transform:none!important;transition:none!important;}
+}
+
+/* Desktop Hampers menu: no redundant heading strip. The close control
+   floats over the collection column; all mobile and other panels are unchanged. */
+@media (min-width:1180px) {
+  .hh-desktop-overlay.hh-overlay-hampers .hh-panel-hampers {
+    position: absolute;
+  }
+  .hh-desktop-overlay.hh-overlay-hampers .hh-panel-hampers > .hh-panel-top {
+    position: absolute;
+    z-index: 8;
+    top: 12px;
+    right: clamp(18px, 2.2vw, 42px);
+    left: auto;
+    width: auto;
+    height: auto;
+    display: block;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    background: transparent;
+  }
+  .hh-desktop-overlay.hh-overlay-hampers .hh-panel-top .hh-close {
+    width: 38px;
+    height: 38px;
+    border: 1px solid rgba(64,58,50,.13);
+    background: rgba(250,248,244,.96);
+    color: #51473b;
+  }
+  .hh-desktop-overlay.hh-overlay-hampers .hh-panel-top .hh-close:hover {
+    border-color: rgba(183,155,106,.46);
+    background: #EAE1D3;
+  }
+  .hh-desktop-overlay.hh-overlay-hampers .hh-luxe-collections .hh-luxe-section-label {
+    padding-right: 38px;
+  }
 }
 
 /* Mobile menu V2: match the clean two-column desktop menu without oversized rows. */
