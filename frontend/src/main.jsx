@@ -10,7 +10,7 @@ import { AuthProvider } from "./context/AuthContext.jsx";
 import { CartProvider } from "./context/CartContext.jsx";
 
 import HamporiumNavigationTransition from "./components/HamporiumRouteTransition.jsx";
-// import CookieConsent from "./components/CookieConsent.jsx";
+import CookieConsent from "./components/CookieConsent.jsx";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
@@ -23,7 +23,7 @@ createRoot(document.getElementById("root")).render(
         </CartProvider>
       </AuthProvider>
 
-      {/* <CookieConsent /> */}
+      <CookieConsent />
     </BrowserRouter>
   </StrictMode>
 );
