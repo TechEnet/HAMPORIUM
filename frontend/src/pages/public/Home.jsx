@@ -2,6 +2,7 @@
 
 
 
+
 // V154: Hamper One home section uses the same crisp SVG wordmark as Hamper One V12.
 // V153: mobile vertical guide hidden; cinematic video loops across scrolling until manually paused.
 // V152: frame-perfect scroll indicator, lighter hero compositing, scroll-paint optimizations.
@@ -3973,10 +3974,15 @@ const Home = () => {
              .hp-home-v65 .hp-story-line { filter: none !important; }
            }
           .hp-home-v65 .hp-editorial-base, .hp-home-v65 .hp-editorial-hover { will-change: auto; }
-          .hp-home-v65 .hp-offscreen *, .hp-home-v65 [data-page-hidden="true"] * {
-            animation-play-state: paused !important;
-          }
-          .hp-home-v65 .hp-offscreen::before, .hp-home-v65 .hp-offscreen::after {
+          .hp-home-v65 .hp-offscreen :where(
+            .hp-ambient-float, .hp-soft-spin, .hp-badge-pulse,
+            .hp-luxury-drift, .hp-luxury-glow, .hp-luxury-line,
+            .hp-bulk-float, .hp-final-drift, .hp-quote-float,
+            .hp-review-glow, .hp-journey-glow, .hp-concierge-ambient,
+            .hp-concierge-gift-box, .hp-concierge-bow,
+            .hp-hamper-one-experience-shine, .hp-hamper-one-shimmer
+          ),
+          .hp-home-v65 [data-page-hidden="true"] * {
             animation-play-state: paused !important;
           }
           .hp-home-v65 .hp-concierge-ambient, .hp-home-v65 .hp-review-glow,
@@ -3997,16 +4003,8 @@ const Home = () => {
           .hp-hero-film { opacity: 0; transition: opacity .85s ease; }
           .hp-hero-film.is-ready { opacity: 1; }
 
-          /* V142: keep premium sticky stories intact. Skip offscreen paint only
-             for non-sticky heavy modules, avoiding scroll-time surprises. */
-          @supports (content-visibility: auto) {
-            .hp-home-v65 [data-home-section="bestsellers"],
-            .hp-home-v65 [data-home-section="bulk"],
-            .hp-home-v65 [data-home-section="contact"] {
-              content-visibility: auto;
-              contain-intrinsic-size: auto 900px;
-            }
-          }
+          /* Preserve real section heights on both forward and reverse scroll.
+             The old 900px estimated placeholders could re-anchor the viewport. */
           .hamporium-home.hp-perf-lite .hp-ambient-float,
           .hamporium-home.hp-perf-lite .hp-soft-spin,
           .hamporium-home.hp-perf-lite .hp-badge-pulse,
@@ -4843,8 +4841,9 @@ const Home = () => {
           .hp-home-v65 [data-home-section="hamper-one"],
           .hp-home-v65 [data-home-section="bulk"],
           .hp-home-v65 [data-home-section="finale"] {
-            content-visibility: auto;
-            contain-intrinsic-size: auto 900px;
+            /* Sticky/full-size sections must keep their real height while scrolling back. */
+            content-visibility: visible;
+            contain-intrinsic-size: none;
           }
 
           .hp-home-v65 .hp-pointer-glow::before {
@@ -6507,37 +6506,39 @@ const Home = () => {
             }
           }
           @media (max-width: 767px) {
-            .hp-home-v65 .hp-contact-finale { min-height: 0; padding: 30px 16px 38px; }
-            .hp-home-v65 .hp-contact-finale__shell { padding: 7px; border-radius: 21px 8px 21px 8px; }
+            .hp-home-v65 .hp-contact-finale { min-height: 0; padding: 22px 16px 25px; }
+            .hp-home-v65 .hp-contact-finale__shell { padding: 6px; border-radius: 21px 8px 21px 8px; }
             .hp-home-v65 .hp-contact-finale__shell::before { inset: 2px; border-radius: 19px 6px 19px 6px; }
             .hp-home-v65 .hp-contact-finale__copy { min-height: 0; grid-template-columns: minmax(0,1fr); border-radius: 14px 2px 14px 2px; }
             .hp-home-v65 .hp-contact-finale__intro {
-              min-height: 220px;
-              padding: clamp(42px, 8vw, 65px) clamp(24px, 7vw, 44px);
+              min-height: 148px;
+              padding: 23px clamp(22px, 6vw, 36px);
             }
             .hp-home-v65 .hp-contact-finale__intro::before { inset: 14px 0 14px 14px; }
             .hp-home-v65 .hp-contact-finale__message {
               border-left: 0;
               border-top: 1px solid rgba(158,100,52,.14);
-              padding: 58px clamp(24px, 7vw, 44px) 45px;
+              padding: 30px clamp(22px, 6vw, 36px) 22px;
             }
-            .hp-home-v65 .hp-contact-finale__message::before { top: 28px; left: clamp(24px, 7vw, 44px); }
+            .hp-home-v65 .hp-contact-finale__message::before { top: 14px; left: clamp(22px, 6vw, 36px); }
             html body #root .hp-home-v65 .hp-contact-finale .hp-contact-finale__title {
-              font-size: clamp(34px, 6.4vw, 46px) !important;
-              line-height: 1.19 !important;
+              font-size: clamp(29px, 5.8vw, 36px) !important;
+              line-height: 1.15 !important;
               letter-spacing: -.045em !important;
             }
-            .hp-home-v65 .hp-contact-finale__description { font-size: 14px !important; line-height: 1.83 !important; }
-            .hp-home-v65 .hp-contact-finale__bottom { margin-top: 26px; }
+            .hp-home-v65 .hp-contact-finale__description { font-size: 14px !important; line-height: 1.56 !important; }
+            .hp-home-v65 .hp-contact-finale__bottom { margin-top: 15px; }
+            .hp-home-v65 .hp-contact-finale__cta { min-height: 49px; padding-block: 5px; }
+            .hp-home-v65 .hp-contact-finale__arrow { flex-basis: 35px; width: 35px; height: 35px; font-size: 21px; }
           }
           @media (max-width: 390px) {
-            .hp-home-v65 .hp-contact-finale { padding: 23px 12px 31px; }
-            .hp-home-v65 .hp-contact-finale__shell { padding: 6px; }
-            .hp-home-v65 .hp-contact-finale__intro { padding: 38px 21px; }
-            .hp-home-v65 .hp-contact-finale__message { padding: 56px 21px 38px; }
-            .hp-home-v65 .hp-contact-finale__message::before { left: 21px; }
+            .hp-home-v65 .hp-contact-finale { padding: 18px 12px 22px; }
+            .hp-home-v65 .hp-contact-finale__shell { padding: 5px; }
+            .hp-home-v65 .hp-contact-finale__intro { padding: 22px 19px; }
+            .hp-home-v65 .hp-contact-finale__message { padding: 29px 19px 19px; }
+            .hp-home-v65 .hp-contact-finale__message::before { left: 19px; }
             html body #root .hp-home-v65 .hp-contact-finale .hp-contact-finale__title {
-              font-size: clamp(31px, 8vw, 36px) !important;
+              font-size: clamp(27px, 7vw, 32px) !important;
             }
             .hp-home-v65 .hp-contact-finale__cta { min-width: 0; width: 100%; gap: 12px; padding-left: 14px; font-size: 11px; }
           }
@@ -6741,8 +6742,14 @@ const Home = () => {
           ============================================================ */
           /* Offscreen sections can contain animated ribbons/clasps implemented
              with pseudo-elements. Pause those too, not just actual children. */
-          .hp-home-v65 .hp-offscreen *::before,
-          .hp-home-v65 .hp-offscreen *::after {
+          .hp-home-v65 .hp-offscreen :where(
+            .hp-ambient-float, .hp-badge-pulse, .hp-luxury-drift,
+            .hp-concierge-ambient, .hp-concierge-gift-box
+          )::before,
+          .hp-home-v65 .hp-offscreen :where(
+            .hp-ambient-float, .hp-badge-pulse, .hp-luxury-drift,
+            .hp-concierge-ambient, .hp-concierge-gift-box
+          )::after {
             animation-play-state: paused !important;
           }
           .hp-home-v65 .hp-hamper-one-wordmark-heading.is-hp-letters-complete .hp-hamper-one-letter-layers {
@@ -6767,6 +6774,54 @@ const Home = () => {
             content-visibility: visible !important;
             contain-intrinsic-size: none !important;
           }
+
+          /* V158 | LAPTOP-SAFE SECTION PROPORTIONS
+             Viewport height (not only screen width) controls these two desktop
+             sections. Keep their existing appearance, cards and interactions. */
+          @media (min-width: 1024px) {
+            .hp-home-v65 [data-home-section="bestsellers"] {
+              padding-top: clamp(32px, 5svh, 62px) !important;
+              padding-bottom: clamp(32px, 5svh, 62px) !important;
+            }
+            .hp-home-v65 [data-home-section="bestsellers"] .hp-bestseller-section-title {
+              font-size: clamp(36px, min(3.35vw, 5.8svh), 58px) !important;
+              line-height: 1.02 !important;
+              letter-spacing: -.038em !important;
+              padding-bottom: .08em;
+            }
+            .hp-home-v65 [data-home-section="bestsellers"] .hp-bestseller-section-accent {
+              line-height: 1.05 !important;
+              margin-top: .045em !important;
+              padding-bottom: .10em !important;
+            }
+            .hp-home-v65 [data-home-section="bestsellers"] .hp-collection-interactive {
+              margin-top: clamp(16px, 2.8svh, 29px);
+            }
+            .hp-home-v65 [data-home-section="bestsellers"] .hp-bestseller-card {
+              height: clamp(312px, 44svh, 390px) !important;
+              min-height: 0 !important;
+              padding: 10px !important;
+            }
+            .hp-home-v65 [data-home-section="bestsellers"] .hp-bestseller-copy {
+              min-height: clamp(110px, 14svh, 126px) !important;
+              padding: 11px 9px 4px !important;
+            }
+            .hp-home-v65 [data-home-section="bestsellers"] .hp-bestseller-title {
+              font-size: clamp(21px, 1.75vw, 27px) !important;
+              line-height: 1.08 !important;
+            }
+            .hp-home-v65 [data-home-section="bestsellers"] .hp-bestseller-meta {
+              margin-top: 8px !important;
+            }
+            .hp-home-v65 [data-home-section="bestsellers"] .hp-bestseller-all-link {
+              height: 50px;
+              padding-inline: 18px;
+            }
+            .hp-home-v65 [data-home-section="bestsellers"] .hp-bestseller-runway {
+              padding-bottom: 10px !important;
+            }
+          }
+
           @media (max-width: 1023px), (pointer: coarse) {
             /* Retain editorial cuts and photo crossfades, but drop scale
                interpolation on huge full-screen bitmaps during touch scroll. */
@@ -10526,6 +10581,41 @@ const HamperOneUnwrapExperience = () => {
             flex: 0 0 auto;
           }
         }
+
+        /* V158 | STANDARD LAPTOP HAMPER ONE HEIGHT
+           Existing lg:min-h-[900px] and lg:min-h-[710px] exceeded many
+           laptop viewports. Never touch the mobile layout or unwrap logic. */
+        @media (min-width: 1024px) {
+          .hp-home-v65 .hp-hamper-one-stage,
+          .hp-home-v65 .hp-hamper-one-inner {
+            min-height: clamp(580px, 88svh, 790px) !important;
+          }
+          .hp-home-v65 .hp-hamper-one-inner {
+            padding-top: clamp(22px, 3.3svh, 40px) !important;
+            padding-bottom: clamp(22px, 3.3svh, 40px) !important;
+          }
+          .hp-home-v65 .hp-hamper-one-grid {
+            gap: clamp(20px, 3vw, 46px) !important;
+          }
+          .hp-home-v65 .hp-hamper-one-visual-wrap {
+            width: 100%;
+            max-width: 900px;
+            min-width: 0;
+          }
+          .hp-home-v65 .hp-hamper-one-visual {
+            min-height: 0 !important;
+            height: clamp(432px, 66svh, 600px) !important;
+          }
+          .hp-home-v65 .hp-hamper-one-ink-surface {
+            width: min(100%, clamp(320px, 31vw, 465px));
+          }
+          .hp-home-v65 .hp-hamper-one-actions {
+            margin-top: clamp(19px, 3.5svh, 30px) !important;
+          }
+          .hp-home-v65 .hp-hamper-one-actions > * {
+            min-height: 56px !important;
+          }
+        }
       `}</style>
 
       <div className="hp-hamper-one-stage relative min-h-[760px] sm:min-h-[820px] lg:min-h-[900px]">
@@ -11094,9 +11184,9 @@ const useHomeEnhancements = (homeRef, reducedMotion) => {
       if (animateGoldenThread && goldenKnot) {
         goldenKnot.style.transform = `translate3d(-50%, ${(progress * goldenKnotTravel).toFixed(2)}px, 0) rotate(45deg)`;
       }
-      if (animateGoldenThread && now - lastDecorationUpdate >= 32) {
+      if (animateGoldenThread && now - lastDecorationUpdate >= 80) {
         lastDecorationUpdate = now;
-        if (goldenPath) goldenPath.style.strokeDashoffset = String(1 - progress);
+        if (goldenPath) goldenPath.style.strokeDashoffset = (1 - progress).toFixed(3);
         const fade = progress > .91
           ? Math.max(.08, .72 - ((progress - .91) / .09) * .64)
           : .72;
