@@ -1,4 +1,5 @@
 
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -2978,6 +2979,34 @@ const CustomHamper = () => {
           .v83-card.v83-decor .v83-content { padding-bottom: 8px; }
         }
 
+        /* Premium catalogue finish: HAMPORIUM ivory, champagne gold and charcoal only.
+           Purely cosmetic; preserves responsive card proportions, photos and actions. */
+        .v83-card {
+          border-color: var(--v83-border);
+          background: linear-gradient(150deg, #FFFFFF 0%, var(--v83-soft) 62%, var(--v83-tint) 100%);
+          box-shadow: 0 12px 30px rgba(22,23,21,.07), 0 3px 12px rgba(183,155,106,.07), inset 0 1px 0 rgba(255,255,255,.94);
+        }
+        .v83-card > .v83-content {
+          background: radial-gradient(ellipse at 94% 0%, rgba(183,155,106,.13), transparent 60%), linear-gradient(160deg, #FFFFFF 0%, var(--v83-soft) 60%, var(--v83-tint) 100%);
+          box-shadow: inset 0 1px 0 rgba(255,255,255,.9);
+        }
+        .v83-card > .v83-media { border-bottom: 1px solid rgba(183,155,106,.24); }
+        .v83-card > .v83-media::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          z-index: 2;
+          pointer-events: none;
+          background: linear-gradient(135deg, rgba(255,255,255,.13), transparent 32%, transparent 70%, rgba(183,155,106,.10));
+        }
+        .v83-card:hover {
+          box-shadow: 0 17px 36px rgba(22,23,21,.105), 0 7px 18px rgba(183,155,106,.10);
+        }
+        .v83-card.is-selected {
+          border-color: var(--v83-accent);
+          box-shadow: 0 0 0 1px rgba(183,155,106,.55), 0 14px 32px rgba(22,23,21,.095), 0 4px 14px rgba(183,155,106,.12);
+        }
+
         /* V82: layered photo crossfade; reduced-motion override below. */
         @keyframes v82GalleryFadeIn { from { opacity: 0; } to { opacity: 1; } }
         .v82-gallery-fade { animation: v82GalleryFadeIn .42s cubic-bezier(.22,1,.36,1) both; }
@@ -4549,11 +4578,12 @@ const V71ReviewContents = ({
 };
 
 const OrderModeChooser = ({ mode, onChange }) => (
-  <div className="inline-grid w-[286px] max-w-full grid-cols-2 rounded-xl border border-black/[0.07] bg-white p-1 sm:w-[260px]">
+  <div className="grid w-full max-w-[300px] min-w-0 shrink-0 grid-cols-2 items-center gap-1 rounded-xl border border-black/[0.07] bg-white p-1 sm:w-[300px]">
     <button
       type="button"
       onClick={() => onChange("personal")}
-      className={`h-9 rounded-lg px-4 text-[12px] font-black transition ${
+      aria-pressed={mode === "personal"}
+      className={`h-9 min-w-0 whitespace-nowrap rounded-lg px-2 text-[12px] font-black leading-none transition ${
         mode === "personal"
           ? "bg-[#171717] text-white"
           : "text-black/40 hover:text-[#171717]"
@@ -4564,7 +4594,8 @@ const OrderModeChooser = ({ mode, onChange }) => (
     <button
       type="button"
       onClick={() => onChange("bulk")}
-      className={`h-9 rounded-lg px-4 text-[12px] font-black transition ${
+      aria-pressed={mode === "bulk"}
+      className={`h-9 min-w-0 whitespace-nowrap rounded-lg px-2 text-[12px] font-black leading-none transition ${
         mode === "bulk"
           ? "bg-[#171717] text-white"
           : "text-black/40 hover:text-[#171717]"
