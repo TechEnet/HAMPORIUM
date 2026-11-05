@@ -1,3 +1,4 @@
+
 import {
   useEffect,
   useState,
@@ -1169,62 +1170,11 @@ const Gifts = () => {
           .hp-filter-inner {
             position: relative;
             z-index: 2;
-            padding: 22px 20px 20px;
+            padding: 12px 20px 18px;
           }
 
-          .hp-filter-head {
-            position: relative;
-            padding-bottom: 22px;
-          }
-
-          .hp-filter-head::after {
-            content: "";
-            position: absolute;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            height: 1px;
-            background:
-              linear-gradient(
-                90deg,
-                #F47822 0%,
-                #D4AF37 22%,
-                rgba(23,23,23,.10) 58%,
-                transparent 100%
-              );
-          }
-
-          .hp-filter-kicker {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 7px;
-            color: #A67820;
-            font-size: 9px;
-            font-weight: 900;
-            letter-spacing: .19em;
-            text-transform: uppercase;
-          }
-
-          .hp-filter-kicker::before {
-            content: "";
-            width: 18px;
-            height: 1px;
-            background: #F47822;
-          }
-
-          .hp-filter-title {
-            margin: 0;
-            color: #171717;
-            font-family:
-              'Cormorant Garamond',
-              'Playfair Display',
-              Georgia,
-              serif;
-            font-size: 34px;
-            font-weight: 700;
-            line-height: .95;
-            letter-spacing: -.025em;
+          .hp-filter-inner > .hp-filter-section:first-child {
+            padding-top: 10px;
           }
 
           .hp-filter-clear {
@@ -2502,29 +2452,6 @@ const FilterPanel = ({
 }) => (
   <div className="hp-filter-shell">
     <div className="hp-filter-inner">
-      <div className="hp-filter-head">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="hp-filter-kicker">
-              Refine The Edit
-            </p>
-
-            <h2 className="hp-filter-title">
-              Find Your Gift
-            </h2>
-          </div>
-
-          <button
-            type="button"
-            onClick={onClear}
-            className="hp-filter-clear"
-          >
-            Clear
-            <span aria-hidden="true">×</span>
-          </button>
-        </div>
-      </div>
-
       <FilterSection title="Search">
         <input
           type="search"
@@ -2743,6 +2670,13 @@ const FilterPanel = ({
           <span className="hp-filter-apply-arrow">
             →
           </span>
+        </button>
+        <button
+          type="button"
+          onClick={onClear}
+          className="hp-filter-clear mx-auto mt-3 flex min-h-8 items-center justify-center"
+        >
+          Clear filters <span aria-hidden="true">×</span>
         </button>
       </div>
     </div>
