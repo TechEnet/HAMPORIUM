@@ -1,6 +1,7 @@
 
 
 
+
 // V157 HEADER: centered orange shield spins once on each mouse/pen hover entry and on every click. Horse and wordmark stay fixed.
 // V155 HEADER: transparent overlay on Home / Hamper One hero; 72% Obsidian glass beyond hero.
 // V156 HEADER: soft 24% Obsidian tint over hero; V155 translucent glass elsewhere.
@@ -424,60 +425,24 @@ const useMediaQuery = (query) => {
   return matches;
 };
 
-// V137: Gift-box / hamburger hybrid: 3 gilded bars on a real little gift
-// box, topped by a tied satin bow. Same desktop hover + click menu trigger.
+// Gift-box / hamburger hybrid in clean white, sized at half the former artwork.
+// Desktop hover/click and mobile menu hit targets remain unchanged.
 const GiftHamperArt = () => (
-  <svg className="hh-gift-art" viewBox="0 0 80 74" aria-hidden="true" focusable="false">
-    <defs>
-      <linearGradient id="hh-v137-gift-face" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stopColor="#FAEACB" />
-        <stop offset=".55" stopColor="#E3BE7C" />
-        <stop offset="1" stopColor="#BD8545" />
-      </linearGradient>
-      <linearGradient id="hh-v137-gift-lid" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stopColor="#FFF3D9" />
-        <stop offset=".55" stopColor="#EFCB8D" />
-        <stop offset="1" stopColor="#B98342" />
-      </linearGradient>
-      <linearGradient id="hh-v137-gift-gold" x1="0" y1="0" x2="1" y2=".6">
-        <stop offset="0" stopColor="#8E5727" />
-        <stop offset=".36" stopColor="#DDAE62" />
-        <stop offset=".67" stopColor="#FFF1C6" />
-        <stop offset="1" stopColor="#A56B30" />
-      </linearGradient>
-    </defs>
-    <ellipse cx="40" cy="68" rx="27" ry="3.5" fill="#080504" opacity=".2" />
-    <g className="hh-gift-box">
-      <rect x="14" y="28" width="52" height="36" rx="4" fill="url(#hh-v137-gift-face)" stroke="#9A6934" strokeWidth="1.3" />
-      <path d="M18 31H62V35H18Z" fill="#FFF3D4" opacity=".32" />
-      <path d="M19 61H61" stroke="#94602C" strokeOpacity=".33" strokeWidth="1.2" />
-      <g className="hh-gift-hamburger-bars" strokeLinecap="round">
-        <path className="hh-gift-bar" d="M26 38H54" stroke="#8A572A" strokeWidth="5.8" />
-        <path className="hh-gift-bar" d="M26 38H54" stroke="#FFF0C4" strokeWidth="2.2" />
-        <path className="hh-gift-bar" d="M26 47H54" stroke="#8A572A" strokeWidth="5.8" />
-        <path className="hh-gift-bar" d="M26 47H54" stroke="#FFF0C4" strokeWidth="2.2" />
-        <path className="hh-gift-bar" d="M26 56H54" stroke="#8A572A" strokeWidth="5.8" />
-        <path className="hh-gift-bar" d="M26 56H54" stroke="#FFF0C4" strokeWidth="2.2" />
+  <svg className="hh-gift-art" viewBox="0 0 80 74" fill="none" aria-hidden="true" focusable="false">
+    {/* White gift-box hamburger: same menu action, more understated visual. */}
+    <g className="hh-gift-box" stroke="#FFFFFF" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="14" y="27" width="52" height="37" rx="3.5" strokeWidth="2.4" />
+      <g className="hh-gift-hamburger-bars" strokeWidth="2.8">
+        <path className="hh-gift-bar" d="M25 38H55" />
+        <path className="hh-gift-bar" d="M25 47H55" />
+        <path className="hh-gift-bar" d="M25 56H55" />
       </g>
-      <path d="M17.5 34V58" stroke="#FFF9E5" strokeOpacity=".55" strokeWidth="1.4" strokeLinecap="round" />
     </g>
-    <g className="hh-gift-lid">
-      <path d="M12 26Q12 23 16 23H64Q68 23 68 26V31Q68 33 65 33H15Q12 33 12 31Z"
-        fill="url(#hh-v137-gift-lid)" stroke="#95652D" strokeWidth="1.2" />
-      <path d="M16 25H64" stroke="#FFF5D5" strokeWidth="1.5" opacity=".8" strokeLinecap="round" />
-      <path d="M36 23H44V33H36Z" fill="url(#hh-v137-gift-gold)" opacity=".9" />
-      {/* Left bow loop, secured to lid with a polished center knot. */}
-      <path d="M40 20C35 17 26 18 23 15C17 10 18 4 24 5C32 5 36 15 40 20Z"
-        fill="url(#hh-v137-gift-gold)" stroke="#8C5A28" strokeWidth="1.1" />
-      <path d="M40 20C45 17 54 18 57 15C63 10 62 4 56 5C48 5 44 15 40 20Z"
-        fill="url(#hh-v137-gift-gold)" stroke="#8C5A28" strokeWidth="1.1" />
-      <path d="M26 9C33 10 35 16 39 19M54 9C47 10 45 16 41 19"
-        fill="none" stroke="#FFF7D9" strokeWidth="1.6" opacity=".8" strokeLinecap="round" />
-      <path d="M39 22C33 25 30 28 26 28L29 22L36 19Z" fill="#B4813B" stroke="#9A6B31" strokeWidth=".6" />
-      <path d="M41 22C47 25 50 28 54 28L51 22L44 19Z" fill="#C49247" stroke="#9A6B31" strokeWidth=".6" />
-      <path d="M36.7 18Q40 15.6 43.3 18L44.5 22Q40 25.5 35.5 22Z"
-        fill="url(#hh-v137-gift-gold)" stroke="#885521" strokeWidth="1.05" />
-      <path d="M37.5 19Q40 17.5 42.5 19" stroke="#FFF7DF" strokeWidth="1.15" fill="none" strokeLinecap="round" />
+    <g className="hh-gift-lid" stroke="#FFFFFF" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 25Q12 22 15 22H65Q68 22 68 25V30Q68 33 65 33H15Q12 33 12 30Z" strokeWidth="2.2" />
+      <path d="M40 22C33 17 21 15 23 9C25 3 35 10 40 22Z" strokeWidth="2" />
+      <path d="M40 22C47 17 59 15 57 9C55 3 45 10 40 22Z" strokeWidth="2" />
+      <circle cx="40" cy="21" r="2.5" fill="#FFFFFF" strokeWidth="1.4" />
     </g>
   </svg>
 );
@@ -1924,7 +1889,7 @@ const HEADER_CSS = `
 .hh-nav-link.is-current::after,.hh-nav-link:hover::after { transform:scaleX(1); }
 .hh-nav-link .hh-icon { width:14px; height:14px; }
 .hh-icon.hh-turn { transform:rotate(180deg); }
-/* V137: hamburger-line gift box with luxe tied bow; click-pinned dropdown. */
+/* White hamburger gift icon with preserved click-pinned dropdown. */
 .hh-header .hh-gift-trigger { display:flex; align-items:center; justify-content:center; width:72px; min-width:72px; height:72px; padding:0; position:relative; margin-inline:-7px 0; border:0; background:transparent; outline-offset:2px; }
 .hh-gift-art { display:block; width:64px; height:60px; overflow:visible; filter:drop-shadow(0 2px 2px #3d26151c); transition:transform .5s var(--hh-ease); }
 .hh-gift-trigger:hover .hh-gift-art,.hh-gift-trigger:focus-visible .hh-gift-art,.hh-gift-trigger.is-open .hh-gift-art { transform:translateY(-3px) scale(1.045); }
@@ -2244,8 +2209,8 @@ const HEADER_CSS = `
   flex:0 0 var(--hh-v139-logo-width);
 }
 .hh-header .hh-gift-trigger .hh-gift-art {
-  width:calc(var(--hh-v139-logo-width) * .64);
-  height:calc(var(--hh-v139-side-height) * .64);
+  width:calc(var(--hh-v139-logo-width) * .368);
+  height:calc(var(--hh-v139-side-height) * .368);
   max-height:calc(var(--hh-height) - 8px);
   flex:0 0 auto;
 }
@@ -2274,8 +2239,8 @@ const HEADER_CSS = `
     padding:0;
   }
   .hh-header .hh-mobile-menu-trigger .hh-gift-art {
-    width:calc(var(--hh-v139-logo-width) * .64);
-    height:calc(var(--hh-v139-side-height) * .64);
+    width:calc(var(--hh-v139-logo-width) * .368);
+    height:calc(var(--hh-v139-side-height) * .368);
     max-height:calc(var(--hh-height) - 8px);
     max-width:100%;
   }
