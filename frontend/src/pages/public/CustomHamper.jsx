@@ -1,5 +1,6 @@
 
 
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -136,6 +137,22 @@ const emptyPersonalization = () => ({
 const personalizationLabel = (value, options) =>
   options.find((option) => option.value === value)?.label ||
   String(value || "").replaceAll("_", " ");
+
+// Use the real catalogue photographs for category previews. Cloudinary images
+// are served as tiny thumbnails; other imported URLs are left unchanged.
+const categoryImageUrl = (image) => {
+  const value = typeof image === "string"
+    ? image
+    : image?.url || image?.secure_url || image?.src || image?.location;
+  return typeof value === "string" && /^https?:\/\//i.test(value) ? value : "";
+};
+
+const categoryThumbnailUrl = (url) => {
+  if (!/^https?:\/\/res\.cloudinary\.com\/[^/]+\/image\/upload\//i.test(url)) return url;
+  // Signed Cloudinary URLs cannot be modified without a matching signature.
+  if (/\/image\/upload\/s--[^/]+--\//.test(url)) return url;
+  return url.replace("/image/upload/", "/image/upload/f_auto,q_auto,w_96,h_96,c_fill/");
+};
 
 const CustomHamper = () => {
   const navigate = useNavigate();
@@ -454,6 +471,40 @@ const CustomHamper = () => {
       ].sort((a, b) => a.localeCompare(b)),
     [contentComponents]
   );
+
+  // Catalogue-driven thumbnail options: category names and images always stay
+  // in sync with Excel-imported component data, including new categories.
+  const giftCategoryPhotos = useMemo(() => {
+    const byCategory = new Map();
+    const bySubcategory = new Map();
+    const add = (map, key, image, selectable) => {
+      if (!key || !image) return;
+      const existing = map.get(key) || [];
+      if (!existing.some((entry) => entry.url === image)) {
+        existing.push({ url: image, priority: selectable ? 0 : 1 });
+        map.set(key, existing);
+      }
+    };
+
+    for (const component of contentComponents) {
+      const original = (Array.isArray(component.images) ? component.images : [])
+        .map(categoryImageUrl).find(Boolean);
+      if (!original) continue;
+      const image = categoryThumbnailUrl(original);
+      const category = component.category || "";
+      const subcategory = component.subcategory || "";
+      const selectable = component.builderStatus?.selectable !== false;
+      add(byCategory, category, image, selectable);
+      add(bySubcategory, `${category}\u001f${subcategory}`, image, selectable);
+      add(bySubcategory, `\u001f${subcategory}`, image, selectable);
+    }
+
+    // Limit requests: two real product photos per category, second as a fallback.
+    const prepare = (map) => new Map([...map].map(([key, entries]) => [
+      key, entries.sort((a, b) => a.priority - b.priority).slice(0, 2).map((entry) => entry.url),
+    ]));
+    return { categories: prepare(byCategory), subcategories: prepare(bySubcategory) };
+  }, [contentComponents]);
 
   const subcategories = useMemo(() => {
     const source = categoryFilter
@@ -3693,6 +3744,7 @@ const CustomHamper = () => {
                 setSubcategoryFilter={setSubcategoryFilter}
                 categories={categories}
                 subcategories={subcategories}
+                categoryPhotos={giftCategoryPhotos}
               />
             </div>
           )}
@@ -3780,6 +3832,7 @@ const CustomHamper = () => {
                     setSubcategoryFilter={setSubcategoryFilter}
                     categories={categories}
                     subcategories={subcategories}
+                    categoryPhotos={giftCategoryPhotos}
                   />
                 </div>
 
@@ -4326,6 +4379,37 @@ const V30DesktopStepActions = ({
   );
 };
 
+// Lightweight, real-photo thumbnails for the existing gift filter chips.
+// A broken image falls back to the next product photo, then a simple icon.
+const GiftFilterThumbnail = ({ sources = [], label, active = false }) => {
+  const [failedUrls, setFailedUrls] = useState([]);
+  const src = sources.find((url) => !failedUrls.includes(url)) || "";
+
+  return (
+    <span className={`grid h-[30px] w-[30px] shrink-0 place-items-center overflow-hidden rounded-full border sm:h-[32px] sm:w-[32px] ${
+      active ? "border-white/25 bg-white/15" : "border-[#B79B6A]/25 bg-[#F6EFE4]"
+    }`} aria-hidden="true">
+      {src ? (
+        <img
+          src={src}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          className="h-full w-full object-cover"
+          onError={() => setFailedUrls((previous) => previous.includes(src) ? previous : [...previous, src])}
+        />
+      ) : (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"
+          strokeLinecap="round" strokeLinejoin="round"
+          className={`h-[15px] w-[15px] ${active ? "text-white/85" : "text-[#A9874C]"}`}>
+          <path d="M4 9h16v11H4zM3 6h18v4H3zM12 6v14" />
+          <path d="M12 6C9.5 6 7.5 5 7.5 3.5S10.5 1.5 12 6Zm0 0c2.5 0 4.5-1 4.5-2.5S13.5 1.5 12 6Z" />
+        </svg>
+      )}
+    </span>
+  );
+};
+
 const V75GiftFilterBar = ({
   search,
   setSearch,
@@ -4335,6 +4419,7 @@ const V75GiftFilterBar = ({
   setSubcategoryFilter,
   categories,
   subcategories,
+  categoryPhotos,
 }) => (
   <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
     <div className="relative w-full shrink-0 sm:w-[220px] lg:w-[250px] xl:w-[230px] 2xl:w-[260px]">
@@ -4347,55 +4432,71 @@ const V75GiftFilterBar = ({
       />
     </div>
 
-    <div className="v30-scrollbar-none min-w-0 flex-1 overflow-x-auto">
+    <div className="v30-scrollbar-none min-w-0 flex-1 overflow-x-auto" aria-label="Filter gifts by category">
       <div className="flex w-max items-center gap-2 pr-1">
         <button
           type="button"
+          aria-pressed={!categoryFilter && !subcategoryFilter}
           onClick={() => {
             setCategoryFilter("");
             setSubcategoryFilter("");
           }}
-          className={`shrink-0 rounded-full border px-3.5 py-2.5 text-[13px] font-extrabold transition sm:py-2 sm:text-[12px] ${
+          className={`inline-flex h-11 shrink-0 items-center gap-2 rounded-full border py-[5px] pl-[5px] pr-4 text-[12px] font-bold whitespace-nowrap transition-colors duration-200 ${
             !categoryFilter && !subcategoryFilter
               ? "border-[#171717] bg-[#171717] text-white"
-              : "border-black/[0.08] bg-white text-black/55 hover:border-black/20 hover:text-[#171717]"
+              : "border-[#B79B6A]/25 bg-white text-[#403A32] hover:border-[#B79B6A]/60"
           }`}
         >
-          All
+          <GiftFilterThumbnail label="All" active={!categoryFilter && !subcategoryFilter} />
+          <span>All</span>
         </button>
 
-        {categories.slice(0, 8).map((category) => (
-          <button
-            key={`category-${category}`}
-            type="button"
-            onClick={() => {
-              setCategoryFilter(category);
-              setSubcategoryFilter("");
-            }}
-            className={`shrink-0 rounded-full border px-3.5 py-2.5 text-[13px] font-extrabold transition sm:py-2 sm:text-[12px] ${
-              categoryFilter === category && !subcategoryFilter
-                ? "border-[#171717] bg-[#171717] text-white"
-                : "border-black/[0.08] bg-white text-black/55 hover:border-black/20 hover:text-[#171717]"
-            }`}
-          >
-            {category}
-          </button>
-        ))}
+        {categories.slice(0, 8).map((category) => {
+          const active = categoryFilter === category && !subcategoryFilter;
+          return (
+            <button
+              key={`category-${category}`}
+              type="button"
+              aria-pressed={active}
+              title={category}
+              onClick={() => {
+                setCategoryFilter(category);
+                setSubcategoryFilter("");
+              }}
+              className={`inline-flex h-11 shrink-0 items-center gap-2.5 rounded-full border py-[5px] pl-[5px] pr-4 text-[12px] font-semibold whitespace-nowrap transition-colors duration-200 ${
+                active
+                  ? "border-[#171717] bg-[#171717] text-white shadow-[0_4px_12px_rgba(23,23,23,.12)]"
+                  : "border-[#B79B6A]/25 bg-white text-[#403A32] hover:border-[#B79B6A]/65 hover:bg-[#FAF8F4]"
+              }`}
+            >
+              <GiftFilterThumbnail sources={categoryPhotos.categories.get(category) || []} label={category} active={active} />
+              <span>{category}</span>
+            </button>
+          );
+        })}
 
-        {subcategories.map((subcategory) => (
-          <button
-            key={`subcategory-${subcategory}`}
-            type="button"
-            onClick={() => setSubcategoryFilter(subcategory)}
-            className={`shrink-0 rounded-full border px-3.5 py-2.5 text-[13px] font-extrabold transition sm:py-2 sm:text-[12px] ${
-              subcategoryFilter === subcategory
-                ? "border-[#F47822] bg-[#FFF4EC] text-[#D85E0F]"
-                : "border-black/[0.08] bg-white text-black/55 hover:border-[#F47822]/35 hover:text-[#D85E0F]"
-            }`}
-          >
-            {subcategory}
-          </button>
-        ))}
+        {subcategories.map((subcategory) => {
+          const active = subcategoryFilter === subcategory;
+          const key = `${categoryFilter}\u001f${subcategory}`;
+          const photos = categoryPhotos.subcategories.get(key) || categoryPhotos.subcategories.get(`\u001f${subcategory}`) || [];
+          return (
+            <button
+              key={`subcategory-${subcategory}`}
+              type="button"
+              aria-pressed={active}
+              title={subcategory}
+              onClick={() => setSubcategoryFilter(subcategory)}
+              className={`inline-flex h-11 shrink-0 items-center gap-2.5 rounded-full border py-[5px] pl-[5px] pr-4 text-[12px] font-semibold whitespace-nowrap transition-colors duration-200 ${
+                active
+                  ? "border-[#B79B6A] bg-[#F5EADA] text-[#795A2E] shadow-[0_4px_12px_rgba(65,48,22,.08)]"
+                  : "border-[#B79B6A]/25 bg-white text-[#403A32] hover:border-[#B79B6A]/60 hover:bg-[#FAF8F4]"
+              }`}
+            >
+              <GiftFilterThumbnail sources={photos} label={subcategory} active={false} />
+              <span>{subcategory}</span>
+            </button>
+          );
+        })}
       </div>
     </div>
   </div>
