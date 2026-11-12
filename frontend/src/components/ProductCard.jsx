@@ -1,3 +1,4 @@
+
 import {
   Link,
   useLocation,
@@ -31,79 +32,46 @@ const toMoneyNumber = (value) => {
     : null;
 };
 
-const resolveCardPricing = (
-  product
-) => {
-  const backendPricing =
-    product?.pricingSummary;
+const resolveCardPricing = (product) => {
+  const backendPricing = product?.pricingSummary;
 
   const sellingPrice =
-    toMoneyNumber(
-      backendPricing?.sellingPrice
-    ) ??
-    toMoneyNumber(
-      product?.cardPrice
-    ) ??
-    toMoneyNumber(
-      product?.minPrice
-    ) ??
-    toMoneyNumber(
-      product?.price
-    );
+    toMoneyNumber(backendPricing?.sellingPrice) ??
+    toMoneyNumber(product?.cardPrice) ??
+    toMoneyNumber(product?.minPrice) ??
+    toMoneyNumber(product?.price);
 
   const compareAtPrice =
-    toMoneyNumber(
-      backendPricing?.compareAtPrice
-    ) ??
-    toMoneyNumber(
-      product?.compareAtPrice
-    ) ??
-    toMoneyNumber(
-      product?.minCompareAtPrice
-    ) ??
-    toMoneyNumber(
-      product?.mrp
-    ) ??
-    toMoneyNumber(
-      product?.minMrp
-    );
+    toMoneyNumber(backendPricing?.compareAtPrice) ??
+    toMoneyNumber(product?.compareAtPrice) ??
+    toMoneyNumber(product?.minCompareAtPrice) ??
+    toMoneyNumber(product?.mrp) ??
+    toMoneyNumber(product?.minMrp);
 
   const validCompareAtPrice =
     compareAtPrice !== null &&
     sellingPrice !== null &&
-    compareAtPrice >
-      sellingPrice
+    compareAtPrice > sellingPrice
       ? compareAtPrice
       : null;
 
   const calculatedDiscountAmount =
     validCompareAtPrice !== null
-      ? Number(
-          (
-            validCompareAtPrice -
-            sellingPrice
-          ).toFixed(2)
-        )
+      ? Number((validCompareAtPrice - sellingPrice).toFixed(2))
       : 0;
 
   const calculatedDiscountPercent =
     validCompareAtPrice !== null &&
     validCompareAtPrice > 0
       ? Math.round(
-          ((validCompareAtPrice -
-            sellingPrice) /
-            validCompareAtPrice) *
-            100
+          ((validCompareAtPrice - sellingPrice) /
+            validCompareAtPrice) * 100
         )
       : 0;
 
   const discountAmount =
-    toMoneyNumber(
-      backendPricing?.discountAmount
-    ) ??
-    toMoneyNumber(
-      product?.discountAmount
-    ) ??
+    toMoneyNumber(backendPricing?.discountAmount) ??
+    toMoneyNumber(product?.discountAmount) ??
     calculatedDiscountAmount;
 
   const discountPercent =
@@ -115,158 +83,101 @@ const resolveCardPricing = (
 
   return {
     sellingPrice,
-    compareAtPrice:
-      validCompareAtPrice,
-    discountAmount:
-      validCompareAtPrice
-        ? discountAmount
-        : 0,
-    discountPercent:
-      validCompareAtPrice
-        ? Math.max(
-            0,
-            Math.round(
-              discountPercent
-            )
-          )
-        : 0,
+    compareAtPrice: validCompareAtPrice,
+    discountAmount: validCompareAtPrice ? discountAmount : 0,
+    discountPercent: validCompareAtPrice
+      ? Math.max(0, Math.round(discountPercent))
+      : 0,
   };
 };
 
-const ProductCard = ({
-  product,
-}) => {
-  const location =
-    useLocation();
+// Show genuine catalogue copy only. Never manufacture the same default
+// sentence for every hamper card; mobile Gifts.jsx already deliberately
+// passes an empty shortDescription to keep its two-column cards compact.
+const getCardDescription = (value) => {
+  const description = typeof value === "string" ? value.trim() : "";
+  if (!description) return "";
 
-  const {
-    deliveryLocation,
-  } =
-    useDeliveryLocation();
+  const normalized = description
+    .replace(/\s+/g, " ")
+    .replace(/[.!\s]+$/g, "")
+    .toLowerCase();
 
-  const image =
-    product.images?.[0]?.url;
+  if (
+    normalized === "a thoughtfully curated hamporium gift hamper" ||
+    normalized === "a thoughtfully curated gift hamper"
+  ) {
+    return "";
+  }
 
-  const averageRating =
-    Number(
-      product.reviewSummary
-        ?.averageRating ??
-        product.averageRating ??
-        0
-    );
+  return description;
+};
 
-  const totalReviews =
-    Number(
-      product.reviewSummary
-        ?.totalReviews ??
-        product.totalReviews ??
-        0
-    );
+const ProductCard = ({ product }) => {
+  const location = useLocation();
 
-  const hasReviews =
-    averageRating > 0 &&
-    totalReviews > 0;
+  const { deliveryLocation } = useDeliveryLocation();
 
-  const searchParams =
-    new URLSearchParams(
-      location.search
-    );
+  const image = product.images?.[0]?.url;
 
-  const activeSearch =
-    searchParams
-      .get("search")
-      ?.trim() || "";
+  const averageRating = Number(
+    product.reviewSummary?.averageRating ??
+      product.averageRating ??
+      0
+  );
 
-  const handleProductClick =
-    () => {
-      if (!activeSearch) {
-        return;
-      }
+  const totalReviews = Number(
+    product.reviewSummary?.totalReviews ??
+      product.totalReviews ??
+      0
+  );
 
-      void trackSearchAnalytics({
-        eventType:
-          "search_result_click",
+  const hasReviews = averageRating > 0 && totalReviews > 0;
 
-        query:
-          activeSearch,
+  const searchParams = new URLSearchParams(location.search);
+  const activeSearch = searchParams.get("search")?.trim() || "";
 
-        source:
-          "catalog_search_grid",
+  const handleProductClick = () => {
+    if (!activeSearch) return;
 
-        pagePath:
-          `${location.pathname}${location.search}`,
-
-        productId:
-          product._id,
-
-        productSlug:
-          product.slug,
-
-        productName:
-          product.name,
-
-        location:
-          deliveryLocation,
-      });
-    };
+    void trackSearchAnalytics({
+      eventType: "search_result_click",
+      query: activeSearch,
+      source: "catalog_search_grid",
+      pagePath: `${location.pathname}${location.search}`,
+      productId: product._id,
+      productSlug: product.slug,
+      productName: product.name,
+      location: deliveryLocation,
+    });
+  };
 
   const samePrice =
-    Number(product.minPrice) ===
-    Number(product.maxPrice);
+    Number(product.minPrice) === Number(product.maxPrice);
 
-  const hasPrice =
-    Number.isFinite(
-      Number(product.minPrice)
-    );
+  const hasPrice = Number.isFinite(Number(product.minPrice));
 
-  const cardPricing =
-    resolveCardPricing(
-      product
-    );
+  const cardPricing = resolveCardPricing(product);
 
   const hasDiscount =
-    cardPricing.compareAtPrice !==
-      null &&
-    cardPricing.discountPercent >
-      0;
+    cardPricing.compareAtPrice !== null &&
+    cardPricing.discountPercent > 0;
+
+  const cardDescription = getCardDescription(product.shortDescription);
 
   return (
     <Link
       to={`/products/${product.slug}`}
-      onClick={
-        handleProductClick
-      }
-      className="
-        group
-        flex
-        h-full
-        min-w-0
-        flex-col
-        bg-transparent
-        transition
-        duration-300
-      "
+      onClick={handleProductClick}
+      className="hp-card-root group flex h-full min-w-0 flex-col bg-transparent transition duration-300"
     >
       {/* IMAGE */}
-
-      <div className="relative aspect-[16/10] w-full overflow-hidden bg-[#F1ECE5]">
+      <div className="hp-card-media relative aspect-[16/10] w-full overflow-hidden bg-[#F1ECE5]">
         {image ? (
           <img
             src={image}
-            alt={
-              product.images?.[0]
-                ?.alt ||
-              product.name
-            }
-            className="
-              h-full
-              w-full
-              object-cover
-              transition
-              duration-500
-              ease-out
-              group-hover:scale-[1.035]
-            "
+            alt={product.images?.[0]?.alt || product.name}
+            className="h-full w-full object-cover transition duration-500 ease-out group-hover:scale-[1.035]"
           />
         ) : (
           <div className="flex h-full items-center justify-center text-xs font-semibold text-black/25">
@@ -278,37 +189,13 @@ const ProductCard = ({
 
         {hasReviews && (
           <div
-            className="
-              absolute
-              bottom-2.5
-              right-2.5
-              z-10
-              inline-flex
-              items-center
-              gap-1.5
-              rounded-full
-              border
-              border-white/65
-              bg-white/95
-              px-2.5
-              py-1
-              shadow-[0_7px_20px_rgba(0,0,0,0.14)]
-              backdrop-blur-md
-            "
-            aria-label={`${averageRating.toFixed(
-              1
-            )} out of 5 from ${totalReviews} reviews`}
+            className="absolute bottom-2.5 right-2.5 z-10 inline-flex items-center gap-1.5 rounded-full border border-white/65 bg-white/95 px-2.5 py-1 shadow-[0_7px_20px_rgba(0,0,0,0.14)] backdrop-blur-md"
+            aria-label={`${averageRating.toFixed(1)} out of 5 from ${totalReviews} reviews`}
           >
-            <span className="text-[11px] leading-none text-[#D4AF37]">
-              ★
-            </span>
-
+            <span className="text-[11px] leading-none text-[#D4AF37]">★</span>
             <span className="text-[9px] font-black leading-none text-[#171717]">
-              {averageRating.toFixed(
-                1
-              )}
+              {averageRating.toFixed(1)}
             </span>
-
             <span className="text-[8px] font-bold leading-none text-black/35">
               ({totalReviews})
             </span>
@@ -317,67 +204,42 @@ const ProductCard = ({
       </div>
 
       {/* CONTENT */}
-
-      <div className="flex flex-1 flex-col pb-1 pt-3.5">
+      <div className="hp-card-content flex flex-1 flex-col pb-1 pt-3.5">
         <div className="min-h-[16px]">
-          {product.category
-            ?.name && (
-            <p className="text-[9px] font-extrabold uppercase tracking-[0.13em] text-[#F47822]">
-              {
-                product
-                  .category
-                  .name
-              }
+          {product.category?.name && (
+            <p className="hp-card-category text-[9px] font-extrabold uppercase tracking-[0.13em] text-[#F47822]">
+              {product.category.name}
             </p>
           )}
         </div>
 
         <h3
-          style={{
-            fontFamily:
-              DISPLAY_FONT,
-          }}
-          className="
-            mt-1.5
-            min-h-[44px]
-            line-clamp-2
-            text-[22px]
-            font-semibold
-            leading-[1.06]
-            tracking-[-0.025em]
-            text-[#171717]
-          "
+          style={{ fontFamily: DISPLAY_FONT }}
+          className="hp-card-title mt-1.5 min-h-[44px] line-clamp-2 text-[22px] font-semibold leading-[1.06] tracking-[-0.025em] text-[#171717]"
         >
           {product.name}
         </h3>
 
-        <p className="mt-2 min-h-[46px] line-clamp-2 text-[13px] font-medium leading-[1.65] text-black/52 sm:text-[13.5px]">
-          {product.shortDescription ||
-            "A thoughtfully curated HAMPORIUM gift hamper."}
-        </p>
+        {/* Unique, real short descriptions only; no repeated fallback. */}
+        {cardDescription && (
+          <p className="hp-card-description mt-2 min-h-[46px] line-clamp-2 text-[13px] font-medium leading-[1.65] text-black/52 sm:text-[13.5px]">
+            {cardDescription}
+          </p>
+        )}
 
         {/* PRICE */}
-
-        <div className="mt-auto border-t border-black/[0.06] pt-3">
+        <div className="hp-card-price-block mt-auto border-t border-black/[0.06] pt-3">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
             {hasPrice ? (
               samePrice ? (
-                <p className="text-[19px] font-black tracking-[-0.025em] text-[#171717]">
-                  {formatCurrency(
-                    product.minPrice
-                  )}
+                <p className="hp-card-price text-[19px] font-black tracking-[-0.025em] text-[#171717]">
+                  {formatCurrency(product.minPrice)}
                 </p>
               ) : (
-                <p className="text-[18px] font-black tracking-[-0.025em] text-[#171717]">
-                  {formatCurrency(
-                    product.minPrice
-                  )}
-                  <span className="mx-1 text-black/25">
-                    –
-                  </span>
-                  {formatCurrency(
-                    product.maxPrice
-                  )}
+                <p className="hp-card-price text-[18px] font-black tracking-[-0.025em] text-[#171717]">
+                  {formatCurrency(product.minPrice)}
+                  <span className="mx-1 text-black/25">–</span>
+                  {formatCurrency(product.maxPrice)}
                 </p>
               )
             ) : (
@@ -389,11 +251,8 @@ const ProductCard = ({
             {hasDiscount && (
               <>
                 <span className="text-[10px] font-semibold text-black/30 line-through">
-                  {formatCurrency(
-                    cardPricing.compareAtPrice
-                  )}
+                  {formatCurrency(cardPricing.compareAtPrice)}
                 </span>
-
                 <span className="inline-flex items-center rounded-full bg-[#FFF4E8] px-2 py-1 text-[8px] font-black uppercase tracking-[0.04em] text-[#E85D04]">
                   {cardPricing.discountPercent}% OFF
                 </span>
@@ -401,16 +260,11 @@ const ProductCard = ({
             )}
           </div>
 
-          {hasDiscount &&
-            cardPricing.discountAmount >
-              0 && (
-              <p className="mt-1.5 text-[10px] font-bold text-emerald-700">
-                You save{" "}
-                {formatCurrency(
-                  cardPricing.discountAmount
-                )}
-              </p>
-            )}
+          {hasDiscount && cardPricing.discountAmount > 0 && (
+            <p className="mt-1.5 text-[10px] font-bold text-emerald-700">
+              You save {formatCurrency(cardPricing.discountAmount)}
+            </p>
+          )}
         </div>
       </div>
     </Link>

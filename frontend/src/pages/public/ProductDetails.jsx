@@ -1,3 +1,5 @@
+
+
 // EXACT PATH: frontend/src/pages/public/ProductDetails.jsx
 // ACTION: REPLACE - CUSTOMER 360 FRONTEND V1
 import { useEffect, useRef, useState, } from "react";
@@ -954,9 +956,7 @@ const ProductDetails = () => {
         .trim()
         .toLowerCase() ===
         "size");
-    const selectedSize = selectedSizeEntry?.[1] ||
-        selectedSku?.name ||
-        "—";
+    // Only show an explicit size selection near quantity; omit internal V1-style names.
     const selectedPrice = Number(selectedSku
         ?.price);
     const selectedComparePrice = Number(selectedSku
@@ -1021,22 +1021,22 @@ const ProductDetails = () => {
             <div className="lp-purchase-top">
               <p className="lp-catalog-label">
                 {product.category?.name || "HAMPORIUM"}
-                {product.brand && <span>{product.brand}</span>}
+                {product.brand && String(product.brand).trim().toLowerCase() !== "hamporium" && String(product.brand).trim().toLowerCase() !== String(product.category?.name || "").trim().toLowerCase() && <span>{product.brand}</span>}
               </p>
               <button type="button" className="lp-round" onClick={handleShare} aria-label="Share this product">
                 <ShareIcon />
               </button>
             </div>
-            <h1 id="lp-product-title" className="lp-title">{product.name}</h1>
+            <h1 id="lp-product-title" className="lp-title" data-hamporium-title="compact-22" style={{ fontSize: "22px", lineHeight: 1.26 }}>{product.name}</h1>
             <div className="lp-summary-row">
               <span className={`lp-status ${purchaseUnavailable || !selectedSku ? "is-unavailable" : ""}`}>
                 {!selectedSku ? "Option unavailable" : purchaseUnavailable ? "Currently unavailable" : "Available to order"}
               </span>
               <a className="lp-rating-link" href="#product-reviews">
-                {reviewCount > 0 ? (<><span className="lp-star" aria-hidden="true">&#9733;</span><strong>{reviewAverage.toFixed(1)}</strong><span>({reviewCount} {reviewCount === 1 ? "review" : "reviews"})</span></>) : "Customer reviews"}
+                {reviewCount > 0 ? (<><span className="lp-star" aria-hidden="true">&#9733;</span><strong>{reviewAverage.toFixed(1)}</strong><span>({reviewCount} {reviewCount === 1 ? "review" : "reviews"})</span></>) : "Reviews"}
               </a>
             </div>
-            {product.shortDescription && <ExpandableCopy key={product._id} text={product.shortDescription}/>}
+            {product.shortDescription && (!product.description || !String(product.description).toLowerCase().includes(String(product.shortDescription).trim().toLowerCase())) && <ExpandableCopy key={product._id} text={product.shortDescription}/>}
             {shareMessage && <p role="status" className="lp-helper">{shareMessage}</p>}
 
             <div className="lp-price-block">
@@ -1054,13 +1054,13 @@ const ProductDetails = () => {
             <div className="lp-excel-eta" role="status" aria-live="polite">
               <span className="lp-excel-eta-icon"><CalendarIcon /></span>
               <div className="lp-excel-eta-copy">
-                <span className="lp-excel-eta-label">Excel lead time · Ready-made hamper</span>
+                <span className="lp-excel-eta-label">Delivery timeline</span>
                 {hasExcelLead ? (
                   <strong>{formatDaysValue(excelLeadDays)}{expectedDeliveryDate ? ` · Expected by ${formatDateValue(expectedDeliveryDate)}` : ""}</strong>
                 ) : (
-                  <strong>{leadTimeMissing ? "Lead Time Days missing in Excel" : "Delivery estimate not yet available"}</strong>
+                  <strong>{leadTimeMissing ? "Lead time not available" : "Delivery estimate not yet available"}</strong>
                 )}
-                <span className="lp-excel-eta-note">No additional courier or packing days. Check your pincode for delivery availability.</span>
+                <span className="lp-excel-eta-note">Check your pincode for availability.</span>
               </div>
             </div>
 
@@ -1080,7 +1080,7 @@ const ProductDetails = () => {
                   <button type="button" disabled={quantity >= 99 || actionBusy} aria-label="Increase quantity" onClick={() => setQuantity((current) => Math.min(99, current + 1))}>+</button>
                 </div>
               </div>
-              {product.skus?.length <= 1 && selectedSku?.name && <p className="lp-variant-name">{selectedSize}</p>}
+              {product.skus?.length <= 1 && selectedSizeEntry?.[1] && <p className="lp-variant-name">{selectedSizeEntry[1]}</p>}
             </div>
             {error && <p role="alert" className="lp-feedback is-error">{error}</p>}
             <div className="lp-action-grid">
@@ -1116,8 +1116,7 @@ const ProductDetails = () => {
 
         <section className="lp-details" id="product-information" aria-labelledby="lp-details-title" data-pd-reveal>
           <div className="lp-section-head">
-            <h2 id="lp-details-title" className="lp-heading">The finer <em>details.</em></h2>
-            <p className="lp-helper">Everything about your selected hamper.</p>
+            <h2 id="lp-details-title" className="lp-heading">Product details</h2>
           </div>
           <div className="lp-tablist" role="tablist" aria-label="Explore product information" onKeyDown={(event) => {
             const ids = ["description", "inside", "product", "delivery"];
@@ -1144,24 +1143,23 @@ const ProductDetails = () => {
           <div key={`${selectedSku?._id}-${activeInfoTab}`} className="lp-tab-panel" role="tabpanel" id={`lp-panel-${activeInfoTab}`} aria-labelledby={`lp-tab-${activeInfoTab}`} tabIndex={0}>
             {activeInfoTab === "description" && (<div className="lp-description-grid">
                 <div>
-                  <p className="lp-eyebrow">The composition</p>
-                  <h3 className="lp-subheading" style={{ marginTop: 12 }}>A closer look at your hamper.</h3>
+                  <h3 className="lp-subheading">About this hamper</h3>
                   <p className="lp-section-copy">{product.description || product.shortDescription || "Additional details are not listed for this hamper."}</p>
                   {selectedContainer?.name && <p className="lp-helper" style={{ marginTop: 18 }}><strong>Presented in:</strong> {selectedContainer.name}</p>}
                 </div>
                 <div>
-                  <div className="lp-small-head"><h3 className="lp-subheading">Inside the hamper</h3>{contentItems.length > 0 && <span className="lp-helper">{contentItems.length} listed items</span>}</div>
+                  <div className="lp-small-head"><h3 className="lp-subheading">Included</h3>{contentItems.length > 0 && <span className="lp-helper">{contentItems.length} items</span>}</div>
                   {contentItems.length ? <div className="lp-inside-preview">{contentItems.slice(0, 4).map((item, index) => <InsidePreviewItem key={item._id || `preview-${index}`} item={item} component={typeof item.component === "object" ? item.component : null}/>)}</div> : <p className="lp-helper">No additional hamper contents are listed for this option.</p>}
-                  {contentItems.length > 0 && <button type="button" className="lp-inline-link" onClick={() => { setActiveInfoTab("inside"); document.getElementById("lp-tab-inside")?.focus(); }}>Explore all items & details <ArrowIcon /></button>}
+                  {contentItems.length > 0 && <button type="button" className="lp-inline-link" onClick={() => { setActiveInfoTab("inside"); document.getElementById("lp-tab-inside")?.focus(); }}>See all items <ArrowIcon /></button>}
                 </div>
               </div>)}
             {activeInfoTab === "inside" && (<>
-                <div className="lp-small-head"><h3 className="lp-subheading">What's inside</h3><span className="lp-helper">{contentItems.length} listed items</span></div>
+                <div className="lp-small-head"><h3 className="lp-subheading">Included items</h3><span className="lp-helper">{contentItems.length} items</span></div>
                 {contentItems.length ? <div className="lp-content-grid">{contentItems.map((item, index) => <HamperContentItem key={item._id || `content-${index}`} item={item} component={typeof item.component === "object" ? item.component : null}/>)}</div> : <p className="lp-helper">No additional hamper contents are listed for this product.</p>}
               </>)}
             {activeInfoTab === "product" && (<div className="lp-info-grid">
                 <div>
-                  <h3 className="lp-subheading">Product information</h3>
+                  <h3 className="lp-subheading">Specifications</h3>
                   <dl className="lp-info-table">
                     {product.category?.name && <LargeInfoRow label="Category" value={product.category.name}/>}
                     {product.brand && <LargeInfoRow label="Brand" value={product.brand}/>}
@@ -1177,9 +1175,9 @@ const ProductDetails = () => {
                   <h3 className="lp-subheading">Timing & freshness</h3>
                   {hasDeliveryFreshnessInfo ? <dl className="lp-info-table">
                     {earliestExpiryDate && <LargeInfoRow label="Earliest expiry" value={formatDateValue(earliestExpiryDate)}/>}
-                    {hasExcelLead && <LargeInfoRow label="Excel lead time" value={formatDaysValue(excelLeadDays)}/>}
+                    {hasExcelLead && <LargeInfoRow label="Lead time" value={formatDaysValue(excelLeadDays)}/>}
                     {expectedDeliveryDate && <LargeInfoRow label={locationExpectedDeliveryDate ? "Delivery to your location" : "Expected delivery"} value={formatDateValue(expectedDeliveryDate)}/>}
-                    {leadTimeMissing && <LargeInfoRow label="Excel lead time" value="Not configured — contact support"/>}
+                    {leadTimeMissing && <LargeInfoRow label="Lead time" value="Not available"/>}
                   </dl> : <p className="lp-helper" style={{ marginTop: 15 }}>Timing and freshness details have not been provided for this option.</p>}
                 </div>
               </div>)}
@@ -1187,8 +1185,8 @@ const ProductDetails = () => {
                 <div>
                   <DeliveryChecker {...deliveryCheckerProps} idPrefix="lp-details"/>
                   <div className="lp-support">
-                    <h3 className="lp-subheading">Delivery & support</h3>
-                    <p className="lp-section-copy">For order changes, delivery issues or product concerns, contact HAMPORIUM support. Statutory consumer remedies remain available where applicable. Delivery timing comes only from the hamper's Excel Lead Time Days. The pincode check confirms destination availability; no courier or packing-day offset is added.</p>
+                    <h3 className="lp-subheading">Need help?</h3>
+                    <p className="lp-section-copy">For order or delivery assistance, contact support. Your consumer rights under applicable law remain unchanged.</p>
                     <Link className="lp-inline-link" to="/contact">Contact support <ArrowIcon /></Link>
                   </div>
                 </div>
@@ -1202,7 +1200,7 @@ const ProductDetails = () => {
         </section>
         {recentProducts.length > 0 && (<section className="lp-recent" aria-labelledby="lp-recent-title" data-pd-reveal>
             <div className="lp-section-head">
-              <div><p className="lp-eyebrow">Your recent discoveries</p><h2 id="lp-recent-title" className="lp-heading" style={{ marginTop: 8 }}>Worth another <em>look.</em></h2></div>
+              <h2 id="lp-recent-title" className="lp-heading">Recently viewed</h2>
               <Link to="/gifts" className="lp-inline-link">All hampers <ArrowIcon /></Link>
             </div>
             <div className="lp-recent-grid">{recentProducts.slice(0, 4).map((item) => <RecentProductCard key={item.slug} item={item}/>)}</div>
@@ -1258,7 +1256,8 @@ const ProductGallery = ({ images, selectedImage, onSelect, onZoom, name }) => {
         if (!bounds.width || !bounds.height)
             return;
 
-        const fitScale = Math.min(
+        // The gallery now uses object-fit: cover; the magnifier must use the same crop geometry.
+        const fitScale = Math.max(
             bounds.width / image.naturalWidth,
             bounds.height / image.naturalHeight
         );
@@ -1300,7 +1299,6 @@ const ProductGallery = ({ images, selectedImage, onSelect, onZoom, name }) => {
     };
 
     return <>
-    <div className="lp-gallery-head"><span className="lp-eyebrow">The HAMPORIUM edit</span><span className="lp-count">{images.length > 0 ? `${String(index + 1).padStart(2, "0")} / ${String(images.length).padStart(2, "0")}` : "Product gallery"}</span></div>
     <div className="lp-stage" role="group" aria-label="Product image gallery" onKeyDown={(event) => {
             if (images.length < 2)
                 return;
@@ -1350,7 +1348,7 @@ const ProductGallery = ({ images, selectedImage, onSelect, onZoom, name }) => {
     {images.length > 1 && <div className="lp-thumbnails" aria-label="Choose an image">
       {images.map((image, imageIndex) => <button key={image.url} type="button" className="lp-thumbnail" aria-label={`View product image ${imageIndex + 1}`} aria-pressed={selectedImage === image.url} onClick={() => { hideInlineMagnifier(); onSelect(image.url); }}><SafeImage src={image.url} alt={image.alt || `${name}, view ${imageIndex + 1}`}/></button>)}
     </div>}
-    <div className="lp-gallery-note"><span className="lp-gallery-magnify-note"><ZoomIcon />Hover over the image to magnify details</span>{selectedImage && <button type="button" className="lp-text-button" onClick={() => onZoom(selectedImage)}>View full image <ZoomIcon /></button>}</div>
+    {selectedImage && <div className="lp-gallery-note"><button type="button" className="lp-text-button" onClick={() => onZoom(selectedImage)}>View full image <ZoomIcon /></button></div>}
   </>;
 };
 /* Decode the requested image before crossfading; old requests cannot replace a newer selection. */
@@ -1540,14 +1538,13 @@ const DeliveryResult = ({ delivery }) => {
 };
 const DeliveryFreshnessSummary = ({ earliestExpiryDate, expectedDeliveryDate, excelLeadDays, locationSpecific = false, unavailable = false, leadTimeMissing = false }) => <div className="lp-freshness">
   <div className="lp-small-head"><h3 className="lp-subheading">Delivery & freshness</h3><CalendarIcon /></div>
-  <p className="lp-helper">Delivery timing uses this ready-made hamper's Excel Lead Time Days only.</p>
   <dl className="lp-info-table">
-    {excelLeadDays !== null && <LargeInfoRow label="Excel lead time" value={formatDaysValue(excelLeadDays)}/>}
+    {excelLeadDays !== null && <LargeInfoRow label="Lead time" value={formatDaysValue(excelLeadDays)}/>}
     {expectedDeliveryDate && <LargeInfoRow label={locationSpecific ? "Delivery to your location" : "Expected delivery"} value={formatDateValue(expectedDeliveryDate)}/>}
     {earliestExpiryDate && <LargeInfoRow label="Earliest expiry" value={formatDateValue(earliestExpiryDate)}/>}
   </dl>
-  {leadTimeMissing && <p className="lp-feedback">Lead Time Days is missing for this hamper in Excel. Please contact support.</p>}
-  {unavailable && !leadTimeMissing && <p className="lp-feedback">Delivery estimate is not available because a required item or box needs review.</p>}
+  {leadTimeMissing && <p className="lp-feedback">Delivery estimate is not available. Please contact support.</p>}
+  {unavailable && !leadTimeMissing && <p className="lp-feedback">Delivery estimate unavailable for this option.</p>}
 </div>;
 const LargeInfoRow = ({ label, value }) => <div className="lp-info-row"><dt>{label}</dt><dd>{value}</dd></div>;
 const RecentProductCard = ({ item }) => <Link className="lp-recent-card" to={`/products/${item.slug}`}>
@@ -1590,26 +1587,27 @@ const PRODUCT_PAGE_CSS = `
 }
 .hp-luxe-product a { color: inherit; text-decoration: none; }
 .hp-luxe-product .lp-icon, .lp-lightbox .lp-icon { display: block; width: 19px; height: 19px; flex: 0 0 auto; }
-.hp-luxe-product .lp-shell { width: 100%; padding: 104px clamp(16px,3vw,64px) 64px; }
+.hp-luxe-product .lp-shell { width: 100%; max-width: none; margin-inline: 0; padding: 100px clamp(18px,3vw,64px) 64px; }
 .hp-luxe-product .lp-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
-.hp-luxe-product .lp-breadcrumb { display: flex; align-items: center; gap: 10px; margin-bottom: 23px; font-size: 12px; color: var(--lp-muted); min-width: 0; }
+.hp-luxe-product .lp-breadcrumb { display: flex; align-items: center; gap: 10px; margin-bottom: 19px; font-size: 12px; color: var(--lp-muted); min-width: 0; }
 .hp-luxe-product .lp-breadcrumb a { flex-shrink: 0; transition: color .2s; }
 .hp-luxe-product .lp-breadcrumb a:hover { color: #ad5416; }
 .hp-luxe-product .lp-breadcrumb .lp-current { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--lp-ink); }
-.hp-luxe-product .lp-hero { display: grid; grid-template-columns: minmax(0,1.15fr) minmax(390px,.85fr); gap: clamp(24px,3.2vw,64px); align-items: start; }
+.hp-luxe-product .lp-hero { display: grid; grid-template-columns: minmax(0,1.07fr) minmax(0,.93fr); gap: clamp(24px,3vw,56px); align-items: start; }
 .hp-luxe-product .lp-gallery { min-width: 0; }
 .hp-luxe-product .lp-gallery-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 .hp-luxe-product .lp-eyebrow { display: inline-flex; align-items: center; gap: 10px; color: var(--lp-gold); font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
 .hp-luxe-product .lp-eyebrow::before { content: ''; width: 25px; height: 1px; background: #ba9459; }
 .hp-luxe-product .lp-count { font-size: 12px; font-weight: 600; letter-spacing: .08em; color: var(--lp-muted); }
-.hp-luxe-product .lp-stage { position: relative; overflow: hidden; width: 100%; height: clamp(320px,34vw,540px); background: #f0e7da; border-radius: 20px; isolation: isolate; box-shadow: 0 16px 40px -26px #6b4a2266; }
+.hp-luxe-product .lp-stage { position: relative; overflow: hidden; width: 100%; height: clamp(380px,32vw,590px); background: #f0e7da; border-radius: 18px; isolation: isolate; box-shadow: 0 16px 40px -26px #6b4a2266; }
 .hp-luxe-product .lp-stage::after { content: ''; position: absolute; inset: 10px; border: 1px solid #ffffff70; border-radius: 12px; pointer-events: none; z-index: 3; }
 .hp-luxe-product .lp-gallery-open { position: absolute; inset: 0; display: block; width: 100%; height: 100%; border: 0; padding: 0; background: none; cursor: zoom-in; touch-action: pan-y pinch-zoom; }
 .hp-luxe-product .lp-inline-magnifier { position: absolute; z-index: 7; display: block; overflow: hidden; border: 2px solid #f1c978; border-radius: 50%; opacity: 0; visibility: hidden; transform: translate(-50%,-50%); pointer-events: none; background-color: #f4eadb; box-shadow: 0 18px 42px #3a25093d, 0 0 0 6px #fffaf2d9, inset 0 0 0 1px #ffffffaa; transition: opacity .14s ease, visibility .14s ease; will-change: left, top, background-position; }
 .hp-luxe-product .lp-inline-magnifier::after { content: ''; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 18px #2d1a081f; }
 .hp-luxe-product .lp-gallery-magnify-note { display: inline-flex; align-items: center; gap: 7px; }
 .hp-luxe-product .lp-gallery-magnify-note .lp-icon { width: 15px; height: 15px; color: #9a7440; }
-.hp-luxe-product .lp-gallery-image { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+/* Full-bleed main gallery photo: remove empty side gutters without distorting the image. */
+.hp-luxe-product .lp-stage-imagewrap .lp-gallery-image { position: absolute; inset: 0; display: block; width: 100%; height: 100%; max-width: none; object-fit: cover; object-position: center center; }
 .hp-luxe-product .lp-image-current { animation: lpImageIn .55s ease-out; }
 .hp-luxe-product .lp-stage-imagewrap { position: absolute; inset: 0; transition: transform 1s var(--lp-ease); }
 .hp-luxe-product .lp-placeholder { width: 100%; height: 100%; min-height: 64px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: var(--lp-muted); background: #f1ebe2; font-size: 12px; }
@@ -1621,7 +1619,7 @@ const PRODUCT_PAGE_CSS = `
 .hp-luxe-product .lp-gallery-next { right: 20px; top: calc(50% - 22px); }
 .hp-luxe-product .lp-zoom { right: 20px; bottom: 20px; }
 .hp-luxe-product .lp-thumbnails { display: flex; gap: 10px; overflow-x: auto; padding: 13px 2px 5px; scroll-snap-type: x proximity; scrollbar-width: thin; scrollbar-color: #d4bea0 transparent; }
-.hp-luxe-product .lp-thumbnail { display: block; width: 64px; height: 64px; flex: 0 0 64px; border: 1px solid #d9cbb9; border-radius: 10px; padding: 3px; background: #fffdfa; overflow: hidden; scroll-snap-align: start; transition: border-color .25s, box-shadow .25s, transform .35s var(--lp-ease); }
+.hp-luxe-product .lp-thumbnail { display: block; width: 60px; height: 60px; flex: 0 0 60px; border: 1px solid #d9cbb9; border-radius: 10px; padding: 3px; background: #fffdfa; overflow: hidden; scroll-snap-align: start; transition: border-color .25s, box-shadow .25s, transform .35s var(--lp-ease); }
 .hp-luxe-product .lp-thumbnail img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 6px; }
 .hp-luxe-product .lp-thumbnail[aria-pressed='true'] { border-color: #ae7434; box-shadow: 0 0 0 2px #b8842e23; }
 .hp-luxe-product .lp-gallery-note { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding-top: 12px; color: var(--lp-muted); font-size: 12px; }
@@ -1633,30 +1631,32 @@ const PRODUCT_PAGE_CSS = `
 .hp-luxe-product .lp-fact dd { color: #4b4034; font-size: 13px; font-weight: 700; overflow-wrap: anywhere; }
 
 /* Light purchase surface: no forced height and no nested dark panel. */
-.hp-luxe-product .lp-purchase { position: relative; min-width: 0; background: linear-gradient(160deg,#fffefb,#fffdf8 70%,#faf3e8); border: 1px solid #e6dbc9; border-radius: 20px; padding: clamp(20px,1.7vw,26px); box-shadow: 0 18px 45px -35px #76532169; }
+.hp-luxe-product .lp-purchase { position: relative; min-width: 0; background: linear-gradient(160deg,#fffefb,#fffdf8 70%,#faf3e8); border: 1px solid #e6dbc9; border-radius: 20px; padding: 22px 24px; box-shadow: 0 18px 45px -35px #76532169; }
 .hp-luxe-product .lp-purchase::before { content: ''; position: absolute; top: -1px; left: 30px; right: 30px; height: 2px; background: linear-gradient(90deg,transparent,#c89e5d,transparent); }
 .hp-luxe-product .lp-purchase-top { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 7px; }
 .hp-luxe-product .lp-catalog-label { color: #8c6632; font-size: 11px; letter-spacing: .11em; text-transform: uppercase; font-weight: 800; overflow-wrap: anywhere; }
 .hp-luxe-product .lp-catalog-label span { display: block; color: var(--lp-muted); letter-spacing: .06em; font-size: 10px; margin-top: 2px; }
 .hp-luxe-product .lp-purchase-top .lp-round { width: 38px; height: 38px; background: transparent; }
-.hp-luxe-product .lp-title { font-family: var(--lp-serif); font-size: clamp(34px,2.9vw,46px); line-height: 1; font-weight: 600; letter-spacing: -.025em; overflow-wrap: anywhere; }
-.hp-luxe-product .lp-summary-row { display: flex; flex-wrap: wrap; align-items: center; gap: 9px 15px; margin-top: 12px; font-size: 12px; }
+/* Explicitly win against broad global h1 typography rules. */
+/* Compact title scoped to the actual ProductDetails component, not the catalogue card. */
+.hp-luxe-product .lp-purchase h1#lp-product-title.lp-title { font-family: 'Manrope', Arial, sans-serif !important; font-size: 22px !important; line-height: 1.26 !important; font-weight: 600 !important; letter-spacing: -.025em !important; overflow-wrap: break-word; text-wrap: pretty; }
+.hp-luxe-product .lp-summary-row { display: flex; flex-wrap: wrap; align-items: center; gap: 9px 15px; margin-top: 11px; font-size: 12px; }
 .hp-luxe-product .lp-status { display: inline-flex; gap: 7px; align-items: center; font-size: 11px; color: #27614d; font-weight: 700; }
 .hp-luxe-product .lp-status::before { content: ''; width: 6px; height: 6px; flex-shrink: 0; border-radius: 50%; background: currentColor; }
 .hp-luxe-product .lp-status.is-unavailable { color: #975020; }
 .hp-luxe-product .lp-rating-link { display: inline-flex; align-items: center; gap: 6px; color: #5f5141; font-size: 12px; }
 .hp-luxe-product .lp-star { color: #99712e; font-size: 14px; }
-.hp-luxe-product .lp-description { color: #71675b; font-size: 14px; line-height: 1.65; margin-top: 11px; }
+.hp-luxe-product .lp-description { color: #71675b; font-size: 14px; line-height: 1.65; margin-top: 10px; }
 .hp-luxe-product .lp-description .is-clamped { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .hp-luxe-product .lp-description .lp-text-button { margin-top: 4px; }
 .hp-luxe-product .lp-price-block { margin-top: 13px; padding: 10px 0; border-top: 1px solid var(--lp-line); border-bottom: 1px solid var(--lp-line); }
 .hp-luxe-product .lp-price-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px; }
-.hp-luxe-product .lp-price { font-size: clamp(28px,2.3vw,34px); font-weight: 700; letter-spacing: -.04em; line-height: 1.1; color: #30271f; }
+.hp-luxe-product .lp-price { font-size: clamp(28px,1.9vw,34px); font-weight: 700; letter-spacing: -.04em; line-height: 1.1; color: #30271f; }
 .hp-luxe-product .lp-price del, .hp-luxe-product .lp-compare { color: #86786b; font-size: 14px; font-weight: 500; }
 .hp-luxe-product .lp-saving { font-size: 11px; font-weight: 800; color: #874923; background: #faebdb; padding: 4px 8px; border-radius: 5px; letter-spacing: .02em; }
 .hp-luxe-product .lp-tax { font-size: 11px; color: #776a5d; margin-top: 7px; line-height: 1.6; }
 /* Excel Lead Time Only V6: page display, never a client-side date calculator. */
-.hp-luxe-product .lp-excel-eta { display: flex; align-items: flex-start; gap: 12px; margin: 14px 0 15px; padding: 13px 14px; border: 1px solid #ead9bd; border-radius: 13px; background: linear-gradient(115deg,#fff9ef,#fdf3e4); }
+.hp-luxe-product .lp-excel-eta { display: flex; align-items: flex-start; gap: 12px; margin: 13px 0 14px; padding: 12px 14px; border: 1px solid #ead9bd; border-radius: 13px; background: linear-gradient(115deg,#fff9ef,#fdf3e4); }
 .hp-luxe-product .lp-excel-eta-icon { display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; width: 35px; height: 35px; border-radius: 10px; background: #f7e6cd; color: #995e27; }
 .hp-luxe-product .lp-excel-eta-icon .lp-icon { width: 17px; height: 17px; }
 .hp-luxe-product .lp-excel-eta-copy { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
@@ -1669,7 +1669,7 @@ const PRODUCT_PAGE_CSS = `
 .hp-luxe-product .lp-options { display: flex; gap: 8px; flex-wrap: wrap; }
 .hp-luxe-product .lp-option { min-height: 42px; padding: 9px 13px; border: 1px solid var(--lp-line); border-radius: 9px; background: #fffefb; color: #675646; font-size: 12px; font-weight: 700; transition: background .25s, border-color .25s; }
 .hp-luxe-product .lp-option[aria-pressed='true'] { background: #f7efdf; color: #6f4b1f; border-color: #b38b55; }
-.hp-luxe-product .lp-quantity-row { display: flex; justify-content: space-between; align-items: center; gap: 18px; margin-top: 12px; }
+.hp-luxe-product .lp-quantity-row { display: flex; justify-content: space-between; align-items: center; gap: 18px; margin-top: 13px; }
 .hp-luxe-product .lp-quantity-left { display: flex; align-items: center; gap: 12px; }
 .hp-luxe-product .lp-stepper { display: flex; align-items: center; border: 1px solid #e0d4c2; border-radius: 9px; background: #fffefb; overflow: hidden; }
 .hp-luxe-product .lp-stepper button { width: 42px; height: 42px; padding: 0; border: 0; background: transparent; font-size: 21px; color: #65513c; }
@@ -1705,18 +1705,18 @@ const PRODUCT_PAGE_CSS = `
 .hp-luxe-product .lp-applied .lp-helper { margin-top: 3px; }
 
 /* The lower page remains light, with all product information accessible. */
-.hp-luxe-product .lp-details { margin-top: 40px; border-top: 1px solid #ded2bf; padding-top: 24px; scroll-margin-top: 104px; }
+.hp-luxe-product .lp-details { margin-top: 40px; border-top: 1px solid #ded2bf; padding-top: 25px; scroll-margin-top: 104px; }
 .hp-luxe-product .lp-section-head { display: flex; justify-content: space-between; align-items: end; gap: 20px; margin-bottom: 18px; }
-.hp-luxe-product .lp-heading { font-family: var(--lp-serif); font-size: clamp(31px,2.5vw,42px); font-weight: 600; line-height: 1.1; letter-spacing: -.02em; }
+.hp-luxe-product .lp-heading { font-family: var(--lp-serif); font-size: clamp(28px,2.1vw,36px) !important; font-weight: 600; line-height: 1.1; letter-spacing: -.02em; }
 .hp-luxe-product .lp-heading em { color: #967242; font-weight: 500; }
 .hp-luxe-product .lp-tablist { display: flex; gap: 4px; padding: 5px; background: #f0e9de; border: 1px solid #e5d9c8; border-radius: 12px; overflow-x: auto; scrollbar-width: thin; }
 .hp-luxe-product .lp-tab { position: relative; min-width: max-content; flex: 1; min-height: 47px; padding: 10px 17px; border: 0; border-radius: 8px; color: #7b6a56; background: transparent; font-weight: 700; font-size: 13px; transition: background .25s, box-shadow .25s, color .25s; }
 .hp-luxe-product .lp-tab[aria-selected='true'] { background: #fffefa; color: #694719; box-shadow: 0 3px 12px #52391409; }
 .hp-luxe-product .lp-tab[aria-selected='true']::after { content: ''; position: absolute; height: 2px; background: #b99153; border-radius: 3px; bottom: 4px; left: 35%; right: 35%; animation: lpLineIn .4s var(--lp-ease); }
-.hp-luxe-product .lp-tab-panel { margin-top: 16px; padding: clamp(20px,2.5vw,36px); border: 1px solid #e8dfd2; border-radius: 16px; background: #fffefb; min-height: 240px; animation: lpContentIn .4s ease-out; }
+.hp-luxe-product .lp-tab-panel { margin-top: 16px; padding: clamp(20px,2.5vw,34px); border: 1px solid #e8dfd2; border-radius: 16px; background: #fffefb; min-height: 240px; animation: lpContentIn .4s ease-out; }
 .hp-luxe-product .lp-description-grid { display: grid; grid-template-columns: minmax(0,.9fr) minmax(0,1.1fr); gap: clamp(25px,4vw,70px); }
-.hp-luxe-product .lp-section-copy { margin-top: 15px; font-size: 14px; line-height: 1.95; color: #6b5f52; white-space: pre-line; overflow-wrap: anywhere; }
-.hp-luxe-product .lp-subheading { font-family: var(--lp-serif); font-size: 29px; line-height: 1.12; font-weight: 600; }
+.hp-luxe-product .lp-section-copy { margin-top: 15px; font-size: 14px; line-height: 1.85; color: #6b5f52; white-space: pre-line; overflow-wrap: anywhere; }
+.hp-luxe-product .lp-subheading { font-family: var(--lp-serif); font-size: 25px; line-height: 1.16; font-weight: 600; }
 .hp-luxe-product .lp-small-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 16px; }
 .hp-luxe-product .lp-inside-preview { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px 20px; }
 .hp-luxe-product .lp-preview-item { display: flex; gap: 11px; align-items: center; min-width: 0; border-bottom: 1px solid #ece4d9; padding-bottom: 14px; }
@@ -1759,7 +1759,7 @@ const PRODUCT_PAGE_CSS = `
 .hp-luxe-product .lp-empty-state .lp-heading { margin: 20px 0 15px; }
 .hp-luxe-product .lp-empty-state .lp-button { margin-top: 24px; }
 .hp-luxe-product .lp-skeleton { border-radius: 9px; background: #e8dfd1; animation: lpPulse 1.7s ease-in-out infinite; }
-.hp-luxe-product .lp-skeleton-image { height: clamp(320px,34vw,540px); border-radius: 20px; }
+.hp-luxe-product .lp-skeleton-image { height: clamp(380px,32vw,590px); border-radius: 20px; }
 .hp-luxe-product .lp-skeleton-line { height: 16px; margin-bottom: 17px; }
 .hp-luxe-product .lp-spinner { animation: lpSpin .8s linear infinite; }
 
@@ -1859,22 +1859,22 @@ const PRODUCT_PAGE_CSS = `
   .hp-luxe-product .lp-recent-card:hover .lp-recent-footer > span:last-child { background: #ecd8b5; transform: translateX(2px); }
 }
 @media (min-width:1600px) {
-  .hp-luxe-product .lp-hero { grid-template-columns: minmax(0,1.05fr) minmax(0,.95fr); }
-  .hp-luxe-product .lp-purchase { padding: 24px 30px; }
+  .hp-luxe-product .lp-hero { grid-template-columns: minmax(0,1.07fr) minmax(0,.93fr); }
+  .hp-luxe-product .lp-purchase { padding: 23px 26px; }
 }
 @media (max-width:1100px) {
-  .hp-luxe-product .lp-hero { grid-template-columns: minmax(0,1fr) minmax(350px,1fr); gap: 22px; }
+  .hp-luxe-product .lp-hero { grid-template-columns: minmax(0,1fr) minmax(335px,1fr); gap: 22px; }
   .hp-luxe-product .lp-purchase { padding: 20px; }
-  .hp-luxe-product .lp-title { font-size: 36px; }
-  .hp-luxe-product .lp-stage { height: clamp(350px,42vw,480px); }
+  /* Product title sizing is defined centrally; mobile gets its own smaller rule. */
+  .hp-luxe-product .lp-stage { height: clamp(340px,42vw,465px); }
   .hp-luxe-product .lp-inside-preview { grid-template-columns: 1fr; }
 }
 @media (max-width:900px) {
   .hp-luxe-product .lp-shell { padding-top: 95px; }
   .hp-luxe-product .lp-hero { grid-template-columns: 1fr; gap: 23px; }
-  .hp-luxe-product .lp-stage { height: clamp(300px,54vw,460px); }
-  .hp-luxe-product .lp-purchase { padding: 24px; }
-  .hp-luxe-product .lp-title { font-size: 40px; }
+  .hp-luxe-product .lp-stage { height: clamp(320px,55vw,450px); }
+  .hp-luxe-product .lp-purchase { padding: 22px; }
+  /* Product title sizing is defined centrally; mobile gets its own smaller rule. */
   .hp-luxe-product .lp-recent-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
 }
 @media (max-width:767px) {
@@ -1891,9 +1891,10 @@ const PRODUCT_PAGE_CSS = `
   .hp-luxe-product .lp-zoom { right: 12px; bottom: 12px; }
   .hp-luxe-product .lp-facts { grid-template-columns: repeat(2,minmax(0,1fr)); padding-top: 14px; margin-top: 14px; }
   .hp-luxe-product .lp-purchase { border-radius: 16px; padding: 19px 17px; }
-  .hp-luxe-product .lp-title { font-size: clamp(32px,8vw,40px); }
+  .hp-luxe-product .lp-purchase h1#lp-product-title.lp-title { font-size: 20px !important; line-height: 1.28 !important; }
+  /* Product title sizing is defined centrally; mobile gets its own smaller rule. */
   .hp-luxe-product .lp-description { font-size: 14px; }
-  .hp-luxe-product .lp-price { font-size: 31px; }
+  .hp-luxe-product .lp-price { font-size: 29px; }
   .hp-luxe-product .lp-quantity-row { flex-wrap: wrap; }
   .hp-luxe-product .lp-input { font-size: 16px; }
   .hp-luxe-product .lp-description-grid, .hp-luxe-product .lp-info-grid, .hp-luxe-product .lp-delivery-grid, .hp-luxe-product .lp-content-grid { grid-template-columns: 1fr; gap: 24px; }
@@ -1903,7 +1904,7 @@ const PRODUCT_PAGE_CSS = `
   .hp-luxe-product .lp-tab { flex: 0 0 auto; font-size: 12px; min-height: 46px; padding-inline: 13px; }
   .hp-luxe-product .lp-tab-panel { padding: 19px 15px; }
   .hp-luxe-product .lp-inside-preview { grid-template-columns: 1fr; }
-  .hp-luxe-product .lp-heading { font-size: 34px; }
+  .hp-luxe-product .lp-heading { font-size: 30px !important; }
   .hp-luxe-product .lp-recent-grid { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 14px; padding-bottom: 8px; scrollbar-width: thin; }
   .hp-luxe-product .lp-recent-card { flex: 0 0 76%; scroll-snap-align: start; }
   .hp-luxe-product .lp-mobile-bar { display: grid; grid-template-columns: minmax(80px,.75fr) 1fr 1fr; align-items: center; gap: 8px; position: fixed; bottom: 0; left: 0; right: 0; z-index: 45; background: #fffdf8f7; border-top: 1px solid #dbc7a8; padding: 11px 13px calc(11px + env(safe-area-inset-bottom)); box-shadow: 0 -6px 24px #5637180d; }

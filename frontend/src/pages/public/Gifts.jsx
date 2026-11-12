@@ -1,4 +1,5 @@
 
+
 import {
   useEffect,
   useState,
@@ -1754,345 +1755,233 @@ const Gifts = () => {
           }
 
 
-          /* V5 · TWO-CARD MOBILE GRID */
+          /* GIFT CARD V8: cards 20% shorter, image 70% / information 30%.
+             Grid rows are calculated from a single card height so the
+             ratio stays exact on mobile, laptops and wide desktops.
+             Scoped to Gifts: other ProductCard usages stay unchanged. */
+          .hp-catalogue-page-title {
+            font-size: clamp(25px, 1.95vw, 30px) !important;
+            line-height: 1.14 !important;
+            letter-spacing: -.025em !important;
+          }
+          .hp-catalogue-gift {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            padding: 9px 9px 11px;
+            border-radius: 19px;
+            box-shadow: 0 13px 30px rgba(38,28,16,.085),
+                        0 4px 12px rgba(38,28,16,.045),
+                        inset 0 1px 0 rgba(255,255,255,.62);
+          }
+          .hp-catalogue-gift::before { inset: 5px; border-radius: 15px; }
+          .hp-catalogue-gift-inner {
+            display: flex;
+            flex: 1;
+            flex-direction: column;
+            min-width: 0;
+            width: 100%;
+            padding: 7px;
+            border-radius: 14px;
+          }
+          .hp-catalogue-gift-inner > .hp-card-root {
+            /* 7fr + 3fr = 70% photo / 30% content, no aspect-ratio clashes. */
+            display: grid !important;
+            grid-template-rows: minmax(0, 7fr) minmax(0, 3fr);
+            gap: 0;
+            width: 100%;
+            height: clamp(280px, 19.2vw, 316px);
+            min-width: 0;
+            min-height: 0;
+            flex: none;
+            overflow: hidden;
+          }
+          .hp-catalogue-gift-inner .hp-card-media {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            min-width: 0;
+            min-height: 0;
+            aspect-ratio: auto !important;
+            overflow: hidden;
+            background: #fffdfa;
+          }
+          .hp-catalogue-gift-inner .hp-card-media > img {
+            display: block;
+            width: 100%;
+            height: 100%;
+            max-height: none !important;
+            object-fit: contain !important;
+            object-position: center;
+          }
+          .hp-catalogue-gift-inner .hp-card-content {
+            display: flex;
+            flex-direction: column;
+            flex: none !important;
+            min-width: 0;
+            min-height: 0 !important;
+            height: 100%;
+            overflow: hidden;
+            padding: 5px 7px 2px !important;
+          }
+          .hp-catalogue-gift-inner .hp-card-content > div:first-child {
+            min-height: 0 !important;
+            flex: none;
+          }
+          .hp-catalogue-gift-inner .hp-card-category {
+            font-size: 9px !important;
+            line-height: 1.25 !important;
+            letter-spacing: .09em;
+          }
+          .hp-catalogue-gift-inner .hp-card-title {
+            display: -webkit-box !important;
+            -webkit-box-orient: vertical !important;
+            -webkit-line-clamp: 2 !important;
+            line-clamp: 2 !important;
+            white-space: normal !important;
+            overflow: hidden !important;
+            overflow-wrap: anywhere;
+            height: auto !important;
+            min-height: 0 !important;
+            max-height: none;
+            margin: 3px 0 1px !important;
+            font-family: 'Manrope', Arial, sans-serif !important;
+            font-size: clamp(15px, 1.1vw, 17px) !important;
+            font-weight: 650 !important;
+            line-height: 1.23 !important;
+            letter-spacing: -.023em !important;
+          }
+          /* All descriptions remain available on the product details page.
+             The 30% card footer shows essentials only. */
+          .hp-catalogue-gift-inner .hp-card-description {
+            display: none !important;
+          }
+          .hp-catalogue-gift-inner .hp-card-price-block {
+            flex-shrink: 0;
+            margin-top: auto !important;
+            min-width: 0;
+            padding-top: 4px !important;
+          }
+          .hp-catalogue-gift-inner .hp-card-price {
+            font-size: 15px !important;
+            font-weight: 750 !important;
+            line-height: 1.16 !important;
+            letter-spacing: -.024em;
+          }
+          /* Loading cards occupy the same space as the finished cards. */
+          .hp-catalogue-skeleton > div {
+            display: grid;
+            grid-template-rows: minmax(0, 7fr) minmax(0, 3fr);
+            gap: 0;
+            height: clamp(280px, 19.2vw, 316px);
+            min-height: 0;
+          }
+          .hp-catalogue-skeleton > div > div:first-child {
+            width: 100%; height: 100%; aspect-ratio: auto;
+          }
+          .hp-catalogue-skeleton > div > div:nth-child(2) {
+            min-height: 0;
+            padding-top: 9px;
+            padding-bottom: 6px;
+            overflow: hidden;
+          }
+
+          /* Preserve the compact sidebar typography from the approved design. */
+          .hp-filter-inner { padding: 11px 15px 14px; }
+          .hp-filter-section { padding: 14px 0; }
+          .hp-filter-inner > .hp-filter-section:first-child { padding-top: 7px; }
+          .hp-filter-section-head { margin-bottom: 10px; }
+          .hp-filter-section-title {
+            font-family: 'Manrope', Arial, sans-serif;
+            font-size: 17px;
+            font-weight: 700;
+            line-height: 1.25;
+          }
+          .hp-filter-search { height: 40px; font-size: 12px; border-radius: 11px; }
+          .hp-filter-choice { min-height: 33px; padding: 5px 8px; gap: 9px; }
+          .hp-filter-choice-label { font-size: 11.5px; line-height: 1.3; }
+          .hp-filter-price-box { height: 40px; border-radius: 10px; }
+          .hp-filter-price-track { margin-top: 12px; }
+          .hp-filter-featured { padding: 8px 9px; }
+          .hp-filter-apply-wrap { padding-top: 12px; }
+          .hp-filter-apply { height: 43px; border-radius: 11px; }
+
+          @media (max-width: 767px) {
+            .hp-catalogue-page-title { font-size: 25px !important; }
+            .hp-catalogue-gift-inner .hp-card-title {
+              font-size: 15px !important;
+            }
+          }
           @media (max-width: 639px) {
+            /* Keep two columns. A tall portrait image needs contain, not cover. */
             .hp-catalogue-gift {
-              border-radius:16px;
-              padding:6px 6px 9px;
-              box-shadow:
-                0 12px 26px rgba(38,28,16,.09),
-                0 4px 10px rgba(38,28,16,.05),
-                inset 0 1px 0 rgba(255,255,255,.60);
+              padding: 5px 5px 7px;
+              border-radius: 14px;
+              box-shadow: 0 10px 22px rgba(38,28,16,.075),
+                          0 3px 9px rgba(38,28,16,.045);
             }
-
-            .hp-catalogue-gift::before {
-              inset:4px;
-              border-radius:12px;
-            }
-
+            .hp-catalogue-gift::before { inset: 4px; border-radius: 10px; }
             .hp-catalogue-gift-inner {
-              border-radius:11px;
-              padding:4px;
-              backdrop-filter:none;
-              -webkit-backdrop-filter:none;
+              padding: 4px;
+              border-radius: 10px;
+              backdrop-filter: none;
+              -webkit-backdrop-filter: none;
             }
-
+            .hp-catalogue-gift-inner > .hp-card-root,
+            .hp-catalogue-skeleton > div {
+              height: clamp(262.4px, 75.2vw, 288px);
+            }
+            .hp-catalogue-gift-inner .hp-card-content {
+              padding: 4px 3px 1px !important;
+            }
+            .hp-catalogue-gift-inner .hp-card-category {
+              font-size: 8px !important;
+              line-height: 1.18 !important;
+            }
+            .hp-catalogue-gift-inner .hp-card-title {
+              -webkit-line-clamp: 2 !important;
+              line-clamp: 2 !important;
+              margin: 2px 0 1px !important;
+              font-size: 13.5px !important;
+              line-height: 1.17 !important;
+              letter-spacing: -.015em !important;
+            }
+            .hp-catalogue-gift-inner .hp-card-price-block {
+              padding-top: 3px !important;
+            }
+            .hp-catalogue-gift-inner .hp-card-price {
+              font-size: 13px !important;
+              line-height: 1.17 !important;
+            }
+            /* Existing bow and wrapping trim, scaled for two mobile columns. */
             .hp-catalogue-bow {
-              top:4px;
-              left:4px;
-              transform:scale(.58);
-              transform-origin:top left;
+              top: 4px; left: 4px;
+              transform: scale(.58);
+              transform-origin: top left;
             }
-
-            .hp-catalogue-gift:hover .hp-catalogue-bow {
-              transform:scale(.58);
-            }
-
-            .hp-catalogue-corner {
-              width:16px;
-              height:16px;
-              opacity:.58;
-            }
-
-            .hp-catalogue-corner::before {
-              width:14px;
-            }
-
-            .hp-catalogue-corner::after {
-              height:14px;
-            }
-
-            .hp-catalogue-corner-tr {
-              top:5px;
-              right:5px;
-            }
-
-            .hp-catalogue-corner-bl {
-              bottom:5px;
-              left:5px;
-            }
-
-            .hp-catalogue-corner-br {
-              right:5px;
-              bottom:5px;
-            }
-
-            /* Mobile readability: never enlarge the child beyond the card.
-               The previous 113.64% + zoom trick pushed ProductCard text
-               outside the inner panel and clipped it on the sides. */
-            .hp-catalogue-gift-inner > * {
-              width:100%;
-              max-width:100%;
-              min-width:0;
-              zoom:1;
-            }
-
-            .hp-catalogue-gift-inner,
-            .hp-catalogue-gift-inner * {
-              box-sizing:border-box;
-            }
-
-            .hp-catalogue-gift-inner a,
-            .hp-catalogue-gift-inner article,
-            .hp-catalogue-gift-inner div {
-              min-width:0;
-              max-width:100%;
-            }
-
-            /* ==================================================
-               V3 · MOBILE CARD TYPOGRAPHY / NO OVERLAP
-               ProductCard uses line-clamp utilities internally.
-               On narrow cards, changing only overflow made the hidden
-               3rd line visible while the clamp still reserved 2 lines,
-               which caused the title to sit on top of the description.
-               Remove the clamp itself and let the content take natural height.
-            ================================================== */
-            .hp-catalogue-gift-inner h1,
-            .hp-catalogue-gift-inner h2,
-            .hp-catalogue-gift-inner h3,
-            .hp-catalogue-gift-inner h4,
-            .hp-catalogue-gift-inner p {
-              max-width:100%;
-              white-space:normal !important;
-              overflow-wrap:anywhere;
-              word-break:normal;
-            }
-
-            .hp-catalogue-gift-inner .truncate,
-            .hp-catalogue-gift-inner [class*="line-clamp"] {
-              white-space:normal !important;
-              overflow:visible !important;
-              text-overflow:clip !important;
-              display:block !important;
-              -webkit-box-orient:initial !important;
-              -webkit-line-clamp:unset !important;
-              line-clamp:unset !important;
-              max-height:none !important;
-              height:auto !important;
-            }
-
-            /* Let heading rows grow naturally even if ProductCard reserves
-               a desktop title slot internally. */
-            .hp-catalogue-gift-inner h1,
-            .hp-catalogue-gift-inner h2,
-            .hp-catalogue-gift-inner h3,
-            .hp-catalogue-gift-inner h4 {
-              display:block !important;
-              height:auto !important;
-              min-height:0 !important;
-              max-height:none !important;
-              overflow:visible !important;
-              margin-bottom:8px !important;
-              font-size:clamp(22px,5.2vw,28px) !important;
-              font-weight:700 !important;
-              line-height:1.02 !important;
-              letter-spacing:-.022em !important;
-              text-wrap:balance;
-            }
-
-            .hp-catalogue-gift-inner :is(div,a):has(> h1),
-            .hp-catalogue-gift-inner :is(div,a):has(> h2),
-            .hp-catalogue-gift-inner :is(div,a):has(> h3),
-            .hp-catalogue-gift-inner :is(div,a):has(> h4) {
-              height:auto !important;
-              min-height:0 !important;
-              max-height:none !important;
-              overflow:visible !important;
-            }
-
-            /* Description/body copy gets its own breathing room below title. */
-            .hp-catalogue-gift-inner h1 + p,
-            .hp-catalogue-gift-inner h2 + p,
-            .hp-catalogue-gift-inner h3 + p,
-            .hp-catalogue-gift-inner h4 + p {
-              position:static !important;
-              margin-top:6px !important;
-              margin-bottom:10px !important;
-              font-size:12px !important;
-              font-weight:500 !important;
-              line-height:1.45 !important;
-              color:rgba(23,23,23,.56) !important;
-            }
-
-            /* Improve legibility without changing the existing card palette. */
-            .hp-catalogue-gift-inner {
-              -webkit-font-smoothing:antialiased;
-              text-rendering:optimizeLegibility;
-            }
-
-            .hp-catalogue-gift-inner p {
-              line-height:1.45;
-            }
-
-            .hp-catalogue-gift-inner img {
-              width:100%;
-              max-width:100%;
-              max-height:118px;
-              object-fit:cover;
-            }
+            .hp-catalogue-gift:hover { transform: none; }
+            .hp-catalogue-gift:hover .hp-catalogue-gift-inner { transform: none; }
+            .hp-catalogue-gift:hover .hp-catalogue-bow { transform: scale(.58); }
+            .hp-catalogue-sheen { display: none; }
+            .hp-catalogue-corner { width: 16px; height: 16px; opacity: .58; }
+            .hp-catalogue-corner::before { width: 14px; }
+            .hp-catalogue-corner::after { height: 14px; }
+            .hp-catalogue-corner-tr { top: 5px; right: 5px; }
+            .hp-catalogue-corner-bl { bottom: 5px; left: 5px; }
+            .hp-catalogue-corner-br { bottom: 5px; right: 5px; }
+            .hp-filter-inner { padding: 13px 12px 14px; }
+            .hp-filter-section { padding: 13px 0; }
+            .hp-filter-section-title { font-size: 16px; }
+            .hp-filter-choice-label { font-size: 12px; }
+            .hp-filter-search { height: 42px; }
           }
-
-          @media (max-width:380px) {
-            .hp-catalogue-gift {
-              padding:5px 5px 8px;
-              border-radius:14px;
+          @media (max-width: 380px) {
+            .hp-catalogue-gift-inner .hp-card-title {
+              font-size: 12.5px !important;
+              line-height: 1.15 !important;
             }
-
-            .hp-catalogue-gift-inner {
-              padding:3px;
-              border-radius:10px;
-            }
-
-            .hp-catalogue-gift-inner > * {
-              width:100%;
-              max-width:100%;
-              min-width:0;
-              zoom:1;
-            }
-
-            .hp-catalogue-gift-inner h1,
-            .hp-catalogue-gift-inner h2,
-            .hp-catalogue-gift-inner h3,
-            .hp-catalogue-gift-inner h4 {
-              font-size:clamp(20px,5.8vw,23px) !important;
-              line-height:1.04 !important;
-              margin-bottom:7px !important;
-            }
-
-            .hp-catalogue-gift-inner h1 + p,
-            .hp-catalogue-gift-inner h2 + p,
-            .hp-catalogue-gift-inner h3 + p,
-            .hp-catalogue-gift-inner h4 + p {
-              font-size:11px !important;
-              line-height:1.4 !important;
-            }
-
-            .hp-catalogue-gift-inner p {
-              line-height:1.45;
-            }
-
-            .hp-catalogue-gift-inner img {
-              max-height:108px;
-            }
-
-            .hp-catalogue-bow,
-            .hp-catalogue-gift:hover .hp-catalogue-bow {
-              transform:scale(.52);
-            }
-          }
-
-
-          /* ==================================================
-             V4 · COMPACT MOBILE CARDS
-             Roughly 20% less vertical footprint while keeping
-             every text block readable and naturally wrapped.
-          ================================================== */
-          @media (max-width:639px) {
-            .hp-catalogue-gift {
-              padding:5px 5px 7px;
-            }
-
-            .hp-catalogue-gift-inner {
-              padding:3px;
-            }
-
-            /* Product image is the biggest vertical area, so reduce it
-               without touching card width or the existing colour variants. */
-            .hp-catalogue-gift-inner img {
-              max-height:94px !important;
-            }
-
-            /* Keep long names fully visible but more compact. */
-            .hp-catalogue-gift-inner h1,
-            .hp-catalogue-gift-inner h2,
-            .hp-catalogue-gift-inner h3,
-            .hp-catalogue-gift-inner h4 {
-              margin-top:0 !important;
-              margin-bottom:5px !important;
-              font-size:clamp(19px,4.7vw,23px) !important;
-              line-height:1 !important;
-              letter-spacing:-.018em !important;
-            }
-
-            .hp-catalogue-gift-inner h1 + p,
-            .hp-catalogue-gift-inner h2 + p,
-            .hp-catalogue-gift-inner h3 + p,
-            .hp-catalogue-gift-inner h4 + p {
-              margin-top:3px !important;
-              margin-bottom:6px !important;
-              font-size:10.5px !important;
-              line-height:1.3 !important;
-            }
-
-            .hp-catalogue-gift-inner p {
-              line-height:1.3 !important;
-            }
-
-            /* Tighten common ProductCard spacing utilities only inside
-               catalogue cards on phones; text still wraps normally. */
-            .hp-catalogue-gift-inner .mt-1 { margin-top:2px !important; }
-            .hp-catalogue-gift-inner .mt-2 { margin-top:4px !important; }
-            .hp-catalogue-gift-inner .mt-3 { margin-top:6px !important; }
-            .hp-catalogue-gift-inner .mt-4 { margin-top:8px !important; }
-            .hp-catalogue-gift-inner .mt-5 { margin-top:10px !important; }
-            .hp-catalogue-gift-inner .pt-3 { padding-top:6px !important; }
-            .hp-catalogue-gift-inner .pt-4 { padding-top:8px !important; }
-            .hp-catalogue-gift-inner .pb-3 { padding-bottom:6px !important; }
-            .hp-catalogue-gift-inner .pb-4 { padding-bottom:8px !important; }
-            .hp-catalogue-gift-inner .py-3 {
-              padding-top:6px !important;
-              padding-bottom:6px !important;
-            }
-            .hp-catalogue-gift-inner .py-4 {
-              padding-top:8px !important;
-              padding-bottom:8px !important;
-            }
-
-            /* V5 · remove the wasted vertical spacer between copy and pricing.
-               ProductCard uses flex/auto spacing so prices line up on desktop;
-               on narrow cards that creates a large empty block. Keep the
-               content natural-height on phones and place pricing right below
-               the description. */
-            .hp-catalogue-gift-inner .mt-auto {
-              margin-top:8px !important;
-            }
-
-            .hp-catalogue-gift-inner [class*="min-h-"] {
-              min-height:0 !important;
-            }
-
-            .hp-catalogue-gift-inner [class*="grow"],
-            .hp-catalogue-gift-inner [class~="flex-1"] {
-              flex-grow:0 !important;
-            }
-
-            /* Keep the separator/pricing block compact without crowding it. */
-            .hp-catalogue-gift-inner hr {
-              margin-top:8px !important;
-              margin-bottom:8px !important;
-            }
-          }
-
-          @media (max-width:380px) {
-            .hp-catalogue-gift-inner img {
-              max-height:88px !important;
-            }
-
-            .hp-catalogue-gift-inner h1,
-            .hp-catalogue-gift-inner h2,
-            .hp-catalogue-gift-inner h3,
-            .hp-catalogue-gift-inner h4 {
-              font-size:clamp(18px,5.1vw,21px) !important;
-              margin-bottom:4px !important;
-            }
-
-            .hp-catalogue-gift-inner h1 + p,
-            .hp-catalogue-gift-inner h2 + p,
-            .hp-catalogue-gift-inner h3 + p,
-            .hp-catalogue-gift-inner h4 + p {
-              font-size:10px !important;
-              line-height:1.28 !important;
-              margin-bottom:5px !important;
+            .hp-catalogue-gift-inner .hp-card-price {
+              font-size: 12.5px !important;
             }
           }
 
@@ -2127,10 +2016,10 @@ const Gifts = () => {
           />
         </div>
 
-        <div className="grid min-w-0 gap-0 lg:grid-cols-[270px_minmax(0,1fr)] xl:grid-cols-[295px_minmax(0,1fr)] 2xl:grid-cols-[310px_minmax(0,1fr)]">
+        <div className="grid min-w-0 gap-0 lg:grid-cols-[240px_minmax(0,1fr)] xl:grid-cols-[255px_minmax(0,1fr)] 2xl:grid-cols-[270px_minmax(0,1fr)]">
           {/* SIDEBAR */}
 
-          <aside className="hidden min-w-0 pr-4 lg:block xl:pr-6 2xl:pr-7">
+          <aside className="hidden min-w-0 pr-3 lg:block xl:pr-4 2xl:pr-5">
             <div className="sticky top-[105px] max-h-[calc(100vh-125px)] overflow-y-auto pb-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               <FilterPanel
                 filters={
@@ -2157,8 +2046,8 @@ const Gifts = () => {
 
           {/* PRODUCT AREA */}
 
-          <div className="min-w-0 lg:pl-5 xl:pl-7 2xl:pl-8">
-            <div className="flex flex-col gap-4 border-b border-black/[0.08] pb-4 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0 lg:pl-4 xl:pl-5 2xl:pl-6">
+            <div className="flex flex-col gap-3 border-b border-black/[0.08] pb-3 sm:flex-row sm:items-end sm:justify-between">
               <div className="max-w-[760px]">
                 <div className="flex items-center gap-2">
                   <span className="h-px w-7 bg-[#F47822]" />
@@ -2175,7 +2064,7 @@ const Gifts = () => {
                     fontFamily:
                       DISPLAY_FONT,
                   }}
-                  className="mt-3 text-[38px] font-semibold leading-none tracking-[-0.035em] sm:text-[45px]"
+                  className="hp-catalogue-page-title mt-2 text-[26px] font-semibold leading-[1.1] tracking-[-0.025em] sm:text-[28px] xl:text-[30px]"
                 >
                   {
                     catalogueMeta.title
@@ -2194,7 +2083,7 @@ const Gifts = () => {
                   }
                 />
 
-                <div className="flex h-[42px] w-[42px] items-center justify-center border border-[#F47822]/30 bg-[#FFF5EC] text-[#F47822]">
+                <div className="flex h-[40px] w-[40px] items-center justify-center border border-[#F47822]/30 bg-[#FFF5EC] text-[#F47822]">
                   <GridIcon />
                 </div>
               </div>
@@ -2216,7 +2105,7 @@ const Gifts = () => {
             />
 
             {loading ? (
-              <div className="mt-5 grid grid-cols-2 items-start gap-x-2.5 gap-y-5 sm:gap-x-3 sm:gap-y-6 md:gap-x-4 md:gap-y-8 xl:grid-cols-3 2xl:grid-cols-4 2xl:gap-x-5">
+              <div className="mt-4 grid grid-cols-2 items-stretch gap-x-2.5 gap-y-4 sm:gap-x-3 md:grid-cols-3 md:gap-x-3 lg:grid-cols-3 lg:gap-x-3.5 xl:grid-cols-4 xl:gap-x-4 2xl:grid-cols-5 2xl:gap-x-4">
                 {[
                   1,
                   2,
@@ -2263,7 +2152,7 @@ const Gifts = () => {
               </div>
             ) : (
               <>
-                <div className="mt-5 grid grid-cols-2 items-start gap-x-2.5 gap-y-5 sm:gap-x-3 sm:gap-y-6 md:gap-x-4 md:gap-y-8 xl:grid-cols-3 2xl:grid-cols-4 2xl:gap-x-5">
+                <div className="mt-4 grid grid-cols-2 items-stretch gap-x-2.5 gap-y-4 sm:gap-x-3 md:grid-cols-3 md:gap-x-3 lg:grid-cols-3 lg:gap-x-3.5 xl:grid-cols-4 xl:gap-x-4 2xl:grid-cols-5 2xl:gap-x-4">
                   {products.map(
                     (product, index) => {
                       const reviewSummary =
@@ -2755,7 +2644,7 @@ const SortSelect = ({
             .value
         )
       }
-      className="h-[44px] w-full min-w-0 appearance-none rounded-full border border-[#D4AF37]/25 bg-[#FFF9F0] pl-4 pr-10 text-[10px] font-bold text-black/65 outline-none shadow-[0_8px_22px_rgba(31,22,12,.05)] transition focus:border-[#F47822] sm:w-auto sm:min-w-[185px]"
+      className="h-[40px] w-full min-w-0 appearance-none rounded-full border border-[#D4AF37]/25 bg-[#FFF9F0] pl-4 pr-10 text-[10px] font-bold text-black/65 outline-none shadow-[0_8px_22px_rgba(31,22,12,.05)] transition focus:border-[#F47822] sm:w-auto sm:min-w-[185px]"
     >
       <option value="">
         Sort By: Newest
@@ -2875,7 +2764,7 @@ const ActiveFilters = ({
 // =========================================================
 
 const ProductSkeleton = () => (
-  <div className="relative overflow-hidden rounded-[26px] border border-[#D7BE8A]/35 bg-gradient-to-br from-[#FFF9EF] to-[#E9DCC7] p-3 shadow-[0_18px_42px_rgba(38,28,16,.08)]">
+  <div className="hp-catalogue-skeleton relative overflow-hidden rounded-[26px] border border-[#D7BE8A]/35 bg-gradient-to-br from-[#FFF9EF] to-[#E9DCC7] p-3 shadow-[0_18px_42px_rgba(38,28,16,.08)]">
     <div className="relative z-10 overflow-hidden rounded-[18px] border border-white/70 bg-white/75 p-2">
       <div className="aspect-[16/10] animate-pulse rounded-[14px] bg-black/[0.07]" />
 
