@@ -1,6 +1,7 @@
 
 
 
+
 import mongoose from "mongoose";
 import { closeSync, fstatSync, openSync, readFileSync, readSync } from "node:fs";
 import { inflateRawSync } from "node:zlib";
@@ -187,21 +188,47 @@ const validateCollections = async (collectionIds = []) => {
   return collections.length === uniqueIds.length ? uniqueIds : null;
 };
 
+// Categories imported from Hamper Master have one primary Website Category.
+// Occasion labels (such as Diwali) are also saved in imported tags, and may
+// appear in a hamper name. Only these known occasion filters use the extra
+// signals; general taxonomy categories must still match their exact ID.
+const PUBLIC_OCCASION_CATEGORY_TERMS = Object.freeze({
+  diwali: ["diwali"],
+  corporate: ["corporate"],
+  wedding: ["wedding"],
+  festival: ["festival", "festive"],
+  festive: ["festival", "festive"],
+  birthday: ["birthday"],
+  anniversary: ["anniversary"],
+  gourmet: ["gourmet"],
+  wellness: ["wellness"],
+  "thank-you": ["thank-you", "thank you"],
+  congratulations: ["congratulations"],
+  "new-baby": ["new-baby", "new baby"],
+});
+
+const getPublicOccasionPattern = (slug = "") => {
+  const key = String(slug || "")
+    .trim()
+    .toLowerCase()
+    .replace(/-hampers?$/, "");
+  const terms = PUBLIC_OCCASION_CATEGORY_TERMS[key];
+  if (!terms) return null;
+  return `\\b(?:${terms.map((term) =>
+    escapeRegex(term).replace(/ /g, "[\\s-]+")
+  ).join("|")})\\b`;
+};
+
 const resolveCategoryFilter = async (value) => {
-  if (!value) return null;
+  if (!value || typeof value !== "string") return null;
 
   if (isValidId(value)) {
-    const category = await Category.findById(value).select("_id").lean();
-    return category?._id || null;
+    return Category.findById(value).select("_id slug").lean();
   }
 
-  const category = await Category.findOne({
-    slug: String(value).trim().toLowerCase(),
-  })
-    .select("_id")
+  return Category.findOne({ slug: value.trim().toLowerCase() })
+    .select("_id slug")
     .lean();
-
-  return category?._id || null;
 };
 
 const resolveCollectionFilter = async (value) => {
@@ -7825,15 +7852,33 @@ export const getProducts = asyncHandler(async (req, res) => {
   }
 
   if (category) {
-    const categoryId = await resolveCategoryFilter(category);
-    if (!categoryId) {
+    const resolvedCategory = await resolveCategoryFilter(category);
+    if (!resolvedCategory) {
       return res.status(200).json({
         success: true,
         products: [],
         pagination: getPaginationMeta(0, page, limit),
       });
     }
-    filter.category = categoryId;
+
+    const occasionPattern = getPublicOccasionPattern(resolvedCategory.slug);
+    if (occasionPattern) {
+      // Preserve the global public visibility/price restrictions and all
+      // other active filters (search, collection, price, featured). Do not
+      // replace the separate search $or condition with the occasion $or.
+      filter.$and = [
+        ...(filter.$and || []),
+        {
+          $or: [
+            { category: resolvedCategory._id },
+            { tags: { $regex: occasionPattern, $options: "i" } },
+            { name: { $regex: occasionPattern, $options: "i" } },
+          ],
+        },
+      ];
+    } else {
+      filter.category = resolvedCategory._id;
+    }
   }
 
   if (collection) {

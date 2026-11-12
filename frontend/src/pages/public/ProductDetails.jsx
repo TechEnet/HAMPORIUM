@@ -160,7 +160,6 @@ const ProductDetails = () => {
     const [zoomImage, setZoomImage,] = useState("");
     const [shareMessage, setShareMessage,] = useState("");
     const [recentProducts, setRecentProducts,] = useState([]);
-    const [reviewSummary, setReviewSummary,] = useState(null);
     /* =======================================================
        DELIVERY
     ======================================================= */
@@ -346,41 +345,6 @@ const ProductDetails = () => {
         void loadProduct();
         return () => { active = false; };
     }, [slug]);
-    /* =======================================================
-       REVIEW SUMMARY
-       Uses the same public review endpoint as the catalogue.
-    ======================================================= */
-    useEffect(() => {
-        if (!product?._id) {
-            setReviewSummary(null);
-            return;
-        }
-        let active = true;
-        const loadReviewSummary = async () => {
-            try {
-                const response = await api.get(`/reviews/product/${product._id}`, {
-                    params: {
-                        page: 1,
-                        limit: 1,
-                    },
-                });
-                if (!active) {
-                    return;
-                }
-                setReviewSummary(response.data?.summary ||
-                    null);
-            }
-            catch {
-                if (active) {
-                    setReviewSummary(null);
-                }
-            }
-        };
-        void loadReviewSummary();
-        return () => {
-            active = false;
-        };
-    }, [product?._id]);
     /* =======================================================
        PRODUCT VIEW ANALYTICS
     ======================================================= */
@@ -944,19 +908,6 @@ const ProductDetails = () => {
         buying;
     const activeImageIndex = Math.max(0, images.findIndex((image) => image.url ===
         displayImage));
-    const reviewAverage = Number(reviewSummary
-        ?.averageRating ||
-        0);
-    const reviewCount = Number(reviewSummary
-        ?.totalReviews ||
-        0);
-    const selectedSizeEntry = Object.entries(selectedSku
-        ?.optionValues ||
-        {}).find(([key]) => String(key)
-        .trim()
-        .toLowerCase() ===
-        "size");
-    // Only show an explicit size selection near quantity; omit internal V1-style names.
     const selectedPrice = Number(selectedSku
         ?.price);
     const selectedComparePrice = Number(selectedSku
@@ -1032,9 +983,6 @@ const ProductDetails = () => {
               <span className={`lp-status ${purchaseUnavailable || !selectedSku ? "is-unavailable" : ""}`}>
                 {!selectedSku ? "Option unavailable" : purchaseUnavailable ? "Currently unavailable" : "Available to order"}
               </span>
-              <a className="lp-rating-link" href="#product-reviews">
-                {reviewCount > 0 ? (<><span className="lp-star" aria-hidden="true">&#9733;</span><strong>{reviewAverage.toFixed(1)}</strong><span>({reviewCount} {reviewCount === 1 ? "review" : "reviews"})</span></>) : "Reviews"}
-              </a>
             </div>
             {product.shortDescription && (!product.description || !String(product.description).toLowerCase().includes(String(product.shortDescription).trim().toLowerCase())) && <ExpandableCopy key={product._id} text={product.shortDescription}/>}
             {shareMessage && <p role="status" className="lp-helper">{shareMessage}</p>}
@@ -1056,16 +1004,16 @@ const ProductDetails = () => {
               <div className="lp-excel-eta-copy">
                 <span className="lp-excel-eta-label">Delivery timeline</span>
                 {hasExcelLead ? (
-                  <strong>{formatDaysValue(excelLeadDays)}{expectedDeliveryDate ? ` · Expected by ${formatDateValue(expectedDeliveryDate)}` : ""}</strong>
+                  <strong>Estimated delivery: {formatDaysValue(excelLeadDays)}{expectedDeliveryDate ? ` · Expected by ${formatDateValue(expectedDeliveryDate)}` : ""}</strong>
                 ) : (
-                  <strong>{leadTimeMissing ? "Lead time not available" : "Delivery estimate not yet available"}</strong>
+                  <strong>{leadTimeMissing ? "Delivery estimate unavailable" : "Delivery estimate not yet available"}</strong>
                 )}
                 <span className="lp-excel-eta-note">Check your pincode for availability.</span>
               </div>
             </div>
 
             {product.skus?.length > 1 && (<div>
-                <div className="lp-label-row"><p id="lp-options-label" className="lp-label">Choose your option</p><p className="lp-variant-name">{selectedSku?.name}</p></div>
+                <div className="lp-label-row"><p id="lp-options-label" className="lp-label">Choose your option</p></div>
                 <div className="lp-options" role="group" aria-labelledby="lp-options-label">
                   {product.skus.map((sku) => (<button key={sku._id} type="button" className="lp-option" aria-pressed={selectedSku?._id === sku._id} disabled={actionBusy} onClick={() => selectSku(sku)}>{sku.name}</button>))}
                 </div>
@@ -1080,7 +1028,6 @@ const ProductDetails = () => {
                   <button type="button" disabled={quantity >= 99 || actionBusy} aria-label="Increase quantity" onClick={() => setQuantity((current) => Math.min(99, current + 1))}>+</button>
                 </div>
               </div>
-              {product.skus?.length <= 1 && selectedSizeEntry?.[1] && <p className="lp-variant-name">{selectedSizeEntry[1]}</p>}
             </div>
             {error && <p role="alert" className="lp-feedback is-error">{error}</p>}
             <div className="lp-action-grid">
@@ -1175,9 +1122,9 @@ const ProductDetails = () => {
                   <h3 className="lp-subheading">Timing & freshness</h3>
                   {hasDeliveryFreshnessInfo ? <dl className="lp-info-table">
                     {earliestExpiryDate && <LargeInfoRow label="Earliest expiry" value={formatDateValue(earliestExpiryDate)}/>}
-                    {hasExcelLead && <LargeInfoRow label="Lead time" value={formatDaysValue(excelLeadDays)}/>}
+                    {hasExcelLead && <LargeInfoRow label="Estimated delivery time" value={formatDaysValue(excelLeadDays)}/>}
                     {expectedDeliveryDate && <LargeInfoRow label={locationExpectedDeliveryDate ? "Delivery to your location" : "Expected delivery"} value={formatDateValue(expectedDeliveryDate)}/>}
-                    {leadTimeMissing && <LargeInfoRow label="Lead time" value="Not available"/>}
+                    {leadTimeMissing && <LargeInfoRow label="Estimated delivery time" value="Not available"/>}
                   </dl> : <p className="lp-helper" style={{ marginTop: 15 }}>Timing and freshness details have not been provided for this option.</p>}
                 </div>
               </div>)}
@@ -1256,7 +1203,7 @@ const ProductGallery = ({ images, selectedImage, onSelect, onZoom, name }) => {
         if (!bounds.width || !bounds.height)
             return;
 
-        // The gallery now uses object-fit: cover; the magnifier must use the same crop geometry.
+        // The gallery uses cover; keep the magnifier aligned to the visible cropped image.
         const fitScale = Math.max(
             bounds.width / image.naturalWidth,
             bounds.height / image.naturalHeight
@@ -1441,7 +1388,7 @@ const ProductLightbox = ({ src, images, title, onClose, onChange }) => {
     return <dialog
       ref={dialogRef}
       className="lp-lightbox"
-      aria-labelledby="lp-modal-title"
+      aria-label="Full-screen product image"
       onCancel={(event) => { event.preventDefault(); onClose(); }}
       onKeyDown={(event) => {
           if (event.key === "ArrowLeft") {
@@ -1468,13 +1415,6 @@ const ProductLightbox = ({ src, images, title, onClose, onChange }) => {
                 : <div className="lp-placeholder lp-modal-placeholder"><GiftIcon /><span>Image unavailable</span></div>}
             </div>
 
-            <figcaption className="lp-modal-caption">
-              <div className="lp-modal-caption-copy">
-                <span className="lp-modal-kicker">Full image</span>
-                <h2 id="lp-modal-title" className="lp-modal-title">{title}</h2>
-              </div>
-              <span className="lp-modal-count">{images.length > 0 ? `${index + 1} / ${images.length}` : "Product image"}</span>
-            </figcaption>
           </figure>
 
           {images.length > 1 && <>
@@ -1531,7 +1471,7 @@ const DeliveryResult = ({ delivery }) => {
     return <div role="status" className={`lp-feedback ${available ? "is-success" : ""}`}>
     {available ? <>
       <strong>Delivery available{place ? ` to ${place}` : ""}.</strong>
-      {excelLeadDays !== null && <span> Excel lead time: {formatDaysValue(excelLeadDays)}.</span>}
+      {excelLeadDays !== null && <span> Estimated delivery time: {formatDaysValue(excelLeadDays)}.</span>}
       {delivery.expectedDeliveryDate && <span> Expected by {formatDateValue(delivery.expectedDeliveryDate)}.</span>}
     </> : delivery?.message || "Delivery is currently unavailable for this pincode."}
   </div>;
@@ -1539,7 +1479,7 @@ const DeliveryResult = ({ delivery }) => {
 const DeliveryFreshnessSummary = ({ earliestExpiryDate, expectedDeliveryDate, excelLeadDays, locationSpecific = false, unavailable = false, leadTimeMissing = false }) => <div className="lp-freshness">
   <div className="lp-small-head"><h3 className="lp-subheading">Delivery & freshness</h3><CalendarIcon /></div>
   <dl className="lp-info-table">
-    {excelLeadDays !== null && <LargeInfoRow label="Lead time" value={formatDaysValue(excelLeadDays)}/>}
+    {excelLeadDays !== null && <LargeInfoRow label="Estimated delivery time" value={formatDaysValue(excelLeadDays)}/>}
     {expectedDeliveryDate && <LargeInfoRow label={locationSpecific ? "Delivery to your location" : "Expected delivery"} value={formatDateValue(expectedDeliveryDate)}/>}
     {earliestExpiryDate && <LargeInfoRow label="Earliest expiry" value={formatDateValue(earliestExpiryDate)}/>}
   </dl>
@@ -1606,7 +1546,7 @@ const PRODUCT_PAGE_CSS = `
 .hp-luxe-product .lp-inline-magnifier::after { content: ''; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 18px #2d1a081f; }
 .hp-luxe-product .lp-gallery-magnify-note { display: inline-flex; align-items: center; gap: 7px; }
 .hp-luxe-product .lp-gallery-magnify-note .lp-icon { width: 15px; height: 15px; color: #9a7440; }
-/* Full-bleed main gallery photo: remove empty side gutters without distorting the image. */
+/* Gallery fills the complete card. The full, uncropped photo is available in the centered viewer. */
 .hp-luxe-product .lp-stage-imagewrap .lp-gallery-image { position: absolute; inset: 0; display: block; width: 100%; height: 100%; max-width: none; object-fit: cover; object-position: center center; }
 .hp-luxe-product .lp-image-current { animation: lpImageIn .55s ease-out; }
 .hp-luxe-product .lp-stage-imagewrap { position: absolute; inset: 0; transition: transform 1s var(--lp-ease); }
@@ -1644,8 +1584,6 @@ const PRODUCT_PAGE_CSS = `
 .hp-luxe-product .lp-status { display: inline-flex; gap: 7px; align-items: center; font-size: 11px; color: #27614d; font-weight: 700; }
 .hp-luxe-product .lp-status::before { content: ''; width: 6px; height: 6px; flex-shrink: 0; border-radius: 50%; background: currentColor; }
 .hp-luxe-product .lp-status.is-unavailable { color: #975020; }
-.hp-luxe-product .lp-rating-link { display: inline-flex; align-items: center; gap: 6px; color: #5f5141; font-size: 12px; }
-.hp-luxe-product .lp-star { color: #99712e; font-size: 14px; }
 .hp-luxe-product .lp-description { color: #71675b; font-size: 14px; line-height: 1.65; margin-top: 10px; }
 .hp-luxe-product .lp-description .is-clamped { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .hp-luxe-product .lp-description .lp-text-button { margin-top: 4px; }
@@ -1665,7 +1603,6 @@ const PRODUCT_PAGE_CSS = `
 .hp-luxe-product .lp-excel-eta-note { color: #7a7067; font-size: 10px; line-height: 1.55; }
 .hp-luxe-product .lp-label-row { display: flex; justify-content: space-between; align-items: baseline; gap: 14px; margin: 12px 0 7px; }
 .hp-luxe-product .lp-label { font-size: 12px; font-weight: 800; color: #514539; }
-.hp-luxe-product .lp-variant-name { color: var(--lp-muted); font-size: 12px; text-align: right; overflow-wrap: anywhere; }
 .hp-luxe-product .lp-options { display: flex; gap: 8px; flex-wrap: wrap; }
 .hp-luxe-product .lp-option { min-height: 42px; padding: 9px 13px; border: 1px solid var(--lp-line); border-radius: 9px; background: #fffefb; color: #675646; font-size: 12px; font-weight: 700; transition: background .25s, border-color .25s; }
 .hp-luxe-product .lp-option[aria-pressed='true'] { background: #f7efdf; color: #6f4b1f; border-color: #b38b55; }
@@ -1764,7 +1701,7 @@ const PRODUCT_PAGE_CSS = `
 .hp-luxe-product .lp-spinner { animation: lpSpin .8s linear infinite; }
 
 /* Native dialog stays above transformed/overflow-hidden page containers. */
-/* V3: image-sized full-screen viewer. The frame follows the image aspect ratio. */
+/* V4: centered, image-sized viewer without captions or empty right-side panel. */
 .lp-lightbox {
   width: 100vw; height: 100dvh; max-width: none; max-height: none;
   margin: 0; padding: 0; overflow: hidden; border: 0; border-radius: 0;
@@ -1789,48 +1726,31 @@ const PRODUCT_PAGE_CSS = `
   position: fixed; z-index: 20; top: 20px; right: 20px;
   width: 48px; height: 48px;
 }
+/* Make the panel follow the photo's real dimensions rather than a long title. */
 .lp-lightbox .lp-modal-stage {
-  position: relative; display: flex; align-items: center; justify-content: center;
-  width: fit-content; height: fit-content;
-  max-width: calc(100vw - 116px); max-height: calc(100dvh - 64px);
+  position: relative; display: grid; place-items: center;
+  flex: 0 1 auto; width: max-content; height: max-content;
+  max-width: calc(100vw - 136px); max-height: calc(100dvh - 64px);
+  min-width: 0;
 }
 .lp-lightbox .lp-modal-frame {
-  position: relative; display: flex; flex-direction: column;
-  width: fit-content; height: fit-content; max-width: 100%; max-height: 100%;
-  margin: 0; padding: 10px;
+  position: relative; display: grid; place-items: center;
+  width: max-content; height: max-content; max-width: 100%; max-height: 100%;
+  margin: 0 auto; padding: 9px;
   overflow: hidden; border: 1px solid #eadbc8;
   border-radius: 18px; background: #fffaf4f7;
   box-shadow: 0 30px 90px #160d0759, 0 0 0 1px #ffffff73 inset;
 }
 .lp-lightbox .lp-modal-image-wrap {
-  display: flex; align-items: center; justify-content: center;
-  width: fit-content; height: fit-content; max-width: 100%; max-height: 100%;
-  overflow: hidden; border-radius: 12px; background: #ede2d2;
+  display: grid; place-items: center;
+  width: max-content; height: max-content; max-width: 100%; max-height: 100%;
+  margin: 0 auto; overflow: hidden; border-radius: 12px; background: #ede2d2;
 }
 .lp-lightbox .lp-modal-image {
-  display: block; width: auto; height: auto;
-  max-width: min(88vw,1480px); max-height: calc(100dvh - 138px);
-  object-fit: contain; user-select: none; -webkit-user-drag: none;
-}
-.lp-lightbox .lp-modal-caption {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 22px; min-width: 0; padding: 10px 6px 2px;
-}
-.lp-lightbox .lp-modal-caption-copy { min-width: 0; }
-.lp-lightbox .lp-modal-kicker {
-  display: block; margin-bottom: 2px; color: #96703d;
-  font-size: 8px; font-weight: 800; letter-spacing: .17em; text-transform: uppercase;
-}
-.lp-lightbox .lp-modal-title {
-  margin: 0; overflow: hidden; color: #33281f; font-family: var(--lp-serif);
-  font-size: clamp(16px,1.3vw,21px); font-weight: 600; line-height: 1.05;
-  text-overflow: ellipsis; white-space: nowrap;
-}
-.lp-lightbox .lp-modal-count {
-  flex: 0 0 auto; min-width: 48px; padding: 6px 9px;
-  border: 1px solid #e2cfb3; border-radius: 999px;
-  background: #fffaf4; color: #7b5d34;
-  font-size: 9px; font-weight: 800; letter-spacing: .09em; text-align: center;
+  display: block; width: auto; height: auto; margin: 0 auto;
+  max-width: min(calc(100vw - 156px), 1480px);
+  max-height: calc(100dvh - 92px);
+  object-fit: contain; object-position: center; user-select: none; -webkit-user-drag: none;
 }
 .lp-lightbox .lp-modal-arrow {
   position: absolute; top: 50%; z-index: 12; width: 48px; height: 48px;
@@ -1919,10 +1839,7 @@ const PRODUCT_PAGE_CSS = `
   .lp-lightbox .lp-modal-stage { max-width: calc(100vw - 20px); max-height: calc(100dvh - 76px); }
   .lp-lightbox .lp-modal-frame { max-width: calc(100vw - 20px); max-height: calc(100dvh - 76px); padding: 6px; border-radius: 14px; }
   .lp-lightbox .lp-modal-image-wrap { border-radius: 9px; }
-  .lp-lightbox .lp-modal-image { max-width: calc(100vw - 32px); max-height: calc(100dvh - 132px); }
-  .lp-lightbox .lp-modal-caption { gap: 12px; padding: 8px 4px 1px; }
-  .lp-lightbox .lp-modal-kicker { display: none; }
-  .lp-lightbox .lp-modal-title { font-size: 15px; }
+  .lp-lightbox .lp-modal-image { max-width: calc(100vw - 34px); max-height: calc(100dvh - 96px); }
   .lp-lightbox .lp-modal-arrow { width: 40px; height: 40px; top: 50%; bottom: auto; transform: translateY(-50%); }
   .lp-lightbox .lp-modal-arrow-left { left: 10px; }
   .lp-lightbox .lp-modal-arrow-right { right: 10px; }

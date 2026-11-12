@@ -1,5 +1,6 @@
 
 
+
 import {
   useEffect,
   useState,
@@ -26,6 +27,39 @@ const emptyFilters = {
   featured: false,
   sort: "",
 };
+
+// Single source of truth for the public /catalog/products query contract.
+// Both category/collection slugs and Mongo IDs are accepted by the backend.
+const FILTER_PARAM_NAMES = Object.keys(emptyFilters);
+
+const readFiltersFromParams = (params) => ({
+  search: params.get("search") || "",
+  category: params.get("category") || "",
+  collection: params.get("collection") || "",
+  minPrice: params.get("minPrice") || "",
+  maxPrice: params.get("maxPrice") || "",
+  featured: params.get("featured") === "true",
+  sort: params.get("sort") || "",
+});
+
+const buildFilterParams = (currentParams, nextFilters) => {
+  const params = new URLSearchParams(currentParams);
+  FILTER_PARAM_NAMES.forEach((key) => params.delete(key));
+  FILTER_PARAM_NAMES.forEach((key) => {
+    const value = nextFilters[key];
+    if (value !== "" && value !== false && value !== null && value !== undefined) {
+      params.set(key, String(value).trim());
+    }
+  });
+  params.set("page", "1");
+  return params;
+};
+
+const taxonomyValue = (item) => String(item?.slug || item?._id || "").trim();
+const matchesTaxonomy = (item, value) => Boolean(
+  item && value &&
+  [String(item.slug || ""), String(item._id || "")].includes(String(value))
+);
 
 const CATEGORY_META = {
   "wedding-hampers": {
@@ -161,12 +195,7 @@ const getCatalogueMeta = ({
 
     const category =
       categories.find(
-        (item) =>
-          (
-            item.slug ||
-            item._id
-          ) ===
-          filters.category
+        (item) => matchesTaxonomy(item, filters.category)
       );
 
     if (category) {
@@ -325,371 +354,135 @@ const Gifts = () => {
     };
   }, []);
 
-  const [
-    filters,
-    setFilters,
-  ] = useState({
-    search:
-      searchParams.get(
-        "search"
-      ) || "",
+  // Draft values support Apply for typed search/price fields.
+  // Applied values come from the URL: cards and active badges never get out of sync.
+  const [filters, setFilters] = useState(() => readFiltersFromParams(searchParams));
+  const appliedFilters = readFiltersFromParams(searchParams);
+  const [filterError, setFilterError] = useState("");
+  const [catalogueError, setCatalogueError] = useState("");
+  const [retryToken, setRetryToken] = useState(0);
 
-    category:
-      searchParams.get(
-        "category"
-      ) || "",
-
-    collection:
-      searchParams.get(
-        "collection"
-      ) || "",
-
-    minPrice:
-      searchParams.get(
-        "minPrice"
-      ) || "",
-
-    maxPrice:
-      searchParams.get(
-        "maxPrice"
-      ) || "",
-
-    featured:
-      searchParams.get(
-        "featured"
-      ) === "true",
-
-    sort:
-      searchParams.get(
-        "sort"
-      ) || "",
-  });
-
-  // ======================================================
-  // URL -> FILTERS
-  // ======================================================
-
+  // URL -> FILTERS (back/forward buttons, homepage links, pagination).
   useEffect(() => {
-    setFilters({
-      search:
-        searchParams.get(
-          "search"
-        ) || "",
-
-      category:
-        searchParams.get(
-          "category"
-        ) || "",
-
-      collection:
-        searchParams.get(
-          "collection"
-        ) || "",
-
-      minPrice:
-        searchParams.get(
-          "minPrice"
-        ) || "",
-
-      maxPrice:
-        searchParams.get(
-          "maxPrice"
-        ) || "",
-
-      featured:
-        searchParams.get(
-          "featured"
-        ) === "true",
-
-      sort:
-        searchParams.get(
-          "sort"
-        ) || "",
-    });
+    setFilters(readFiltersFromParams(searchParams));
+    setFilterError("");
   }, [searchParams]);
 
   // ======================================================
-  // FILTER DATA
+  // FILTER DATA: one failed endpoint must not hide the other filter list.
   // ======================================================
-
   useEffect(() => {
-    const loadFilters =
-      async () => {
-        try {
-          const [
-            categoryResponse,
-            collectionResponse,
-          ] =
-            await Promise.all(
-              [
-                api.get(
-                  "/catalog/categories"
-                ),
-
-                api.get(
-                  "/catalog/collections"
-                ),
-              ]
-            );
-
-          setCategories(
-            categoryResponse
-              .data
-              .categories ||
-              []
-          );
-
-          setCollections(
-            collectionResponse
-              .data
-              .collections ||
-              []
-          );
-        } catch (error) {
-          console.error(
-            "Gift filters error:",
-            error
-          );
-        }
-      };
-
-    loadFilters();
+    let active = true;
+    const loadFilters = async () => {
+      const [categoryResult, collectionResult] = await Promise.allSettled([
+        api.get("/catalog/categories"),
+        api.get("/catalog/collections"),
+      ]);
+      if (!active) return;
+      if (categoryResult.status === "fulfilled") {
+        setCategories(Array.isArray(categoryResult.value.data?.categories)
+          ? categoryResult.value.data.categories : []);
+      } else {
+        console.error("Gift categories load error:", categoryResult.reason);
+      }
+      if (collectionResult.status === "fulfilled") {
+        setCollections(Array.isArray(collectionResult.value.data?.collections)
+          ? collectionResult.value.data.collections : []);
+      } else {
+        console.error("Gift collections load error:", collectionResult.reason);
+      }
+    };
+    void loadFilters();
+    return () => { active = false; };
   }, []);
 
   // ======================================================
-  // PRODUCTS
+  // PRODUCTS: don't block the new filtered grid on review API requests.
   // ======================================================
-
   useEffect(() => {
     let active = true;
+    const loadProducts = async () => {
+      setLoading(true);
+      setCatalogueError("");
+      setReviewMap({});
+      try {
+        const response = await api.get(`/catalog/products?${searchParams.toString()}`);
+        if (!active) return;
+        const loadedProducts = Array.isArray(response.data?.products)
+          ? response.data.products : [];
+        setProducts(loadedProducts);
+        setPagination(response.data?.pagination || null);
+        setLoading(false);
 
-    const loadProducts =
-      async () => {
-        setLoading(true);
-
-        try {
-          const response =
-            await api.get(
-              `/catalog/products?${searchParams.toString()}`
-            );
-
-          const loadedProducts =
-            response.data
-              .products ||
-              [];
-
-          if (!active) {
-            return;
-          }
-
-          setProducts(
-            loadedProducts
-          );
-
-          setPagination(
-            response.data
-              .pagination ||
-              null
-          );
-
-          /*
-           * Public review summaries for the visible hamper cards.
-           *
-           * This keeps the catalogue UI working even before
-           * rating summary is embedded directly in /catalog/products.
-           */
-          const ratingResults =
-            await Promise.allSettled(
-              loadedProducts.map(
-                (product) =>
-                  api.get(
-                    `/reviews/product/${product._id}`,
-                    {
-                      params: {
-                        page: 1,
-                        limit: 1,
-                      },
-                    }
-                  )
-              )
-            );
-
-          if (!active) {
-            return;
-          }
-
-          const nextReviewMap =
-            {};
-
-          ratingResults.forEach(
-            (
-              result,
-              index
-            ) => {
-              const product =
-                loadedProducts[
-                  index
-                ];
-
-              if (
-                !product?._id ||
-                result.status !==
-                  "fulfilled"
-              ) {
-                return;
-              }
-
-              const summary =
-                result.value
-                  .data
-                  ?.summary ||
-                null;
-
-              if (!summary) {
-                return;
-              }
-
-              nextReviewMap[
-                product._id
-              ] = {
-                averageRating:
-                  Number(
-                    summary.averageRating ||
-                      0
-                  ),
-
-                totalReviews:
-                  Number(
-                    summary.totalReviews ||
-                      0
-                  ),
-              };
-            }
-          );
-
-          setReviewMap(
-            nextReviewMap
-          );
-        } catch (error) {
-          console.error(
-            "Products error:",
-            error
-          );
-
-          if (active) {
-            setProducts([]);
-            setPagination(null);
-            setReviewMap({});
-          }
-        } finally {
-          if (active) {
-            setLoading(false);
-          }
+        // Ratings enhance the cards but must never delay category filtering.
+        if (!loadedProducts.length) return;
+        void Promise.allSettled(loadedProducts.map((product) =>
+          api.get(`/reviews/product/${product._id}`, { params: { page: 1, limit: 1 } })
+        )).then((results) => {
+          if (!active) return;
+          const nextReviewMap = {};
+          results.forEach((result, index) => {
+            const product = loadedProducts[index];
+            if (!product?._id || result.status !== "fulfilled") return;
+            const summary = result.value.data?.summary;
+            if (!summary) return;
+            nextReviewMap[product._id] = {
+              averageRating: Number(summary.averageRating || 0),
+              totalReviews: Number(summary.totalReviews || 0),
+            };
+          });
+          setReviewMap(nextReviewMap);
+        });
+      } catch (error) {
+        console.error("Gift catalogue load error:", error);
+        if (active) {
+          setCatalogueError("Unable to load hampers. Please try again.");
+          setProducts([]);
+          setPagination(null);
+          setReviewMap({});
         }
-      };
-
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
     void loadProducts();
-
-    return () => {
-      active = false;
-    };
-  }, [searchParams]);
+    return () => { active = false; };
+  }, [searchParams, retryToken]);
 
   // ======================================================
-  // APPLY
+  // APPLY / INSTANT CHANGES
+  // Categories, collections and featured refresh immediately on selection.
+  // Search and numeric price fields still support Apply / Enter.
   // ======================================================
-
-  const applyFilters =
-    () => {
-      const params =
-        new URLSearchParams();
-
-      Object.entries(
-        filters
-      ).forEach(
-        ([key, value]) => {
-          if (
-            value !== "" &&
-            value !== false
-          ) {
-            params.set(
-              key,
-              String(value)
-            );
-          }
-        }
-      );
-
-      params.set(
-        "page",
-        "1"
-      );
-
-      setSearchParams(
-        params
-      );
-
-      setMobileFiltersOpen(
-        false
-      );
-    };
-
-  // ======================================================
-  // CLEAR
-  // ======================================================
-
-  const clearFilters =
-    () => {
-      setFilters(
-        emptyFilters
-      );
-
-      setSearchParams({});
-
-      setMobileFiltersOpen(
-        false
-      );
-    };
-
-  // ======================================================
-  // SORT
-  // ======================================================
-
-  const changeSort = (
-    value
-  ) => {
-    const params =
-      new URLSearchParams(
-        searchParams
-      );
-
-    if (value) {
-      params.set(
-        "sort",
-        value
-      );
-    } else {
-      params.delete(
-        "sort"
-      );
+  const commitFilters = (nextFilters) => {
+    const min = nextFilters.minPrice === "" ? null : Number(nextFilters.minPrice);
+    const max = nextFilters.maxPrice === "" ? null : Number(nextFilters.maxPrice);
+    if ((min !== null && (!Number.isFinite(min) || min < 0)) ||
+        (max !== null && (!Number.isFinite(max) || max < 0)) ||
+        (min !== null && max !== null && min > max)) {
+      setFilterError("Please enter a valid price range (Min must not exceed Max).");
+      return;
     }
-
-    params.set(
-      "page",
-      "1"
-    );
-
-    setFilters(
-      (current) => ({
-        ...current,
-        sort: value,
-      })
-    );
-
-    setSearchParams(
-      params
-    );
+    setFilterError("");
+    setFilters(nextFilters);
+    setSearchParams(buildFilterParams(searchParams, nextFilters));
+    setMobileFiltersOpen(false);
   };
+
+  const applyFilters = () => commitFilters(filters);
+
+  const changeInstantFilter = (name, value) => {
+    commitFilters({ ...filters, [name]: value });
+  };
+
+  const clearFilters = () => {
+    setFilters({ ...emptyFilters });
+    setFilterError("");
+    setSearchParams({});
+    setMobileFiltersOpen(false);
+  };
+
+  const changeSort = (value) => changeInstantFilter("sort", value);
 
   // ======================================================
   // PAGE
@@ -720,7 +513,7 @@ const Gifts = () => {
 
   const catalogueMeta =
     getCatalogueMeta({
-      filters,
+      filters: appliedFilters,
       categories,
     });
 
@@ -2008,7 +1801,7 @@ const Gifts = () => {
 
           <SortSelect
             value={
-              filters.sort
+              appliedFilters.sort
             }
             onChange={
               changeSort
@@ -2037,6 +1830,11 @@ const Gifts = () => {
                 onApply={
                   applyFilters
                 }
+
+                onInstantChange={changeInstantFilter}
+                filterError={filterError}
+                groupName="desktop-gifts"
+
                 onClear={
                   clearFilters
                 }
@@ -2076,7 +1874,7 @@ const Gifts = () => {
               <div className="hidden items-center gap-3 lg:flex">
                 <SortSelect
                   value={
-                    filters.sort
+                    appliedFilters.sort
                   }
                   onChange={
                     changeSort
@@ -2091,7 +1889,7 @@ const Gifts = () => {
 
             <ActiveFilters
               filters={
-                filters
+                appliedFilters
               }
               categories={
                 categories
@@ -2104,7 +1902,13 @@ const Gifts = () => {
               }
             />
 
-            {loading ? (
+            {catalogueError && !loading ? (
+              <div role="alert" className="mt-5 rounded-xl border border-[#D4AF37]/30 bg-white px-5 py-7 text-center">
+                <p className="text-sm font-semibold text-[#171717]">{catalogueError}</p>
+                <button type="button" onClick={() => setRetryToken((n) => n + 1)}
+                  className="mt-3 rounded-lg bg-[#171717] px-4 py-2 text-xs font-bold text-white">Retry</button>
+              </div>
+            ) : loading ? (
               <div className="mt-4 grid grid-cols-2 items-stretch gap-x-2.5 gap-y-4 sm:gap-x-3 md:grid-cols-3 md:gap-x-3 lg:grid-cols-3 lg:gap-x-3.5 xl:grid-cols-4 xl:gap-x-4 2xl:grid-cols-5 2xl:gap-x-4">
                 {[
                   1,
@@ -2316,6 +2120,11 @@ const Gifts = () => {
               onApply={
                 applyFilters
               }
+
+              onInstantChange={changeInstantFilter}
+              filterError={filterError}
+              groupName="mobile-gifts"
+
               onClear={
                 clearFilters
               }
@@ -2337,9 +2146,12 @@ const FilterPanel = ({
   categories,
   collections,
   onApply,
+  onInstantChange,
+  filterError,
+  groupName,
   onClear,
 }) => (
-  <div className="hp-filter-shell">
+  <form className="hp-filter-shell" onSubmit={(event) => { event.preventDefault(); onApply(); }}>
     <div className="hp-filter-inner">
       <FilterSection title="Search">
         <input
@@ -2361,43 +2173,21 @@ const FilterPanel = ({
 
       <FilterSection title="Categories">
         <FilterChoice
+          name={`${groupName}-category`}
           label="All Hampers"
           checked={!filters.category}
-          onChange={() =>
-            setFilters(
-              (current) => ({
-                ...current,
-                category: "",
-              })
-            )
-          }
+          onChange={() => onInstantChange("category", "")}
         />
 
-        {categories.map(
-          (category) => (
-            <FilterChoice
-              key={category._id}
-              label={category.name}
-              checked={
-                filters.category ===
-                (
-                  category.slug ||
-                  category._id
-                )
-              }
-              onChange={() =>
-                setFilters(
-                  (current) => ({
-                    ...current,
-                    category:
-                      category.slug ||
-                      category._id,
-                  })
-                )
-              }
-            />
-          )
-        )}
+        {categories.map((category) => (
+          <FilterChoice
+            key={category._id}
+            name={`${groupName}-category`}
+            label={category.name}
+            checked={matchesTaxonomy(category, filters.category)}
+            onChange={() => onInstantChange("category", taxonomyValue(category))}
+          />
+        ))}
       </FilterSection>
 
       <FilterSection title="Price Range">
@@ -2474,43 +2264,21 @@ const FilterPanel = ({
       {collections.length > 0 && (
         <FilterSection title="Collections">
           <FilterChoice
+            name={`${groupName}-collection`}
             label="All Collections"
             checked={!filters.collection}
-            onChange={() =>
-              setFilters(
-                (current) => ({
-                  ...current,
-                  collection: "",
-                })
-              )
-            }
+            onChange={() => onInstantChange("collection", "")}
           />
 
-          {collections.map(
-            (collection) => (
-              <FilterChoice
-                key={collection._id}
-                label={collection.name}
-                checked={
-                  filters.collection ===
-                  (
-                    collection.slug ||
-                    collection._id
-                  )
-                }
-                onChange={() =>
-                  setFilters(
-                    (current) => ({
-                      ...current,
-                      collection:
-                        collection.slug ||
-                        collection._id,
-                    })
-                  )
-                }
-              />
-            )
-          )}
+          {collections.map((collection) => (
+            <FilterChoice
+              key={collection._id}
+              name={`${groupName}-collection`}
+              label={collection.name}
+              checked={matchesTaxonomy(collection, filters.collection)}
+              onChange={() => onInstantChange("collection", taxonomyValue(collection))}
+            />
+          ))}
         </FilterSection>
       )}
 
@@ -2529,15 +2297,7 @@ const FilterPanel = ({
           <input
             type="checkbox"
             checked={filters.featured}
-            onChange={(event) =>
-              setFilters(
-                (current) => ({
-                  ...current,
-                  featured:
-                    event.target.checked,
-                })
-              )
-            }
+            onChange={(event) => onInstantChange("featured", event.target.checked)}
             className="hp-filter-toggle-input"
           />
 
@@ -2549,9 +2309,9 @@ const FilterPanel = ({
       </FilterSection>
 
       <div className="hp-filter-apply-wrap">
+        {filterError && <p role="alert" className="mb-2 text-xs font-semibold text-[#A44025]">{filterError}</p>}
         <button
-          type="button"
-          onClick={onApply}
+          type="submit"
           className="hp-filter-apply"
         >
           Apply Filters
@@ -2569,7 +2329,7 @@ const FilterPanel = ({
         </button>
       </div>
     </div>
-  </div>
+  </form>
 );
 
 // =========================================================
@@ -2602,6 +2362,7 @@ const FilterSection = ({
 // =========================================================
 
 const FilterChoice = ({
+  name,
   label,
   checked,
   onChange,
@@ -2609,6 +2370,7 @@ const FilterChoice = ({
   <label className="hp-filter-choice">
     <input
       type="radio"
+      name={name}
       checked={checked}
       onChange={onChange}
       className="hp-filter-choice-input"
@@ -2684,24 +2446,10 @@ const ActiveFilters = ({
   onClear,
 }) => {
   const category =
-    categories.find(
-      (item) =>
-        (
-          item.slug ||
-          item._id
-        ) ===
-        filters.category
-    );
+    categories.find((item) => matchesTaxonomy(item, filters.category));
 
   const collection =
-    collections.find(
-      (item) =>
-        (
-          item.slug ||
-          item._id
-        ) ===
-        filters.collection
-    );
+    collections.find((item) => matchesTaxonomy(item, filters.collection));
 
   const knownCategory =
     CATEGORY_META[
