@@ -2,6 +2,7 @@
 
 
 
+
 // V157 HEADER: centered orange shield spins once on each mouse/pen hover entry and on every click. Horse and wordmark stay fixed.
 // V155 HEADER: transparent overlay on Home / Hamper One hero; 72% Obsidian glass beyond hero.
 // V156 HEADER: soft 24% Obsidian tint over hero; V155 translucent glass elsewhere.
@@ -292,6 +293,10 @@ const useTightlyCroppedLogo = (source) => {
 // NAVIGATION
 // ======================================================
 
+// Collection routes use existing /gifts filter contracts: Diwali, Wedding,
+// Corporate and Festival correspond to the actual sidebar category slugs.
+// Premium has no category in the current sidebar; use price-high discovery
+// instead of linking to a non-existent category and showing zero hampers.
 const HAMPER_DROPDOWN = [
   {
     label: "All Hampers",
@@ -318,27 +323,27 @@ const HAMPER_DROPDOWN = [
   {
     label: "Diwali Hampers",
     subtitle: "Festive gifting for family, teams and clients",
-    to: "/gifts?category=diwali-hampers",
+    to: "/gifts?category=diwali",
   },
   {
     label: "Wedding Hampers",
     subtitle: "Elegant gifting for wedding celebrations",
-    to: "/gifts?category=wedding-hampers",
+    to: "/gifts?category=wedding",
   },
   {
     label: "Corporate Hampers",
     subtitle: "Ready-made gifts for teams and clients",
-    to: "/gifts?category=corporate-hampers",
+    to: "/gifts?category=corporate",
   },
   {
     label: "Festive Hampers",
     subtitle: "Curated gifting for festive moments",
-    to: "/gifts?category=festive-hampers",
+    to: "/gifts?category=festival",
   },
   {
     label: "Premium Hampers",
     subtitle: "Elevated luxury gifting selections",
-    to: "/gifts?category=premium-hampers",
+    to: "/gifts?sort=price-high",
   },
 ];
 
@@ -1314,7 +1319,10 @@ const Header = () => {
               <span className={`hh-logo-sequence ${headerIntroPhase === "hh-intro-running" ? "hh-logo-animating" : "hh-logo-idle"}`}>
                 {shieldLayers?.shield && shieldLayers?.artwork ? (
                   <span className="hh-logo-split" aria-hidden="true">
-                    <span key={logoSpinTick} className="hh-logo-shield"><img src={shieldLayers.shield} alt="" draggable="false" /></span>
+                    <span key={logoSpinTick} className="hh-logo-shield">
+                      <img className="hh-logo-shield-face hh-logo-shield-front" src={shieldLayers.shield} alt="" draggable="false" />
+                      <img className="hh-logo-shield-face hh-logo-shield-back" src={shieldLayers.shield} alt="" draggable="false" />
+                    </span>
                     <span className="hh-logo-fixed-art"><img src={shieldLayers.artwork} alt="" draggable="false" /></span>
                   </span>
                 ) : (
@@ -1660,6 +1668,18 @@ const MobileMenu = ({
       </Link>
     </nav>
 
+    <nav className="hh-mobile-clean-collections" aria-label="Hamper collections">
+      <p className="hh-mobile-clean-label">Explore collections</p>
+      <div className="hh-mobile-clean-category-grid">
+        {COLLECTIONS.map((item) => (
+          <Link key={item.label} to={item.to}>
+            <span>{item.label.replace(/ Hampers$/, "")}</span>
+            <Icon name="arrow" />
+          </Link>
+        ))}
+      </div>
+    </nav>
+
     <Link to="/hamper-one" className="hh-mobile-clean-private" aria-label="Hamper One premium collection">
       <img src={hamperOneLogoSrc} alt="" loading="lazy" draggable="false" />
       <span className="hh-mobile-clean-private-copy">
@@ -1789,10 +1809,28 @@ const HEADER_CSS = `
 .hh-logo-sequence,.hh-logo-shield,.hh-logo-fixed-art,.hh-logo-full,.hh-logo-split {
   position:absolute; inset:0; display:block;
 }
-.hh-logo-sequence { position:relative; width:100%; height:100%; opacity:1; visibility:visible; perspective:850px; }
+.hh-logo-sequence { position:relative; width:100%; height:100%; opacity:1; visibility:visible; -webkit-perspective:850px; perspective:850px; }
 .hh-logo-sequence img { display:block; width:100%; height:100%; object-fit:contain; }
 .hh-logo-split { isolation:isolate; }
-.hh-logo-shield { z-index:1; transform-origin:50% 50%; backface-visibility:visible; transform-style:preserve-3d; }
+/* Safari/WebKit: a single visible-backface PNG can flash or mirror during a
+   rotateY(360deg) flip inside the translucent fixed header. Give the shield
+   two genuine faces with hidden backs; the horse and wordmark stay static. */
+.hh-logo-shield {
+  z-index:1; transform-origin:50% 50%;
+  -webkit-transform-style:preserve-3d; transform-style:preserve-3d;
+  will-change:transform;
+}
+.hh-logo-shield-face {
+  position:absolute; inset:0; display:block;
+  -webkit-backface-visibility:hidden; backface-visibility:hidden;
+}
+.hh-logo-shield-front {
+  -webkit-transform:translateZ(0.5px); transform:translateZ(0.5px);
+}
+.hh-logo-shield-back {
+  -webkit-transform:rotateY(180deg) translateZ(0.5px);
+  transform:rotateY(180deg) translateZ(0.5px);
+}
 .hh-logo-fixed-art { z-index:2; pointer-events:none; }
 .hh-logo-full { z-index:1; }
 .hh-header.hh-intro-running .hh-logo-shield {
