@@ -4119,6 +4119,7 @@ const CustomHamper = () => {
 
                 <div className="mt-5 xl:hidden">
                   <V7Studio
+                    mobilePreviewAsProgress={isMobileWizard}
                     selectedContainer={selectedContainer}
                     previewItems={previewItems}
                     previewDecorations={previewDecorations}
@@ -4177,6 +4178,7 @@ const CustomHamper = () => {
 
                 <div className="mt-5 xl:hidden">
                   <V7Studio
+                    mobilePreviewAsProgress={isMobileWizard}
                     selectedContainer={selectedContainer}
                     previewItems={previewItems}
                     previewDecorations={previewDecorations}
@@ -4544,44 +4546,38 @@ const V30StepActions = ({
   </div>
 );
 
-const V30MobileLivePreview = (props) => {
-  const giftCount = Number(props.selectedItemCount || 0);
-  const roundedFill = Math.round(Number(props.fillPercent || 0));
-  const liveTotal =
-    props.configuration?.pricing?.total ??
-    props.selectedContainer?.sellingPrice ??
-    null;
+// Mobile shows just the packing progress. The animated hamper is desktop-only.
+const V30MobileFillStrip = ({ fillPercent = 0 }) => {
+  const percent = Math.max(0, Math.min(100, Math.round(Number(fillPercent) || 0)));
 
   return (
-    <section className="v30-mobile-live md:hidden" aria-label="Live hamper preview">
-      <V7OpenTop3D {...props} compact />
-
-      <div className="v61-mobile-mini-stats">
-        <div className="v61-mobile-mini-stat">
-          <p className="text-[10px] font-bold uppercase tracking-[0.05em] text-black/38">Gifts</p>
-          <p className="mt-0.5 text-[15px] font-black leading-none text-[#171717]">{giftCount}</p>
-        </div>
-
-        <div className="v61-mobile-mini-stat">
-          <p className="text-[10px] font-bold uppercase tracking-[0.05em] text-black/38">Filled</p>
-          <p className="mt-0.5 text-[15px] font-black leading-none text-[#171717]">{roundedFill}%</p>
-        </div>
-
-        <div className="v61-mobile-mini-stat text-right">
-          <p className="text-[10px] font-bold uppercase tracking-[0.05em] text-black/38">Total</p>
-          <p
-            style={{ fontFamily: DISPLAY_FONT }}
-            className="mt-0.5 truncate text-[18px] font-semibold leading-none text-[#F47822]"
-          >
-            {liveTotal === null || liveTotal === undefined
-              ? "—"
-              : formatCurrency(liveTotal)}
-          </p>
-        </div>
+    <div className="flex min-h-9 w-full items-center gap-3 rounded-lg bg-[#FAF8F4] px-2 py-2 sm:px-3">
+      <span className="shrink-0 text-[12px] font-bold text-[#171717]/70">Box filled</span>
+      <div
+        role="progressbar"
+        aria-label="Hamper fill"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={percent}
+        className="h-[7px] min-w-0 flex-1 overflow-hidden rounded-full bg-[#E8E0D4]"
+      >
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-[#B79B6A] to-[#D4AF37] transition-[width] duration-500 ease-out"
+          style={{ width: `${percent}%` }}
+        />
       </div>
-    </section>
+      <strong className="w-[40px] shrink-0 text-right text-[13px] font-black tabular-nums text-[#171717]">
+        {percent}%
+      </strong>
+    </div>
   );
 };
+
+const V30MobileLivePreview = ({ fillPercent }) => (
+  <section className="v30-mobile-live md:hidden" aria-label="Hamper fill progress">
+    <V30MobileFillStrip fillPercent={fillPercent} />
+  </section>
+);
 
 const V30ReviewStat = ({ label, value }) => (
   <div className="min-w-0 border-b border-black/[0.06] px-1 py-3">
@@ -5837,6 +5833,7 @@ const V7DecorPlaceholder = ({ component }) => {
 };
 
 const V7Studio = ({
+  mobilePreviewAsProgress = false,
   selectedContainer,
   previewItems,
   previewDecorations,
@@ -5872,18 +5869,24 @@ const V7Studio = ({
   return (
     <div className="v30-live-shell v34-live-flat min-w-0 xl:pl-1 2xl:pl-2">
       <div>
-        <V7OpenTop3D
-          selectedContainer={selectedContainer}
-          previewItems={previewItems}
-          previewDecorations={previewDecorations}
-          selectedItemCount={selectedItemCount}
-          selectedDecorationCount={selectedDecorationCount}
-          fillPercent={fillPercent}
-          configuration={configuration}
-          canIncreaseAnyItem={canIncreaseAnyItem}
-          validating={validating}
-          journeyState={deliveryJourney}
-        />
+        {mobilePreviewAsProgress ? (
+          <div className="md:hidden">
+            <V30MobileFillStrip fillPercent={fillPercent} />
+          </div>
+        ) : (
+          <V7OpenTop3D
+            selectedContainer={selectedContainer}
+            previewItems={previewItems}
+            previewDecorations={previewDecorations}
+            selectedItemCount={selectedItemCount}
+            selectedDecorationCount={selectedDecorationCount}
+            fillPercent={fillPercent}
+            configuration={configuration}
+            canIncreaseAnyItem={canIncreaseAnyItem}
+            validating={validating}
+            journeyState={deliveryJourney}
+          />
+        )}
 
         <div className="mt-3 grid grid-cols-3 gap-2">
           <div className="rounded-xl bg-black/[0.035] px-3 py-3.5">
