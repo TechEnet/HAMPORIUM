@@ -2927,11 +2927,14 @@ const CustomHamper = () => {
           }
         }
         @media (min-width: 1024px) {
+          /* Keep box-card height calculations aligned with the four-column desktop grid. */
+          [data-hamper-boxes-grid="true"],
           [data-hamper-products-grid="true"],
           [data-hamper-decorations-grid="true"] { --v93-cols: 4; }
         }
         @media (min-width: 1536px) {
-          [data-hamper-boxes-grid="true"] { --v93-cols: 4; }
+          /* Five rather than four boxes: approximately 20% narrower per card. */
+          [data-hamper-boxes-grid="true"] { --v93-cols: 5; }
           [data-hamper-products-grid="true"],
           [data-hamper-decorations-grid="true"] { --v93-cols: 5; }
         }
@@ -3673,55 +3676,46 @@ const CustomHamper = () => {
       `}</style>
 
       <section className="mx-auto w-full max-w-[1920px] px-3 sm:px-5 lg:px-6 xl:px-7 2xl:px-8">
+        {/* Keep the page title available to assistive technology without the oversized visual heading. */}
+        <h1 className="sr-only">Build your hamper</h1>
+
+        {/* One compact toolbar: step navigation + order mode + desktop next/back actions. */}
         <div
           ref={mobileFlowRef}
-          className={`scroll-mt-[76px] sm:scroll-mt-[108px] ${mobileStep === 1 ? "mb-2 grid grid-cols-1 gap-2 sm:mb-4 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center sm:gap-3" : ""}`}
-        >
-          {mobileStep === 1 && (
-            <>
-          <h1
-            style={{ fontFamily: DISPLAY_FONT }}
-            className="min-w-0 text-[28px] font-semibold leading-[.96] tracking-[-.04em] text-[#171717] sm:col-start-1 sm:text-[34px] lg:text-[38px]"
-          >
-            Build your hamper
-          </h1>
-
-          <div className="justify-self-start sm:col-start-2 sm:row-start-1 sm:justify-self-center">
-            {isEditingCartHamper ? (
-              <span className="inline-flex h-9 items-center rounded-full border border-black/[0.08] bg-white px-3 text-[11px] font-bold text-black/55">
-                Editing hamper
-              </span>
-            ) : (
-              <OrderModeChooser
-                mode={orderMode}
-                onChange={(nextMode) => {
-                  setOrderMode(nextMode);
-                  setCartError("");
-                }}
-              />
-            )}
-          </div>
-
-          <div aria-hidden="true" className="hidden sm:block sm:col-start-3 sm:row-start-1" />
-            </>
-          )}
-        </div>
-
-        <div
-          className="mb-2 lg:sticky lg:z-[95] lg:mb-3 lg:rounded-[16px] lg:border lg:border-black/[0.055] lg:bg-[#FAF8F4]/95 lg:px-3 lg:py-2.5 lg:shadow-[0_10px_28px_rgba(35,24,13,.08)] lg:backdrop-blur-xl xl:mr-[370px] 2xl:mr-[414px]"
+          className="mb-2 scroll-mt-[76px] rounded-[16px] border border-black/[0.055] bg-[#FAF8F4]/95 px-2.5 py-2 shadow-[0_10px_28px_rgba(35,24,13,.06)] sm:scroll-mt-[108px] sm:px-3 lg:sticky lg:z-[95] lg:mb-3 lg:py-2.5 lg:shadow-[0_10px_28px_rgba(35,24,13,.08)] lg:backdrop-blur-xl xl:mr-[370px] 2xl:mr-[414px]"
           style={{
             top: desktopHeaderVisible ? "84px" : "0px",
             transition: "top 240ms cubic-bezier(.22,1,.36,1)",
           }}
         >
-          <div className="lg:flex lg:items-center lg:justify-between lg:gap-4">
-            <V30Progress
-              step={mobileStep}
-              orderMode={orderMode}
-              canContinueFromBox={canContinueFromBox}
-              canContinueFromProducts={canContinueFromProducts}
-              onStepChange={moveMobileStep}
-            />
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 lg:flex-nowrap">
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2">
+              <V30Progress
+                step={mobileStep}
+                orderMode={orderMode}
+                canContinueFromBox={canContinueFromBox}
+                canContinueFromProducts={canContinueFromProducts}
+                onStepChange={moveMobileStep}
+              />
+
+              {mobileStep === 1 && (
+                <div className="w-full min-w-0 sm:w-auto sm:shrink-0">
+                  {isEditingCartHamper ? (
+                    <span className="inline-flex h-9 items-center rounded-xl border border-black/[0.08] bg-white px-3 text-[11px] font-bold text-black/55">
+                      Editing hamper
+                    </span>
+                  ) : (
+                    <OrderModeChooser
+                      mode={orderMode}
+                      onChange={(nextMode) => {
+                        setOrderMode(nextMode);
+                        setCartError("");
+                      }}
+                    />
+                  )}
+                </div>
+              )}
+            </div>
 
             <V30DesktopStepActions
               step={mobileStep}
@@ -3768,7 +3762,7 @@ const CustomHamper = () => {
                 {containers.length === 0 ? (
                   <V7Empty>No custom hamper boxes are available right now.</V7Empty>
                 ) : (
-                  <div data-hamper-boxes-grid="true" className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3.5 lg:grid-cols-3 2xl:grid-cols-4">
+                  <div data-hamper-boxes-grid="true" className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3.5 lg:grid-cols-4 2xl:grid-cols-5">
                     {containers.map((container) => (
                       <div key={container._id} className="min-w-0">
                         <V7ContainerCard
@@ -4270,7 +4264,7 @@ const V30Progress = ({
 
   return (
     <nav
-      className="mb-2 flex flex-wrap items-center gap-2 py-0.5 sm:mb-3 sm:py-1 lg:mb-0 lg:flex-nowrap"
+      className="flex max-w-full flex-wrap items-center gap-2 py-0.5 sm:py-1 lg:flex-nowrap"
       aria-label="Hamper builder progress"
     >
       {steps.map(([number, label]) => {
@@ -4289,7 +4283,7 @@ const V30Progress = ({
             title={`${number}. ${label}`}
             className={`group/step flex h-8 items-center overflow-hidden rounded-full border transition-[width,border-color,background-color,color,box-shadow] duration-300 ease-out focus-visible:outline-none sm:h-9 ${
               active
-                ? "w-[140px] border-[#171717] bg-[#171717] text-white shadow-[0_5px_16px_rgba(0,0,0,.10)] sm:w-[150px]"
+                ? "w-[128px] border-[#171717] bg-[#171717] text-white shadow-[0_5px_16px_rgba(0,0,0,.10)] sm:w-[150px]"
                 : complete
                   ? "w-8 border-[#D4AF37]/35 bg-[#FFF8DE] text-[#8A6815] hover:w-[140px] focus-visible:w-[140px] sm:w-9 sm:hover:w-[150px] sm:focus-visible:w-[150px]"
                   : "w-8 border-black/[0.08] bg-white text-black/45 hover:w-[140px] hover:border-black/15 hover:text-[#171717] focus-visible:w-[140px] sm:w-9 sm:hover:w-[150px] sm:focus-visible:w-[150px]"
@@ -4679,12 +4673,12 @@ const V71ReviewContents = ({
 };
 
 const OrderModeChooser = ({ mode, onChange }) => (
-  <div className="grid w-full max-w-[300px] min-w-0 shrink-0 grid-cols-2 items-center gap-1 rounded-xl border border-black/[0.07] bg-white p-1 sm:w-[300px]">
+  <div className="grid w-full max-w-[260px] min-w-0 shrink-0 grid-cols-2 items-center gap-1 rounded-xl border border-black/[0.07] bg-white p-1 sm:w-[260px]">
     <button
       type="button"
       onClick={() => onChange("personal")}
       aria-pressed={mode === "personal"}
-      className={`h-9 min-w-0 whitespace-nowrap rounded-lg px-2 text-[12px] font-black leading-none transition ${
+      className={`h-8 min-w-0 whitespace-nowrap rounded-lg px-2 text-[12px] font-black leading-none transition ${
         mode === "personal"
           ? "bg-[#171717] text-white"
           : "text-black/40 hover:text-[#171717]"
@@ -4696,7 +4690,7 @@ const OrderModeChooser = ({ mode, onChange }) => (
       type="button"
       onClick={() => onChange("bulk")}
       aria-pressed={mode === "bulk"}
-      className={`h-9 min-w-0 whitespace-nowrap rounded-lg px-2 text-[12px] font-black leading-none transition ${
+      className={`h-8 min-w-0 whitespace-nowrap rounded-lg px-2 text-[12px] font-black leading-none transition ${
         mode === "bulk"
           ? "bg-[#171717] text-white"
           : "text-black/40 hover:text-[#171717]"

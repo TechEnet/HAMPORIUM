@@ -3,6 +3,8 @@
 
 import {
   useEffect,
+  useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -1552,11 +1554,6 @@ const Gifts = () => {
              Grid rows are calculated from a single card height so the
              ratio stays exact on mobile, laptops and wide desktops.
              Scoped to Gifts: other ProductCard usages stay unchanged. */
-          .hp-catalogue-page-title {
-            font-size: clamp(25px, 1.95vw, 30px) !important;
-            line-height: 1.14 !important;
-            letter-spacing: -.025em !important;
-          }
           .hp-catalogue-gift {
             display: flex;
             flex-direction: column;
@@ -1679,6 +1676,44 @@ const Gifts = () => {
             overflow: hidden;
           }
 
+          /* V10: fast, composited crossfades, clipped to the existing image area.
+             Each secondary image is preloaded before becoming visible. */
+          .hp-catalogue-gift-inner .hp-hover-gallery {
+            position: absolute;
+            z-index: 2;
+            inset: 7px 7px auto;
+            height: clamp(196px, 13.44vw, 221.2px);
+            overflow: hidden;
+            pointer-events: none;
+            background: transparent;
+            isolation: isolate;
+          }
+          .hp-catalogue-gift-inner .hp-hover-gallery-photo {
+            position: absolute;
+            inset: 0;
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            object-position: center;
+            background: #fffdfa;
+            opacity: 0;
+            transform: translateZ(0);
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+            transition: opacity .42s cubic-bezier(.25,.7,.25,1);
+          }
+          .hp-catalogue-gift-inner .hp-hover-gallery-photo.is-visible { opacity: 1; }
+          @media (max-width: 639px) {
+            .hp-catalogue-gift-inner .hp-hover-gallery {
+              inset: 4px 4px auto;
+              height: clamp(183.68px, 52.64vw, 201.6px);
+            }
+          }
+          @media (hover: none), (pointer: coarse), (prefers-reduced-motion: reduce) {
+            .hp-catalogue-gift-inner .hp-hover-gallery { display: none; }
+          }
+
           /* Preserve the compact sidebar typography from the approved design. */
           .hp-filter-inner { padding: 11px 15px 14px; }
           .hp-filter-section { padding: 14px 0; }
@@ -1700,7 +1735,6 @@ const Gifts = () => {
           .hp-filter-apply { height: 43px; border-radius: 11px; }
 
           @media (max-width: 767px) {
-            .hp-catalogue-page-title { font-size: 25px !important; }
             .hp-catalogue-gift-inner .hp-card-title {
               font-size: 15px !important;
             }
@@ -1845,46 +1879,16 @@ const Gifts = () => {
           {/* PRODUCT AREA */}
 
           <div className="min-w-0 lg:pl-4 xl:pl-5 2xl:pl-6">
-            <div className="flex flex-col gap-3 border-b border-black/[0.08] pb-3 sm:flex-row sm:items-end sm:justify-between">
-              <div className="max-w-[760px]">
-                <div className="flex items-center gap-2">
-                  <span className="h-px w-7 bg-[#F47822]" />
-
-                  <p className="text-[9px] font-black uppercase tracking-[0.17em] text-[#F47822] sm:text-[10px]">
-                    {
-                      catalogueMeta.eyebrow
-                    }
-                  </p>
-                </div>
-
-                <h1
-                  style={{
-                    fontFamily:
-                      DISPLAY_FONT,
-                  }}
-                  className="hp-catalogue-page-title mt-2 text-[26px] font-semibold leading-[1.1] tracking-[-0.025em] sm:text-[28px] xl:text-[30px]"
-                >
-                  {
-                    catalogueMeta.title
-                  }
-                </h1>
-
-              </div>
-
-              <div className="hidden items-center gap-3 lg:flex">
-                <SortSelect
-                  value={
-                    appliedFilters.sort
-                  }
-                  onChange={
-                    changeSort
-                  }
-                />
-
-                <div className="flex h-[40px] w-[40px] items-center justify-center border border-[#F47822]/30 bg-[#FFF5EC] text-[#F47822]">
-                  <GridIcon />
-                </div>
-              </div>
+            {/* Keep catalogue orientation accessible without an oversized decorative heading.
+                On mobile, filter and sort controls already appear above the product grid. */}
+            <h1 className="sr-only">{catalogueMeta.title}</h1>
+            <div className="hidden min-h-[43px] items-center justify-between gap-4 border-b border-black/[0.08] pb-2.5 lg:flex">
+              <p className="min-w-0 truncate text-[15px] font-semibold tracking-[-0.015em] text-[#3B342E]">
+                {appliedFilters.category || appliedFilters.collection || appliedFilters.search || appliedFilters.featured
+                  ? catalogueMeta.title
+                  : "Hampers"}
+              </p>
+              <SortSelect value={appliedFilters.sort} onChange={changeSort} />
             </div>
 
             <ActiveFilters
@@ -1982,65 +1986,15 @@ const Gifts = () => {
                         index % 5;
 
                       return (
-                        <div
-                          key={
-                            product._id
-                          }
-                          className={`hp-catalogue-gift hp-catalogue-gift--${wrapVariant}`}
-                        >
-                          <span
-                            className="hp-catalogue-bow"
-                            aria-hidden="true"
-                          >
-                            <span className="hp-catalogue-bow-loop hp-catalogue-bow-loop-left" />
-                            <span className="hp-catalogue-bow-loop hp-catalogue-bow-loop-right" />
-                            <span className="hp-catalogue-bow-knot" />
-                          </span>
-
-                          <span
-                            className="hp-catalogue-corner hp-catalogue-corner-tr"
-                            aria-hidden="true"
-                          />
-
-                          <span
-                            className="hp-catalogue-corner hp-catalogue-corner-bl"
-                            aria-hidden="true"
-                          />
-
-                          <span
-                            className="hp-catalogue-corner hp-catalogue-corner-br"
-                            aria-hidden="true"
-                          />
-
-                          <span
-                            className="hp-catalogue-sheen"
-                            aria-hidden="true"
-                          />
-
-                          <div className="hp-catalogue-gift-inner">
-                            <ProductCard
-                              product={{
-                                ...product,
-                                // Mobile catalogue stays visually compact:
-                                // show the hamper name/card essentials here,
-                                // while full descriptive copy remains on PDP.
-                                shortDescription:
-                                  mobileCatalogue
-                                    ? ""
-                                    : product.shortDescription,
-                                description:
-                                  mobileCatalogue
-                                    ? ""
-                                    : product.description,
-                                averageRating,
-                                totalReviews,
-                                reviewSummary:
-                                  reviewSummary ||
-                                  null,
-                              }}
-                            />
-                          </div>
-                        </div>
+                        <HoverGiftCard
+                          key={product._id}
+                          product={product}
+                          wrapVariant={wrapVariant}
+                          mobileCatalogue={mobileCatalogue}
+                          averageRating={averageRating}
+                          totalReviews={totalReviews}
+                          reviewSummary={reviewSummary}
+                        />
                       );
                     }
                   )}
@@ -2133,6 +2087,214 @@ const Gifts = () => {
         </div>
       )}
     </main>
+  );
+};
+
+// Extract real catalogue and SKU photos. Some older imported hampers have
+// only a cover on /catalog/products; their SKU gallery lives on the public PDP.
+const getHoverPhotoUrls = (...sources) => {
+  const seen = new Set();
+  const urls = [];
+  const visit = (source) => {
+    if (Array.isArray(source)) {
+      source.forEach(visit);
+      return;
+    }
+    const url = typeof source === "string"
+      ? source
+      : source?.url || source?.secure_url || source?.src || source?.location || "";
+    if (typeof url !== "string" || !/^https?:\/\//i.test(url)) return;
+    const cleanUrl = url.trim();
+    if (seen.has(cleanUrl)) return;
+    seen.add(cleanUrl);
+    urls.push(cleanUrl);
+  };
+  sources.forEach(visit);
+  return urls.slice(0, 10);
+};
+
+// One detail fetch per product, shared between repeated hover sessions. Only
+// requested when the listing is missing alternatives or all alternatives fail.
+const hoverDetailRequests = new Map();
+const getHoverDetailPhotos = (slug) => {
+  if (!hoverDetailRequests.has(slug)) {
+    if (hoverDetailRequests.size > 120) hoverDetailRequests.clear();
+    const request = api.get(`/catalog/products/${encodeURIComponent(slug)}`)
+      .then(({ data }) => {
+        const detail = data?.product || {};
+        return getHoverPhotoUrls(
+          detail.images,
+          (Array.isArray(detail.skus) ? detail.skus : []).map((sku) => sku.images)
+        );
+      })
+      .catch(() => {
+        // A temporary network error must not permanently disable future hovers.
+        hoverDetailRequests.delete(slug);
+        return [];
+      });
+    hoverDetailRequests.set(slug, request);
+  }
+  return hoverDetailRequests.get(slug);
+};
+
+const HoverGiftCard = ({
+  product,
+  wrapVariant,
+  mobileCatalogue,
+  averageRating,
+  totalReviews,
+  reviewSummary,
+}) => {
+  const mainPhotos = useMemo(
+    () => getHoverPhotoUrls(product.images, (product.skus || []).map((sku) => sku.images)),
+    [product.images, product.skus]
+  );
+  const [detailPhotos, setDetailPhotos] = useState([]);
+  const photos = useMemo(
+    () => getHoverPhotoUrls(mainPhotos, detailPhotos),
+    [mainPhotos, detailPhotos]
+  );
+  const [hovered, setHovered] = useState(false);
+  const [visibleUrl, setVisibleUrl] = useState("");
+  const [loadedPhotos, setLoadedPhotos] = useState({});
+  const [failedPhotos, setFailedPhotos] = useState({});
+  const [detailAttempted, setDetailAttempted] = useState(false);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+
+  const availableAlternates = useMemo(
+    () => photos.slice(1).filter((url) => !failedPhotos[url]),
+    [photos, failedPhotos]
+  );
+
+  // First two products sometimes have only one image in catalogue results.
+  // Fetch their existing public product gallery only when the visitor hovers.
+  useEffect(() => {
+    if (!hovered || !product.slug || detailAttempted || availableAlternates.length > 0) {
+      return undefined;
+    }
+    setDetailAttempted(true);
+    // Preserve the response even if the pointer leaves before the request ends.
+    // The card may be hovered again a moment later; the shared promise is cached.
+    void getHoverDetailPhotos(product.slug).then((urls) => {
+      if (mountedRef.current) setDetailPhotos(urls);
+    });
+    return undefined;
+  }, [hovered, product.slug, detailAttempted, availableAlternates.length]);
+
+  // Preload one frame at a time. A broken image is skipped, rather than
+  // cancelling the entire slideshow (the previous version did that).
+  useEffect(() => {
+    if (!hovered || availableAlternates.length === 0 || typeof window === "undefined") {
+      return undefined;
+    }
+
+    const slides = ["", ...availableAlternates]; // "" = the native product cover
+    const currentPosition = Math.max(0, slides.indexOf(visibleUrl));
+    const nextUrl = slides[(currentPosition + 1) % slides.length];
+    let cancelled = false;
+    let timer;
+    let preloader;
+
+    const showNext = () => {
+      timer = window.setTimeout(() => {
+        if (!cancelled) setVisibleUrl(nextUrl);
+      }, visibleUrl === "" ? 90 : 1120);
+    };
+
+    if (!nextUrl || loadedPhotos[nextUrl]) {
+      showNext();
+    } else {
+      preloader = new window.Image();
+      preloader.onload = () => {
+        if (cancelled) return;
+        setLoadedPhotos((current) => current[nextUrl]
+          ? current
+          : { ...current, [nextUrl]: true });
+        showNext();
+      };
+      preloader.onerror = () => {
+        if (cancelled) return;
+        setFailedPhotos((current) => ({ ...current, [nextUrl]: true }));
+      };
+      preloader.src = nextUrl;
+    }
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+      if (preloader) {
+        preloader.onload = null;
+        preloader.onerror = null;
+      }
+    };
+  }, [hovered, visibleUrl, availableAlternates, loadedPhotos]);
+
+  const startPreview = () => {
+    if (typeof window === "undefined") return;
+    if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    setVisibleUrl("");
+    setHovered(true);
+  };
+
+  const stopPreview = () => {
+    setHovered(false);
+    setVisibleUrl("");
+  };
+
+  return (
+    <div
+      className={`hp-catalogue-gift hp-catalogue-gift--${wrapVariant}`}
+      onMouseEnter={startPreview}
+      onMouseLeave={stopPreview}
+    >
+      <span className="hp-catalogue-bow" aria-hidden="true">
+        <span className="hp-catalogue-bow-loop hp-catalogue-bow-loop-left" />
+        <span className="hp-catalogue-bow-loop hp-catalogue-bow-loop-right" />
+        <span className="hp-catalogue-bow-knot" />
+      </span>
+      <span className="hp-catalogue-corner hp-catalogue-corner-tr" aria-hidden="true" />
+      <span className="hp-catalogue-corner hp-catalogue-corner-bl" aria-hidden="true" />
+      <span className="hp-catalogue-corner hp-catalogue-corner-br" aria-hidden="true" />
+      <span className="hp-catalogue-sheen" aria-hidden="true" />
+
+      <div className="hp-catalogue-gift-inner">
+        <ProductCard
+          product={{
+            ...product,
+            shortDescription: mobileCatalogue ? "" : product.shortDescription,
+            description: mobileCatalogue ? "" : product.description,
+            averageRating,
+            totalReviews,
+            reviewSummary: reviewSummary || null,
+          }}
+        />
+
+        {Object.keys(loadedPhotos).length > 0 && (
+          <div className="hp-hover-gallery" aria-hidden="true">
+            {photos.slice(1).filter((url) => loadedPhotos[url] && !failedPhotos[url]).map((url) => (
+              <img
+                key={url}
+                src={url}
+                alt=""
+                decoding="async"
+                draggable={false}
+                className={`hp-hover-gallery-photo ${hovered && visibleUrl === url ? "is-visible" : ""}`}
+                onError={() => {
+                  setFailedPhotos((current) => ({ ...current, [url]: true }));
+                  if (visibleUrl === url) setVisibleUrl("");
+                }}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
   );
 };
 
@@ -2545,43 +2707,6 @@ const FilterIcon = () => (
   </svg>
 );
 
-const GridIcon = () => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.6"
-    className="h-[18px] w-[18px]"
-  >
-    <rect
-      x="4"
-      y="4"
-      width="6"
-      height="6"
-    />
-
-    <rect
-      x="14"
-      y="4"
-      width="6"
-      height="6"
-    />
-
-    <rect
-      x="4"
-      y="14"
-      width="6"
-      height="6"
-    />
-
-    <rect
-      x="14"
-      y="14"
-      width="6"
-      height="6"
-    />
-  </svg>
-);
 
 const ChevronDownIcon = () => (
   <svg
