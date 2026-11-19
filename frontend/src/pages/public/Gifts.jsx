@@ -1676,8 +1676,8 @@ const Gifts = () => {
             overflow: hidden;
           }
 
-          /* V10: fast, composited crossfades, clipped to the existing image area.
-             Each secondary image is preloaded before becoming visible. */
+          /* Smooth two-layer gallery: the current photo remains fully visible
+             while the decoded next photo fades above it. No cover flash. */
           .hp-catalogue-gift-inner .hp-hover-gallery {
             position: absolute;
             z-index: 2;
@@ -1685,9 +1685,12 @@ const Gifts = () => {
             height: clamp(196px, 13.44vw, 221.2px);
             overflow: hidden;
             pointer-events: none;
-            background: transparent;
+            background: #fffdfa;
             isolation: isolate;
+            opacity: 0;
+            transition: opacity .24s ease-out;
           }
+          .hp-catalogue-gift-inner .hp-hover-gallery.is-active { opacity: 1; }
           .hp-catalogue-gift-inner .hp-hover-gallery-photo {
             position: absolute;
             inset: 0;
@@ -1697,13 +1700,19 @@ const Gifts = () => {
             object-fit: contain;
             object-position: center;
             background: #fffdfa;
-            opacity: 0;
-            transform: translateZ(0);
+            opacity: 1;
+            transform: translate3d(0,0,0);
             backface-visibility: hidden;
             -webkit-backface-visibility: hidden;
-            transition: opacity .42s cubic-bezier(.25,.7,.25,1);
           }
-          .hp-catalogue-gift-inner .hp-hover-gallery-photo.is-visible { opacity: 1; }
+          .hp-catalogue-gift-inner .hp-hover-gallery-photo.is-current { z-index: 1; }
+          .hp-catalogue-gift-inner .hp-hover-gallery-photo.is-next {
+            z-index: 2;
+            opacity: 0;
+            will-change: opacity;
+            transition: opacity .60s cubic-bezier(.4,0,.2,1);
+          }
+          .hp-catalogue-gift-inner .hp-hover-gallery-photo.is-next.is-visible { opacity: 1; }
           @media (max-width: 639px) {
             .hp-catalogue-gift-inner .hp-hover-gallery {
               inset: 4px 4px auto;
@@ -2155,8 +2164,7 @@ const HoverGiftCard = ({
     [mainPhotos, detailPhotos]
   );
   const [hovered, setHovered] = useState(false);
-  const [visibleUrl, setVisibleUrl] = useState("");
-  const [loadedPhotos, setLoadedPhotos] = useState({});
+  const [gallery, setGallery] = useState({ current: "", next: "", fading: false });
   const [failedPhotos, setFailedPhotos] = useState({});
   const [detailAttempted, setDetailAttempted] = useState(false);
   const mountedRef = useRef(true);
@@ -2186,65 +2194,99 @@ const HoverGiftCard = ({
     return undefined;
   }, [hovered, product.slug, detailAttempted, availableAlternates.length]);
 
-  // Preload one frame at a time. A broken image is skipped, rather than
-  // cancelling the entire slideshow (the previous version did that).
+  // Advance only after the next image has downloaded AND decoded. Keep the
+  // outgoing photo opaque beneath the incoming photo until the fade completes.
+  // This avoids the cover-image flashes caused by swapping opacity on every img.
   useEffect(() => {
     if (!hovered || availableAlternates.length === 0 || typeof window === "undefined") {
       return undefined;
     }
 
-    const slides = ["", ...availableAlternates]; // "" = the native product cover
-    const currentPosition = Math.max(0, slides.indexOf(visibleUrl));
-    const nextUrl = slides[(currentPosition + 1) % slides.length];
-    let cancelled = false;
-    let timer;
-    let preloader;
+    const slides = [photos[0], ...availableAlternates].filter(Boolean);
+    if (slides.length < 2) return undefined;
 
-    const showNext = () => {
-      timer = window.setTimeout(() => {
-        if (!cancelled) setVisibleUrl(nextUrl);
-      }, visibleUrl === "" ? 90 : 1120);
+    let cancelled = false;
+    let timer = null;
+    let frameOne = null;
+    let frameTwo = null;
+    let preloader = null;
+
+    const showNext = (currentIndex) => {
+      if (cancelled) return;
+      const nextIndex = (currentIndex + 1) % slides.length;
+      const nextUrl = slides[nextIndex];
+      const image = new window.Image();
+      preloader = image;
+      let settled = false;
+
+      const ready = () => {
+        if (cancelled || settled) return;
+        settled = true;
+        // Mount the new image at opacity 0 first; two frames ensure its fade
+        // starts only after the browser has painted that initial state.
+        setGallery((previous) => ({
+          current: previous.current || slides[0],
+          next: nextUrl,
+          fading: false,
+        }));
+        frameOne = window.requestAnimationFrame(() => {
+          frameTwo = window.requestAnimationFrame(() => {
+            if (cancelled) return;
+            setGallery((previous) => ({ ...previous, fading: true }));
+            timer = window.setTimeout(() => {
+              if (cancelled) return;
+              // Promote the same, already-decoded image to the opaque base.
+              setGallery({ current: nextUrl, next: "", fading: false });
+              timer = window.setTimeout(() => showNext(nextIndex), 820);
+            }, 620);
+          });
+        });
+      };
+
+      image.onload = () => {
+        if (cancelled || settled) return;
+        // Decode before displaying: essential for smooth transitions on Safari
+        // and for large imported hamper photographs.
+        if (typeof image.decode === "function") {
+          void image.decode().catch(() => {}).then(ready);
+        } else {
+          ready();
+        }
+      };
+      image.onerror = () => {
+        if (cancelled || settled) return;
+        settled = true;
+        setFailedPhotos((previous) => previous[nextUrl]
+          ? previous
+          : { ...previous, [nextUrl]: true });
+      };
+      image.src = nextUrl;
+      if (image.complete && image.naturalWidth > 0) image.onload();
     };
 
-    if (!nextUrl || loadedPhotos[nextUrl]) {
-      showNext();
-    } else {
-      preloader = new window.Image();
-      preloader.onload = () => {
-        if (cancelled) return;
-        setLoadedPhotos((current) => current[nextUrl]
-          ? current
-          : { ...current, [nextUrl]: true });
-        showNext();
-      };
-      preloader.onerror = () => {
-        if (cancelled) return;
-        setFailedPhotos((current) => ({ ...current, [nextUrl]: true }));
-      };
-      preloader.src = nextUrl;
-    }
-
+    timer = window.setTimeout(() => showNext(0), 160);
     return () => {
       cancelled = true;
-      window.clearTimeout(timer);
+      if (timer !== null) window.clearTimeout(timer);
+      if (frameOne !== null) window.cancelAnimationFrame(frameOne);
+      if (frameTwo !== null) window.cancelAnimationFrame(frameTwo);
       if (preloader) {
         preloader.onload = null;
         preloader.onerror = null;
       }
     };
-  }, [hovered, visibleUrl, availableAlternates, loadedPhotos]);
+  }, [hovered, photos, availableAlternates]);
 
   const startPreview = () => {
     if (typeof window === "undefined") return;
     if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    setVisibleUrl("");
+    setGallery({ current: photos[0] || "", next: "", fading: false });
     setHovered(true);
   };
 
   const stopPreview = () => {
     setHovered(false);
-    setVisibleUrl("");
   };
 
   return (
@@ -2275,22 +2317,30 @@ const HoverGiftCard = ({
           }}
         />
 
-        {Object.keys(loadedPhotos).length > 0 && (
-          <div className="hp-hover-gallery" aria-hidden="true">
-            {photos.slice(1).filter((url) => loadedPhotos[url] && !failedPhotos[url]).map((url) => (
+        {gallery.current && (
+          <div className={`hp-hover-gallery ${hovered ? "is-active" : ""}`} aria-hidden="true">
+            <img
+              src={gallery.current}
+              alt=""
+              decoding="async"
+              draggable={false}
+              className="hp-hover-gallery-photo is-current"
+            />
+            {gallery.next && (
               <img
-                key={url}
-                src={url}
+                key={gallery.next}
+                src={gallery.next}
                 alt=""
                 decoding="async"
                 draggable={false}
-                className={`hp-hover-gallery-photo ${hovered && visibleUrl === url ? "is-visible" : ""}`}
+                className={`hp-hover-gallery-photo is-next ${gallery.fading ? "is-visible" : ""}`}
                 onError={() => {
-                  setFailedPhotos((current) => ({ ...current, [url]: true }));
-                  if (visibleUrl === url) setVisibleUrl("");
+                  setFailedPhotos((previous) => previous[gallery.next]
+                    ? previous
+                    : { ...previous, [gallery.next]: true });
                 }}
               />
-            ))}
+            )}
           </div>
         )}
       </div>
